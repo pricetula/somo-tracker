@@ -272,6 +272,132 @@
                     }
                 }
             }
+        },
+        "/admins/invitations": {
+            "post": {
+                "tags": [
+                    "AdminInvitations"
+                ],
+                "summary": "Bulk invite members",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "type": "string",
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admins/invitations/jobs/{job_id}": {
+            "get": {
+                "tags": [
+                    "AdminInvitations"
+                ],
+                "summary": "Get bulk invitation job status",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "job_id",
+                        "type": "string",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/admins/invitations/jobs/{job_id}/retry-failed": {
+            "post": {
+                "tags": [
+                    "AdminInvitations"
+                ],
+                "summary": "Retry failed invitation items",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "job_id",
+                        "type": "string",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Queued",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admins/invitations/jobs/{job_id}/events": {
+            "get": {
+                "tags": [
+                    "AdminInvitations"
+                ],
+                "summary": "SSE progress stream for job",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "job_id",
+                        "type": "string",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {

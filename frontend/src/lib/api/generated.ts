@@ -510,3 +510,43 @@ export interface ApiErrorBody {
     message: string;
     errors?: Record<string, string[]>;
 }
+
+// ─── Admin Invitations ─────────────────────────────────────────────────────
+
+export interface InvitationRow {
+    email: string;
+    full_name: string;
+    role: "ADMIN" | "TEACHER" | "GUARDIAN" | "FINANCE";
+}
+
+export interface BulkInvitationRequest {
+    invitations: InvitationRow[];
+}
+
+export interface BulkInvitationResponse {
+    job_id: string;
+    status: string;
+    total_records: number;
+    message?: string;
+}
+
+export interface InvitationJob {
+    id: string;
+    school_id: string;
+    tenant_id: string;
+    admin_user_id: string;
+    status: string;
+    total_records: number;
+    succeeded_count: number;
+    failed_count: number;
+    deferred_count: number;
+    idempotency_key?: string;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface InvitationRetryResponse {
+    job_id: string;
+    message: string;
+    count: number;
+}

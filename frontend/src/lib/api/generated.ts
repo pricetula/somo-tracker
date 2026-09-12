@@ -516,7 +516,6 @@ export interface ApiErrorBody {
 export interface InvitationRow {
     email: string;
     full_name: string;
-    role: "ADMIN" | "TEACHER" | "GUARDIAN" | "FINANCE";
 }
 
 export interface BulkInvitationRequest {

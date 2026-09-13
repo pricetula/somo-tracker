@@ -110,36 +110,6 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 	return nil
 }
 
-// ProcessRetryTask handles "admin:invitation:retry" tasks.
-// Re-enqueues only FAILED/DEFERRED items.
-// ProcessOutboxTask reconciles pending outbox entries and enqueues them
-func (p *AdminInvitationProcessor) ProcessOutboxTask(ctx context.Context, task *asynq.Task) error {
-	const batchSize = 100
-	entries, err := p.svc.GetPendingOutbox(ctx, batchSize)
-	if err != nil {
-		p.logger.Error("failed to fetch pending outbox", zap.Error(err))
-		return err
-	}
-	for _, e := range entries {
-		// Marshal for logging only
-		_, err := json.Marshal(map[string]interface{}{
-			"job_id":      e.JobID.String(),
-			"batch_index": e.BatchIndex,
-			"item_ids":    e.ItemIDs,
-		})
-		if err != nil {
-			p.logger.Error("failed to marshal outbox payload", zap.Error(err), zap.String("outbox_id", e.ID.String()))
-			continue
-		}
-		// Enqueue via asynq – requires asynq client to be wired. For now, we just mark as ENQUEUED.
-		// In production, inject asynq client into processor and enqueue here.
-		if err := p.svc.MarkOutboxEnqueued(ctx, e.ID); err != nil {
-			p.logger.Error("failed to mark outbox enqueued", zap.Error(err), zap.String("outbox_id", e.ID.String()))
-		}
-	}
-	return nil
-}
-
 func (p *AdminInvitationProcessor) ProcessRetryTask(ctx context.Context, task *asynq.Task) error {
 	var payload InvitationRetryPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
@@ -183,14 +153,19 @@ func (p *AdminInvitationProcessor) ProcessRetryTask(ctx context.Context, task *a
 }
 
 func (p *AdminInvitationProcessor) processSingleItem(ctx context.Context, jobID, itemID uuid.UUID) {
-	// Try to acquire item atomically
-	item, acquired, err := p.svc.TryAcquireItem(ctx, itemID)
+	// Load item directly, no per-item locking
+	item, err := p.svc.GetItemByID(ctx, itemID)
 	if err != nil {
-		p.logger.Error("failed to acquire item", zap.Error(err), zap.String("item_id", itemID.String()))
+		p.logger.Error("failed to get item", zap.Error(err), zap.String("item_id", itemID.String()))
 		return
 	}
-	if !acquired {
-		// Item already being processed or terminal
+	if item.Status != "PENDING" && item.Status != "DEFERRED" {
+		return
+	}
+	// Mark as processing and bump attempt count
+	attempts := item.AttemptCount + 1
+	if err := p.svc.UpdateItemStatus(ctx, itemID, "PROCESSING", nil, "", attempts); err != nil {
+		p.logger.Error("failed to mark item processing", zap.Error(err), zap.String("item_id", itemID.String()))
 		return
 	}
 
@@ -198,35 +173,28 @@ func (p *AdminInvitationProcessor) processSingleItem(ctx context.Context, jobID,
 	var itemPayload InvitationPayload
 	if err := json.Unmarshal(item.Payload, &itemPayload); err != nil {
 		p.logger.Error("failed to unmarshal item payload", zap.Error(err), zap.String("item_id", itemID.String()))
-		if updErr := p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid payload", item.AttemptCount); updErr != nil {
+		if updErr := p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid payload", attempts); updErr != nil {
 			p.logger.Error("failed to update item status to FAILED", zap.Error(updErr))
 		}
-		p.publishProgress(ctx, jobID)
 		return
 	}
-
-	newAttempts := item.AttemptCount
-	p.publishProgress(ctx, jobID)
 
 	// Call Stytch to invite member — use job's tenant_id, not job_id
 	job, errJob := p.svc.GetJob(ctx, jobID)
 	if errJob != nil || job == nil {
 		p.logger.Error("failed to fetch job for tenant_id", zap.Error(errJob), zap.String("job_id", jobID.String()))
-		p.handleStytchError(ctx, jobID, itemID, newAttempts, fmt.Errorf("job not found for tenant"), itemPayload)
-		p.publishProgress(ctx, jobID)
+		p.handleStytchError(ctx, jobID, itemID, attempts, fmt.Errorf("job not found for tenant"), itemPayload)
 		return
 	}
 	orgID, errOrg := p.svc.GetStytchOrgID(ctx, job.TenantID)
 	if errOrg != nil {
 		p.logger.Error("failed to get stytch org id for tenant", zap.Error(errOrg), zap.String("tenant_id", job.TenantID.String()), zap.String("job_id", jobID.String()))
-		p.handleStytchError(ctx, jobID, itemID, newAttempts, fmt.Errorf("stytch org not found for tenant"), itemPayload)
-		p.publishProgress(ctx, jobID)
+		p.handleStytchError(ctx, jobID, itemID, attempts, fmt.Errorf("stytch org not found for tenant"), itemPayload)
 		return
 	}
 	result, err := p.stytchCli.InviteMember(ctx, itemPayload.Email, itemPayload.FullName, itemPayload.Role, orgID)
 	if err != nil {
-		p.handleStytchError(ctx, jobID, itemID, newAttempts, err, itemPayload)
-		p.publishProgress(ctx, jobID)
+		p.handleStytchError(ctx, jobID, itemID, attempts, err, itemPayload)
 		return
 	}
 
@@ -235,14 +203,13 @@ func (p *AdminInvitationProcessor) processSingleItem(ctx context.Context, jobID,
 		"stytch_invite_id": result.StytchInviteID,
 		"stytch_member_id": result.StytchMemberID,
 	})
-	if err := p.svc.UpdateItemStatus(ctx, itemID, "SUCCEEDED", resultJSON, "", newAttempts); err != nil {
+	if err := p.svc.UpdateItemStatus(ctx, itemID, "SUCCEEDED", resultJSON, "", attempts); err != nil {
 		p.logger.Error("failed to update item status to SUCCEEDED", zap.Error(err), zap.String("item_id", itemID.String()))
 	}
 	if err := p.svc.IncrementJobCounters(ctx, jobID, 1, 0, 0); err != nil {
 		p.logger.Error("failed to increment job counters for success", zap.Error(err), zap.String("job_id", jobID.String()))
 	}
 	p.logger.Info("invitation succeeded", zap.String("item_id", itemID.String()), zap.String("email", itemPayload.Email))
-	p.publishProgress(ctx, jobID)
 }
 
 func (p *AdminInvitationProcessor) handleStytchError(ctx context.Context, jobID, itemID uuid.UUID, attempts int, err error, payload InvitationPayload) {
@@ -286,13 +253,6 @@ func (p *AdminInvitationProcessor) handleStytchError(ctx context.Context, jobID,
 		p.logger.Error("failed to increment job counters for failure", zap.Error(err), zap.String("job_id", jobID.String()))
 	}
 	p.logger.Error("invitation failed permanently", zap.String("item_id", itemID.String()), zap.String("email", payload.Email), zap.String("reason", reason))
-	if attempts >= maxAttempts {
-		if err := p.svc.ArchiveFailedItem(ctx, itemID); err != nil {
-			p.logger.Error("failed to archive dead letter item", zap.Error(err), zap.String("item_id", itemID.String()))
-		} else {
-			p.logger.Info("item archived to dead letter", zap.String("item_id", itemID.String()))
-		}
-	}
 }
 
 func (p *AdminInvitationProcessor) deriveJobStatus(ctx context.Context, jobID uuid.UUID) {

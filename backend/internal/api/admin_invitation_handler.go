@@ -160,9 +160,9 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		})
 	}
 
-	// Enqueue batches of 40
+	// Enqueue batches of 100
 	if h.asynq != nil {
-		batchSize := 40
+		batchSize := 100
 		totalBatches := (len(items) + batchSize - 1) / batchSize
 		for b := 0; b < totalBatches; b++ {
 			start := b * batchSize

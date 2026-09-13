@@ -250,3 +250,7 @@ func (m *mockAdminInvitationService) UserHasAdminRole(ctx context.Context, schoo
 func (m *mockAdminInvitationService) GetStytchOrgID(ctx context.Context, tenantID uuid.UUID) (string, error) {
 	return "", nil
 }
+
+func (m *mockAdminInvitationService) ProvisionInvitee(ctx context.Context, tenantID, schoolID uuid.UUID, email, fullName, role, stytchMemberID string) error {
+	return nil
+}

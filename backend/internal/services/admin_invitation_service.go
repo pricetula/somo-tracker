@@ -65,6 +65,7 @@ type AdminInvitationService interface {
 	GetJobByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*BulkJob, error)
 	GetStytchOrgID(ctx context.Context, tenantID uuid.UUID) (string, error)
 	UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error)
+	ProvisionInvitee(ctx context.Context, tenantID, schoolID uuid.UUID, email, fullName, role, stytchMemberID string) error
 }
 
 type adminInvitationService struct {
@@ -266,4 +267,32 @@ func (s *adminInvitationService) UserHasAdminRole(ctx context.Context, schoolID,
 		return false, fmt.Errorf("user_has_admin_role: %w", err)
 	}
 	return role == "ADMIN", nil
+}
+
+func (s *adminInvitationService) ProvisionInvitee(ctx context.Context, tenantID, schoolID uuid.UUID, email, fullName, role, stytchMemberID string) error {
+	if s.pool == nil {
+		return fmt.Errorf("admin_invitation_service: pool nil")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("provision_invitee begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var userID uuid.UUID
+	err = tx.QueryRow(ctx, `INSERT INTO users (email, full_name, external_auth_id, tenant_id) VALUES ($1,$2,$3,$4) ON CONFLICT (tenant_id, email) DO UPDATE SET external_auth_id = COALESCE(users.external_auth_id,$3), full_name = COALESCE(users.full_name,$2) RETURNING id`, email, fullName, stytchMemberID, tenantID).Scan(&userID)
+	if err != nil {
+		return fmt.Errorf("provision_invitee upsert user: %w", err)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO members (stytch_member_id, user_id, tenant_id, stytch_member_raw) VALUES ($1,$2,$3,'{}') ON CONFLICT (tenant_id, stytch_member_id) DO NOTHING`, stytchMemberID, userID, tenantID)
+	if err != nil {
+		return fmt.Errorf("provision_invitee upsert member: %w", err)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO school_memberships (school_id, user_id, role, is_active) VALUES ($1,$2,$3,true) ON CONFLICT (school_id, user_id) DO UPDATE SET role = EXCLUDED.role, is_active = true`, schoolID, userID, role)
+	if err != nil {
+		return fmt.Errorf("provision_invitee upsert membership: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("provision_invitee commit: %w", err)
+	}
+	return nil
 }

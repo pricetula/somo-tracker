@@ -46,6 +46,11 @@ func (m *mockAuthService) AuthenticateCallback(_ context.Context, token string, 
 	return m.authenticateResult, m.authenticateErr
 }
 
+func (m *mockAuthService) AuthenticateInviteCallback(_ context.Context, token string) (*services.SessionResult, error) {
+	m.authenticateCalls = append(m.authenticateCalls, token)
+	return m.authenticateResult, m.authenticateErr
+}
+
 func (m *mockAuthService) RevokeSession(_ context.Context, token string, _ string) error {
 	m.revokeCalls = append(m.revokeCalls, token)
 	return m.revokeErr

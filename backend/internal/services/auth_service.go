@@ -50,6 +50,10 @@ type AuthService interface {
 	// to the canonical contract.
 	AuthenticateCallback(ctx context.Context, token string, c fiber.Ctx) (*SessionResult, error)
 
+	// AuthenticateInviteCallback validates a Stytch B2B invitation acceptance token,
+	// provisions / activates the invited user/member and returns session data.
+	AuthenticateInviteCallback(ctx context.Context, token string) (*SessionResult, error)
+
 	// RevokeSession invalidates a session by removing it from Redis and
 	// the database. Used for logout and security-sensitive actions.
 	// The request context should contain X-Request-ID for audit logging.
@@ -322,6 +326,155 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 		zap.String("tenant_id", tenantID.String()),
 		zap.String("fingerprint_prefix", fingerprint[:16]+"..."),
 	)
+
+	return &SessionResult{
+		OpaqueToken:     opaque,
+		StytchSessionID: auth.StytchSessionID,
+		UserID:          userID.String(),
+		TenantID:        tenantID.String(),
+		ExpiresAt:       expiresAt,
+	}, nil
+}
+
+func (s *authService) AuthenticateInviteCallback(ctx context.Context, token string) (*SessionResult, error) {
+	if s.client == nil {
+		return nil, fmt.Errorf("auth.AuthenticateInviteCallback: stytch client is nil")
+	}
+	if s.pool == nil {
+		return nil, fmt.Errorf("auth.AuthenticateInviteCallback: db pool is nil")
+	}
+	if token == "" {
+		return nil, fmt.Errorf("bad_request: missing token")
+	}
+
+	discResp, authErr := s.client.AuthenticateDiscovery(ctx, token)
+	if authErr != nil {
+		return nil, authErr
+	}
+	if discResp == nil {
+		return nil, fmt.Errorf("internal_error: empty discovery authenticate response")
+	}
+
+	type stytchAuthResult struct {
+		MemberID        string
+		MemberEmail     string
+		MemberName      string
+		OrgID           string
+		OrgSlug         string
+		OrgName         string
+		StytchSessionID string
+		ExpiresAt       time.Time
+	}
+	var auth stytchAuthResult
+
+	if len(discResp.DiscoveredOrganizations) == 0 {
+		ist := discResp.IntermediateSessionToken
+		if ist == "" {
+			return nil, fmt.Errorf("bad_request: intermediate session token missing after discovery")
+		}
+		slug := discResp.EmailAddress
+		if idx := strings.Index(discResp.EmailAddress, "@"); idx > 0 {
+			slug = discResp.EmailAddress[idx+1:]
+		}
+		name := slug
+		createResp, createErr := s.client.CreateDiscoveryOrganization(ctx, ist, name, slug)
+		if createErr != nil {
+			return nil, createErr
+		}
+		if createResp == nil {
+			return nil, fmt.Errorf("internal_error: empty organization create response")
+		}
+		if !createResp.MemberAuthenticated {
+			return nil, fmt.Errorf("bad_request: authentication incomplete, member must complete MFA (status: %d)", createResp.StatusCode)
+		}
+		auth = stytchAuthResult{
+			MemberID:        createResp.MemberID,
+			MemberEmail:     discResp.EmailAddress,
+			MemberName:      createResp.Member.Name,
+			OrgID:           createResp.Organization.OrganizationID,
+			OrgSlug:         createResp.Organization.OrganizationSlug,
+			OrgName:         createResp.Organization.OrganizationName,
+			StytchSessionID: createResp.SessionToken,
+			ExpiresAt:       time.Now().Add(defaultSessionTTL),
+		}
+	} else {
+		ist := discResp.IntermediateSessionToken
+		chosenOrg := discResp.DiscoveredOrganizations[0].Organization.OrganizationID
+		exchResp, exchErr := s.client.ExchangeWithOrg(ctx, ist, chosenOrg)
+		if exchErr != nil {
+			return nil, exchErr
+		}
+		if exchResp == nil {
+			return nil, fmt.Errorf("internal_error: empty exchange response from stytch")
+		}
+		if !exchResp.MemberAuthenticated {
+			return nil, fmt.Errorf("bad_request: authentication incomplete, member must complete MFA (status: %d)", exchResp.StatusCode)
+		}
+		auth = stytchAuthResult{
+			MemberID:        exchResp.MemberID,
+			MemberEmail:     discResp.EmailAddress,
+			MemberName:      exchResp.Member.Name,
+			OrgID:           exchResp.Organization.OrganizationID,
+			OrgSlug:         exchResp.Organization.OrganizationSlug,
+			OrgName:         exchResp.Organization.OrganizationName,
+			StytchSessionID: exchResp.SessionToken,
+			ExpiresAt:       time.Now().Add(defaultSessionTTL),
+		}
+	}
+
+	if auth.OrgID == "" || auth.StytchSessionID == "" || auth.MemberID == "" || auth.MemberEmail == "" {
+		return nil, fmt.Errorf("bad_request: incomplete stytch response (missing org/member/session)")
+	}
+
+	var tenantID, userID uuid.UUID
+	txErr := database.WithTx(ctx, s.pool, s.logger, func(ctx context.Context, tx pgx.Tx) error {
+		t, err := s.queries.GetTenantByStytchOrgID(ctx, auth.OrgID)
+		if err != nil {
+			return fmt.Errorf("get tenant: %w", err)
+		}
+		tenantID = t.ID.Bytes
+
+		// Find existing user by external_auth_id = stytch member id
+		var uid uuid.UUID
+		err = tx.QueryRow(ctx, `SELECT id FROM users WHERE external_auth_id = $1 AND tenant_id = $2`, auth.MemberID, tenantID).Scan(&uid)
+		if err != nil {
+			return fmt.Errorf("find user by stytch member id: %w", err)
+		}
+		userID = uid
+
+		// Activate pending memberships and set accepted_at
+		_, err = tx.Exec(ctx, `UPDATE school_memberships SET is_active = true, accepted_at = NOW() WHERE user_id = $1 AND is_active = false`, userID)
+		if err != nil {
+			return fmt.Errorf("activate school memberships: %w", err)
+		}
+		return nil
+	})
+	if txErr != nil {
+		s.logger.Error("auth: invite callback db provisioning rolled back",
+			zap.String("stytch_member_id", auth.MemberID),
+			zap.String("stytch_org_id", auth.OrgID),
+			zap.Error(txErr),
+		)
+		return nil, fmt.Errorf("internal_error: failed to provision account")
+	}
+
+	opaque, err := generateOpaqueToken()
+	if err != nil {
+		s.logger.Error("auth: generate opaque token failed", zap.Error(err))
+		return nil, fmt.Errorf("internal_error: failed to issue session")
+	}
+
+	expiresAt := time.Now().Add(defaultSessionTTL)
+	if _, err := s.queries.CreateSession(ctx, sqlc.CreateSessionParams{
+		Token:           opaque,
+		StytchSessionID: auth.StytchSessionID,
+		UserID:          pgtype.UUID{Bytes: [16]byte(userID), Valid: true},
+		TenantID:        pgtype.UUID{Bytes: [16]byte(tenantID), Valid: true},
+		ExpiresAt:       pgtype.Timestamptz{Time: expiresAt, Valid: true},
+	}); err != nil {
+		s.logger.Error("auth: failed to persist session row", zap.Error(err))
+		return nil, fmt.Errorf("internal_error: failed to issue session")
+	}
 
 	return &SessionResult{
 		OpaqueToken:     opaque,

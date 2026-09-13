@@ -81,9 +81,15 @@ export function AdminsTable() {
                 width: "1fr",
             },
             {
-                id: "active",
-                header: "Active",
-                cell: (row: AdminListItem) => (row.is_active ? "Yes" : "No"),
+                id: "invited_at",
+                header: "Invited",
+                cell: (row: AdminListItem) => (row.invited_at ? "Yes" : "No"),
+                width: "1fr",
+            },
+            {
+                id: "accepted_at",
+                header: "Accepted Invite",
+                cell: (row: AdminListItem) => (row.accepted_at ? "Yes" : "No"),
                 width: "1fr",
             },
         ],

@@ -65,7 +65,7 @@ type AdminInvitationService interface {
 	GetJobByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*BulkJob, error)
 	GetStytchOrgID(ctx context.Context, tenantID uuid.UUID) (string, error)
 	UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error)
-	ProvisionInvitee(ctx context.Context, tenantID, schoolID uuid.UUID, email, fullName, role, stytchMemberID string) error
+	ProvisionInvitee(ctx context.Context, tenantID, schoolID, invitedBy uuid.UUID, email, fullName, role, stytchMemberID string) error
 }
 
 type adminInvitationService struct {
@@ -269,7 +269,7 @@ func (s *adminInvitationService) UserHasAdminRole(ctx context.Context, schoolID,
 	return role == "ADMIN", nil
 }
 
-func (s *adminInvitationService) ProvisionInvitee(ctx context.Context, tenantID, schoolID uuid.UUID, email, fullName, role, stytchMemberID string) error {
+func (s *adminInvitationService) ProvisionInvitee(ctx context.Context, tenantID, schoolID, invitedBy uuid.UUID, email, fullName, role, stytchMemberID string) error {
 	if s.pool == nil {
 		return fmt.Errorf("admin_invitation_service: pool nil")
 	}
@@ -287,7 +287,7 @@ func (s *adminInvitationService) ProvisionInvitee(ctx context.Context, tenantID,
 	if err != nil {
 		return fmt.Errorf("provision_invitee upsert member: %w", err)
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO school_memberships (school_id, user_id, role, is_active) VALUES ($1,$2,$3,true) ON CONFLICT (school_id, user_id) DO UPDATE SET role = EXCLUDED.role, is_active = true`, schoolID, userID, role)
+	_, err = tx.Exec(ctx, `INSERT INTO school_memberships (school_id, user_id, role, is_active, invited_at, invited_by) VALUES ($1,$2,$3,true,NOW(),$4) ON CONFLICT (school_id, user_id) DO UPDATE SET role = EXCLUDED.role, is_active = true`, schoolID, userID, role, invitedBy)
 	if err != nil {
 		return fmt.Errorf("provision_invitee upsert membership: %w", err)
 	}

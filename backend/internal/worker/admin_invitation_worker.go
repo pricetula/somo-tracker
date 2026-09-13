@@ -203,7 +203,7 @@ func (p *AdminInvitationProcessor) processSingleItem(ctx context.Context, jobID,
 	}
 
 	// Provision local records for successful invite
-	if err := p.svc.ProvisionInvitee(ctx, job.TenantID, job.SchoolID, itemPayload.Email, itemPayload.FullName, itemPayload.Role, result.StytchMemberID); err != nil {
+	if err := p.svc.ProvisionInvitee(ctx, job.TenantID, job.SchoolID, job.CreatedBy, itemPayload.Email, itemPayload.FullName, itemPayload.Role, result.StytchMemberID); err != nil {
 		p.logger.Error("failed to provision invitee records", zap.Error(err), zap.String("item_id", itemID.String()), zap.String("email", itemPayload.Email))
 		// Treat provisioning failure as a retryable error
 		p.handleStytchError(ctx, jobID, itemID, attempts, fmt.Errorf("provision failed: %w", err), itemPayload)

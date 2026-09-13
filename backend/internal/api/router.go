@@ -111,6 +111,11 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 		r.Auth.callback,
 	)
 
+	app.Get("/api/auth/invite/callback",
+		ratelimit.NewRateLimitMiddleware(r.limiter, authRateIP, "api:auth:invite:callback"),
+		r.Auth.inviteCallback,
+	)
+
 	// Logout - requires session + CSRF (mutating request)
 	app.Post("/api/auth/logout", ratelimit.NewRateLimitMiddleware(r.limiter, authRateIP, "api:auth:logout"), r.Auth.logout)
 

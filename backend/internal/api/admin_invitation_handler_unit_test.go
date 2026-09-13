@@ -251,6 +251,6 @@ func (m *mockAdminInvitationService) GetStytchOrgID(ctx context.Context, tenantI
 	return "", nil
 }
 
-func (m *mockAdminInvitationService) ProvisionInvitee(ctx context.Context, tenantID, schoolID uuid.UUID, email, fullName, role, stytchMemberID string) error {
+func (m *mockAdminInvitationService) ProvisionInvitee(ctx context.Context, tenantID, schoolID, invitedBy uuid.UUID, email, fullName, role, stytchMemberID string) error {
 	return nil
 }

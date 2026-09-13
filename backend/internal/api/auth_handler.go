@@ -209,6 +209,46 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 	return c.Redirect().Status(fiber.StatusFound).To(redirectURL)
 }
 
+// inviteCallback handles Stytch B2B invitation acceptance redirect.
+//
+// @Summary Accept invitation and create session
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param token query string true "Invitation token"
+// @Success 302 "Redirects to frontend"
+// @Router /api/auth/invite/callback [get]
+func (h *authHandler) inviteCallback(c fiber.Ctx) error {
+	token := strings.TrimSpace(c.Query("token"))
+	if token == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "missing_token",
+			"message": "token is required",
+			"errors":  fiber.Map{"token": []string{"required"}},
+		})
+	}
+
+	sessionResult, err := h.svc.AuthenticateInviteCallback(c.Context(), token)
+	if err != nil {
+		return mapAuthError(c, err)
+	}
+
+	c.Cookie(h.sessionCookie(sessionResult.OpaqueToken, sessionResult.ExpiresAt))
+
+	csrfToken, err := csrf.GenerateCSRFToken()
+	if err == nil {
+		c.Cookie(h.csrfCookie(csrfToken))
+	}
+
+	redirectURL := h.cfg.FrontendURL
+	if redirectURL == "" {
+		redirectURL = "http://localhost:3000/"
+	} else if redirectURL[len(redirectURL)-1:] != "/" {
+		redirectURL += "/"
+	}
+	return c.Redirect().Status(fiber.StatusFound).To(redirectURL)
+}
+
 // logout handles user logout by revoking the session.
 //
 // @Summary Logout and revoke session

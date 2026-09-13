@@ -37,6 +37,7 @@ type Router struct {
 	Streams         *StreamsHandler
 	Grades          *GradesHandler
 	AdminInvitation *AdminInvitationHandler
+	Admins          *AdminsHandler
 	limiter         *redis_rate.Limiter
 	cfg             *config.Config
 }
@@ -51,9 +52,14 @@ func NewRouter(
 	academicSvc services.AcademicPeriodService,
 	streamsSvc services.StreamsService,
 	gradesSvc services.GradesService,
+	adminsSvc services.AdminsService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
+	adminsHandler := NewAdminsHandler(adminsSvc, zap.L())
+	if adminsSvc == nil {
+		adminsHandler = nil
+	}
 	return &Router{
 		Auth:            newAuthHandler(authSvc, cfg),
 		Me:              newMeHandler(meSvc),
@@ -61,6 +67,7 @@ func NewRouter(
 		AcademicPeriod:  NewAcademicPeriodHandler(academicSvc),
 		Streams:         NewStreamsHandler(streamsSvc),
 		Grades:          NewGradesHandler(gradesSvc),
+		Admins:          adminsHandler,
 		AdminInvitation: nil,
 		limiter:         limiter,
 		cfg:             cfg,
@@ -127,6 +134,9 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
 	protected.Post("/school/streams", r.Streams.CreateStreams)
 	protected.Get("/school/grades", r.Grades.GetGrades)
+	if r.Admins != nil {
+		protected.Get("/admins", r.Admins.ListAdmins)
+	}
 	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
 	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
 	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)

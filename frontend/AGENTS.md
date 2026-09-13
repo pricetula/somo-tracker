@@ -320,7 +320,16 @@ code, hooks, optimistic updaters, and utility functions.
 
 ---
 
-## 14. Time Formatting — date-fns only
+## 14. API Base URL — use the client, never hardcode /backend
+
+All frontend HTTP calls must go through `src/lib/api/client.ts` (`api.get/post/…`).
+
+- Call paths are always backend-relative, e.g. `/api/admins`, `/api/me`.
+- `api` resolves the correct base at call time: browser → `NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend"`, server → `API_URL ?? "http://somotracker_api:3030"`.
+- Never hardcode `/backend` or the full backend host in components/hooks. The client handles the proxy prefix automatically.
+- Hardcoding the proxy prefix causes double-prefixing or breaks when the proxy changes. Always call `api.get('/api/...')`.
+
+## 15. Time Formatting — date-fns only
 
 All date/time formatting in UI code must use **date-fns** functions (`format`,
 `formatDistanceToNow`, `formatRelative`, etc.).

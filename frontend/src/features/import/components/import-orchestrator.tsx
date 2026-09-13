@@ -65,24 +65,25 @@ export function ImportOrchestrator({
         const url = progressUrl(jobId);
         const es = new EventSource(url);
 
-        es.onmessage = (event) => {
+        const handleProgress = (event: MessageEvent) => {
             try {
                 const parsed = JSON.parse(event.data);
                 setProgress(parsed as ProgressData);
                 onProgress?.(parsed as ProgressData);
             } catch (e) {
-                // Never silently discard parse errors; always log with context.
                 console.error("SSE parse error for job", jobId, e);
             }
         };
 
+        es.addEventListener("progress", handleProgress);
+        es.onmessage = handleProgress; // fallback for events without type
+
         es.onerror = () => {
-            // No empty catch; reconnect is handled by the browser,
-            // but we must not suppress the error silently.
             console.error("SSE connection error for import job", jobId);
         };
 
         return () => {
+            es.removeEventListener("progress", handleProgress);
             es.close();
         };
     }, [jobId, progressUrl, onProgress]);

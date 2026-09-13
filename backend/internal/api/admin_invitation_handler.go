@@ -294,13 +294,13 @@ func (h *AdminInvitationHandler) Events(c fiber.Ctx) error {
 		initData, _ := json.Marshal(map[string]interface{}{
 			"status": job.Status, "succeeded": job.SucceededCount, "failed": job.FailedCount, "deferred": job.DeferredCount, "total": job.TotalRecords,
 		})
-		w.WriteString(fmt.Sprintf("event: progress\ndata: %s\n\n", initData))
-		w.Flush()
+		_, _ = fmt.Fprintf(w, "event: progress\ndata: %s\n\n", initData)
+		_ = w.Flush()
 
 		// Subscribe to redis channel
 		channel := "bulk_progress_" + jobIDStr
 		sub := h.redis.Subscribe(c.Context(), channel)
-		defer sub.Close()
+		defer func() { _ = sub.Close() }()
 
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
@@ -311,11 +311,11 @@ func (h *AdminInvitationHandler) Events(c fiber.Ctx) error {
 				if !ok {
 					return
 				}
-				w.WriteString(fmt.Sprintf("event: progress\ndata: %s\n\n", msg.Payload))
-				w.Flush()
+				_, _ = fmt.Fprintf(w, "event: progress\ndata: %s\n\n", msg.Payload)
+				_ = w.Flush()
 			case <-ticker.C:
-				w.WriteString("event: heartbeat\ndata: \n\n")
-				w.Flush()
+				_, _ = fmt.Fprintf(w, "event: heartbeat\ndata: \n\n")
+				_ = w.Flush()
 			case <-c.Context().Done():
 				return
 			}

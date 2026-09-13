@@ -44,8 +44,6 @@ type InvitationPayload struct {
 	Role     string `json:"role"`
 }
 
-const maxAttempts = 5
-
 func NewAdminInvitationProcessor(svc services.AdminInvitationService, cli *stytch.Client, logger *zap.Logger, pub RedisPublisher) *AdminInvitationProcessor {
 	return &AdminInvitationProcessor{
 		svc:       svc,

@@ -82,7 +82,6 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 	sem := make(chan struct{}, workerConcurrency)
 	var wg sync.WaitGroup
 	for _, itemIDStr := range payload.ItemIDs {
-		itemIDStr := itemIDStr
 		itemID, err := uuid.Parse(itemIDStr)
 		if err != nil {
 			p.logger.Warn("bad item id", zap.String("item_id", itemIDStr))

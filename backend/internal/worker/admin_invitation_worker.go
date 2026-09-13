@@ -57,6 +57,7 @@ func NewAdminInvitationProcessor(svc services.AdminInvitationService, cli *stytc
 // Processes each item sequentially, updating status and publishing progress.
 func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.Task) error {
 	var payload InvitationBatchPayload
+	// Unmarshal the asynq batch payload: job_id, batch_index, item_ids list.
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("unmarshal payload: %w", err)
 	}
@@ -77,8 +78,10 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 	// Mark job as PROCESSING if still QUEUED
 	_ = p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING")
 
-	// Process items with limited concurrency to avoid overwhelming Stytch
+	// Process items with limited concurrency to avoid overwhelming Stytch.
+	// workerConcurrency = 10: max 10 concurrent Stytch API calls at once.
 	const workerConcurrency = 10
+	// Semaphore: channel acts as a token bucket. Capacity = max concurrent goroutines.
 	sem := make(chan struct{}, workerConcurrency)
 	var wg sync.WaitGroup
 	for _, itemIDStr := range payload.ItemIDs {
@@ -88,16 +91,20 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 			continue
 		}
 		wg.Add(1)
+		// Block if 10 goroutines already running; acquire a semaphore slot.
 		sem <- struct{}{}
 		go func() {
+			// Signal finished when this item completes.
 			defer wg.Done()
+			// Release the slot so the next queued item can start.
 			defer func() { <-sem }()
 			p.processSingleItem(ctx, jobID, itemID)
 		}()
 	}
+	// Wait for all goroutines in this batch to finish before deriving job status.
 	wg.Wait()
 
-	// After batch, derive and update job status
+	// After batch: update derived status (COMPLETED / COMPLETED_WITH_ERRORS / PROCESSING).
 	p.deriveJobStatus(ctx, jobID)
 	p.logger.Info("batch completed",
 		zap.String("job_id", payload.JobID),

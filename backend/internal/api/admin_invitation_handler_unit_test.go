@@ -252,3 +252,12 @@ func (m *mockAdminInvitationService) TryAcquireItem(ctx context.Context, itemID 
 func (m *mockAdminInvitationService) GetStytchOrgID(ctx context.Context, tenantID uuid.UUID) (string, error) {
 	return "", nil
 }
+func (m *mockAdminInvitationService) GetPendingOutbox(ctx context.Context, limit int) ([]services.OutboxEntry, error) {
+	return nil, nil
+}
+func (m *mockAdminInvitationService) MarkOutboxEnqueued(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (m *mockAdminInvitationService) ArchiveFailedItem(ctx context.Context, itemID uuid.UUID) error {
+	return nil
+}

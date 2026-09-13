@@ -24,6 +24,7 @@ interface ImportOrchestratorProps {
     progressUrl?: (jobId: string) => string;
     showProgress?: boolean;
     onProgress?: (data: ProgressData) => void;
+    onReset?: () => void;
 }
 
 /**
@@ -39,6 +40,7 @@ export function ImportOrchestrator({
     progressUrl,
     showProgress,
     onProgress,
+    onReset,
 }: ImportOrchestratorProps) {
     const [importType, setImportType] = React.useState("");
     const [jobId, setJobId] = React.useState<string | null>(null);
@@ -84,6 +86,64 @@ export function ImportOrchestrator({
             es.close();
         };
     }, [jobId, progressUrl, onProgress]);
+
+    // Progress view when job is running
+    if (jobId && showProgress) {
+        const isDone =
+            progress &&
+            (progress.status === "COMPLETED" || progress.status === "COMPLETED_WITH_ERRORS");
+        const progressContent = progress ? (
+            <div className="bg-muted rounded border p-4">
+                <div className="mb-2 font-medium">Job {jobId}</div>
+                <div className="text-sm">Status: {progress.status}</div>
+                <div className="mt-1 text-sm">
+                    {progress.succeeded} / {progress.total} succeeded
+                    {progress.failed > 0 && `, ${progress.failed} failed`}
+                    {progress.deferred ? `, ${progress.deferred} deferred` : ""}
+                </div>
+                <div className="bg-muted-foreground/20 mt-3 h-2 w-full overflow-hidden rounded">
+                    <div
+                        className="h-full bg-emerald-500 transition-all"
+                        style={{
+                            width: `${progress.total ? Math.round((progress.succeeded / progress.total) * 100) : 0}%`,
+                        }}
+                    />
+                </div>
+                {isDone && (
+                    <div className="mt-4 flex gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                setJobId(null);
+                                setProgress(null);
+                                setImportType("");
+                                onReset?.();
+                            }}
+                        >
+                            New import
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                                setProgress(null);
+                            }}
+                        >
+                            Hide progress
+                        </Button>
+                    </div>
+                )}
+            </div>
+        ) : (
+            <div className="bg-muted rounded border p-4 text-sm">Starting job…</div>
+        );
+        return (
+            <div className="relative flex max-w-4xl gap-4 overflow-hidden">
+                <div className="h-full w-full">{progressContent}</div>
+            </div>
+        );
+    }
 
     // Optional: expose progress UI when requested (e.g., future resources)
     const progressBar =

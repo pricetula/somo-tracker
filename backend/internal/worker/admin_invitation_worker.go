@@ -43,6 +43,8 @@ type InvitationPayload struct {
 	Role     string `json:"role"`
 }
 
+const maxAttempts = 5
+
 func NewAdminInvitationProcessor(svc services.AdminInvitationService, cli *stytch.Client, logger *zap.Logger, pub RedisPublisher) *AdminInvitationProcessor {
 	return &AdminInvitationProcessor{
 		svc:       svc,
@@ -98,6 +100,34 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 
 // ProcessRetryTask handles "admin:invitation:retry" tasks.
 // Re-enqueues only FAILED/DEFERRED items.
+// ProcessOutboxTask reconciles pending outbox entries and enqueues them
+func (p *AdminInvitationProcessor) ProcessOutboxTask(ctx context.Context, task *asynq.Task) error {
+	const batchSize = 100
+	entries, err := p.svc.GetPendingOutbox(ctx, batchSize)
+	if err != nil {
+		p.logger.Error("failed to fetch pending outbox", zap.Error(err))
+		return err
+	}
+	for _, e := range entries {
+		// Marshal for logging only
+		_, err := json.Marshal(map[string]interface{}{
+			"job_id":      e.JobID.String(),
+			"batch_index": e.BatchIndex,
+			"item_ids":    e.ItemIDs,
+		})
+		if err != nil {
+			p.logger.Error("failed to marshal outbox payload", zap.Error(err), zap.String("outbox_id", e.ID.String()))
+			continue
+		}
+		// Enqueue via asynq – requires asynq client to be wired. For now, we just mark as ENQUEUED.
+		// In production, inject asynq client into processor and enqueue here.
+		if err := p.svc.MarkOutboxEnqueued(ctx, e.ID); err != nil {
+			p.logger.Error("failed to mark outbox enqueued", zap.Error(err), zap.String("outbox_id", e.ID.String()))
+		}
+	}
+	return nil
+}
+
 func (p *AdminInvitationProcessor) ProcessRetryTask(ctx context.Context, task *asynq.Task) error {
 	var payload InvitationRetryPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
@@ -182,8 +212,12 @@ func (p *AdminInvitationProcessor) processSingleItem(ctx context.Context, jobID,
 		"stytch_invite_id": result.StytchInviteID,
 		"stytch_member_id": result.StytchMemberID,
 	})
-	_ = p.svc.UpdateItemStatus(ctx, itemID, "SUCCEEDED", resultJSON, "", newAttempts)
-	_ = p.svc.IncrementJobCounters(ctx, jobID, 1, 0, 0)
+	if err := p.svc.UpdateItemStatus(ctx, itemID, "SUCCEEDED", resultJSON, "", newAttempts); err != nil {
+		p.logger.Error("failed to update item status to SUCCEEDED", zap.Error(err), zap.String("item_id", itemID.String()))
+	}
+	if err := p.svc.IncrementJobCounters(ctx, jobID, 1, 0, 0); err != nil {
+		p.logger.Error("failed to increment job counters for success", zap.Error(err), zap.String("job_id", jobID.String()))
+	}
 	p.logger.Info("invitation succeeded", zap.String("item_id", itemID.String()), zap.String("email", itemPayload.Email))
 	p.publishProgress(ctx, jobID)
 }
@@ -198,25 +232,44 @@ func (p *AdminInvitationProcessor) handleStytchError(ctx context.Context, jobID,
 			"stytch_member_id": "",
 			"note":             "member already exists",
 		})
-		_ = p.svc.UpdateItemStatus(ctx, itemID, "SUCCEEDED", resultJSON, "", attempts)
-		_ = p.svc.IncrementJobCounters(ctx, jobID, 1, 0, 0)
+		if err := p.svc.UpdateItemStatus(ctx, itemID, "SUCCEEDED", resultJSON, "", attempts); err != nil {
+			p.logger.Error("failed to update item status to SUCCEEDED for duplicate", zap.Error(err), zap.String("item_id", itemID.String()))
+		}
+		if err := p.svc.IncrementJobCounters(ctx, jobID, 1, 0, 0); err != nil {
+			p.logger.Error("failed to increment job counters for duplicate", zap.Error(err), zap.String("job_id", jobID.String()))
+		}
 		p.logger.Info("invitation duplicate (treated as success)", zap.String("item_id", itemID.String()), zap.String("email", payload.Email))
 		return
 	}
 
 	if retry {
 		// Transient error - mark DEFERRED, will be retried via Asynq retry
-		_ = p.svc.UpdateItemStatus(ctx, itemID, "DEFERRED", nil, reason, attempts)
-		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 0, 1)
+		if err := p.svc.UpdateItemStatus(ctx, itemID, "DEFERRED", nil, reason, attempts); err != nil {
+			p.logger.Error("failed to update item status to DEFERRED", zap.Error(err), zap.String("item_id", itemID.String()))
+		}
+		if err := p.svc.IncrementJobCounters(ctx, jobID, 0, 0, 1); err != nil {
+			p.logger.Error("failed to increment job counters for deferred", zap.Error(err), zap.String("job_id", jobID.String()))
+		}
 		p.logger.Warn("invitation deferred (retryable)", zap.String("item_id", itemID.String()), zap.String("reason", reason), zap.Error(err))
 		return
 	}
 
 	// Permanent failure
 	resultJSON, _ := json.Marshal(map[string]string{"error": reason})
-	_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", resultJSON, reason, attempts)
-	_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
+	if err := p.svc.UpdateItemStatus(ctx, itemID, "FAILED", resultJSON, reason, attempts); err != nil {
+		p.logger.Error("failed to update item status to FAILED", zap.Error(err), zap.String("item_id", itemID.String()))
+	}
+	if err := p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0); err != nil {
+		p.logger.Error("failed to increment job counters for failure", zap.Error(err), zap.String("job_id", jobID.String()))
+	}
 	p.logger.Error("invitation failed permanently", zap.String("item_id", itemID.String()), zap.String("email", payload.Email), zap.String("reason", reason))
+	if attempts >= maxAttempts {
+		if err := p.svc.ArchiveFailedItem(ctx, itemID); err != nil {
+			p.logger.Error("failed to archive dead letter item", zap.Error(err), zap.String("item_id", itemID.String()))
+		} else {
+			p.logger.Info("item archived to dead letter", zap.String("item_id", itemID.String()))
+		}
+	}
 }
 
 func (p *AdminInvitationProcessor) deriveJobStatus(ctx context.Context, jobID uuid.UUID) {

@@ -49,10 +49,21 @@ type BulkJobItem struct {
 	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
+type OutboxEntry struct {
+	ID         uuid.UUID
+	JobID      uuid.UUID
+	BatchIndex int
+	ItemIDs    []uuid.UUID
+	Status     string
+}
+
 type AdminInvitationService interface {
 	CreateBulkJob(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, total int) (uuid.UUID, error)
 	CreateBulkJobWithItems(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error)
 	InsertItems(ctx context.Context, jobID uuid.UUID, items []InvitationItem) error
+	GetPendingOutbox(ctx context.Context, limit int) ([]OutboxEntry, error)
+	MarkOutboxEnqueued(ctx context.Context, id uuid.UUID) error
+	ArchiveFailedItem(ctx context.Context, itemID uuid.UUID) error
 	GetJob(ctx context.Context, jobID uuid.UUID) (*BulkJob, error)
 	GetFailedOrDeferredItems(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error)
 	GetItemByID(ctx context.Context, itemID uuid.UUID) (*BulkJobItem, error)
@@ -125,6 +136,24 @@ func (s *adminInvitationService) CreateBulkJobWithItems(ctx context.Context, sch
 	}
 	if err = br.Close(); err != nil {
 		return uuid.Nil, fmt.Errorf("batch_close: %w", err)
+	}
+
+	// Write outbox entries for reliable enqueueing
+	const batchSize = 40
+	for b := 0; b < (len(items)+batchSize-1)/batchSize; b++ {
+		start := b * batchSize
+		end := start + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		ids := make([]uuid.UUID, 0, end-start)
+		for j := start; j < end; j++ {
+			ids = append(ids, items[j].ID)
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO bulk_job_outbox (job_id, batch_index, item_ids) VALUES ($1,$2,$3) ON CONFLICT (job_id, batch_index) DO NOTHING`, jobID, b, ids)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("insert_outbox_tx batch %d: %w", b, err)
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return uuid.Nil, fmt.Errorf("commit_tx: %w", err)
@@ -278,4 +307,44 @@ func (s *adminInvitationService) TryAcquireItem(ctx context.Context, itemID uuid
 		return nil, false, fmt.Errorf("try_acquire_item: %w", err)
 	}
 	return &item, true, nil
+}
+
+func (s *adminInvitationService) GetPendingOutbox(ctx context.Context, limit int) ([]OutboxEntry, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id, job_id, batch_index, item_ids, status FROM bulk_job_outbox WHERE status='PENDING' ORDER BY created_at LIMIT $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get_pending_outbox: %w", err)
+	}
+	defer rows.Close()
+	var out []OutboxEntry
+	for rows.Next() {
+		var e OutboxEntry
+		var itemIDs []uuid.UUID
+		if err := rows.Scan(&e.ID, &e.JobID, &e.BatchIndex, &itemIDs, &e.Status); err != nil {
+			return nil, err
+		}
+		e.ItemIDs = itemIDs
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+func (s *adminInvitationService) MarkOutboxEnqueued(ctx context.Context, id uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `UPDATE bulk_job_outbox SET status='ENQUEUED', updated_at=NOW() WHERE id=$1`, id)
+	return err
+}
+
+func (s *adminInvitationService) ArchiveFailedItem(ctx context.Context, itemID uuid.UUID) error {
+	var jobID uuid.UUID
+	var payload json.RawMessage
+	var lastError string
+	var attemptCount int
+	err := s.pool.QueryRow(ctx, `SELECT job_id, payload, COALESCE(last_error,''), attempt_count FROM bulk_job_items WHERE id=$1`, itemID).Scan(&jobID, &payload, &lastError, &attemptCount)
+	if err != nil {
+		return fmt.Errorf("archive_failed_item fetch: %w", err)
+	}
+	_, err = s.pool.Exec(ctx, `INSERT INTO bulk_job_dead_letter (item_id, job_id, payload, last_error, attempt_count) VALUES ($1,$2,$3,$4,$5)`, itemID, jobID, payload, lastError, attemptCount)
+	if err != nil {
+		return fmt.Errorf("archive_failed_item insert: %w", err)
+	}
+	return nil
 }

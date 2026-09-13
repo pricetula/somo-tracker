@@ -207,6 +207,9 @@ type mockAdminInvitationService struct{}
 func (m *mockAdminInvitationService) CreateBulkJob(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, total int) (uuid.UUID, error) {
 	return uuid.New(), nil
 }
+func (m *mockAdminInvitationService) CreateBulkJobWithItems(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, items []services.InvitationItem) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
 func (m *mockAdminInvitationService) InsertItems(ctx context.Context, jobID uuid.UUID, items []services.InvitationItem) error {
 	return nil
 }
@@ -239,4 +242,13 @@ func (m *mockAdminInvitationService) GetItemsByJobID(ctx context.Context, jobID 
 }
 func (m *mockAdminInvitationService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error {
 	return nil
+}
+func (m *mockAdminInvitationService) UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error) {
+	return true, nil
+}
+func (m *mockAdminInvitationService) TryAcquireItem(ctx context.Context, itemID uuid.UUID) (*services.BulkJobItem, bool, error) {
+	return nil, false, nil
+}
+func (m *mockAdminInvitationService) GetStytchOrgID(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	return "", nil
 }

@@ -31,11 +31,13 @@ export interface BulkInvitePayload {
 export function useBulkInviteUsers() {
     return useMutation<BulkInvitationResponse, Error, BulkInvitePayload>({
         mutationKey: invitationKeys.bulk,
-        mutationFn: (payload) =>
-            createInvitations({
+        mutationFn: (payload) => {
+            const idempotencyKey = payload.idempotencyKey ?? crypto.randomUUID();
+            return createInvitations({
                 invitations: payload.invitations,
-                idempotencyKey: payload.idempotencyKey,
-            }),
+                idempotencyKey,
+            });
+        },
         onSuccess: (data) => {
             toast.success(data.message ?? "Invitation job queued");
         },

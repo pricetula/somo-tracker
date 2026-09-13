@@ -52,6 +52,19 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 			"code": "unauthorized", "message": "missing session context", "errors": fiber.Map{},
 		})
 	}
+	// Role guard: only SCHOOL_ADMIN can create bulk invites
+	hasAdmin, err := h.svc.UserHasAdminRole(c.Context(), schoolID, adminUserID)
+	if err != nil {
+		h.logger.Error("admin role check failed", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code": "internal_error", "message": "failed to verify permissions", "errors": fiber.Map{},
+		})
+	}
+	if !hasAdmin {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"code": "forbidden", "message": "insufficient permissions", "errors": fiber.Map{},
+		})
+	}
 
 	var req BulkInvitationRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -71,29 +84,41 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		})
 	}
 
-	var errors []fiber.Map
+	validationErrors := make(map[string][]string)
+	seen := make(map[string]int)
 	for idx, row := range req.Invitations {
-		if strings.TrimSpace(row.Email) == "" {
-			errors = append(errors, fiber.Map{"row_index": idx, "field": "email", "message": "required"})
+		email := strings.TrimSpace(row.Email)
+		fullName := strings.TrimSpace(row.FullName)
+		if email == "" {
+			validationErrors[fmt.Sprintf("invitations[%d].email", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", idx)], "required")
 		} else {
-			if _, parseErr := mail.ParseAddress(row.Email); parseErr != nil {
-				errors = append(errors, fiber.Map{"row_index": idx, "field": "email", "message": "invalid email format"})
+			if _, parseErr := mail.ParseAddress(email); parseErr != nil {
+				validationErrors[fmt.Sprintf("invitations[%d].email", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", idx)], "invalid email format")
+			}
+			lower := strings.ToLower(email)
+			if firstIdx, exists := seen[lower]; exists {
+				validationErrors[fmt.Sprintf("invitations[%d].email", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", idx)], "duplicate email in payload")
+				validationErrors[fmt.Sprintf("invitations[%d].email", firstIdx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", firstIdx)], "duplicate email in payload")
+			} else {
+				seen[lower] = idx
 			}
 		}
-		if strings.TrimSpace(row.FullName) == "" {
-			errors = append(errors, fiber.Map{"row_index": idx, "field": "full_name", "message": "required"})
+		if fullName == "" {
+			validationErrors[fmt.Sprintf("invitations[%d].full_name", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].full_name", idx)], "required")
 		}
 	}
-	if len(errors) > 0 {
+	if len(validationErrors) > 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code": "validation_failed", "message": "some invitation rows are invalid", "errors": errors,
+			"code": "validation_failed", "message": "some invitation rows are invalid", "errors": validationErrors,
 		})
 	}
 
-	// Idempotency key from header or generated
+	// Idempotency key is required
 	idempotencyKey := c.Get("Idempotency-Key")
 	if idempotencyKey == "" {
-		idempotencyKey = fmt.Sprintf("inv_%s_%s", tenantID.String(), time.Now().Format(time.RFC3339))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code": "bad_request", "message": "Idempotency-Key header is required", "errors": fiber.Map{"Idempotency-Key": []string{"required"}},
+		})
 	}
 
 	// Check existing job by idempotency
@@ -103,29 +128,25 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		})
 	}
 
-	// Create job
-	jobID, err := h.svc.CreateBulkJob(c.Context(), schoolID, tenantID, adminUserID, idempotencyKey, len(req.Invitations))
+	// Build items
+	items := make([]services.InvitationItem, len(req.Invitations))
+	for i, r := range req.Invitations {
+		email := strings.TrimSpace(r.Email)
+		fullName := strings.TrimSpace(r.FullName)
+		items[i] = services.InvitationItem{
+			ID:       uuid.New(),
+			Email:    email,
+			FullName: fullName,
+			Role:     "ADMIN",
+		}
+	}
+
+	// Create job + items atomically
+	jobID, err := h.svc.CreateBulkJobWithItems(c.Context(), schoolID, tenantID, adminUserID, idempotencyKey, items)
 	if err != nil {
 		h.logger.Error("bulk job creation failed", zap.Error(err))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"code": "internal_error", "message": "failed to create bulk job", "errors": fiber.Map{},
-		})
-	}
-
-	// Insert items
-	items := make([]services.InvitationItem, len(req.Invitations))
-	for i, r := range req.Invitations {
-		items[i] = services.InvitationItem{
-			ID:       uuid.New(),
-			Email:    r.Email,
-			FullName: r.FullName,
-			Role:     "ADMIN",
-		}
-	}
-	if err := h.svc.InsertItems(c.Context(), jobID, items); err != nil {
-		h.logger.Error("bulk item insertion failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code": "internal_error", "message": "failed to insert job items", "errors": fiber.Map{},
 		})
 	}
 
@@ -174,8 +195,19 @@ func (h *AdminInvitationHandler) GetJob(c fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid job_id", "errors": fiber.Map{}})
 	}
+	// Load session context for ownership check
+	schoolIDStr := c.Locals("active_school_id")
+	tenantIDStr := c.Locals("tenant_id")
+	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
+	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
+	if err1 != nil || err2 != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "missing session context", "errors": fiber.Map{}})
+	}
 	job, err := h.svc.GetJob(c.Context(), jobID)
 	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "job not found", "errors": fiber.Map{}})
+	}
+	if job.TenantID != tenantID || job.SchoolID != schoolID {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "job not found", "errors": fiber.Map{}})
 	}
 	return c.Status(fiber.StatusOK).JSON(job)
@@ -186,6 +218,18 @@ func (h *AdminInvitationHandler) RetryFailed(c fiber.Ctx) error {
 	jobID, err := uuid.Parse(jobIDStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid job_id", "errors": fiber.Map{}})
+	}
+	// Ownership check
+	schoolIDStr := c.Locals("active_school_id")
+	tenantIDStr := c.Locals("tenant_id")
+	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
+	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
+	if err1 != nil || err2 != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "missing session context", "errors": fiber.Map{}})
+	}
+	job, err := h.svc.GetJob(c.Context(), jobID)
+	if err != nil || job == nil || job.TenantID != tenantID || job.SchoolID != schoolID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "job not found", "errors": fiber.Map{}})
 	}
 	items, err := h.svc.GetFailedOrDeferredItems(c.Context(), jobID)
 	if err != nil {
@@ -220,6 +264,19 @@ func (h *AdminInvitationHandler) Events(c fiber.Ctx) error {
 		c.Status(fiber.StatusBadRequest)
 		return c.SendString("event: error\ndata: bad job_id\n\n")
 	}
+	// Ownership check
+	schoolIDStr := c.Locals("active_school_id")
+	tenantIDStr := c.Locals("tenant_id")
+	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
+	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
+	if err1 != nil || err2 != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "missing session context", "errors": fiber.Map{}})
+	}
+	job, err := h.svc.GetJob(c.Context(), jobID)
+	if err != nil || job == nil || job.TenantID != tenantID || job.SchoolID != schoolID {
+		c.Status(fiber.StatusNotFound)
+		return c.SendString("event: error\ndata: job not found\n\n")
+	}
 
 	// Subscribe to redis channel
 	channel := "bulk_progress_" + jobIDStr
@@ -227,7 +284,6 @@ func (h *AdminInvitationHandler) Events(c fiber.Ctx) error {
 	defer func() { _ = sub.Close() }()
 
 	// Send initial state
-	job, err := h.svc.GetJob(c.Context(), jobID)
 	if err == nil && job != nil {
 		data, _ := json.Marshal(map[string]interface{}{
 			"status": job.Status, "succeeded": job.SucceededCount, "failed": job.FailedCount, "deferred": job.DeferredCount, "total": job.TotalRecords,

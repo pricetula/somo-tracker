@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,6 +51,7 @@ type BulkJobItem struct {
 
 type AdminInvitationService interface {
 	CreateBulkJob(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, total int) (uuid.UUID, error)
+	CreateBulkJobWithItems(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error)
 	InsertItems(ctx context.Context, jobID uuid.UUID, items []InvitationItem) error
 	GetJob(ctx context.Context, jobID uuid.UUID) (*BulkJob, error)
 	GetFailedOrDeferredItems(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error)
@@ -62,6 +62,9 @@ type AdminInvitationService interface {
 	UpdateJobStatus(ctx context.Context, jobID uuid.UUID, status string) error
 	IncrementJobCounters(ctx context.Context, jobID uuid.UUID, succeeded, failed, deferred int) error
 	GetJobByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*BulkJob, error)
+	GetStytchOrgID(ctx context.Context, tenantID uuid.UUID) (string, error)
+	UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error)
+	TryAcquireItem(ctx context.Context, itemID uuid.UUID) (*BulkJobItem, bool, error)
 }
 
 type adminInvitationService struct {
@@ -78,15 +81,55 @@ func (s *adminInvitationService) CreateBulkJob(ctx context.Context, schoolID, te
 		return uuid.Nil, fmt.Errorf("admin_invitation_service: pool nil")
 	}
 	var id uuid.UUID
-	q := `INSERT INTO bulk_jobs (job_type, idempotency_key, school_id, tenant_id, created_by, status, total_records, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`
+	q := `INSERT INTO bulk_jobs (job_type, idempotency_key, school_id, tenant_id, created_by, status, total_records, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (tenant_id, idempotency_key) DO UPDATE SET updated_at=NOW() WHERE bulk_jobs.tenant_id=$3 AND bulk_jobs.idempotency_key=$2 RETURNING id`
 	err := s.pool.QueryRow(ctx, q, "ADMIN_INVITATION", idempotencyKey, schoolID, tenantID, createdBy, "QUEUED", total, `{"source":"bulk_invitation"}`).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "violates unique constraint") {
-			return uuid.Nil, fmt.Errorf("idempotency_key_exists: %w", err)
-		}
 		return uuid.Nil, fmt.Errorf("create_bulk_job: %w", err)
 	}
 	return id, nil
+}
+
+func (s *adminInvitationService) CreateBulkJobWithItems(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error) {
+	if s.pool == nil {
+		return uuid.Nil, fmt.Errorf("admin_invitation_service: pool nil")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("begin_tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	var jobID uuid.UUID
+	qJob := `INSERT INTO bulk_jobs (job_type, idempotency_key, school_id, tenant_id, created_by, status, total_records, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (tenant_id, idempotency_key) DO UPDATE SET updated_at=NOW() WHERE bulk_jobs.tenant_id=$4 AND bulk_jobs.idempotency_key=$2 RETURNING id`
+	err = tx.QueryRow(ctx, qJob, "ADMIN_INVITATION", idempotencyKey, schoolID, tenantID, createdBy, "QUEUED", len(items), `{"source":"bulk_invitation"}`).Scan(&jobID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("create_bulk_job_tx: %w", err)
+	}
+
+	batch := &pgx.Batch{}
+	for idx, it := range items {
+		payload, err := json.Marshal(it)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("marshal payload at %d: %w", idx, err)
+		}
+		batch.Queue(`INSERT INTO bulk_job_items (id, job_id, row_index, payload, status) VALUES ($1,$2,$3,$4,$5)`, it.ID, jobID, idx, payload, "PENDING")
+	}
+	br := tx.SendBatch(ctx, batch)
+	_, err = br.Exec()
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("insert_items_tx: %w", err)
+	}
+	if err = br.Close(); err != nil {
+		return uuid.Nil, fmt.Errorf("batch_close: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return uuid.Nil, fmt.Errorf("commit_tx: %w", err)
+	}
+	return jobID, nil
 }
 
 func (s *adminInvitationService) InsertItems(ctx context.Context, jobID uuid.UUID, items []InvitationItem) error {
@@ -123,7 +166,7 @@ func (s *adminInvitationService) GetJob(ctx context.Context, jobID uuid.UUID) (*
 }
 
 func (s *adminInvitationService) GetFailedOrDeferredItems(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, last_error, created_at, updated_at FROM bulk_job_items WHERE job_id=$1 AND status IN ('FAILED','DEFERRED') ORDER BY row_index`, jobID)
+	rows, err := s.pool.Query(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, COALESCE(last_error,''), created_at, updated_at FROM bulk_job_items WHERE job_id=$1 AND status IN ('FAILED','DEFERRED') ORDER BY row_index`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("get_retry_items: %w", err)
 	}
@@ -160,7 +203,7 @@ func (s *adminInvitationService) IncrementJobCounters(ctx context.Context, jobID
 }
 
 func (s *adminInvitationService) GetItemByID(ctx context.Context, itemID uuid.UUID) (*BulkJobItem, error) {
-	row := s.pool.QueryRow(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, last_error, created_at, updated_at FROM bulk_job_items WHERE id=$1`, itemID)
+	row := s.pool.QueryRow(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, COALESCE(last_error,''), created_at, updated_at FROM bulk_job_items WHERE id=$1`, itemID)
 	var i BulkJobItem
 	err := row.Scan(&i.ID, &i.JobID, &i.RowIndex, &i.Payload, &i.Result, &i.Status, &i.AttemptCount, &i.LastError, &i.CreatedAt, &i.UpdatedAt)
 	if err != nil {
@@ -170,7 +213,7 @@ func (s *adminInvitationService) GetItemByID(ctx context.Context, itemID uuid.UU
 }
 
 func (s *adminInvitationService) GetItemsByJobID(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, last_error, created_at, updated_at FROM bulk_job_items WHERE job_id=$1 ORDER BY row_index`, jobID)
+	rows, err := s.pool.Query(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, COALESCE(last_error,''), created_at, updated_at FROM bulk_job_items WHERE job_id=$1 ORDER BY row_index`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("get_items_by_job_id: %w", err)
 	}
@@ -191,6 +234,18 @@ func (s *adminInvitationService) UpdateItemStatus(ctx context.Context, itemID uu
 	return err
 }
 
+func (s *adminInvitationService) GetStytchOrgID(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	if s.pool == nil {
+		return "", fmt.Errorf("pool nil")
+	}
+	var org string
+	err := s.pool.QueryRow(ctx, `SELECT stytch_org_id FROM tenants WHERE id=$1`, tenantID).Scan(&org)
+	if err != nil {
+		return "", fmt.Errorf("get_stytch_org_id: %w", err)
+	}
+	return org, nil
+}
+
 func (s *adminInvitationService) GetJobByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*BulkJob, error) {
 	var b BulkJob
 	err := s.pool.QueryRow(ctx, `SELECT id, job_type, idempotency_key, school_id, tenant_id, created_by, status, total_records, succeeded_count, failed_count, deferred_count, metadata, created_at, updated_at FROM bulk_jobs WHERE tenant_id=$1 AND idempotency_key=$2`, tenantID, key).Scan(&b.ID, &b.JobType, &b.IdempotencyKey, &b.SchoolID, &b.TenantID, &b.CreatedBy, &b.Status, &b.TotalRecords, &b.SucceededCount, &b.FailedCount, &b.DeferredCount, &b.Metadata, &b.CreatedAt, &b.UpdatedAt)
@@ -198,4 +253,29 @@ func (s *adminInvitationService) GetJobByIdempotency(ctx context.Context, tenant
 		return nil, err
 	}
 	return &b, nil
+}
+
+func (s *adminInvitationService) UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error) {
+	var role string
+	err := s.pool.QueryRow(ctx, `SELECT role FROM school_memberships WHERE school_id=$1 AND user_id=$2 AND is_active=true`, schoolID, userID).Scan(&role)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
+		return false, fmt.Errorf("user_has_admin_role: %w", err)
+	}
+	return role == "ADMIN", nil
+}
+
+func (s *adminInvitationService) TryAcquireItem(ctx context.Context, itemID uuid.UUID) (*BulkJobItem, bool, error) {
+	var item BulkJobItem
+	// Try to move item from PENDING to PROCESSING atomically
+	err := s.pool.QueryRow(ctx, `UPDATE bulk_job_items SET status='PROCESSING', attempt_count=attempt_count+1, updated_at=NOW() WHERE id=$1 AND status='PENDING' RETURNING id, job_id, row_index, payload, result, status, attempt_count, COALESCE(last_error,''), created_at, updated_at`, itemID).Scan(&item.ID, &item.JobID, &item.RowIndex, &item.Payload, &item.Result, &item.Status, &item.AttemptCount, &item.LastError, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("try_acquire_item: %w", err)
+	}
+	return &item, true, nil
 }

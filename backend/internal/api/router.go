@@ -21,8 +21,9 @@ import (
 // IP-based: first line of defense against distributed attacks.
 // Email-based: stricter limit to prevent email bombing/enumeration.
 var (
-	authRateIP    = redis_rate.PerMinute(10) // 10 req/min per IP
-	authRateEmail = redis_rate.PerHour(3)    // 3 req/hour per email
+	authRateIP     = redis_rate.PerMinute(10) // 10 req/min per IP
+	authRateEmail  = redis_rate.PerHour(3)    // 3 req/hour per email
+	bulkInviteRate = redis_rate.PerHour(5)    // 5 bulk invites per hour per tenant
 )
 
 // Router wires all delivery-layer routes. It depends only on the service
@@ -126,7 +127,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
 	protected.Post("/school/streams", r.Streams.CreateStreams)
 	protected.Get("/school/grades", r.Grades.GetGrades)
-	protected.Post("/admins/invitations", r.AdminInvitation.HandleInvites)
+	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
 	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
 	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)
 	protected.Get("/admins/invitations/jobs/:job_id/events", r.AdminInvitation.Events)

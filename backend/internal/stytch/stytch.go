@@ -59,9 +59,10 @@ const (
 // Client wraps the official Stytch B2B SDK with circuit-breaker protection,
 // idempotent retry logic, secure error mapping, and structured logging.
 type Client struct {
-	api    *b2bstytchapi.API
-	cb     *gobreaker.CircuitBreaker
-	logger *zap.Logger
+	api         *b2bstytchapi.API
+	cb          *gobreaker.CircuitBreaker
+	logger      *zap.Logger
+	redirectURL string
 }
 
 // NewClient initializes the Stytch B2B SDK client from Config and registers
@@ -119,14 +120,16 @@ func NewClient(lc fx.Lifecycle, cfg *config.Config, logger *zap.Logger) (*Client
 	cb := gobreaker.NewCircuitBreaker(cbSettings)
 
 	client := &Client{
-		api:    api,
-		cb:     cb,
-		logger: logger.With(zap.String("service", "stytch")),
+		api:         api,
+		cb:          cb,
+		logger:      logger.With(zap.String("service", "stytch")),
+		redirectURL: cfg.StytchRedirectURL,
 	}
 
 	logger.Info("stytch: B2B client initialized",
 		zap.String("project_id", cfg.StytchProjectID),
 		zap.String("env", cfg.StytchEnv),
+		zap.String("redirect_url", cfg.StytchRedirectURL),
 	)
 
 	return client, nil
@@ -255,9 +258,9 @@ func isRetryable(err error) bool {
 // ReadCall executes the operation through the circuit breaker with safe
 // retry logic (exponential backoff + jitter). Used for idempotent
 // verification/authentication calls ONLY.
-func (c *Client) ReadCall(op func(context.Context) error) error {
+func (c *Client) ReadCall(ctx context.Context, op func(context.Context) error) error {
 	_, err := c.cb.Execute(func() (any, error) {
-		return nil, c.RetryWithBackoff(context.Background(), op)
+		return nil, c.RetryWithBackoff(ctx, op)
 	})
 	if err != nil {
 		return c.SanitizedError(err)
@@ -294,7 +297,7 @@ func (c *Client) Exchange(ctx context.Context, intermediateToken string) (*b2bin
 		return nil, fmt.Errorf("bad_request: intermediate session token is required")
 	}
 	var resp *b2bintermediatesessions.ExchangeResponse
-	err := c.ReadCall(func(ctx context.Context) error {
+	err := c.ReadCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.Discovery.IntermediateSessions.Exchange(ctx, &b2bintermediatesessions.ExchangeParams{
 			IntermediateSessionToken: intermediateToken,
@@ -320,7 +323,7 @@ func (c *Client) AuthenticateDiscovery(ctx context.Context, token string) (*b2bd
 		return nil, fmt.Errorf("bad_request: discovery token is required")
 	}
 	var resp *b2bdiscovery.AuthenticateResponse
-	err := c.ReadCall(func(ctx context.Context) error {
+	err := c.ReadCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.MagicLinks.Discovery.Authenticate(ctx, &b2bdiscovery.AuthenticateParams{
 			DiscoveryMagicLinksToken: token,
@@ -345,7 +348,7 @@ func (c *Client) CreateDiscoveryOrganization(ctx context.Context, ist string, na
 		return nil, fmt.Errorf("bad_request: intermediate session token is required")
 	}
 	var resp *b2bdiscoveryorg.CreateResponse
-	err := c.ReadCall(func(ctx context.Context) error {
+	err := c.ReadCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.Discovery.Organizations.Create(ctx, &b2bdiscoveryorg.CreateParams{
 			IntermediateSessionToken: ist,
@@ -371,7 +374,7 @@ func (c *Client) ExchangeWithOrg(ctx context.Context, intermediateToken, orgID s
 		return nil, fmt.Errorf("bad_request: intermediate session token is required")
 	}
 	var resp *b2bintermediatesessions.ExchangeResponse
-	err := c.ReadCall(func(ctx context.Context) error {
+	err := c.ReadCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.Discovery.IntermediateSessions.Exchange(ctx, &b2bintermediatesessions.ExchangeParams{
 			IntermediateSessionToken: intermediateToken,
@@ -436,26 +439,43 @@ func (c *Client) InviteMember(ctx context.Context, email, fullName, role string,
 
 	// Stytch B2B requires organization_id (our tenant_id) and invite_redirect_url
 	// The redirect URL should be configured in the dashboard or passed explicitly
+	c.logger.Info("stytch: inviting member",
+		zap.String("email", email),
+		zap.String("role", role),
+		zap.String("tenant_id", tenantID),
+	)
+
 	inviteParams := &b2bemail.InviteParams{
 		EmailAddress:      email,
 		Name:              fullName,
 		OrganizationID:    tenantID,
-		Roles:             []string{role},
 		InviteRedirectURL: c.getInviteRedirectURL(),
 	}
 
 	var resp *b2bemail.InviteResponse
-	err := c.WriteCall(func(ctx context.Context) error {
+	err := c.WriteCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.MagicLinks.Email.Invite(ctx, inviteParams)
 		return opErr
 	})
 	if err != nil {
+		c.logger.Warn("stytch: invite failed",
+			zap.String("email", email),
+			zap.String("tenant_id", tenantID),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 	if resp == nil {
+		c.logger.Error("stytch: empty invite response", zap.String("email", email), zap.String("tenant_id", tenantID))
 		return nil, fmt.Errorf("stytch.InviteMember: empty response")
 	}
+	c.logger.Info("stytch: invite sent",
+		zap.String("email", email),
+		zap.String("tenant_id", tenantID),
+		zap.String("request_id", resp.RequestID),
+		zap.String("member_id", resp.MemberID),
+	)
 	return &InviteMemberResult{
 		StytchInviteID: resp.RequestID,
 		StytchMemberID: resp.MemberID,
@@ -465,15 +485,17 @@ func (c *Client) InviteMember(ctx context.Context, email, fullName, role string,
 // getInviteRedirectURL returns the configured invite redirect URL.
 // In production, this should come from config. For now, use a placeholder.
 func (c *Client) getInviteRedirectURL() string {
-	// TODO: Make this configurable via config.Config
+	if c.redirectURL != "" {
+		return c.redirectURL
+	}
 	return "https://app.somotracker.local/auth/invite/callback"
 }
 
 // WriteCall executes through the circuit breaker WITHOUT retries. Non-
 // idempotent writes must never retry to avoid duplicate state mutations.
-func (c *Client) WriteCall(op func(context.Context) error) error {
+func (c *Client) WriteCall(ctx context.Context, op func(context.Context) error) error {
 	_, err := c.cb.Execute(func() (any, error) {
-		return nil, op(context.Background())
+		return nil, op(ctx)
 	})
 	if err != nil {
 		return c.SanitizedError(err)

@@ -110,6 +110,9 @@ CREATE INDEX bulk_job_items_row_order_idx ON bulk_job_items (job_id, row_index);
 -- GIN index for occasional ad-hoc JSONB payload queries.
 CREATE INDEX bulk_job_items_payload_gin_idx ON bulk_job_items USING GIN (payload);
 
+-- Unique index to prevent duplicate emails within the same job
+CREATE UNIQUE INDEX bulk_job_items_email_per_job_idx ON bulk_job_items (job_id, ((lower(payload->>'email'))));
+
 -- ============================================================================
 -- Section 3: updated_at trigger functions (reuse existing set_updated_at)
 -- ============================================================================

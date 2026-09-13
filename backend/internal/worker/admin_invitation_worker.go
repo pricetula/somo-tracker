@@ -130,15 +130,14 @@ func (p *AdminInvitationProcessor) ProcessRetryTask(ctx context.Context, task *a
 }
 
 func (p *AdminInvitationProcessor) processSingleItem(ctx context.Context, jobID, itemID uuid.UUID) {
-	// Fetch item
-	item, err := p.svc.GetItemByID(ctx, itemID)
+	// Try to acquire item atomically
+	item, acquired, err := p.svc.TryAcquireItem(ctx, itemID)
 	if err != nil {
-		p.logger.Error("failed to fetch item", zap.Error(err), zap.String("item_id", itemID.String()))
+		p.logger.Error("failed to acquire item", zap.Error(err), zap.String("item_id", itemID.String()))
 		return
 	}
-
-	// Skip if already terminal
-	if item.Status == "SUCCEEDED" || item.Status == "FAILED" {
+	if !acquired {
+		// Item already being processed or terminal
 		return
 	}
 
@@ -146,18 +145,32 @@ func (p *AdminInvitationProcessor) processSingleItem(ctx context.Context, jobID,
 	var itemPayload InvitationPayload
 	if err := json.Unmarshal(item.Payload, &itemPayload); err != nil {
 		p.logger.Error("failed to unmarshal item payload", zap.Error(err), zap.String("item_id", itemID.String()))
-		_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid payload", item.AttemptCount+1)
+		if updErr := p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid payload", item.AttemptCount); updErr != nil {
+			p.logger.Error("failed to update item status to FAILED", zap.Error(updErr))
+		}
 		p.publishProgress(ctx, jobID)
 		return
 	}
 
-	// Update status to PROCESSING
-	newAttempts := item.AttemptCount + 1
-	_ = p.svc.UpdateItemStatus(ctx, itemID, "PROCESSING", nil, "", newAttempts)
+	newAttempts := item.AttemptCount
 	p.publishProgress(ctx, jobID)
 
-	// Call Stytch to invite member
-	result, err := p.stytchCli.InviteMember(ctx, itemPayload.Email, itemPayload.FullName, itemPayload.Role, jobID.String())
+	// Call Stytch to invite member — use job's tenant_id, not job_id
+	job, errJob := p.svc.GetJob(ctx, jobID)
+	if errJob != nil || job == nil {
+		p.logger.Error("failed to fetch job for tenant_id", zap.Error(errJob), zap.String("job_id", jobID.String()))
+		p.handleStytchError(ctx, jobID, itemID, newAttempts, fmt.Errorf("job not found for tenant"), itemPayload)
+		p.publishProgress(ctx, jobID)
+		return
+	}
+	orgID, errOrg := p.svc.GetStytchOrgID(ctx, job.TenantID)
+	if errOrg != nil {
+		p.logger.Error("failed to get stytch org id for tenant", zap.Error(errOrg), zap.String("tenant_id", job.TenantID.String()), zap.String("job_id", jobID.String()))
+		p.handleStytchError(ctx, jobID, itemID, newAttempts, fmt.Errorf("stytch org not found for tenant"), itemPayload)
+		p.publishProgress(ctx, jobID)
+		return
+	}
+	result, err := p.stytchCli.InviteMember(ctx, itemPayload.Email, itemPayload.FullName, itemPayload.Role, orgID)
 	if err != nil {
 		p.handleStytchError(ctx, jobID, itemID, newAttempts, err, itemPayload)
 		p.publishProgress(ctx, jobID)

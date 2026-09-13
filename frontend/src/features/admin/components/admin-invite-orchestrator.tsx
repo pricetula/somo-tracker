@@ -25,9 +25,15 @@ const ADMIN_INVITE_FIELDS = [
     },
 ];
 
+async function sha256Hex(input: string): Promise<string> {
+    const data = new TextEncoder().encode(input);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export function AdminInviteOrchestrator() {
     const mutation = useBulkInviteUsers();
-    const [idempotencyKey, setIdempotencyKey] = React.useState<string | null>(null);
 
     const handleMappedList = async (rows: MappedRow[]) => {
         // MappedRow.data already contains fields matching InvitationRow
@@ -35,16 +41,24 @@ export function AdminInviteOrchestrator() {
             email: String(r.data.email ?? ""),
             full_name: String(r.data.full_name ?? ""),
         }));
-        // Generate key once per mapping session; reuse on retry
-        const key = idempotencyKey ?? crypto.randomUUID();
-        setIdempotencyKey(key);
+        // Derive deterministic idempotency key from content hash
+        // Same file content always yields same key, different content yields different key
+        const canonical = JSON.stringify(
+            invitations.slice().sort((a, b) => a.email.localeCompare(b.email))
+        );
+        const hash = await sha256Hex(canonical);
+        const key = `bulk-invite:${hash}`;
+        // Persist to sessionStorage for debugging/resilience
+        try {
+            sessionStorage.setItem(`bulk-invite-key:${hash}`, key);
+        } catch {}
         const resp = await mutation.mutateAsync({ invitations, idempotencyKey: key });
         // Return shape expected by ImportOrchestrator
         return { job_id: resp.job_id, total_records: resp.total_records, status: resp.status };
     };
 
     const handleReset = () => {
-        setIdempotencyKey(null);
+        // No state to clear with deterministic keys
     };
 
     return (

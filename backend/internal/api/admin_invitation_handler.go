@@ -85,36 +85,7 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		})
 	}
 
-	validationErrors := make(map[string][]string)
-	seen := make(map[string]int)
-	for idx, row := range req.Invitations {
-		email := strings.TrimSpace(row.Email)
-		fullName := strings.TrimSpace(row.FullName)
-		if email == "" {
-			validationErrors[fmt.Sprintf("invitations[%d].email", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", idx)], "required")
-		} else {
-			if _, parseErr := mail.ParseAddress(email); parseErr != nil {
-				validationErrors[fmt.Sprintf("invitations[%d].email", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", idx)], "invalid email format")
-			}
-			lower := strings.ToLower(email)
-			if firstIdx, exists := seen[lower]; exists {
-				validationErrors[fmt.Sprintf("invitations[%d].email", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", idx)], "duplicate email in payload")
-				validationErrors[fmt.Sprintf("invitations[%d].email", firstIdx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", firstIdx)], "duplicate email in payload")
-			} else {
-				seen[lower] = idx
-			}
-		}
-		if fullName == "" {
-			validationErrors[fmt.Sprintf("invitations[%d].full_name", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].full_name", idx)], "required")
-		}
-	}
-	if len(validationErrors) > 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code": "validation_failed", "message": "some invitation rows are invalid", "errors": validationErrors,
-		})
-	}
-
-	// Idempotency key is required
+	// Idempotency key is required – check before expensive validation
 	idempotencyKey := c.Get("Idempotency-Key")
 	if idempotencyKey == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -122,22 +93,60 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		})
 	}
 
-	// Check existing job by idempotency
+	// Check existing job by idempotency – avoid re-processing
 	if existing, err := h.svc.GetJobByIdempotency(c.Context(), tenantID, idempotencyKey); err == nil && existing != nil {
 		return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
 			"job_id": existing.ID, "status": existing.Status, "total_records": existing.TotalRecords, "message": "existing job returned",
 		})
 	}
 
+	validationErrors := make(map[string][]string)
+	seen := make(map[string]struct{})
+	var dedupedRows []InvitationRow
+	for idx, row := range req.Invitations {
+		email := strings.TrimSpace(row.Email)
+		fullName := strings.TrimSpace(row.FullName)
+		hasError := false
+		if email == "" {
+			validationErrors[fmt.Sprintf("invitations[%d].email", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", idx)], "required")
+			hasError = true
+		} else if _, parseErr := mail.ParseAddress(email); parseErr != nil {
+			validationErrors[fmt.Sprintf("invitations[%d].email", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].email", idx)], "invalid email format")
+			hasError = true
+		}
+		if fullName == "" {
+			validationErrors[fmt.Sprintf("invitations[%d].full_name", idx)] = append(validationErrors[fmt.Sprintf("invitations[%d].full_name", idx)], "required")
+			hasError = true
+		}
+		if hasError {
+			continue
+		}
+		lower := strings.ToLower(email)
+		if _, exists := seen[lower]; exists {
+			// Skip duplicate silently – first occurrence wins
+			continue
+		}
+		seen[lower] = struct{}{}
+		dedupedRows = append(dedupedRows, InvitationRow{Email: email, FullName: fullName})
+	}
+	if len(validationErrors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code": "validation_failed", "message": "some invitation rows are invalid", "errors": validationErrors,
+		})
+	}
+	if len(dedupedRows) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code": "bad_request", "message": "no valid invitation rows after deduplication", "errors": fiber.Map{"invitations": []string{"no valid rows"}},
+		})
+	}
+
 	// Build items
-	items := make([]services.InvitationItem, len(req.Invitations))
-	for i, r := range req.Invitations {
-		email := strings.TrimSpace(r.Email)
-		fullName := strings.TrimSpace(r.FullName)
+	items := make([]services.InvitationItem, len(dedupedRows))
+	for i, r := range dedupedRows {
 		items[i] = services.InvitationItem{
 			ID:       uuid.New(),
-			Email:    email,
-			FullName: fullName,
+			Email:    r.Email,
+			FullName: r.FullName,
 			Role:     "ADMIN",
 		}
 	}
@@ -180,13 +189,15 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		}
 	}
 
-	// Publish initial progress
+	// Publish initial progress with graceful degradation
 	if h.redis != nil {
-		h.redis.Publish(c.Context(), "bulk_progress_"+jobID.String(), `{"status":"QUEUED","total":`+fmt.Sprintf("%d", len(req.Invitations))+`}`)
+		if err := h.redis.Publish(c.Context(), "bulk_progress_"+jobID.String(), `{"status":"QUEUED","total":`+fmt.Sprintf("%d", len(dedupedRows))+`}`).Err(); err != nil {
+			h.logger.Warn("redis publish failed, continuing without progress broadcast", zap.Error(err), zap.String("job_id", jobID.String()))
+		}
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
-		"job_id": jobID.String(), "status": "QUEUED", "total_records": len(req.Invitations), "message": "Bulk invitation job registered successfully",
+		"job_id": jobID.String(), "status": "QUEUED", "total_records": len(dedupedRows), "message": "Bulk invitation job registered successfully",
 	})
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -78,15 +79,26 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 	// Mark job as PROCESSING if still QUEUED
 	_ = p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING")
 
-	// Process each item in the batch sequentially
+	// Process items with limited concurrency to avoid overwhelming Stytch
+	const workerConcurrency = 10
+	sem := make(chan struct{}, workerConcurrency)
+	var wg sync.WaitGroup
 	for _, itemIDStr := range payload.ItemIDs {
+		itemIDStr := itemIDStr
 		itemID, err := uuid.Parse(itemIDStr)
 		if err != nil {
 			p.logger.Warn("bad item id", zap.String("item_id", itemIDStr))
 			continue
 		}
-		p.processSingleItem(ctx, jobID, itemID)
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			p.processSingleItem(ctx, jobID, itemID)
+		}()
 	}
+	wg.Wait()
 
 	// After batch, derive and update job status
 	p.deriveJobStatus(ctx, jobID)
@@ -146,14 +158,25 @@ func (p *AdminInvitationProcessor) ProcessRetryTask(ctx context.Context, task *a
 	// Mark job as PROCESSING
 	_ = p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING")
 
+	const workerConcurrency = 10
+	sem := make(chan struct{}, workerConcurrency)
+	var wg sync.WaitGroup
 	for _, itemIDStr := range payload.ItemIDs {
+		itemIDStr := itemIDStr
 		itemID, err := uuid.Parse(itemIDStr)
 		if err != nil {
 			p.logger.Warn("bad item id in retry", zap.String("item_id", itemIDStr))
 			continue
 		}
-		p.processSingleItem(ctx, jobID, itemID)
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			p.processSingleItem(ctx, jobID, itemID)
+		}()
 	}
+	wg.Wait()
 
 	p.deriveJobStatus(ctx, jobID)
 	return nil
@@ -327,5 +350,7 @@ func (p *AdminInvitationProcessor) publishProgress(ctx context.Context, jobID uu
 		"deferred":  job.DeferredCount,
 		"total":     job.TotalRecords,
 	})
-	_ = p.redis.Publish(ctx, "bulk_progress_"+jobID.String(), string(data)).Err()
+	if err := p.redis.Publish(ctx, "bulk_progress_"+jobID.String(), string(data)).Err(); err != nil {
+		p.logger.Warn("redis progress publish failed", zap.Error(err), zap.String("job_id", jobID.String()))
+	}
 }

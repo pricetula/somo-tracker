@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronsUpDownIcon, Plus } from "lucide-react";
+import { ChevronsUpDownIcon, Plus, Check } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -56,7 +56,8 @@ export function SchoolSwitcher() {
                     >
                         {schools.map((school) => (
                             <DropdownMenuItem key={school.id} className="">
-                                {school.name}
+                                <span>{school.name}</span>
+                                {activeSchool?.id === school.id && <Check />}
                             </DropdownMenuItem>
                         ))}
                         <DropdownMenuSeparator />

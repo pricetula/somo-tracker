@@ -27,11 +27,31 @@ export async function registerSchool(data: RegisterSchoolPayload): Promise<Regis
     return api.post<RegisterSchoolResponse>("/api/school/register", data);
 }
 
+export interface CreateSchoolPayload {
+    school_name: string;
+}
+
+export interface CreateSchoolResponse {
+    code: string;
+    message: string;
+    school_id: string;
+    school_name: string;
+    errors: Record<string, unknown>;
+}
+
+/** Create a new school (admin-only, sets up academic periods and CBE curriculum). */
+export async function createSchool(data: CreateSchoolPayload): Promise<CreateSchoolResponse> {
+    return api.post<CreateSchoolResponse>("/api/school", data);
+}
+
 export interface SchoolItem {
     id: string;
     name: string;
-    role: string;
-    is_active: boolean;
+    country_name?: string;
+    education_system_name?: string;
+    /** Legacy fields kept for compatibility */
+    role?: string;
+    is_active?: boolean;
 }
 
 export interface ListSchoolsResponse {

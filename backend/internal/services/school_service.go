@@ -155,6 +155,11 @@ func (s *SchoolRegistrationService) CreateSchoolWithSetup(
 			return fmt.Errorf("internal_error: failed to create school: %w", err)
 		}
 
+		// Deactivate any existing active memberships for this user to satisfy unique active-user constraint
+		if _, err := tx.Exec(ctx, `UPDATE school_memberships SET is_active = FALSE WHERE user_id = $1 AND is_active = TRUE`, userID); err != nil {
+			return fmt.Errorf("internal_error: failed to deactivate previous memberships: %w", err)
+		}
+
 		// Create ADMIN membership
 		if _, err := tx.Exec(ctx, `INSERT INTO school_memberships (school_id, user_id, role, is_active) VALUES ($1, $2, 'ADMIN', TRUE)`, schoolID, userID); err != nil {
 			return fmt.Errorf("internal_error: failed to create school membership: %w", err)

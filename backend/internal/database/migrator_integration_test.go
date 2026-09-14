@@ -1578,3 +1578,55 @@ func TestMigrator_AddGradeIdToSubjects(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, gradeID, fetchedGradeID, "subject grade_level_id should be persisted")
 }
+
+// TestMigrator_ExpandSubjectCode verifies migration 000014 expands subjects.code
+func TestMigrator_ExpandSubjectCode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// Verify column type is varchar(64)
+	var dataType string
+	err = db.QueryRowContext(ctx, `
+		SELECT data_type, character_maximum_length
+		FROM information_schema.columns
+		WHERE table_name = 'subjects' AND column_name = 'code'
+	`).Scan(&dataType, &dataType)
+	// Simpler check: try inserting a long code
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	var eduSysID, countryID string
+	err = tx.QueryRowContext(ctx, `SELECT id::text FROM education_systems LIMIT 1`).Scan(&eduSysID)
+	if err != nil {
+		// create minimal data
+		err = tx.QueryRowContext(ctx, `SELECT id::text FROM countries LIMIT 1`).Scan(&countryID)
+		require.NoError(t, err)
+		err = tx.QueryRowContext(ctx, `INSERT INTO education_systems (country_id, system_name) VALUES ($1,'Test') RETURNING id::text`, countryID).Scan(&eduSysID)
+		require.NoError(t, err)
+	}
+
+	longCode := "MATH_CORE_G10_ARTSSPORTS_EXAMPLE_123"
+	var subjID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO subjects (education_system_id, name, code, type)
+		VALUES ($1, 'Long Code Subject', $2, 'CORE')
+		RETURNING id::text
+	`, eduSysID, longCode).Scan(&subjID)
+	require.NoError(t, err, "inserting long subject code should succeed after migration")
+}

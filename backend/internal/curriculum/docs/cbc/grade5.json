@@ -1,0 +1,374 @@
+[
+  {
+    "name": "Mathematics",
+    "code": "MATH_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Numbers",
+        "sub_strands": [
+          {
+            "name": "Whole Numbers up to 100,000",
+            "performance_indicators": [
+              "Read, write, and determine the place value of digits in numbers up to 100,000.",
+              "Round off whole numbers to the nearest thousands.",
+              "Find the Least Common Multiple (LCM) and Greatest Common Divisor (GCD) of up to three numbers."
+            ]
+          },
+          {
+            "name": "Fractions, Decimals, and Percentages",
+            "performance_indicators": [
+              "Add and subtract mixed numbers with different denominators.",
+              "Convert simple fractions into decimals and percentages and vice versa using visual grids.",
+              "Multiply a decimal number by a whole number up to two decimal places."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Measurement",
+        "sub_strands": [
+          {
+            "name": "Area, Perimeter, and Volume",
+            "performance_indicators": [
+              "Calculate the perimeter and area of combined regular shapes (rectangles and squares).",
+              "Determine the volume of cubes and cuboids using standard cubic centimeters (cm³).",
+              "Convert capacity measurements between liters (l) and milliliters (ml)."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Geometry and Algebra",
+        "sub_strands": [
+          {
+            "name": "Angles, Circles, and Expressions",
+            "performance_indicators": [
+              "Measure and draw angles up to 180 degrees using a protractor.",
+              "Identify parts of a circle including the radius, diameter, and circumference.",
+              "Formulate and solve simple linear equations with one unknown variable."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English",
+    "code": "ENG_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Listening and Speaking",
+        "sub_strands": [
+          {
+            "name": "Oral Reports and Public Speaking",
+            "performance_indicators": [
+              "Listen to audio presentations and summarize key data points and supporting arguments.",
+              "Deliver short, structured oral presentations using appropriate tone, intonation, and body language."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Reading and Comprehension",
+        "sub_strands": [
+          {
+            "name": "Critical Literacy and Literary Texts",
+            "performance_indicators": [
+              "Read complex informational texts fluently, adjusting reading speed based on difficulty.",
+              "Analyze short stories and poems to identify themes, imagery, and figurative language.",
+              "Make logical inferences and draw conclusions based on text clues."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Writing and Language Use",
+        "sub_strands": [
+          {
+            "name": "Advanced Grammar and Composition",
+            "performance_indicators": [
+              "Use active and passive voice correctly in context-specific sentences.",
+              "Write functional pieces, including simple formal invitations, recipes, and diary entries.",
+              "Draft narrative and descriptive essays with well-structured introduction, body, and conclusion paragraphs."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili",
+    "code": "KISW_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Kusikiliza na Kuzungumza",
+        "sub_strands": [
+          {
+            "name": "Uwasilishaji na Majadiliano",
+            "performance_indicators": [
+              "Kusikiliza hotuba fupi au matangazo na kutoa muhtasari wa hoja kuu.",
+              "Kushiriki katika mdahalo wa darasani kwa kutumia lugha sanifu na hoja zenye mashiko."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kusoma na Ufahamu",
+        "sub_strands": [
+          {
+            "name": "Uchambuzi wa Makala na Fasihi",
+            "performance_indicators": [
+              "Kusoma vifungu vya habari kwa sauti na kwa kimya huku ukizingatia alama zote za uandishi.",
+              "Kueleza maadili na mafunzo mbalimbali yanayopatikana katika hadithi za kimapokeo au mashairi mepesi."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kuandika na Sarufi",
+        "sub_strands": [
+          {
+            "name": "Uandishi wa Insha na Matumizi ya Lugha",
+            "performance_indicators": [
+              "Kuandika insha za maelezo na barua rasmi (kwa mfano, barua ya udhuru) kwa kufuata utaratibu ufaao.",
+              "Kutumia viunganishi, viashiria, na ngeli changamano kwa usahihi katika aya."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Science and Technology",
+    "code": "SCI_TECH_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Living Things and their Environment",
+        "sub_strands": [
+          {
+            "name": "Human Respiratory System and Vertebrates",
+            "performance_indicators": [
+              "Identify the organs of the human respiratory system and model their function using local materials.",
+              "Classify animals into vertebrates (mammals, birds, reptiles, amphibians, fish) based on physical features.",
+              "Describe methods of maintaining health and preventing infections within the respiratory system."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Matter, Forces, and Energy",
+        "sub_strands": [
+          {
+            "name": "Changes in States of Matter and Light Energy",
+            "performance_indicators": [
+              "Demonstrate melting, evaporation, condensation, and freezing through simple heat experiments.",
+              "Investigate how light travels in a straight line and its reflection on different surfaces."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Digital Systems and Application",
+        "sub_strands": [
+          {
+            "name": "Word Processing and Data Handling",
+            "performance_indicators": [
+              "Create, edit, and format text documents using a word processing application on a digital device.",
+              "Demonstrate safe behavior and digital citizenship when interacting with electronic learning devices."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Agriculture and Nutrition",
+    "code": "AGRI_NUTR_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Soil Fertility and Crop Management",
+        "sub_strands": [
+          {
+            "name": "Organic Manures and Fruit Trees",
+            "performance_indicators": [
+              "Prepare compost or heap manure using organic farm wastes and apply it to improve soil fertility.",
+              "Demonstrate the steps of establishing and caring for local fruit tree nurseries (e.g., passion fruit, pawpaw).",
+              "Identify and control common field pests and weeds using safe, non-chemical methods."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Animal Husbandry",
+        "sub_strands": [
+          {
+            "name": "Rabbits and Small Herbivores",
+            "performance_indicators": [
+              "Describe the housing, feeding, and handling requirements for domestic rabbits or small livestock.",
+              "Identify common signs of ill health in farm animals and describe basic response steps."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Nutrition and Food Preservation",
+        "sub_strands": [
+          {
+            "name": "Deficiency Diseases and Food Preservation",
+            "performance_indicators": [
+              "Identify common nutritional deficiency diseases (e.g., marasmus, kwashiorkor) and list preventive foods.",
+              "Demonstrate practical methods of preserving local food items through drying, salting, or smoking."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Social Studies",
+    "code": "SOC_STUD_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Physical Environment and Maps",
+        "sub_strands": [
+          {
+            "name": "Position, Size, and Physical Features of Kenya",
+            "performance_indicators": [
+              "Locate Kenya on a map of East Africa and identify its neighboring countries.",
+              "Describe the main physical features of Kenya (mountains, rivers, lakes, rift valley) and their impact on human settlement.",
+              "Read and interpret map symbols using standard keys and scale indicators."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "People, Culture, and History",
+        "sub_strands": [
+          {
+            "name": "Migration and Cultural Heritage",
+            "performance_indicators": [
+              "Trace the migration patterns and settlement of major language groups in Kenya.",
+              "Discuss traditional cultural practices, beliefs, and values that promote national cohesion.",
+              "Identify key early historical figures and freedom fighters who contributed to Kenyan history."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Resources and Government Systems",
+        "sub_strands": [
+          {
+            "name": "Economic Sectors and National Governance",
+            "performance_indicators": [
+              "Analyze major economic activities in Kenya, including agriculture, mining, and tourism.",
+              "Explain the structure and main arms of the national government of Kenya (Legislature, Executive, Judiciary)."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Creative Arts",
+    "code": "CREAT_ART_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Visual Arts and Crafts",
+        "sub_strands": [
+          {
+            "name": "Pictorial Composition and Puppetry",
+            "performance_indicators": [
+              "Paint compositions showing tonal variations and spatial perspective.",
+              "Construct different types of puppets (e.g., glove or rod puppets) using local fabrics and sticks.",
+              "Create functional ornaments using beadwork or leatherwork techniques."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Music and Theatre Arts",
+        "sub_strands": [
+          {
+            "name": "Choral Performance and Play Writing",
+            "performance_indicators": [
+              "Sing in multi-part harmony during group choral presentations with accurate rhythm.",
+              "Create and act out brief dramatic scripts focusing on contemporary social issues (e.g., environmental conservation)."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Sports and Health Education",
+        "sub_strands": [
+          {
+            "name": "Gymnastics and Ball Games",
+            "performance_indicators": [
+              "Perform advanced gymnastic sequences involving handstands or cartwheels safely.",
+              "Demonstrate technical skills like passing, dribbling, and shooting in field games (football, netball, or volleyball)."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Religious Education",
+    "code": "RE_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Christian Religious Education",
+        "sub_strands": [
+          {
+            "name": "Christian Values and Ministries",
+            "performance_indicators": [
+              "Examine lessons on faith and endurance from the lives of biblical characters like Abraham and Elijah.",
+              "Explain the roles of early Christian prophets and apply their ethical teachings to current social situations.",
+              "Demonstrate Christian values including integrity, fairness, and inclusion in school interactions."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Islamic Religious Education",
+        "sub_strands": [
+          {
+            "name": "Surahs, Hadith, and Islamic History",
+            "performance_indicators": [
+              "Recite, memorize, and explain the core meanings of Surah Al-Fil and Surah Al-Humazah.",
+              "Describe the historical events surrounding the Hijrah (migration) of the Prophet to Madinah.",
+              "Apply Islamic moral codes regarding honesty in business transactions and peer interactions."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pastoral Instruction Programme",
+    "code": "PAST_G5",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Ethics and Values Alignment",
+        "sub_strands": [
+          {
+            "name": "Character Solidification and Integrity",
+            "performance_indicators": [
+              "Demonstrate self-reliance and moral courage when encountering negative peer influences.",
+              "Practice collaborative conflict resolution to maintain harmony in the classroom environment.",
+              "Apply ethical principles to daily choices through structured values mentorship."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,306 @@
+[
+  {
+    "name": "Mathematical Activities",
+    "code": "MATH_G3",
+    "education_level": "Lower_Primary",
+    "strands": [
+      {
+        "name": "Numbers",
+        "sub_strands": [
+          {
+            "name": "Number Concept and Whole Numbers",
+            "performance_indicators": [
+              "Count concrete items forward and backward sequentially from 1 up to 1,000.",
+              "Read and write whole numbers from 1 up to 1,000 in symbols and words.",
+              "Identify the place value of digits up to hundreds (hundreds, tens, and ones) using place value devices."
+            ]
+          },
+          {
+            "name": "Operations",
+            "performance_indicators": [
+              "Add up to two 3-digit numbers with regrouping up to a sum of 1,000.",
+              "Subtract up to 3-digit numbers with regrouping up to 1,000.",
+              "Multiply single-digit numbers by numbers up to 10 using arrays and repeated addition.",
+              "Divide numbers up to 50 using exact grouping concepts without remainders."
+            ]
+          },
+          {
+            "name": "Fractions and Patterns",
+            "performance_indicators": [
+              "Identify and represent eighths (1/8) using concrete geometric cutouts.",
+              "Complete missing terms in complex arithmetic sequences that progress up to 1,000."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Measurement",
+        "sub_strands": [
+          {
+            "name": "Length, Mass, and Capacity",
+            "performance_indicators": [
+              "Measure and record length of surfaces using standard meters (m) and centimeters (cm).",
+              "Measure mass in kilograms (kg) using a beam balance and standard weights.",
+              "Measure capacity of various fluid containers accurately using standard liters (l)."
+            ]
+          },
+          {
+            "name": "Time and Money",
+            "performance_indicators": [
+              "Read and tell time on an analog clock to the nearest five minutes.",
+              "Relate days, weeks, and months using a standard annual calendar layout.",
+              "Count money and work out change using Kenyan currency denominations up to 500 Shillings."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Geometry",
+        "sub_strands": [
+          {
+            "name": "Lines and Shapes",
+            "performance_indicators": [
+              "Draw and differentiate between straight, curved, horizontal, and vertical lines.",
+              "Identify and sketch basic 2D shapes (rectangles, circles, triangles, squares) based on their structural properties."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English Language Activities",
+    "code": "ENG_G3",
+    "education_level": "Lower_Primary",
+    "strands": [
+      {
+        "name": "Listening and Speaking",
+        "sub_strands": [
+          {
+            "name": "Oral Communication and Auditory Focus",
+            "performance_indicators": [
+              "Pronounce vocabulary words containing advanced consonant blends and digraphs correctly.",
+              "Listen attentively to short narratives and accurately summarize key events in sequence.",
+              "Initiate and sustain conversations on familiar themes with peers using correct sentence structures."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Reading",
+        "sub_strands": [
+          {
+            "name": "Fluency and Literacy Skills",
+            "performance_indicators": [
+              "Read grade-level texts aloud fluently with appropriate expression, pacing, and intonation.",
+              "Apply structural and phonetic decoding skills to understand unfamiliar words independently.",
+              "Locate specific details and draw simple inferences from short reading passages."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Writing",
+        "sub_strands": [
+          {
+            "name": "Composition and Mechanics",
+            "performance_indicators": [
+              "Write legibly and neatly using correct letter formations and consistent paragraph spacing.",
+              "Construct coherent short paragraphs using correct punctuation rules (capital letters, commas, full stops).",
+              "Spell complex grade-appropriate vocabulary accurately during independent composition."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili Language Activities",
+    "code": "KISW_G3",
+    "education_level": "Lower_Primary",
+    "strands": [
+      {
+        "name": "Kusikiliza na Kuzungumza",
+        "sub_strands": [
+          {
+            "name": "Utamkaji na Maongezi",
+            "performance_indicators": [
+              "Kutamka sauti tata na maneno marefu ya Kiswahili kwa ufasaha na lafudhi sahihi.",
+              "Kushiriki katika mijadala ya vikundi darasani kwa kutumia lugha ya adabu na msamiati mwafaka.",
+              "Kueleza kwa mtiririko ufaao matukio na visa vilivyoshuhudiwa au kusikilizwa."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kusoma",
+        "sub_strands": [
+          {
+            "name": "Kusoma kwa Ufasaha na Ufahamu",
+            "performance_indicators": [
+              "Kusoma vitabu na vifungu vya hadithi kwa kasi, ufasaha, na kuzingatia alama za vituo.",
+              "Kufafanua maana ya maneno mapya kwa kutumia muktadha wa kifungu kinachosomwa.",
+              "Kujibu maswali ya moja kwa moja na yale ya kiuchambuzi kutoka kwa makala yaliyosomwa."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kuandika",
+        "sub_strands": [
+          {
+            "name": "Uandishi wa Insha na Tahajia",
+            "performance_indicators": [
+              "Kuandika aya zilizopangwa vizuri kwa mwandiko nadhifu na tahajia zilizo sahihi.",
+              "Kutungatunga sentensi na vifungu vifupi vya ubunifu kuhusu mada teule za kijamii."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Environmental Activities",
+    "code": "ENV_G3",
+    "education_level": "Lower_Primary",
+    "strands": [
+      {
+        "name": "Natural and Social Resources",
+        "sub_strands": [
+          {
+            "name": "Weather, Environment, and Soil",
+            "performance_indicators": [
+              "Analyze and interpret weather trends over a month using standard symbols and charts.",
+              "Demonstrate methods of caring for local soil types and practical conservation measures.",
+              "Identify common plants and animals in the wider community and list their ecological benefits."
+            ]
+          },
+          {
+            "name": "Hygiene and Health Management",
+            "performance_indicators": [
+              "Practice advanced personal cleanliness routines, including safe handling of sharp grooming tools.",
+              "Identify the causes of common localized illnesses and describe preventative steps.",
+              "Practice safe storage and disposal methods for food items at home and school."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Social Environment and Safety",
+        "sub_strands": [
+          {
+            "name": "Community Administration and Culture",
+            "performance_indicators": [
+              "Identify the administrative leadership roles in the wider community or sub-county.",
+              "Describe key cultural values, symbols, and artifacts that promote unit in the locality."
+            ]
+          },
+          {
+            "name": "Safety and Disaster Awareness",
+            "performance_indicators": [
+              "Identify unsafe situations, environments, or stranger behaviors and outline response protocols.",
+              "Demonstrate basic first aid actions for minor cuts, pricks, or bruises during play activities."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Creative Activities",
+    "code": "CREAT_G3",
+    "education_level": "Lower_Primary",
+    "strands": [
+      {
+        "name": "Arts and Crafts",
+        "sub_strands": [
+          {
+            "name": "Creative Expressions and Forms",
+            "performance_indicators": [
+              "Create drawings and paintings incorporating basic shading techniques to show form.",
+              "Produce decorative border patterns on fabrics using block printing and stencil tools.",
+              "Weave or model structural items using locally available natural or synthetic fibers."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Music and Performing Arts",
+        "sub_strands": [
+          {
+            "name": "Rhythm and Dramatic Performance",
+            "performance_indicators": [
+              "Sing complex multi-verse topical and national songs with correct pitch, phrasing, and posture.",
+              "Dramatize short skits or poems expressing positive moral themes with matching expressions."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Physical Education",
+        "sub_strands": [
+          {
+            "name": "Gymnastic and Athletic Movements",
+            "performance_indicators": [
+              "Perform simple gymnastic actions such as forward rolls and safe weight transfers.",
+              "Demonstrate structured running, dodging, and spatial positioning during competitive team games."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Religious Education",
+    "code": "RE_G3",
+    "education_level": "Lower_Primary",
+    "strands": [
+      {
+        "name": "Christian Religious Education",
+        "sub_strands": [
+          {
+            "name": "Biblical Values and Leadership",
+            "performance_indicators": [
+              "Identify key biblical characters who demonstrated obedience and leadership (e.g., Moses, David).",
+              "Retell narratives regarding the miracles of Jesus and deduce the values they convey.",
+              "Demonstrate honesty, unity, and respect in their daily interactions inside and outside the school."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Islamic Religious Education",
+        "sub_strands": [
+          {
+            "name": "Quran, Hadith, and Sirah",
+            "performance_indicators": [
+              "Recite and understand the core messages of specified short Surahs, including Surah Al-Maun.",
+              "Explain the significance of the pillars of Iman and their practical expressions in character.",
+              "Emulate the moral qualities (Akhlaq) modeled by Prophet Muhammad in everyday life."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pastoral Instruction Programme",
+    "code": "PAST_G3",
+    "education_level": "Lower_Primary",
+    "strands": [
+      {
+        "name": "Value Formation and Guidance",
+        "sub_strands": [
+          {
+            "name": "Moral and Character Development",
+            "performance_indicators": [
+              "Demonstrate consistency in practicing core moral values like integrity, respect, and self-control.",
+              "Resolve peer conflicts peacefully and constructively during collaborative tasks.",
+              "Internalize positive behavior patterns and community values through institutional mentorship."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

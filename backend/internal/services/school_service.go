@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+	"somotracker/backend/internal/curriculum"
 
 	"somotracker/backend/internal/database"
 )
@@ -186,10 +185,11 @@ func (s *SchoolService) CreateSchoolWithSetup(
 
 		// Bulk insert CBE curriculum using Go-generated UUIDs (3 DB round-trips max)
 		type subjRow struct {
-			id   string
-			es   string
-			name string
-			code string
+			id           string
+			es           string
+			gradeLevelID string
+			name         string
+			code         string
 		}
 		type topicRow struct {
 			id   string
@@ -206,15 +206,38 @@ func (s *SchoolService) CreateSchoolWithSetup(
 		subjectsBulk := make([]subjRow, 0)
 		topicsBulk := make([]topicRow, 0)
 		subsBulk := make([]subRow, 0)
-		files, _ := filepath.Glob("../../docs/cbc/*.json")
-		for _, f := range files {
-			data, err := os.ReadFile(f)
-			if err != nil {
-				continue
+
+		// Load grade levels for this education system to link subjects to grades
+		gradeMap := make(map[string]string)
+		gradeRows, err := tx.Query(ctx, `SELECT id, local_label FROM grade_levels WHERE education_system_id = $1`, educationSystemID)
+		if err == nil {
+			defer gradeRows.Close()
+			for gradeRows.Next() {
+				var gid, label string
+				if err := gradeRows.Scan(&gid, &label); err == nil {
+					gradeMap[label] = gid
+				}
 			}
+		}
+
+		processCBC := func(fileName string, data []byte) {
+			// Derive grade label from filename e.g. grade1.json -> Grade 1
+			nameOnly := strings.TrimSuffix(fileName, ".json")
+			parts := strings.SplitN(nameOnly, ".", 2)
+			stem := parts[0]
+			gradeLabel := ""
+			if strings.HasPrefix(stem, "grade") {
+				num := strings.TrimPrefix(stem, "grade")
+				gradeLabel = "Grade " + num
+			} else if strings.HasPrefix(stem, "pp") {
+				gradeLabel = strings.ToUpper(stem)
+			}
+			gradeID := gradeMap[gradeLabel]
+
 			var subjects []map[string]interface{}
 			if err := json.Unmarshal(data, &subjects); err != nil {
-				continue
+				s.logger.Error("school service: failed to unmarshal cbc file", zap.String("file", fileName), zap.Error(err))
+				return
 			}
 			for _, sub := range subjects {
 				name, _ := sub["name"].(string)
@@ -223,7 +246,7 @@ func (s *SchoolService) CreateSchoolWithSetup(
 					continue
 				}
 				sid := uuid.New().String()
-				subjectsBulk = append(subjectsBulk, subjRow{id: sid, es: educationSystemID, name: name, code: code})
+				subjectsBulk = append(subjectsBulk, subjRow{id: sid, es: educationSystemID, gradeLevelID: gradeID, name: name, code: code})
 				strands, ok := sub["strands"].([]interface{})
 				if !ok {
 					continue
@@ -258,16 +281,39 @@ func (s *SchoolService) CreateSchoolWithSetup(
 				}
 			}
 		}
+
+		// Load CBC curriculum from embedded FS – no filesystem or network required
+		const embedRoot = "docs/cbc"
+		entries, err := curriculum.CbcFS.ReadDir(embedRoot)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					continue
+				}
+				data, err := curriculum.CbcFS.ReadFile(embedRoot + "/" + entry.Name())
+				if err != nil {
+					s.logger.Error("school service: failed to read embedded cbc file", zap.String("file", entry.Name()), zap.Error(err))
+					continue
+				}
+				processCBC(entry.Name(), data)
+			}
+		} else {
+			s.logger.Error("school service: failed to read embedded cbc docs", zap.Error(err))
+		}
 		if len(subjectsBulk) > 0 {
 			values := make([]string, 0, len(subjectsBulk))
-			args := make([]interface{}, 0, len(subjectsBulk)*4)
+			args := make([]interface{}, 0, len(subjectsBulk)*5)
 			argIdx := 1
 			for _, r := range subjectsBulk {
-				values = append(values, fmt.Sprintf("($%d,$%d,$%d,$%d,'CORE')", argIdx, argIdx+1, argIdx+2, argIdx+3))
-				args = append(args, r.id, r.es, r.name, r.code)
-				argIdx += 4
+				values = append(values, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,'CORE')", argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4))
+				gradeVal := interface{}(r.gradeLevelID)
+				if r.gradeLevelID == "" {
+					gradeVal = nil
+				}
+				args = append(args, r.id, r.es, gradeVal, r.name, r.code)
+				argIdx += 5
 			}
-			sql := fmt.Sprintf(`INSERT INTO subjects (id, education_system_id, name, code, type) VALUES %s ON CONFLICT DO NOTHING`, strings.Join(values, ","))
+			sql := fmt.Sprintf(`INSERT INTO subjects (id, education_system_id, grade_level_id, name, code, type) VALUES %s ON CONFLICT DO NOTHING`, strings.Join(values, ","))
 			if _, err := tx.Exec(ctx, sql, args...); err != nil {
 				return fmt.Errorf("internal_error: bulk insert subjects failed: %w", err)
 			}

@@ -1,0 +1,370 @@
+[
+  {
+    "name": "Mathematics",
+    "code": "MATH_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Numbers",
+        "sub_strands": [
+          {
+            "name": "Whole Numbers up to 10,000",
+            "performance_indicators": [
+              "Read, write, and identify place value of digits in numbers up to 10,000.",
+              "Round off whole numbers to the nearest tens and hundreds.",
+              "Work out word problems involving addition and subtraction of numbers up to 10,000."
+            ]
+          },
+          {
+            "name": "Fractions and Decimals",
+            "performance_indicators": [
+              "Convert improper fractions to mixed numbers and vice versa using visual models.",
+              "Read and write decimals up to one decimal place using tenths fractions."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Measurement",
+        "sub_strands": [
+          {
+            "name": "Time, Mass, and Volume",
+            "performance_indicators": [
+              "Convert time units between hours, minutes, and seconds.",
+              "Solve practical problems involving mass additions in kilograms (kg) and grams (g).",
+              "Calculate volume of simple structural cubes and cuboids using unit cubes."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Geometry and Algebra",
+        "sub_strands": [
+          {
+            "name": "Angles and Algebraic Expressions",
+            "performance_indicators": [
+              "Identify right angles, acute angles, and obtuse angles using clock hands or cardboard cutouts.",
+              "Simplify basic single-variable algebraic expressions involving addition and subtraction."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English",
+    "code": "ENG_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Listening and Speaking",
+        "sub_strands": [
+          {
+            "name": "Oral Communication and Digital Narratives",
+            "performance_indicators": [
+              "Listen attentively to informative texts and note key factual points precisely.",
+              "Use correct grammatical tenses to narrate events and express opinions clearly during group discussions."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Reading and Comprehension",
+        "sub_strands": [
+          {
+            "name": "Literacy, Vocabulary, and Media Texts",
+            "performance_indicators": [
+              "Read informational and fictional texts fluently with accurate punctuation observance.",
+              "Deduce the meaning of unfamiliar vocabulary words using contextual sentence clues.",
+              "Analyze short media texts to identify main themes and character motivations."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Writing and Language Use",
+        "sub_strands": [
+          {
+            "name": "Grammar and Composition",
+            "performance_indicators": [
+              "Apply regular and irregular parts of speech correctly in structured writing prompts.",
+              "Compose multi-paragraph creative narratives using cohesive linking words and correct mechanics."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili",
+    "code": "KISW_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Kusikiliza na Kuzungumza",
+        "sub_strands": [
+          {
+            "name": "Mawasiliano ya Amali",
+            "performance_indicators": [
+              "Kusikiliza kwa makini maelezo ya kiidara na kutoa muhtasari sahihi kwa maneno yajengayo.",
+              "Kutumia viambishi na ngeli za Kiswahili ipasavyo katika mazungumzo ya kila siku."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kusoma na Ufahamu",
+        "sub_strands": [
+          {
+            "name": "Ukusanyaji Taarifa na Fasihi",
+            "performance_indicators": [
+              "Kusoma vitabu na vifungu vya habari kwa ufasaha, kasi inayofaa na kuzingatia viashiria vya vituo.",
+              "Kujibu maswali ya ufahamu ya moja kwa moja na yale yanayohitaji tahakiki na uamuzi."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kuandika na Sarufi",
+        "sub_strands": [
+          {
+            "name": "Insha na Muundo wa Lugha",
+            "performance_indicators": [
+              "Kuandika insha za wasifu na barua zisizo rasmi kwa kufuata miundo rasmi inayokubalika.",
+              "Kutumia alama za nukuu na mabano kwa usahihi katika sentensi na aya fupi."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Science and Technology",
+    "code": "SCI_TECH_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Living Things and their Environment",
+        "sub_strands": [
+          {
+            "name": "Human Body and Special Plants",
+            "performance_indicators": [
+              "Identify the external parts of the human digestive system and outline their primary roles.",
+              "Classify localized green and non-green plants based on visible structural properties.",
+              "Demonstrate safe practices when interacting with small animals within the school ecosystem."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Matter and Energy",
+        "sub_strands": [
+          {
+            "name": "States of Matter and Sound Energy",
+            "performance_indicators": [
+              "Classify substances into solids, liquids, and gases using physical observation tests.",
+              "Demonstrate how sound travels through different materials via simple sensory experiments."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Force and Digital Systems",
+        "sub_strands": [
+          {
+            "name": "Effects of Forces and Basic Computing",
+            "performance_indicators": [
+              "Demonstrate the effects of push and pull forces on the shape and movement of objects.",
+              "Identify core hardware and software components of a digital computing device."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Agriculture and Nutrition",
+    "code": "AGRI_NUTR_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Conservation and Gardening",
+        "sub_strands": [
+          {
+            "name": "Soil Conservation and Small Crops",
+            "performance_indicators": [
+              "Demonstrate practical methods of recovering eroded soils using organic matter.",
+              "Establish and maintain container gardens for growing domestic vegetables and herbs.",
+              "Identify safe techniques for weeding and watering delicate young food crops."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Domestic Animals and Feeding",
+        "sub_strands": [
+          {
+            "name": "Poultry and Small Livestock Maintenance",
+            "performance_indicators": [
+              "Identify domestic poultry breeds and describe their basic water and feeding requirements.",
+              "Maintain clean environments for small farm animals to prevent pest outbreaks."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Nutrition and Food Preparation",
+        "sub_strands": [
+          {
+            "name": "Nutrient Groups and Food Hygiene",
+            "performance_indicators": [
+              "Classify common Kenyan foods according to their primary nutrient contributions.",
+              "Demonstrate sanitary kitchen habits, including clean container preservation and surface sorting."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Social Studies",
+    "code": "SOC_STUD_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Natural and Physical Environment",
+        "sub_strands": [
+          {
+            "name": "Map Work and Physical Features",
+            "performance_indicators": [
+              "Identify the eight compass directions and use them to locate key points on a county map.",
+              "Describe the formation and economic benefits of major landforms in their immediate county.",
+              "Analyze local weather instruments and plot variations using simple grid graphs."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "People and Population Structures",
+        "sub_strands": [
+          {
+            "name": "Cultural Patterns and Historic Elements",
+            "performance_indicators": [
+              "Outline language groups present in their home county and describe factors that unite them.",
+              "Identify and locate key historic monuments and cultural heritage sites within the county boundaries."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Resources and Civic Organization",
+        "sub_strands": [
+          {
+            "name": "Economic Assets and Leadership Systems",
+            "performance_indicators": [
+              "Identify core economic resources within the county and discuss environmental conservation methods.",
+              "Describe the structure and duties of the localized county government administration."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Creative Arts",
+    "code": "CREAT_ART_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Visual Arts and Design",
+        "sub_strands": [
+          {
+            "name": "Graphic Media and 3D Construction",
+            "performance_indicators": [
+              "Create patterns and simple layouts using stencils and cross-hatching pencil lines.",
+              "Model functional pots or vessels using clay coil and slab techniques.",
+              "Design basic decorative items using safe local fabrics and stitching skills."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Music and Theatre Arts",
+        "sub_strands": [
+          {
+            "name": "Vocal Expression and Skits",
+            "performance_indicators": [
+              "Sing programmatic topical melodies in tune, matching rhythmic beats accurately.",
+              "Perform scripted dramatic tableaus and short mimes conveying distinct civic values."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Sports and Health Education",
+        "sub_strands": [
+          {
+            "name": "Athletics and Track Execution",
+            "performance_indicators": [
+              "Demonstrate correct body posture during crouch starts and short sprints.",
+              "Execute safe jumping, landing, and dynamic balance adjustments during physical plays."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Religious Education",
+    "code": "RE_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Christian Religious Education",
+        "sub_strands": [
+          {
+            "name": "Biblical Guidance and Ethical Living",
+            "performance_indicators": [
+              "Analyze biblical leadership qualities shown by historical figures like Samuel and Gideon.",
+              "Apply biblical teachings on self-control, respect, and hard work to daily home routines.",
+              "Locate books of the Old Testament using digital or physical bible indexes smoothly."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Islamic Religious Education",
+        "sub_strands": [
+          {
+            "name": "Surahs, Hadith, and Islamic Character",
+            "performance_indicators": [
+              "Recite and internalize the foundational messages of Surah Al-Qari'ah and Surah At-Takathur.",
+              "Explain the conditions and spiritual importance of observing regular daily Salah.",
+              "Demonstrate kindness and helpful behaviors toward neighborhood elders as guided by the Hadith."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pastoral Instruction Programme",
+    "code": "PAST_G4",
+    "education_level": "Upper_Primary",
+    "strands": [
+      {
+        "name": "Character Integration and Ethics",
+        "sub_strands": [
+          {
+            "name": "Value Solidification and Decision-Making",
+            "performance_indicators": [
+              "Demonstrate proactive integrity and emotional awareness when handling peer pressures.",
+              "Apply constructive dispute resolution steps to maintain unity within the class layout.",
+              "Internalize moral and ethical values through systematic institutional peer reviews."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

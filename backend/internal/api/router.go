@@ -150,6 +150,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 
 	protected.Get("/me", r.Me.getMe)
 	protected.Post("/school/register", r.School.RegisterSchool)
+	protected.Get("/schools", r.School.ListSchools)
 	protected.Post("/school", r.SchoolCreate.CreateSchool)
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
 	protected.Post("/school/streams", r.Streams.CreateStreams)

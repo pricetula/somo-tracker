@@ -26,3 +26,22 @@ export interface RegisterSchoolResponse {
 export async function registerSchool(data: RegisterSchoolPayload): Promise<RegisterSchoolResponse> {
     return api.post<RegisterSchoolResponse>("/api/school/register", data);
 }
+
+export interface SchoolItem {
+    id: string;
+    name: string;
+    role: string;
+    is_active: boolean;
+}
+
+export interface ListSchoolsResponse {
+    code: string;
+    message: string;
+    schools: SchoolItem[];
+    errors: Record<string, unknown>;
+}
+
+/** List schools for the authenticated user in current tenant. */
+export async function listSchools(): Promise<ListSchoolsResponse> {
+    return api.get<ListSchoolsResponse>("/api/schools");
+}

@@ -304,3 +304,47 @@ func (s *SchoolRegistrationService) CreateSchoolWithSetup(
 
 	return schoolID, nil
 }
+
+// ListSchools returns schools for a user within a tenant.
+func (s *SchoolRegistrationService) ListSchools(ctx context.Context, userID, tenantID string) ([]struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+	IsActive bool   `json:"is_active"`
+}, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT s.id, s.school_name, sm.role, sm.is_active
+		FROM schools s
+		JOIN school_memberships sm ON sm.school_id = s.id
+		WHERE s.tenant_id = $1 AND sm.user_id = $2 AND sm.is_active = true
+		ORDER BY s.school_name
+	`, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("internal_error: list schools failed: %w", err)
+	}
+	defer rows.Close()
+
+	var out []struct {
+		ID       string `json:"id"`
+		Name     string `json:"name"`
+		Role     string `json:"role"`
+		IsActive bool   `json:"is_active"`
+	}
+	for rows.Next() {
+		var id, name, role string
+		var isActive bool
+		if err := rows.Scan(&id, &name, &role, &isActive); err != nil {
+			return nil, fmt.Errorf("internal_error: list schools scan failed: %w", err)
+		}
+		out = append(out, struct {
+			ID       string `json:"id"`
+			Name     string `json:"name"`
+			Role     string `json:"role"`
+			IsActive bool   `json:"is_active"`
+		}{ID: id, Name: name, Role: role, IsActive: isActive})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("internal_error: list schools rows err: %w", err)
+	}
+	return out, nil
+}

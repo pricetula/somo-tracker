@@ -188,6 +188,9 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
   upgrading via the shadcn CLI — never by hand.
 - If a shadcn component has a type mismatch with its underlying library (e.g.
   `react-day-picker`), update the library or re-add the component.
+- **Base UI render prop:** Base UI primitives in the current shadcn set (DropdownMenu,
+  SidebarMenuButton, etc.) use a `render` prop for composition, not the legacy `asChild`
+  pattern. Always use `render={<Component />}` instead of `asChild`. Do not use `asChild`.
 
 ---
 

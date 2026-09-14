@@ -31,6 +31,7 @@ type AdminListResponse struct {
 
 type AdminsService interface {
 	ListAdmins(ctx context.Context, schoolID uuid.UUID, page, limit int, search string, invitationStatus string) (*AdminListResponse, error)
+	DeleteAdmins(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error
 }
 
 type adminsService struct {
@@ -40,6 +41,23 @@ type adminsService struct {
 
 func NewAdminsService(pool *pgxpool.Pool, logger *zap.Logger) AdminsService {
 	return &adminsService{pool: pool, logger: logger.With(zap.String("service", "admins"))}
+}
+
+func (s *adminsService) DeleteAdmins(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error {
+	if len(userIDs) == 0 {
+		return fmt.Errorf("bad_request: user_ids must be provided and non-empty")
+	}
+	for _, id := range userIDs {
+		if id == currentUserID {
+			return fmt.Errorf("bad_request: cannot delete yourself")
+		}
+	}
+	query := `DELETE FROM school_memberships WHERE school_id = $1 AND user_id = ANY($2)`
+	_, err := s.pool.Exec(ctx, query, schoolID, userIDs)
+	if err != nil {
+		return fmt.Errorf("delete_admins exec: %w", err)
+	}
+	return nil
 }
 
 func (s *adminsService) ListAdmins(ctx context.Context, schoolID uuid.UUID, page, limit int, search string, invitationStatus string) (*AdminListResponse, error) {

@@ -1,7 +1,16 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import Link from "next/link";
+import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
 import { listAdmins, type AdminListItem } from "@/lib/api/admins";
+import { useDeleteAdmins } from "../hooks/use-admins";
+import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function listAdminsWithFilters(params: {
     page?: number;
@@ -27,6 +36,13 @@ function listAdminsWithFilters(params: {
 }
 
 export function AdminsTable() {
+    const { mutateAsync: deleteAdmins } = useDeleteAdmins();
+    const handleDelete = useCallback(
+        async (id: string | number) => {
+            await deleteAdmins([String(id)]);
+        },
+        [deleteAdmins]
+    );
     const filterGroups = useMemo(
         () => [
             {
@@ -74,26 +90,45 @@ export function AdminsTable() {
                 id: "status",
                 header: "Status",
                 cell: (row: AdminListItem) => {
-                    if (row.accepted_at) return "Accepted";
+                    if (row.accepted_at) return "Accepted Invite";
                     if (row.invited_at) return "Invited";
+                    if (row.is_active) return "Active";
                     return "Pending";
                 },
                 width: "1fr",
             },
             {
-                id: "invited_at",
-                header: "Invited",
-                cell: (row: AdminListItem) => (row.invited_at ? "Yes" : "No"),
-                width: "1fr",
-            },
-            {
-                id: "accepted_at",
-                header: "Accepted Invite",
-                cell: (row: AdminListItem) => (row.accepted_at ? "Yes" : "No"),
-                width: "1fr",
+                id: "actions",
+                header: "",
+                cell: (row: AdminListItem) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger
+                            render={
+                                <Button variant="ghost" size="icon">
+                                    <MoreVertical className="size-4" />
+                                </Button>
+                            }
+                        />
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                                render={<Link href={`/admins/${row.membership_id}`}>Edit</Link>}
+                            />
+                            <DropdownMenuItem
+                                onSelect={() => {
+                                    void handleDelete(row.user_id);
+                                }}
+                                className="text-destructive focus:text-destructive"
+                            >
+                                Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ),
+                width: "50px",
+                align: "right" as const,
             },
         ],
-        []
+        [handleDelete]
     );
 
     return (
@@ -104,11 +139,13 @@ export function AdminsTable() {
         >
             queryKey={["admins"]}
             queryFn={listAdminsWithFilters}
-            getRowId={(row) => row.membership_id}
+            getRowId={(row) => row.user_id}
             columns={columns}
+            isCheckable
             isSearchable
             searchPlaceholder="Search admins…"
             filterGroups={filterGroups}
+            deleteFn={handleDelete}
             pageSize={50}
             height={600}
         />

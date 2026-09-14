@@ -1,15 +1,54 @@
 basePath: /api
 definitions:
-  services.AcademicPeriodRequest:
+  internal_api.deleteAdminsRequest:
+    properties:
+      user_ids:
+        items:
+          type: string
+        type: array
+    type: object
+  somotracker_backend_internal_services.AcademicPeriodRequest:
     properties:
       terms:
         items:
-          $ref: '#/definitions/services.TermInput'
+          $ref: '#/definitions/somotracker_backend_internal_services.TermInput'
         type: array
       year:
         type: integer
     type: object
-  services.TermInput:
+  somotracker_backend_internal_services.AdminListItem:
+    properties:
+      accepted_at:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      invited_at:
+        type: string
+      is_active:
+        type: boolean
+      membership_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  somotracker_backend_internal_services.AdminListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/somotracker_backend_internal_services.AdminListItem'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  somotracker_backend_internal_services.TermInput:
     properties:
       end_date:
         type: string
@@ -30,6 +69,117 @@ info:
   title: Somotracker API
   version: 1.0.0
 paths:
+  /admins:
+    delete:
+      consumes:
+      - application/json
+      description: |-
+        List school admins with pagination and filters (invited/accepted)
+        Delete school members by user IDs; returns error if current user is included
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Search email or full name
+        in: query
+        name: search
+        type: string
+      - description: 'Filter by invitation status: invited|accepted|all (default all)'
+        in: query
+        name: invitation_status
+        type: string
+      - description: User IDs to delete
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.deleteAdminsRequest'
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - ApiKeyAuth: []
+      summary: Delete members
+      tags:
+      - Admins
+      - Admins
+    get:
+      consumes:
+      - application/json
+      description: |-
+        List school admins with pagination and filters (invited/accepted)
+        Delete school members by user IDs; returns error if current user is included
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Search email or full name
+        in: query
+        name: search
+        type: string
+      - description: 'Filter by invitation status: invited|accepted|all (default all)'
+        in: query
+        name: invitation_status
+        type: string
+      - description: User IDs to delete
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.deleteAdminsRequest'
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - ApiKeyAuth: []
+      summary: Delete members
+      tags:
+      - Admins
+      - Admins
   /api/auth/callback:
     get:
       consumes:
@@ -49,6 +199,24 @@ paths:
             additionalProperties: true
             type: object
       summary: Authenticate magic-link token
+      tags:
+      - Auth
+  /api/auth/invite/callback:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Invitation token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirects to frontend
+      summary: Accept invitation and create session
       tags:
       - Auth
   /api/auth/logout:
@@ -111,7 +279,7 @@ paths:
       summary: Get current user
       tags:
       - User
-  /school/academic-period:
+  /api/school/academic-period:
     post:
       consumes:
       - application/json
@@ -122,7 +290,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/services.AcademicPeriodRequest'
+          $ref: '#/definitions/somotracker_backend_internal_services.AcademicPeriodRequest'
       produces:
       - application/json
       responses:
@@ -141,6 +309,28 @@ paths:
       summary: Create academic period
       tags:
       - Academic Periods
+  /school/grades:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+      summary: Get grade levels
+      tags:
+      - Grades
   /school/register:
     post:
       consumes:

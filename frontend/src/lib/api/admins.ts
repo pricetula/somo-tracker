@@ -39,3 +39,13 @@ export async function listAdmins(params: ListAdminsParams = {}): Promise<AdminLi
     const url = `/api/admins${qs.toString() ? `?${qs}` : ""}`;
     return api.get<AdminListResponse>(url);
 }
+
+export interface DeleteAdminsResponse {
+    code: string;
+    message: string;
+    errors: Record<string, unknown>;
+}
+
+export async function deleteAdmins(userIds: string[]): Promise<DeleteAdminsResponse> {
+    return api.delete<DeleteAdminsResponse>("/api/admins", { user_ids: userIds });
+}

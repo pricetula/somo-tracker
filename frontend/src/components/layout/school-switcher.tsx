@@ -18,6 +18,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { useMeSession } from "@/features/auth/hooks/use-me-session";
 import { useSchoolsList } from "@/features/school/hooks/use-schools-list";
+import { setActiveSchool } from "@/lib/api/schools";
 import Link from "next/link";
 
 export function SchoolSwitcher() {
@@ -72,7 +73,16 @@ export function SchoolSwitcher() {
                         sideOffset={4}
                     >
                         {schools.map((school) => (
-                            <DropdownMenuItem key={school.id} className="">
+                            <DropdownMenuItem
+                                key={school.id}
+                                className=""
+                                onClick={async () => {
+                                    if (school.id === me?.active_school_id) return;
+                                    await setActiveSchool({ school_id: school.id });
+                                    // Best-effort refresh of session data
+                                    window.location.reload();
+                                }}
+                            >
                                 <span>{school.name}</span>
                                 {activeSchool?.id === school.id && <Check />}
                             </DropdownMenuItem>

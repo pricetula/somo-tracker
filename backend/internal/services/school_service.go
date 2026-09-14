@@ -311,6 +311,38 @@ func (s *SchoolService) CreateSchoolWithSetup(
 	return schoolID, nil
 }
 
+func (s *SchoolService) SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) (changed bool, err error) {
+	if userID == "" {
+		return false, errors.New("bad_request: user_id is required")
+	}
+	if schoolID == "" {
+		return false, errors.New("bad_request: school_id is required")
+	}
+
+	txErr := database.WithTenantTx(ctx, s.pool, s.logger, tenantID, func(ctx context.Context, tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE school_memberships SET is_active = FALSE WHERE user_id = $1 AND is_active = TRUE`, userID); err != nil {
+			return fmt.Errorf("internal_error: failed to deactivate current school: %w", err)
+		}
+
+		res, err := tx.Exec(ctx, `UPDATE school_memberships SET is_active = TRUE WHERE school_id = $1 AND user_id = $2`, schoolID, userID)
+		if err != nil {
+			return fmt.Errorf("internal_error: failed to activate school: %w", err)
+		}
+		n := res.RowsAffected()
+		if n == 0 {
+			return errors.New("bad_request: school membership not found for user and school")
+		}
+
+		changed = true
+		return nil
+	})
+
+	if txErr != nil {
+		return false, txErr
+	}
+	return changed, nil
+}
+
 // ListSchools returns schools for a user within a tenant.
 func (s *SchoolService) ListSchools(ctx context.Context, userID, tenantID string) ([]struct {
 	ID                  string `json:"id"`

@@ -152,6 +152,31 @@ export interface paths {
             };
         };
     };
+    "/api/school": {
+        /** Creates a new school. Requester must be admin. Auto-creates 3 terms + loads CBE curriculum. */
+        post: {
+            parameters: {
+                body: {
+                    /** School creation payload */
+                    body: { [key: string]: unknown };
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Forbidden */
+                403: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
     "/api/school/academic-period": {
         /** Creates a new academic year with nested terms for the active school. */
         post: {
@@ -207,6 +232,27 @@ export interface paths {
             responses: {
                 /** Created */
                 201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/set-active": {
+        /** Updates the user's active school in DB and session. */
+        post: {
+            parameters: {
+                body: {
+                    /** Active school payload */
+                    body: { [key: string]: unknown };
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
                     schema: { [key: string]: unknown };
                 };
                 /** Bad Request */

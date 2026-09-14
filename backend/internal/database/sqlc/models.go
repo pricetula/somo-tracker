@@ -666,6 +666,8 @@ type Subject struct {
 	ID pgtype.UUID `json:"id"`
 	// FK to education_systems(id). Cascades on education system delete.
 	EducationSystemID pgtype.UUID `json:"education_system_id"`
+	// FK to grade_levels(id). Cascades on grade level delete.
+	GradeLevelID pgtype.UUID `json:"grade_level_id"`
 	// Human-readable subject name (e.g. Mathematics).
 	Name string `json:"name"`
 	// Short subject code (e.g. MAT, ENG). Unique within an education system.

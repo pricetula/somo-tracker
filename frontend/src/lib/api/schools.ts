@@ -61,6 +61,25 @@ export interface ListSchoolsResponse {
     errors: Record<string, unknown>;
 }
 
+export interface SetActiveSchoolPayload {
+    school_id: string;
+}
+
+export interface SetActiveSchoolResponse {
+    code: string;
+    message: string;
+    school_id: string;
+    changed: boolean;
+    errors: Record<string, unknown>;
+}
+
+/** Set the user's active school (updates DB membership + Redis session). */
+export async function setActiveSchool(
+    data: SetActiveSchoolPayload
+): Promise<SetActiveSchoolResponse> {
+    return api.post<SetActiveSchoolResponse>("/api/school/set-active", data);
+}
+
 /** List schools for the authenticated user in current tenant. */
 export async function listSchools(): Promise<ListSchoolsResponse> {
     return api.get<ListSchoolsResponse>("/api/schools");

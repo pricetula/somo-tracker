@@ -279,6 +279,37 @@ paths:
       summary: Get current user
       tags:
       - User
+  /api/school:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new school. Requester must be admin. Auto-creates 3 terms
+        + loads CBE curriculum.
+      parameters:
+      - description: School creation payload
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            type: object
+      summary: Create school (admin-only)
+      tags:
+      - Schools
   /api/school/academic-period:
     post:
       consumes:
@@ -356,6 +387,32 @@ paths:
           schema:
             type: object
       summary: Register a new school
+      tags:
+      - Schools
+  /school/set-active:
+    post:
+      consumes:
+      - application/json
+      description: Updates the user's active school in DB and session.
+      parameters:
+      - description: Active school payload
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: object
+      summary: Set active school
       tags:
       - Schools
   /school/streams:

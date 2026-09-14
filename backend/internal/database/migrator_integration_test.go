@@ -1482,3 +1482,99 @@ func TestMigrator_AttendanceTracking(t *testing.T) {
 			"policy %q qual should reference app.current_tenant_id", policyName)
 	}
 }
+
+// TestMigrator_AddGradeIdToSubjects verifies migration 000013 adds grade_level_id to subjects.
+// Tests: column exists, index exists, FK constraint exists, and basic insert works.
+func TestMigrator_AddGradeIdToSubjects(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// --- Column exists ---
+	var columnExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'subjects' AND column_name = 'grade_level_id'
+		)
+	`).Scan(&columnExists)
+	require.NoError(t, err)
+	require.True(t, columnExists, "subjects.grade_level_id column should exist")
+
+	// --- Index exists ---
+	var indexExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_indexes
+			WHERE schemaname = 'public' AND indexname = 'subjects_grade_level_id_idx'
+		)
+	`).Scan(&indexExists)
+	require.NoError(t, err)
+	require.True(t, indexExists, "subjects_grade_level_id_idx should exist")
+
+	// --- FK constraint exists ---
+	var fkExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.table_constraints tc
+			JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+			WHERE tc.table_name = 'subjects'
+			  AND tc.constraint_type = 'FOREIGN KEY'
+			  AND kcu.column_name = 'grade_level_id'
+		)
+	`).Scan(&fkExists)
+	require.NoError(t, err)
+	require.True(t, fkExists, "subjects.grade_level_id FK constraint should exist")
+
+	// --- Functional check: insert with grade_level_id ---
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback() }()
+
+	var countryID string
+	err = tx.QueryRowContext(ctx, `SELECT id::text FROM countries LIMIT 1`).Scan(&countryID)
+	require.NoError(t, err)
+
+	var eduSysID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO education_systems (country_id, system_name)
+		VALUES ($1, 'Test Sys Grade')
+		RETURNING id::text
+	`, countryID).Scan(&eduSysID)
+	require.NoError(t, err)
+
+	var gradeID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO grade_levels (education_system_id, country_id, tier_stage, local_label, sequence_index)
+		VALUES ($1, $2, 'primary', 'Grade Test', 1)
+		RETURNING id::text
+	`, eduSysID, countryID).Scan(&gradeID)
+	require.NoError(t, err)
+
+	var subjID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO subjects (education_system_id, grade_level_id, name, code, type)
+		VALUES ($1, $2, 'Test Subject', 'TEST01', 'CORE')
+		RETURNING id::text
+	`, eduSysID, gradeID).Scan(&subjID)
+	require.NoError(t, err)
+
+	var fetchedGradeID string
+	err = tx.QueryRowContext(ctx, `SELECT grade_level_id::text FROM subjects WHERE id::text = $1`, subjID).Scan(&fetchedGradeID)
+	require.NoError(t, err)
+	require.Equal(t, gradeID, fetchedGradeID, "subject grade_level_id should be persisted")
+}

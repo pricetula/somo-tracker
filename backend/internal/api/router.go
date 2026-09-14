@@ -30,16 +30,22 @@ var (
 // interfaces (not concrete implementations), which makes it fully testable
 // with mock services.
 type Router struct {
-	Auth            *authHandler
-	Me              *meHandler
-	School          *SchoolHandler
-	AcademicPeriod  *AcademicPeriodHandler
-	Streams         *StreamsHandler
-	Grades          *GradesHandler
-	AdminInvitation *AdminInvitationHandler
-	Admins          *AdminsHandler
-	limiter         *redis_rate.Limiter
-	cfg             *config.Config
+	Auth               *authHandler
+	Me                 *meHandler
+	School             *SchoolHandler
+	AcademicPeriod     *AcademicPeriodHandler
+	Streams            *StreamsHandler
+	Grades             *GradesHandler
+	AdminInvitation    *AdminInvitationHandler
+	Admins             *AdminsHandler
+	Teachers           *TeachersHandler
+	Finance            *FinanceHandler
+	Guardians          *GuardiansHandler
+	TeacherInvitation  *TeacherInvitationHandler
+	FinanceInvitation  *FinanceInvitationHandler
+	GuardianInvitation *GuardianInvitationHandler
+	limiter            *redis_rate.Limiter
+	cfg                *config.Config
 }
 
 // NewRouter creates a Router from the injected services and the Redis
@@ -53,20 +59,29 @@ func NewRouter(
 	streamsSvc services.StreamsService,
 	gradesSvc services.GradesService,
 	adminsSvc services.AdminsService,
+	teachersSvc services.TeachersService,
+	financeSvc services.FinanceService,
+	guardiansSvc services.GuardiansService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
 	return &Router{
-		Auth:            newAuthHandler(authSvc, cfg),
-		Me:              newMeHandler(meSvc),
-		School:          NewSchoolHandler(&schoolSvc),
-		AcademicPeriod:  NewAcademicPeriodHandler(academicSvc),
-		Streams:         NewStreamsHandler(streamsSvc),
-		Grades:          NewGradesHandler(gradesSvc),
-		Admins:          NewAdminsHandler(adminsSvc, zap.L()),
-		AdminInvitation: nil,
-		limiter:         limiter,
-		cfg:             cfg,
+		Auth:               newAuthHandler(authSvc, cfg),
+		Me:                 newMeHandler(meSvc),
+		School:             NewSchoolHandler(&schoolSvc),
+		AcademicPeriod:     NewAcademicPeriodHandler(academicSvc),
+		Streams:            NewStreamsHandler(streamsSvc),
+		Grades:             NewGradesHandler(gradesSvc),
+		Admins:             NewAdminsHandler(adminsSvc, zap.L()),
+		Teachers:           NewTeachersHandler(teachersSvc, zap.L()),
+		Finance:            NewFinanceHandler(financeSvc, zap.L()),
+		Guardians:          NewGuardiansHandler(guardiansSvc, zap.L()),
+		AdminInvitation:    nil,
+		TeacherInvitation:  nil,
+		FinanceInvitation:  nil,
+		GuardianInvitation: nil,
+		limiter:            limiter,
+		cfg:                cfg,
 	}
 }
 
@@ -137,8 +152,29 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/school/grades", r.Grades.GetGrades)
 	protected.Get("/admins", r.Admins.ListAdmins)
 	protected.Delete("/admins", r.Admins.DeleteAdmins)
+	protected.Get("/teachers", r.Teachers.ListTeachers)
+	protected.Delete("/teachers", r.Teachers.DeleteTeachers)
+	protected.Get("/finance", r.Finance.ListFinance)
+	protected.Delete("/finance", r.Finance.DeleteFinance)
+	protected.Get("/guardians", r.Guardians.ListGuardians)
+	protected.Delete("/guardians", r.Guardians.DeleteGuardians)
 	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
 	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
 	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)
 	protected.Get("/admins/invitations/jobs/:job_id/events", r.AdminInvitation.Events)
+	// Teacher invitations
+	protected.Post("/teachers/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:teacher:invite:tenant"), r.TeacherInvitation.HandleInvites)
+	protected.Get("/teachers/invitations/jobs/:job_id", r.TeacherInvitation.GetJob)
+	protected.Post("/teachers/invitations/jobs/:job_id/retry-failed", r.TeacherInvitation.RetryFailed)
+	protected.Get("/teachers/invitations/jobs/:job_id/events", r.TeacherInvitation.Events)
+	// Finance invitations
+	protected.Post("/finance/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:finance:invite:tenant"), r.FinanceInvitation.HandleInvites)
+	protected.Get("/finance/invitations/jobs/:job_id", r.FinanceInvitation.GetJob)
+	protected.Post("/finance/invitations/jobs/:job_id/retry-failed", r.FinanceInvitation.RetryFailed)
+	protected.Get("/finance/invitations/jobs/:job_id/events", r.FinanceInvitation.Events)
+	// Guardian invitations
+	protected.Post("/guardians/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:guardian:invite:tenant"), r.GuardianInvitation.HandleInvites)
+	protected.Get("/guardians/invitations/jobs/:job_id", r.GuardianInvitation.GetJob)
+	protected.Post("/guardians/invitations/jobs/:job_id/retry-failed", r.GuardianInvitation.RetryFailed)
+	protected.Get("/guardians/invitations/jobs/:job_id/events", r.GuardianInvitation.Events)
 }

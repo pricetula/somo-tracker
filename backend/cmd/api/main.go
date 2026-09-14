@@ -57,6 +57,9 @@ func main() {
 			return services.NewGradesService(pool, q, logger)
 		}),
 		fx.Provide(services.NewAdminsService),
+		fx.Provide(services.NewTeachersService),
+		fx.Provide(services.NewFinanceService),
+		fx.Provide(services.NewGuardiansService),
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),
@@ -162,6 +165,18 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB})
 	router.AdminInvitation = api.NewAdminInvitationHandler(invSvc, stytchClient, asynqClient, redisClient, logger)
 
+	// Initialize teacher invitation dependencies
+	teacherInvSvc := services.NewTeacherInvitationService(pool, logger)
+	router.TeacherInvitation = api.NewTeacherInvitationHandler(teacherInvSvc, stytchClient, asynqClient, redisClient, logger)
+
+	// Initialize finance invitation dependencies
+	financeInvSvc := services.NewFinanceInvitationService(pool, logger)
+	router.FinanceInvitation = api.NewFinanceInvitationHandler(financeInvSvc, stytchClient, asynqClient, redisClient, logger)
+
+	// Initialize guardian invitation dependencies
+	guardianInvSvc := services.NewGuardianInvitationService(pool, logger)
+	router.GuardianInvitation = api.NewGuardianInvitationHandler(guardianInvSvc, stytchClient, asynqClient, redisClient, logger)
+
 	router.RegisterRoutes(app, redisClient, logger, pool)
 
 	// Start Asynq worker for admin invitation batches
@@ -169,6 +184,18 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	processor := worker.NewAdminInvitationProcessor(invSvc, stytchClient, logger, redisClient)
 	mux.HandleFunc("admin:invitation:batch", processor.ProcessTask)
 	mux.HandleFunc("admin:invitation:retry", processor.ProcessRetryTask)
+	// Teacher invitation worker
+	teacherProcessor := worker.NewTeacherInvitationProcessor(teacherInvSvc, stytchClient, logger, redisClient)
+	mux.HandleFunc("teacher:invitation:batch", teacherProcessor.ProcessTask)
+	mux.HandleFunc("teacher:invitation:retry", teacherProcessor.ProcessRetryTask)
+	// Finance invitation worker
+	financeProcessor := worker.NewFinanceInvitationProcessor(financeInvSvc, stytchClient, logger, redisClient)
+	mux.HandleFunc("finance:invitation:batch", financeProcessor.ProcessTask)
+	mux.HandleFunc("finance:invitation:retry", financeProcessor.ProcessRetryTask)
+	// Guardian invitation worker
+	guardianProcessor := worker.NewGuardianInvitationProcessor(guardianInvSvc, stytchClient, logger, redisClient)
+	mux.HandleFunc("guardian:invitation:batch", guardianProcessor.ProcessTask)
+	mux.HandleFunc("guardian:invitation:retry", guardianProcessor.ProcessRetryTask)
 	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB}, asynq.Config{
 		Concurrency: 10,
 		Queues:      map[string]int{"admin_invitation": 1},

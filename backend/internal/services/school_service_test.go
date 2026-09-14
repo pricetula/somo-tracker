@@ -10,7 +10,7 @@ import (
 )
 
 func TestSchoolRegistration_ValidationErrors(t *testing.T) {
-	svc := NewSchoolRegistrationService(nil, zap.NewNop())
+	svc := NewSchoolService(nil, zap.NewNop())
 
 	_, err := svc.RegisterSchool(context.Background(), "", "t1", "Alice", "School")
 	require.Error(t, err)
@@ -21,7 +21,7 @@ func TestSchoolRegistration_TransactionalFlow_RealDB(t *testing.T) {
 	pool := getTestDBPool(t)
 	defer pool.Close()
 
-	svc := NewSchoolRegistrationService(pool, zap.NewNop())
+	svc := NewSchoolService(pool, zap.NewNop())
 
 	// The service validates inputs before any DB interaction.
 	_, err := svc.RegisterSchool(context.Background(), "bad-user", "bad-tenant", "", "School")
@@ -33,7 +33,7 @@ func TestCreateSchoolWithSetup_RealDB(t *testing.T) {
 	pool := getTestDBPool(t)
 	defer pool.Close()
 
-	svc := NewSchoolRegistrationService(pool, zap.NewNop())
+	svc := NewSchoolService(pool, zap.NewNop())
 
 	// Without admin membership this should return forbidden
 	_, err := svc.CreateSchoolWithSetup(context.Background(), "non-admin-user-id", "some-tenant", "Test School")
@@ -45,7 +45,7 @@ func TestCreateSchoolWithSetup_VerifyAllDBTables(t *testing.T) {
 	pool := getTestDBPool(t)
 	defer pool.Close()
 
-	svc := NewSchoolRegistrationService(pool, zap.NewNop())
+	svc := NewSchoolService(pool, zap.NewNop())
 
 	// Setup prerequisites: tenant + admin user
 	var tenantID string

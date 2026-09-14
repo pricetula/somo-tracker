@@ -18,11 +18,11 @@ import (
 // - Load CBE subjects/topics/sub-topics from docs/cbc/ JSON files
 
 type SchoolCreateHandler struct {
-	service *services.SchoolRegistrationService
+	service *services.SchoolService
 	session *session.Store
 }
 
-func NewSchoolCreateHandler(svc *services.SchoolRegistrationService) *SchoolCreateHandler {
+func NewSchoolCreateHandler(svc *services.SchoolService) *SchoolCreateHandler {
 	return &SchoolCreateHandler{service: svc}
 }
 

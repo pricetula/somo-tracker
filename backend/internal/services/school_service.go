@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,19 +18,19 @@ import (
 	"somotracker/backend/internal/database"
 )
 
-// SchoolRegistrationService handles the school registration flow:
+// SchoolService handles school domain operations:
 // 1. Update user's full_name
 // 2. Create new school with default country and education system
 // 3. Create school membership with role=ADMIN
-type SchoolRegistrationService struct {
+type SchoolService struct {
 	pool   *pgxpool.Pool
 	logger *zap.Logger
 }
 
-func NewSchoolRegistrationService(pool *pgxpool.Pool, logger *zap.Logger) SchoolRegistrationService {
-	return SchoolRegistrationService{
+func NewSchoolService(pool *pgxpool.Pool, logger *zap.Logger) SchoolService {
+	return SchoolService{
 		pool:   pool,
-		logger: logger.With(zap.String("service", "school_registration")),
+		logger: logger.With(zap.String("service", "school")),
 	}
 }
 
@@ -37,7 +38,7 @@ func NewSchoolRegistrationService(pool *pgxpool.Pool, logger *zap.Logger) School
 // 1. Update user's full_name
 // 2. Create new school with default country and education system
 // 3. Create school membership with role=ADMIN
-func (s *SchoolRegistrationService) RegisterSchool(
+func (s *SchoolService) RegisterSchool(
 	ctx context.Context,
 	userID, tenantID, userName, schoolName string,
 ) (schoolID string, err error) {
@@ -96,7 +97,7 @@ func (s *SchoolRegistrationService) RegisterSchool(
 }
 
 // CreateSchoolWithSetup creates a new school with admin check, academic periods, and CBE curriculum.
-func (s *SchoolRegistrationService) CreateSchoolWithSetup(
+func (s *SchoolService) CreateSchoolWithSetup(
 	ctx context.Context,
 	userID, tenantID, schoolName string,
 ) (schoolID string, err error) {
@@ -311,17 +312,21 @@ func (s *SchoolRegistrationService) CreateSchoolWithSetup(
 }
 
 // ListSchools returns schools for a user within a tenant.
-func (s *SchoolRegistrationService) ListSchools(ctx context.Context, userID, tenantID string) ([]struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Role     string `json:"role"`
-	IsActive bool   `json:"is_active"`
+func (s *SchoolService) ListSchools(ctx context.Context, userID, tenantID string) ([]struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	CountryName         string `json:"country_name"`
+	EducationSystemName string `json:"education_system_name"`
+	Role                string `json:"role"`
+	IsActive            bool   `json:"is_active"`
 }, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT s.id, s.school_name, sm.role, sm.is_active
+		SELECT s.id, s.school_name, c.country_name, es.system_name, sm.role, COALESCE(sm.is_active, false)
 		FROM schools s
-		JOIN school_memberships sm ON sm.school_id = s.id
-		WHERE s.tenant_id = $1 AND sm.user_id = $2 AND sm.is_active = true
+		JOIN countries c ON c.id = s.country_id
+		JOIN education_systems es ON es.id = s.education_system_id
+		LEFT JOIN school_memberships sm ON sm.school_id = s.id AND sm.user_id = $2
+		WHERE s.tenant_id = $1
 		ORDER BY s.school_name
 	`, tenantID, userID)
 	if err != nil {
@@ -330,23 +335,27 @@ func (s *SchoolRegistrationService) ListSchools(ctx context.Context, userID, ten
 	defer rows.Close()
 
 	var out []struct {
-		ID       string `json:"id"`
-		Name     string `json:"name"`
-		Role     string `json:"role"`
-		IsActive bool   `json:"is_active"`
+		ID                  string `json:"id"`
+		Name                string `json:"name"`
+		CountryName         string `json:"country_name"`
+		EducationSystemName string `json:"education_system_name"`
+		Role                string `json:"role"`
+		IsActive            bool   `json:"is_active"`
 	}
 	for rows.Next() {
-		var id, name, role string
+		var id, name, countryName, educationSystemName, role sql.NullString
 		var isActive bool
-		if err := rows.Scan(&id, &name, &role, &isActive); err != nil {
+		if err := rows.Scan(&id, &name, &countryName, &educationSystemName, &role, &isActive); err != nil {
 			return nil, fmt.Errorf("internal_error: list schools scan failed: %w", err)
 		}
 		out = append(out, struct {
-			ID       string `json:"id"`
-			Name     string `json:"name"`
-			Role     string `json:"role"`
-			IsActive bool   `json:"is_active"`
-		}{ID: id, Name: name, Role: role, IsActive: isActive})
+			ID                  string `json:"id"`
+			Name                string `json:"name"`
+			CountryName         string `json:"country_name"`
+			EducationSystemName string `json:"education_system_name"`
+			Role                string `json:"role"`
+			IsActive            bool   `json:"is_active"`
+		}{ID: id.String, Name: name.String, CountryName: countryName.String, EducationSystemName: educationSystemName.String, Role: role.String, IsActive: isActive})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("internal_error: list schools rows err: %w", err)

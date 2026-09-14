@@ -11,11 +11,11 @@ import (
 
 // SchoolHandler handles the school registration endpoint.
 type SchoolHandler struct {
-	service *services.SchoolRegistrationService
+	service *services.SchoolService
 	session *session.Store
 }
 
-func NewSchoolHandler(svc *services.SchoolRegistrationService) *SchoolHandler {
+func NewSchoolHandler(svc *services.SchoolService) *SchoolHandler {
 	return &SchoolHandler{service: svc}
 }
 

@@ -62,7 +62,7 @@ func newTestRouter(mock *mockAuthService) *fiber.App {
 	cfg := &config.Config{
 		CAPTCHAEnabled: false,
 	}
-	router := NewRouter(mock, nil, services.NewSchoolRegistrationService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, cfg)
+	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, cfg)
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil, nil)
 	return app
@@ -340,7 +340,7 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{CAPTCHAEnabled: false}
-	router := NewRouter(mock, nil, services.NewSchoolRegistrationService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, cfg) // nil limiter → passes through
+	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, cfg) // nil limiter → passes through
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil, nil)
 

@@ -50,7 +50,7 @@ func main() {
 		fx.Provide(newQuerier),
 		fx.Provide(services.NewAuthService),
 		fx.Provide(services.NewMeService),
-		fx.Provide(services.NewSchoolRegistrationService),
+		fx.Provide(services.NewSchoolService),
 		fx.Provide(services.NewAcademicPeriodService),
 		fx.Provide(services.NewStreamsService),
 		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.GradesService {

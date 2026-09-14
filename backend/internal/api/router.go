@@ -55,7 +55,7 @@ type Router struct {
 func NewRouter(
 	authSvc services.AuthService,
 	meSvc services.MeService,
-	schoolSvc services.SchoolRegistrationService,
+	schoolSvc services.SchoolService,
 	academicSvc services.AcademicPeriodService,
 	streamsSvc services.StreamsService,
 	gradesSvc services.GradesService,

@@ -5,12 +5,21 @@
  * Matches the intercepting route `@modal/(.)schools/new`.
  */
 
+import { useRouter } from "next/navigation";
 import { CreateSchoolForm } from "@/features/school";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function NewSchoolModal() {
+    const router = useRouter();
+
+    const handleOpenChange = (open: boolean) => {
+        if (!open) {
+            router.back();
+        }
+    };
+
     return (
-        <Dialog open>
+        <Dialog open onOpenChange={handleOpenChange}>
             <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Create School</DialogTitle>

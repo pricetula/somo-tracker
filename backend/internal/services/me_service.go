@@ -55,7 +55,7 @@ FROM
 JOIN 
     users u ON s.user_id = u.id
 LEFT JOIN 
-    school_memberships sm ON u.id = sm.user_id
+    school_memberships sm ON u.id = sm.user_id AND sm.is_active = TRUE
 LEFT JOIN 
     schools sch ON sm.school_id = sch.id
 WHERE 

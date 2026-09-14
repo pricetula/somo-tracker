@@ -24,6 +24,7 @@ export function useCreateSchool() {
         onSuccess: (data) => {
             toast.success(data.message ?? "School created successfully");
             queryClient.invalidateQueries({ queryKey: schoolsQueryKeys.list });
+            queryClient.invalidateQueries({ queryKey: ["me"] });
         },
         onError: (err) => {
             const msg = getErrorMessage(err);

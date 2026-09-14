@@ -146,6 +146,7 @@ export function AdminsTable() {
             searchPlaceholder="Search admins…"
             filterGroups={filterGroups}
             deleteFn={handleDelete}
+            addHref="/admins/invite"
             pageSize={50}
             height={600}
         />

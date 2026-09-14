@@ -6,10 +6,10 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-    createGuardianInvitations,
-    getGuardianInvitationJob,
-    retryGuardianInvitations,
-} from "@/lib/api/guardian-invitations";
+    createGuardiansInvitations,
+    getGuardiansInvitationJob,
+    retryGuardiansInvitations,
+} from "@/lib/api/guardians-invitations";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
@@ -29,7 +29,7 @@ export function useBulkInviteGuardians() {
         mutationKey: guardianInvitationKeys.bulk,
         mutationFn: (payload) => {
             const idempotencyKey = payload.idempotencyKey ?? crypto.randomUUID();
-            return createGuardianInvitations({ invitations: payload.invitations }, idempotencyKey);
+            return createGuardiansInvitations({ invitations: payload.invitations }, idempotencyKey);
         },
         onSuccess: (data) => {
             toast.success(data.message ?? "Invitation job queued");
@@ -45,7 +45,7 @@ export function useGuardianInvitationJob(jobId: string | undefined) {
         queryKey: guardianInvitationKeys.job(jobId ?? ""),
         queryFn: async () => {
             if (!jobId) throw new Error("jobId required");
-            return getGuardianInvitationJob(jobId);
+            return getGuardiansInvitationJob(jobId);
         },
         enabled: !!jobId,
     });
@@ -54,7 +54,7 @@ export function useGuardianInvitationJob(jobId: string | undefined) {
 export function useRetryGuardianInvitations() {
     return useMutation({
         mutationKey: guardianInvitationKeys.retry("retry"),
-        mutationFn: (jobId: string) => retryGuardianInvitations(jobId),
+        mutationFn: (jobId: string) => retryGuardiansInvitations(jobId),
         onSuccess: (data) => {
             toast.success(data.message ?? `Retry queued`);
         },

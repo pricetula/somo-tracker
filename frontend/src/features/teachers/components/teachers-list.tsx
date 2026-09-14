@@ -144,6 +144,7 @@ export function TeachersTable() {
             searchPlaceholder="Search teachers…"
             filterGroups={filterGroups}
             deleteFn={handleDelete}
+            addHref="/teachers/invite"
             pageSize={50}
             height={600}
         />

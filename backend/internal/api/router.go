@@ -33,6 +33,7 @@ type Router struct {
 	Auth               *authHandler
 	Me                 *meHandler
 	School             *SchoolHandler
+	SchoolCreate       *SchoolCreateHandler
 	AcademicPeriod     *AcademicPeriodHandler
 	Streams            *StreamsHandler
 	Grades             *GradesHandler
@@ -69,6 +70,7 @@ func NewRouter(
 		Auth:               newAuthHandler(authSvc, cfg),
 		Me:                 newMeHandler(meSvc),
 		School:             NewSchoolHandler(&schoolSvc),
+		SchoolCreate:       NewSchoolCreateHandler(&schoolSvc),
 		AcademicPeriod:     NewAcademicPeriodHandler(academicSvc),
 		Streams:            NewStreamsHandler(streamsSvc),
 		Grades:             NewGradesHandler(gradesSvc),
@@ -141,12 +143,14 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
 	// CSRF middleware validates double-submit token on mutating requests.
 	r.School.session = sessionpkg.NewStore(redisClient)
+	r.SchoolCreate.session = sessionpkg.NewStore(redisClient)
 
 	// Initialize the admin invitation handler.
 	// Handler is pre-configured in newFiberApp with service/stytch/asynq dependencies.
 
 	protected.Get("/me", r.Me.getMe)
 	protected.Post("/school/register", r.School.RegisterSchool)
+	protected.Post("/school", r.SchoolCreate.CreateSchool)
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
 	protected.Post("/school/streams", r.Streams.CreateStreams)
 	protected.Get("/school/grades", r.Grades.GetGrades)

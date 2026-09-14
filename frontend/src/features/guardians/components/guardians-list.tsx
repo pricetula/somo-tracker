@@ -144,6 +144,7 @@ export function GuardiansTable() {
             searchPlaceholder="Search guardians…"
             filterGroups={filterGroups}
             deleteFn={handleDelete}
+            addHref="/guardians/invite"
             pageSize={50}
             height={600}
         />

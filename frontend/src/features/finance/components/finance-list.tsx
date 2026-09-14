@@ -144,6 +144,7 @@ export function FinanceTable() {
             searchPlaceholder="Search finance…"
             filterGroups={filterGroups}
             deleteFn={handleDelete}
+            addHref="/finance/invite"
             pageSize={50}
             height={600}
         />

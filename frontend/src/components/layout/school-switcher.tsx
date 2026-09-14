@@ -15,12 +15,13 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar";
+import { Spinner } from "@/components/ui/spinner";
 import { useMeSession } from "@/features/auth/hooks/use-me-session";
 import { useSchoolsList } from "@/features/school/hooks/use-schools-list";
 import Link from "next/link";
 
 export function SchoolSwitcher() {
-    const { isMobile } = useSidebar();
+    const { isMobile, open } = useSidebar();
     const { data: me } = useMeSession();
     const { data: schools = [], isLoading } = useSchoolsList();
 
@@ -38,14 +39,30 @@ export function SchoolSwitcher() {
                                 size="lg"
                                 className="data-[state=open]:bg-muted data-[state=open]:text-foreground"
                             >
-                                <div className="grid flex-1 text-left leading-tight">
-                                    <span className="truncate">
-                                        {isLoading
-                                            ? "Loading..."
-                                            : (activeSchool?.name ?? "No school")}
-                                    </span>
-                                </div>
-                                <ChevronsUpDownIcon className="ml-auto size-4" />
+                                {open ? (
+                                    <>
+                                        <div className="grid flex-1 text-left leading-tight">
+                                            <span className="truncate">
+                                                {isLoading ? (
+                                                    <Spinner />
+                                                ) : (
+                                                    (activeSchool?.name ?? "No school")
+                                                )}
+                                            </span>
+                                        </div>
+                                        <ChevronsUpDownIcon className="ml-auto size-4" />
+                                    </>
+                                ) : (
+                                    <div className="flex w-full justify-center">
+                                        <span className="bg-primary flex items-center justify-center rounded-md p-2 py-1 capitalize">
+                                            {isLoading ? (
+                                                <Spinner />
+                                            ) : (
+                                                (activeSchool?.name?.[0] ?? "-")
+                                            )}
+                                        </span>
+                                    </div>
+                                )}
                             </SidebarMenuButton>
                         }
                     />

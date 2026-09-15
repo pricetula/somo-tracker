@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2 } from "lucide-react";
-import { useCreateStreams, useGrades } from "../hooks/use-streams";
+import { useCreateStreams } from "../hooks/use-streams";
+import { useGrades } from "@/features/grades/hooks/use-grades";
 import { useMeSession } from "@/features/auth/hooks/use-me-session";
 
 interface CreateStreamsProps {

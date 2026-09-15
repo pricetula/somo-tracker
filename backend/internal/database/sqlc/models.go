@@ -316,6 +316,62 @@ type AcademicYear struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Generic bulk ingestion jobs. Reusable across admin invitations, student imports, exam results, staff imports, and future bulk operations.
+type BulkJob struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// Bulk operation category. Extendable via CHECK constraint or lookup table migration.
+	JobType string `json:"job_type"`
+	// Client-supplied idempotency token to prevent duplicate submissions.
+	IdempotencyKey string `json:"idempotency_key"`
+	// School scope for the bulk operation.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// Tenant isolation anchor.
+	TenantID pgtype.UUID `json:"tenant_id"`
+	// User who submitted the bulk job.
+	CreatedBy pgtype.UUID `json:"created_by"`
+	// Processing lifecycle: QUEUED, PROCESSING, COMPLETED, COMPLETED_WITH_ERRORS, FAILED.
+	Status string `json:"status"`
+	// Total rows submitted in the payload.
+	TotalRecords int32 `json:"total_records"`
+	// Rows successfully processed.
+	SucceededCount int32 `json:"succeeded_count"`
+	// Rows that failed permanently.
+	FailedCount int32 `json:"failed_count"`
+	// Rows deferred (e.g. retry queued).
+	DeferredCount int32 `json:"deferred_count"`
+	// Job-type-specific summary info, e.g. source file name.
+	Metadata []byte `json:"metadata"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Individual row-level records for each bulk ingestion job.
+type BulkJobItem struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// Parent bulk job reference.
+	JobID pgtype.UUID `json:"job_id"`
+	// Original array position in the submitted payload; maps errors back to client.
+	RowIndex int32 `json:"row_index"`
+	// Full submitted row, e.g. {"email":"...","full_name":"...","role":"..."}.
+	Payload []byte `json:"payload"`
+	// Output data on success, e.g. {"stytch_invite_id":"...","stytch_member_id":"..."}.
+	Result []byte `json:"result"`
+	// Per-row processing lifecycle.
+	Status string `json:"status"`
+	// Number of processing attempts made.
+	AttemptCount int32 `json:"attempt_count"`
+	// Human-readable or structured error message from the last failed attempt.
+	LastError pgtype.Text `json:"last_error"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 // Operational classroom container per academic year and stream (e.g., Class 1 Blue, Class 3 Yellow). Each academic year creates new class_room entries.
 type ClassRoom struct {
 	// Auto-generated UUID primary key.
@@ -666,8 +722,6 @@ type Subject struct {
 	ID pgtype.UUID `json:"id"`
 	// FK to education_systems(id). Cascades on education system delete.
 	EducationSystemID pgtype.UUID `json:"education_system_id"`
-	// FK to grade_levels(id). Cascades on grade level delete.
-	GradeLevelID pgtype.UUID `json:"grade_level_id"`
 	// Human-readable subject name (e.g. Mathematics).
 	Name string `json:"name"`
 	// Short subject code (e.g. MAT, ENG). Unique within an education system.
@@ -678,6 +732,8 @@ type Subject struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	// FK to grade_levels(id). The grade level this subject belongs to. Cascades on grade level delete. Nullable for legacy subjects.
+	GradeLevelID pgtype.UUID `json:"grade_level_id"`
 }
 
 // Maps 1:1 to a Stytch OIDC organization. All Somotracker data is scoped under exactly one tenant row.

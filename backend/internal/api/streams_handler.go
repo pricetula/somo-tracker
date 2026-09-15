@@ -16,6 +16,35 @@ func NewStreamsHandler(svc services.StreamsService) *StreamsHandler {
 	return &StreamsHandler{service: svc}
 }
 
+// ListStreams lists all streams for the active school.
+//
+// @Summary List streams
+// @Description Lists all streams for the active school.
+// @Tags Streams
+// @Produce json
+// @Success 200 {object} object
+// @Failure 401 {object} object
+// @Router /school/streams [get]
+func (h *StreamsHandler) ListStreams(c fiber.Ctx) error {
+	schoolID, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
+	}
+
+	streams, err := h.service.ListStreams(c.Context(), schoolID)
+	if err != nil {
+		go_uber_zap.L().Error("streams: list failed", go_uber_zap.Error(err))
+		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to list streams")
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "streams_listed",
+		"message": "Streams listed successfully",
+		"streams": streams,
+		"errors":  fiber.Map{},
+	})
+}
+
 // CreateStreams creates one or more streams for the active school.
 //
 // @Summary Create streams

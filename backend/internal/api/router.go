@@ -37,6 +37,7 @@ type Router struct {
 	AcademicPeriod     *AcademicPeriodHandler
 	Streams            *StreamsHandler
 	Grades             *GradesHandler
+	Classes            *ClassesHandler
 	AdminInvitation    *AdminInvitationHandler
 	Admins             *AdminsHandler
 	Teachers           *TeachersHandler
@@ -59,6 +60,7 @@ func NewRouter(
 	academicSvc services.AcademicPeriodService,
 	streamsSvc services.StreamsService,
 	gradesSvc services.GradesService,
+	classesSvc services.ClassesService,
 	adminsSvc services.AdminsService,
 	teachersSvc services.TeachersService,
 	financeSvc services.FinanceService,
@@ -74,6 +76,7 @@ func NewRouter(
 		AcademicPeriod:     NewAcademicPeriodHandler(academicSvc),
 		Streams:            NewStreamsHandler(streamsSvc),
 		Grades:             NewGradesHandler(gradesSvc),
+		Classes:            NewClassesHandler(classesSvc, zap.L()),
 		Admins:             NewAdminsHandler(adminsSvc, zap.L()),
 		Teachers:           NewTeachersHandler(teachersSvc, zap.L()),
 		Finance:            NewFinanceHandler(financeSvc, zap.L()),
@@ -154,8 +157,12 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Post("/school", r.SchoolCreate.CreateSchool)
 	protected.Post("/school/set-active", r.School.SetActiveSchool)
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
+	protected.Get("/school/streams", r.Streams.ListStreams)
 	protected.Post("/school/streams", r.Streams.CreateStreams)
 	protected.Get("/school/grades", r.Grades.GetGrades)
+	protected.Get("/school/classes", r.Classes.ListClasses)
+	protected.Get("/school/classes/:id", r.Classes.GetClass)
+	protected.Post("/school/classes", r.Classes.CreateClass)
 	protected.Get("/admins", r.Admins.ListAdmins)
 	protected.Delete("/admins", r.Admins.DeleteAdmins)
 	protected.Get("/teachers", r.Teachers.ListTeachers)

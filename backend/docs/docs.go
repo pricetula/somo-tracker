@@ -75,7 +75,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api.deleteAdminsRequest"
+                            "$ref": "#/definitions/api.deleteAdminsRequest"
                         }
                     }
                 ],
@@ -156,7 +156,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api.deleteAdminsRequest"
+                            "$ref": "#/definitions/api.deleteAdminsRequest"
                         }
                     }
                 ],
@@ -402,7 +402,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/somotracker_backend_internal_services.AcademicPeriodRequest"
+                            "$ref": "#/definitions/services.AcademicPeriodRequest"
                         }
                     }
                 ],
@@ -423,6 +423,156 @@ const docTemplate = `{
                         "description": "Unauthorized",
                         "schema": {
                             "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/school/classes": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "List classes",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated grade labels",
+                        "name": "grade",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated stream names",
+                        "name": "stream",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "Create class",
+                "parameters": [
+                    {
+                        "description": "Class payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.createClassRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/school/classes/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "Get class",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Class ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -593,7 +743,21 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "internal_api.deleteAdminsRequest": {
+        "api.createClassRequest": {
+            "type": "object",
+            "properties": {
+                "gradeId": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "streamId": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.deleteAdminsRequest": {
             "type": "object",
             "properties": {
                 "user_ids": {
@@ -604,13 +768,13 @@ const docTemplate = `{
                 }
             }
         },
-        "somotracker_backend_internal_services.AcademicPeriodRequest": {
+        "services.AcademicPeriodRequest": {
             "type": "object",
             "properties": {
                 "terms": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/somotracker_backend_internal_services.TermInput"
+                        "$ref": "#/definitions/services.TermInput"
                     }
                 },
                 "year": {
@@ -618,7 +782,7 @@ const docTemplate = `{
                 }
             }
         },
-        "somotracker_backend_internal_services.AdminListItem": {
+        "services.AdminListItem": {
             "type": "object",
             "properties": {
                 "accepted_at": {
@@ -647,13 +811,13 @@ const docTemplate = `{
                 }
             }
         },
-        "somotracker_backend_internal_services.AdminListResponse": {
+        "services.AdminListResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/somotracker_backend_internal_services.AdminListItem"
+                        "$ref": "#/definitions/services.AdminListItem"
                     }
                 },
                 "limit": {
@@ -667,7 +831,7 @@ const docTemplate = `{
                 }
             }
         },
-        "somotracker_backend_internal_services.TermInput": {
+        "services.TermInput": {
             "type": "object",
             "properties": {
                 "end_date": {

@@ -13,6 +13,7 @@ import (
 )
 
 type StreamsService interface {
+	ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error)
 	CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error)
 }
 
@@ -28,6 +29,21 @@ func NewStreamsService(pool *pgxpool.Pool, queries *sqlc.Queries, logger *zap.Lo
 		queries: queries,
 		logger:  logger.With(zap.String("service", "streams")),
 	}
+}
+
+func (s *streamsService) ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error) {
+	if schoolID == "" {
+		return nil, fmt.Errorf("bad_request: school_id is required")
+	}
+	schoolUUID, err := uuid.Parse(schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("bad_request: invalid school_id")
+	}
+	rows, err := s.queries.ListStreamsBySchool(ctx, pgtype.UUID{Bytes: schoolUUID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("internal_error: failed to list streams: %w", err)
+	}
+	return rows, nil
 }
 
 func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error) {

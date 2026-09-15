@@ -1,22 +1,31 @@
 basePath: /api
 definitions:
-  internal_api.deleteAdminsRequest:
+  api.createClassRequest:
+    properties:
+      gradeId:
+        type: string
+      name:
+        type: string
+      streamId:
+        type: string
+    type: object
+  api.deleteAdminsRequest:
     properties:
       user_ids:
         items:
           type: string
         type: array
     type: object
-  somotracker_backend_internal_services.AcademicPeriodRequest:
+  services.AcademicPeriodRequest:
     properties:
       terms:
         items:
-          $ref: '#/definitions/somotracker_backend_internal_services.TermInput'
+          $ref: '#/definitions/services.TermInput'
         type: array
       year:
         type: integer
     type: object
-  somotracker_backend_internal_services.AdminListItem:
+  services.AdminListItem:
     properties:
       accepted_at:
         type: string
@@ -35,11 +44,11 @@ definitions:
       user_id:
         type: string
     type: object
-  somotracker_backend_internal_services.AdminListResponse:
+  services.AdminListResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/somotracker_backend_internal_services.AdminListItem'
+          $ref: '#/definitions/services.AdminListItem'
         type: array
       limit:
         type: integer
@@ -48,7 +57,7 @@ definitions:
       total:
         type: integer
     type: object
-  somotracker_backend_internal_services.TermInput:
+  services.TermInput:
     properties:
       end_date:
         type: string
@@ -98,7 +107,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_api.deleteAdminsRequest'
+          $ref: '#/definitions/api.deleteAdminsRequest'
       produces:
       - application/json
       - application/json
@@ -153,7 +162,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_api.deleteAdminsRequest'
+          $ref: '#/definitions/api.deleteAdminsRequest'
       produces:
       - application/json
       - application/json
@@ -321,7 +330,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/somotracker_backend_internal_services.AcademicPeriodRequest'
+          $ref: '#/definitions/services.AcademicPeriodRequest'
       produces:
       - application/json
       responses:
@@ -340,6 +349,107 @@ paths:
       summary: Create academic period
       tags:
       - Academic Periods
+  /school/classes:
+    get:
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Search by name
+        in: query
+        name: search
+        type: string
+      - description: Comma separated grade labels
+        in: query
+        name: grade
+        type: string
+      - description: Comma separated stream names
+        in: query
+        name: stream
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List classes
+      tags:
+      - Classes
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Class payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.createClassRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create class
+      tags:
+      - Classes
+  /school/classes/{id}:
+    get:
+      parameters:
+      - description: Class ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get class
+      tags:
+      - Classes
   /school/grades:
     get:
       produces:

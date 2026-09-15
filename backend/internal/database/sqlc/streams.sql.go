@@ -36,3 +36,34 @@ func (q *Queries) CreateStream(ctx context.Context, arg CreateStreamParams) (Str
 	)
 	return i, err
 }
+
+const listStreamsBySchool = `-- name: ListStreamsBySchool :many
+SELECT id, school_id, name, color, created_at, updated_at FROM streams WHERE school_id = $1
+`
+
+func (q *Queries) ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error) {
+	rows, err := q.db.Query(ctx, listStreamsBySchool, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Stream
+	for rows.Next() {
+		var i Stream
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchoolID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

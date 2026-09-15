@@ -56,6 +56,9 @@ func main() {
 		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.GradesService {
 			return services.NewGradesService(pool, q, logger)
 		}),
+		fx.Provide(func(pool *pgxpool.Pool, logger *zap.Logger) services.ClassesService {
+			return services.NewClassesService(pool, logger)
+		}),
 		fx.Provide(services.NewAdminsService),
 		fx.Provide(services.NewTeachersService),
 		fx.Provide(services.NewFinanceService),

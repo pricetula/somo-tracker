@@ -23,7 +23,7 @@ export interface paths {
                 };
                 body: {
                     /** User IDs to delete */
-                    body: definitions["internal_api.deleteAdminsRequest"];
+                    body: definitions["api.deleteAdminsRequest"];
                 };
             };
             responses: {
@@ -59,7 +59,7 @@ export interface paths {
                 };
                 body: {
                     /** User IDs to delete */
-                    body: definitions["internal_api.deleteAdminsRequest"];
+                    body: definitions["api.deleteAdminsRequest"];
                 };
             };
             responses: {
@@ -183,7 +183,7 @@ export interface paths {
             parameters: {
                 body: {
                     /** Academic period payload */
-                    body: definitions["somotracker_backend_internal_services.AcademicPeriodRequest"];
+                    body: definitions["services.AcademicPeriodRequest"];
                 };
             };
             responses: {
@@ -197,6 +197,80 @@ export interface paths {
                 };
                 /** Unauthorized */
                 401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/classes": {
+        get: {
+            parameters: {
+                query: {
+                    /** Page number */
+                    page?: number;
+                    /** Page size */
+                    limit?: number;
+                    /** Search by name */
+                    search?: string;
+                    /** Comma separated grade labels */
+                    grade?: string;
+                    /** Comma separated stream names */
+                    stream?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        post: {
+            parameters: {
+                body: {
+                    /** Class payload */
+                    body: definitions["api.createClassRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/classes/{id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Class ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Not Found */
+                404: {
                     schema: { [key: string]: unknown };
                 };
             };
@@ -290,14 +364,19 @@ export interface paths {
 }
 
 export interface definitions {
-    "internal_api.deleteAdminsRequest": {
+    "api.createClassRequest": {
+        gradeId?: string;
+        name?: string;
+        streamId?: string;
+    };
+    "api.deleteAdminsRequest": {
         user_ids?: string[];
     };
-    "somotracker_backend_internal_services.AcademicPeriodRequest": {
-        terms?: definitions["somotracker_backend_internal_services.TermInput"][];
+    "services.AcademicPeriodRequest": {
+        terms?: definitions["services.TermInput"][];
         year?: number;
     };
-    "somotracker_backend_internal_services.AdminListItem": {
+    "services.AdminListItem": {
         accepted_at?: string;
         created_at?: string;
         email?: string;
@@ -307,13 +386,13 @@ export interface definitions {
         membership_id?: string;
         user_id?: string;
     };
-    "somotracker_backend_internal_services.AdminListResponse": {
-        items?: definitions["somotracker_backend_internal_services.AdminListItem"][];
+    "services.AdminListResponse": {
+        items?: definitions["services.AdminListItem"][];
         limit?: number;
         page?: number;
         total?: number;
     };
-    "somotracker_backend_internal_services.TermInput": {
+    "services.TermInput": {
         end_date?: string;
         name?: string;
         /** @description "2026-01-15" */

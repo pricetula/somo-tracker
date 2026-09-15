@@ -12,18 +12,29 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"somotracker/backend/internal/database/sqlc"
 )
 
 // mockStreamsService stubs services.StreamsService for transport-layer tests.
 type mockStreamsService struct {
-	calls  []streamsCall
-	result []string
-	err    error
+	calls      []streamsCall
+	result     []string
+	err        error
+	listResult []sqlc.Stream
+	listErr    error
 }
 
 type streamsCall struct {
 	schoolID string
 	names    []string
+}
+
+func (m *mockStreamsService) ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error) {
+	if m.listErr != nil {
+		return nil, m.listErr
+	}
+	return m.listResult, nil
 }
 
 func (m *mockStreamsService) CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error) {

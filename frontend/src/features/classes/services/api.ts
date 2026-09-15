@@ -10,8 +10,8 @@ export async function listClasses(params: {
     const page = params.page ?? 1;
     const limit = params.limit ?? 50;
     const search = params.search ?? "";
-    const grades = params.filters?.grade;
-    const streams = params.filters?.stream;
+    const grades = params.filters?.["grade-filter"] ?? params.filters?.grade;
+    const streams = params.filters?.["stream-filter"] ?? params.filters?.stream;
 
     const query = new URLSearchParams({
         page: String(page),

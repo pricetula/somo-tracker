@@ -145,10 +145,7 @@ function renderSubItems(
             <DropdownMenuCheckboxItem
                 key={sub.id}
                 checked={isChecked}
-                onSelect={(e) => {
-                    e.preventDefault();
-                    onToggleMulti(parentId, sub.value);
-                }}
+                onCheckedChange={() => onToggleMulti(parentId, sub.value)}
             >
                 {sub.icon && <sub.icon className="size-3.5" />}
                 {sub.label}
@@ -176,10 +173,7 @@ function renderItems(
                 <DropdownMenuCheckboxItem
                     key={item.id}
                     checked={isActive}
-                    onSelect={(e) => {
-                        e.preventDefault();
-                        onToggleButton(item.id, item.value);
-                    }}
+                    onCheckedChange={() => onToggleButton(item.id, item.value)}
                 >
                     {item.icon && <item.icon className="size-3.5" />}
                     {item.label}

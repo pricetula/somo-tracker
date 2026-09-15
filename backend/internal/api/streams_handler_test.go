@@ -37,6 +37,18 @@ func (m *mockStreamsService) ListStreams(ctx context.Context, schoolID string) (
 	return m.listResult, nil
 }
 
+func (m *mockStreamsService) GetStream(ctx context.Context, streamID string) (*sqlc.Stream, error) {
+	return nil, nil
+}
+
+func (m *mockStreamsService) UpdateStream(ctx context.Context, streamID string, name *string, color *string) (*sqlc.Stream, error) {
+	return nil, nil
+}
+
+func (m *mockStreamsService) DeleteStreams(ctx context.Context, ids []string) error {
+	return nil
+}
+
 func (m *mockStreamsService) CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error) {
 	m.calls = append(m.calls, streamsCall{schoolID: schoolID, names: names})
 

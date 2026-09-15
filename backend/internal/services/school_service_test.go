@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -49,24 +50,33 @@ func TestCreateSchoolWithSetup_VerifyAllDBTables(t *testing.T) {
 
 	// Setup prerequisites: tenant + admin user
 	var tenantID string
-	pool.QueryRow(context.Background(), `INSERT INTO tenants (name, slug, stytch_org_id) VALUES ('Test Org', 'test-org-verify', 'org-test-verify') ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`).Scan(&tenantID)
+	err := pool.QueryRow(context.Background(), `INSERT INTO tenants (name, slug, stytch_org_id) VALUES ('Test Org', 'test-org-verify', 'org-test-verify') ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`).Scan(&tenantID)
+	require.NoError(t, err)
 
 	var userID string
-	pool.QueryRow(context.Background(), `INSERT INTO users (email, full_name, tenant_id, is_active) VALUES ('admin@verify.local', 'Verify Admin', $1, true) ON CONFLICT (tenant_id, email) DO UPDATE SET full_name = EXCLUDED.full_name RETURNING id`, tenantID).Scan(&userID)
+	err = pool.QueryRow(context.Background(), `INSERT INTO users (email, full_name, tenant_id, is_active) VALUES ('admin@verify.local', 'Verify Admin', $1, true) ON CONFLICT (tenant_id, email) DO UPDATE SET full_name = EXCLUDED.full_name RETURNING id`, tenantID).Scan(&userID)
+	require.NoError(t, err)
 
 	// Pre-existing ADMIN school membership so admin verification passes
 	var countryID string
-	pool.QueryRow(context.Background(), `SELECT id FROM countries WHERE country_name = 'Kenya' LIMIT 1`).Scan(&countryID)
+	err = pool.QueryRow(context.Background(), `SELECT id FROM countries WHERE country_name = 'Kenya' LIMIT 1`).Scan(&countryID)
+	require.NoError(t, err)
 	var edSysIDSetup string
-	pool.QueryRow(context.Background(), `SELECT id FROM education_systems WHERE system_name ILIKE '%CBE%' LIMIT 1`).Scan(&edSysIDSetup)
+	err = pool.QueryRow(context.Background(), `SELECT id FROM education_systems WHERE system_name ILIKE '%CBE%' LIMIT 1`).Scan(&edSysIDSetup)
+	require.NoError(t, err)
 
 	var existingSchool string
-	pool.QueryRow(context.Background(), `INSERT INTO schools (tenant_id, school_name, country_id, education_system_id) VALUES ($1, 'Pre-existing School', $2, $3) ON CONFLICT DO NOTHING RETURNING id`, tenantID, countryID, edSysIDSetup).Scan(&existingSchool)
+	err = pool.QueryRow(context.Background(), `INSERT INTO schools (tenant_id, school_name, country_id, education_system_id) VALUES ($1, 'Pre-existing School', $2, $3) ON CONFLICT DO NOTHING RETURNING id`, tenantID, countryID, edSysIDSetup).Scan(&existingSchool)
+	if existingSchool == "" && err != nil && err != pgx.ErrNoRows {
+		require.NoError(t, err)
+	}
 	if existingSchool == "" {
-		pool.QueryRow(context.Background(), `SELECT id FROM schools WHERE tenant_id = $1 LIMIT 1`, tenantID).Scan(&existingSchool)
+		err = pool.QueryRow(context.Background(), `SELECT id FROM schools WHERE tenant_id = $1 LIMIT 1`, tenantID).Scan(&existingSchool)
+		require.NoError(t, err)
 	}
 	if existingSchool != "" {
-		pool.Exec(context.Background(), `INSERT INTO school_memberships (school_id, user_id, role, is_active) VALUES ($1, $2, 'ADMIN', TRUE) ON CONFLICT DO NOTHING`, existingSchool, userID)
+		_, err = pool.Exec(context.Background(), `INSERT INTO school_memberships (school_id, user_id, role, is_active) VALUES ($1, $2, 'ADMIN', TRUE) ON CONFLICT DO NOTHING`, existingSchool, userID)
+		require.NoError(t, err)
 	}
 
 	schoolName := "Verification School"
@@ -101,11 +111,11 @@ func TestCreateSchoolWithSetup_VerifyAllDBTables(t *testing.T) {
 	assert.Equal(t, 3, termCount)
 
 	// 4. Verify CBE subjects loaded (at least some from docs/cbc/*.json)
-	var subjectCount int
-	err = pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM subjects WHERE id IN (SELECT education_system_id FROM schools WHERE id = $1)`, schoolID).Scan(&subjectCount)
-	// Actually check subjects linked to the school's education_system
 	var edSys string
-	pool.QueryRow(context.Background(), `SELECT education_system_id FROM schools WHERE id = $1`, schoolID).Scan(&edSys)
+	err = pool.QueryRow(context.Background(), `SELECT education_system_id FROM schools WHERE id = $1`, schoolID).Scan(&edSys)
+	require.NoError(t, err)
+
+	var subjectCount int
 	err = pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM subjects WHERE education_system_id = $1`, edSys).Scan(&subjectCount)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, subjectCount, 1, "At least one CBE subject should be loaded")

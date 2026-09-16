@@ -6,6 +6,7 @@ import { formatDateString } from "@/lib/utils/date";
 type Props = {
     slots: TimeSlotDraft[];
     editable?: boolean;
+    isLoading?: boolean;
     onSlotChange?: (id: string, patch: Partial<TimeSlotDraft>) => void;
     onSlotDelete?: (id: string) => void;
     onAddSlot?: () => void;
@@ -17,6 +18,7 @@ const DEFAULT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "S
 export function TimetableGrid({
     slots,
     editable = false,
+    isLoading = false,
     onSlotChange,
     onSlotDelete,
     onAddSlot,
@@ -42,45 +44,70 @@ export function TimetableGrid({
                         </tr>
                     </thead>
                     <tbody>
-                        {slots.map((slot) => (
-                            <tr key={slot.id} className="border-b align-top">
-                                <td className="bg-background sticky left-0 z-10 border-r">
-                                    {editable && onSlotChange && onSlotDelete ? (
-                                        <TimeSlotRow
-                                            slot={slot}
-                                            onChange={(patch) => onSlotChange(slot.id, patch)}
-                                            onDelete={() => onSlotDelete(slot.id)}
-                                            canDelete={slots.length > 1}
-                                        />
-                                    ) : (
-                                        <div className="min-h-31 w-48 space-y-1 p-3 pt-4">
-                                            <div className="mb-4 font-medium">{slot.name}</div>
-                                            <div className="text-muted-foreground text-xs">
-                                                {`${formatDateString(slot.start_time, {
-                                                    inputFormat: "HH:mm",
-                                                    outputFormat: "HH:mm a",
-                                                })} — ${formatDateString(slot.end_time, {
-                                                    inputFormat: "HH:mm",
-                                                    outputFormat: "HH:mm a",
-                                                })}`}
-                                            </div>
-                                        </div>
-                                    )}
-                                </td>
-                                {days.map((d) =>
-                                    !slot.is_instructional ? (
-                                        <td
-                                            key={d}
-                                            className="bg-row-disabled border-r p-4 text-center align-middle"
-                                        >
-                                            {slot.name}
-                                        </td>
-                                    ) : (
-                                        <td key={d} className="border-r px-4 py-4 align-top" />
-                                    )
-                                )}
-                            </tr>
-                        ))}
+                        {isLoading
+                            ? Array.from({ length: 3 }).map((_, i) => (
+                                  <tr
+                                      key={`skeleton-${i}`}
+                                      className="animate-pulse border-b align-top"
+                                  >
+                                      <td className="bg-muted/30 sticky left-0 z-10 w-96 border-r px-4 py-3 align-top">
+                                          <div className="min-h-31 w-48 space-y-1 p-3 pt-4">
+                                              <div className="bg-muted mb-4 h-4 w-32 rounded" />
+                                              <div className="bg-muted h-3 w-24 rounded" />
+                                          </div>
+                                      </td>
+                                      {days.map((d) => (
+                                          <td
+                                              key={d}
+                                              className="bg-muted/20 min-w-56 border-r px-4 py-4 align-top"
+                                          />
+                                      ))}
+                                  </tr>
+                              ))
+                            : slots.map((slot) => (
+                                  <tr key={slot.id} className="border-b align-top">
+                                      <td className="bg-background sticky left-0 z-10 border-r">
+                                          {editable && onSlotChange && onSlotDelete ? (
+                                              <TimeSlotRow
+                                                  slot={slot}
+                                                  onChange={(patch) => onSlotChange(slot.id, patch)}
+                                                  onDelete={() => onSlotDelete(slot.id)}
+                                                  canDelete={slots.length > 1}
+                                              />
+                                          ) : (
+                                              <div className="min-h-31 w-48 space-y-1 p-3 pt-4">
+                                                  <div className="mb-4 font-medium">
+                                                      {slot.name}
+                                                  </div>
+                                                  <div className="text-muted-foreground text-xs">
+                                                      {`${formatDateString(slot.start_time, {
+                                                          inputFormat: "HH:mm",
+                                                          outputFormat: "HH:mm a",
+                                                      })} — ${formatDateString(slot.end_time, {
+                                                          inputFormat: "HH:mm",
+                                                          outputFormat: "HH:mm a",
+                                                      })}`}
+                                                  </div>
+                                              </div>
+                                          )}
+                                      </td>
+                                      {days.map((d) =>
+                                          !slot.is_instructional ? (
+                                              <td
+                                                  key={d}
+                                                  className="bg-row-disabled border-r p-4 text-center align-middle"
+                                              >
+                                                  {slot.name}
+                                              </td>
+                                          ) : (
+                                              <td
+                                                  key={d}
+                                                  className="border-r px-4 py-4 align-top"
+                                              />
+                                          )
+                                      )}
+                                  </tr>
+                              ))}
                     </tbody>
                 </table>
             </div>

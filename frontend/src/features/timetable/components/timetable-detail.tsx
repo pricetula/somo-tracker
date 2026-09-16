@@ -22,14 +22,10 @@ function toDraft(slot: TimeSlotResponse): TimeSlotDraft {
 export function TimetableDetail({ templateId }: Props) {
     const { data: slots = [], isLoading } = useTimeSlots(templateId);
 
-    if (isLoading) {
-        return <div className="p-6">Loading timetable...</div>;
-    }
-
     return (
         <div className="space-y-6 p-6">
             <h1 className="text-2xl font-semibold">Timetable Template</h1>
-            <TimetableGrid slots={slots.map(toDraft)} />
+            <TimetableGrid slots={slots.map(toDraft)} isLoading={isLoading} />
         </div>
     );
 }

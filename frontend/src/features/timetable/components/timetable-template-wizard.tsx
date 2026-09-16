@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useCallback } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -35,14 +35,17 @@ export function TimetableTemplateWizard({ schoolId }: { schoolId: string }) {
     const form = useForm<MetadataForm>({
         resolver: zodResolver(metadataSchema),
         defaultValues: { name: "", description: "" },
+        mode: "onChange",
     });
 
     const { slots, updateSlot, addSlot, deleteSlot, slotsValid } = useTimetableWizard();
 
-    const canProceed = useMemo(
-        () => form.formState.isValid && form.getValues("name").trim().length > 0,
-        [form]
-    );
+    const name = useWatch({
+        control: form.control,
+        name: "name",
+        defaultValue: "",
+    });
+    const canProceed = !!name.trim() && !form.formState.errors.name;
 
     const handleNext = useCallback(() => {
         form.trigger().then((valid) => {
@@ -169,7 +172,13 @@ export function TimetableTemplateWizard({ schoolId }: { schoolId: string }) {
                                     <td
                                         key={d}
                                         className={`border-r px-4 align-top ${!slot.is_instructional ? "bg-row-disabled" : ""}`}
-                                    />
+                                    >
+                                        {!slot.is_instructional ? (
+                                            <div className="flex h-28 cursor-not-allowed items-center">
+                                                {slot.name || "Break period"}
+                                            </div>
+                                        ) : null}
+                                    </td>
                                 ))}
                             </tr>
                         ))}

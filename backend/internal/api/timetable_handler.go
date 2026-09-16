@@ -36,6 +36,23 @@ type createTimetableTemplateRequest struct {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
 // @Router /timetable/templates [post]
+func (h *TimetableHandler) ListTemplates(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid school id", "errors": fiber.Map{}})
+	}
+	items, err := h.svc.ListTemplates(c.Context(), schoolID)
+	if err != nil {
+		h.logger.Error("list timetable templates failed", zap.Error(err))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+	}
+	return c.Status(fiber.StatusOK).JSON(items)
+}
+
 func (h *TimetableHandler) CreateTemplate(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {

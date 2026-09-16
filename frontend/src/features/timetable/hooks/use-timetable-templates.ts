@@ -1,5 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createTimetableTemplate } from "../services/timetable-api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createTimetableTemplate, getTimetableTemplates } from "../services/timetable-api";
 import type {
     CreateTimetableTemplatePayload,
     TimetableTemplate,
@@ -11,6 +11,13 @@ export const timetableTemplateKeys = {
     list: ["timetable-templates", "list"] as const,
     create: ["timetable-templates", "create"] as const,
 };
+
+export function useTimetableTemplates() {
+    return useQuery<TimetableTemplate[], Error>({
+        queryKey: timetableTemplateKeys.list,
+        queryFn: getTimetableTemplates,
+    });
+}
 
 export function useCreateTimetableTemplate() {
     const queryClient = useQueryClient();

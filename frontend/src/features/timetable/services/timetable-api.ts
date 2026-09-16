@@ -11,6 +11,11 @@ export async function createTimetableTemplate(
     return data;
 }
 
+export async function getTimetableTemplates(): Promise<TimetableTemplate[]> {
+    const data = await api.get<TimetableTemplate[]>(`/api/timetable/templates`);
+    return data;
+}
+
 export async function getTimetableTemplate(id: string): Promise<TimetableTemplate> {
     const data = await api.get<TimetableTemplate>(`/api/timetable/templates/${id}`);
     return data;

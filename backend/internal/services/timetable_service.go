@@ -27,6 +27,7 @@ type CreateTemplateRequest struct {
 
 type TimetableService interface {
 	CreateTemplate(ctx context.Context, schoolID uuid.UUID, req CreateTemplateRequest) (uuid.UUID, error)
+	ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error)
 }
 
 type timetableService struct {
@@ -36,6 +37,10 @@ type timetableService struct {
 
 func NewTimetableService(pool *pgxpool.Pool, queries *sqlc.Queries) TimetableService {
 	return &timetableService{queries: queries, pool: pool}
+}
+
+func (s *timetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error) {
+	return s.queries.ListTimetableTemplatesBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
 }
 
 func (s *timetableService) CreateTemplate(ctx context.Context, schoolID uuid.UUID, req CreateTemplateRequest) (uuid.UUID, error) {

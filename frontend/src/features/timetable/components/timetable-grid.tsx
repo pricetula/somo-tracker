@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TimeSlotRow } from "./time-slot-row";
 import type { TimeSlotDraft } from "../types/timetable-template";
@@ -11,6 +12,7 @@ type Props = {
     onSlotDelete?: (id: string) => void;
     onAddSlot?: () => void;
     days?: string[];
+    templateId?: string;
 };
 
 const DEFAULT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -23,6 +25,7 @@ export function TimetableGrid({
     onSlotDelete,
     onAddSlot,
     days = DEFAULT_DAYS,
+    templateId,
 }: Props) {
     return (
         <div className="space-y-4">
@@ -91,7 +94,7 @@ export function TimetableGrid({
                                               </div>
                                           )}
                                       </td>
-                                      {days.map((d) =>
+                                      {days.map((d, dayIdx) =>
                                           !slot.is_instructional ? (
                                               <td
                                                   key={d}
@@ -100,10 +103,22 @@ export function TimetableGrid({
                                                   {slot.name}
                                               </td>
                                           ) : (
-                                              <td
-                                                  key={d}
-                                                  className="border-r px-4 py-4 align-top"
-                                              />
+                                              <td key={d} className="border-r px-4 py-4 align-top">
+                                                  {templateId ? (
+                                                      <Link
+                                                          href={`/timetable/${templateId}/assign?day=${dayIdx + 1}&slot=${slot.id}`}
+                                                          className="block h-full w-full"
+                                                      >
+                                                          <Button
+                                                              variant="outline"
+                                                              size="sm"
+                                                              className="w-full"
+                                                          >
+                                                              Assign
+                                                          </Button>
+                                                      </Link>
+                                                  ) : null}
+                                              </td>
                                           )
                                       )}
                                   </tr>

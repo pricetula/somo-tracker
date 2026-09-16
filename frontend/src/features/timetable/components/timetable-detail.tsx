@@ -13,7 +13,7 @@ export function TimetableDetail({ templateId }: Props) {
     return (
         <div className="space-y-6 p-6">
             <h1 className="text-2xl font-semibold">Timetable Template</h1>
-            <TimetableGrid slots={slots} isLoading={isLoading} />
+            <TimetableGrid slots={slots} isLoading={isLoading} templateId={templateId} />
         </div>
     );
 }

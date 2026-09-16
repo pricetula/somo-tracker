@@ -1,0 +1,70 @@
+"use client";
+
+import { useMemo } from "react";
+import { useSubjects } from "../hooks/use-subjects";
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+    ComboboxEmpty,
+} from "@/components/ui/combobox";
+
+interface SubjectsComboboxProps {
+    value?: string;
+    onChange: (value: string) => void;
+    disabled?: boolean;
+    placeholder?: string;
+}
+
+export function SubjectsCombobox({
+    value,
+    onChange,
+    disabled,
+    placeholder = "Select subject",
+}: SubjectsComboboxProps) {
+    const { data, isLoading, isError } = useSubjects();
+
+    const items = useMemo(() => {
+        const items = data?.items ?? [];
+        return items.map((s) => ({
+            value: s.id,
+            label: `${s.name} (${s.code})`,
+        }));
+    }, [data]);
+
+    const selectedItem = items.find((i) => i.value === value) ?? null;
+
+    return (
+        <Combobox
+            items={items}
+            itemToStringValue={(item) => item?.label ?? ""}
+            value={selectedItem}
+            onValueChange={(item) => onChange(item?.value ?? "")}
+            disabled={disabled}
+        >
+            <ComboboxInput placeholder={placeholder} showClear />
+            <ComboboxContent>
+                {isLoading && (
+                    <div className="text-muted-foreground p-4 text-sm">Loading subjects...</div>
+                )}
+                {isError && (
+                    <div className="text-destructive p-4 text-sm">Error loading subjects</div>
+                )}
+                {!isLoading && !isError && (
+                    <>
+                        <ComboboxEmpty>No subjects found</ComboboxEmpty>
+                        <ComboboxList>
+                            {(item) => (
+                                <ComboboxItem key={item.value} value={item}>
+                                    {item.label}
+                                </ComboboxItem>
+                            )}
+                        </ComboboxList>
+                    </>
+                )}
+            </ComboboxContent>
+        </Combobox>
+    );
+}

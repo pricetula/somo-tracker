@@ -5,15 +5,11 @@ import Link from "next/link";
 import { StaticTable } from "@/components/shared/static-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useStreams, useDeleteStreams } from "@/features/streams";
+import { useStreams } from "@/features/streams";
 import type { Stream } from "@/features/streams";
 
 export default function StreamsPage() {
     const { data, isLoading, isError } = useStreams();
-    const deleteStreams = useDeleteStreams();
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const columns = useMemo<DataTableColumn<Stream>[]>(
@@ -51,12 +47,6 @@ export default function StreamsPage() {
         ],
         []
     );
-
-    const handleDelete = () => {
-        if (selectedIds.size === 0) return;
-        deleteStreams.mutate(Array.from(selectedIds));
-        setSelectedIds(new Set());
-    };
 
     if (isError) {
         return (

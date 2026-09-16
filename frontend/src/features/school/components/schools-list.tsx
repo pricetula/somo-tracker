@@ -55,7 +55,7 @@ export function SchoolsTable() {
                         New School
                     </Link>
                 </div>
-                <div className="text-muted-foreground h-[480px] rounded-md border p-4 text-sm">
+                <div className="text-muted-foreground h-120 rounded-md border p-4 text-sm">
                     Loading schools…
                 </div>
             </div>

@@ -14,7 +14,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { useTimetableWizard } from "../hooks/use-timetable-wizard";
-import { TimeSlotRow } from "./time-slot-row";
+import { TimetableGrid } from "./timetable-grid";
 import { useCreateTimetableTemplate } from "../hooks/use-timetable-templates";
 
 const metadataSchema = z.object({
@@ -105,8 +105,6 @@ export function TimetableTemplateWizard() {
         );
     }
 
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
     return (
         <div className="space-y-4">
             <div>
@@ -116,49 +114,15 @@ export function TimetableTemplateWizard() {
                 </p>
             </div>
 
-            <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b">
-                            <th className="bg-background sticky top-0 left-0 z-30 w-96 border-r px-4 py-3 text-left font-medium">
-                                Slot Configuration
-                            </th>
-                            {days.map((d) => (
-                                <th
-                                    key={d}
-                                    className="bg-background sticky top-0 z-20 min-w-56 border-r px-4 py-3 text-left font-medium"
-                                >
-                                    {d}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {slots.map((slot) => (
-                            <tr key={slot.id} className="border-b align-top">
-                                <td className="bg-background sticky left-0 z-10 border-r">
-                                    <TimeSlotRow
-                                        slot={slot}
-                                        onChange={(patch) => updateSlot(slot.id, patch)}
-                                        onDelete={() => deleteSlot(slot.id)}
-                                        canDelete={slots.length > 1}
-                                    />
-                                </td>
-                                {days.map((d) => (
-                                    <td key={d} className="border-r px-4 align-top" />
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <TimetableGrid
+                slots={slots}
+                editable={true}
+                onSlotChange={(id, patch) => updateSlot(id, patch)}
+                onSlotDelete={(id) => deleteSlot(id)}
+                onAddSlot={addSlot}
+            />
 
             <div className="flex items-center justify-between">
-                <div>
-                    <Button variant="outline" onClick={addSlot}>
-                        + Add Time Slot
-                    </Button>
-                </div>
                 <div className="flex gap-2">
                     <Button variant="secondary" onClick={handleBack}>
                         Back

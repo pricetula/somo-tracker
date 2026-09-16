@@ -171,9 +171,7 @@
             var(--accent) 10px,
             var(--accent) 20px
         );
-        cursor: not-allowed !important;
         opacity: 0.6;
-        pointer-events: none;
     }
 
     .focus-ring-cbc:focus-visible {

@@ -91,6 +91,44 @@ func (h *TimetableHandler) ListTimeSlotsByTemplate(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(result)
 }
 
+func (h *TimetableHandler) SetupClassTimetableSlot(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid school id", "errors": fiber.Map{}})
+	}
+
+	var req struct {
+		ClassRoomID         string `json:"class_room_id"`
+		DayOfWeek           int    `json:"day_of_week"`
+		TimeSlotID          string `json:"time_slot_id"`
+		SubjectID           string `json:"subject_id"`
+		TeacherMembershipID string `json:"teacher_membership_id"`
+		RoomID              string `json:"room_id"`
+	}
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid body", "errors": fiber.Map{}})
+	}
+
+	if req.ClassRoomID == "" || req.TimeSlotID == "" || req.SubjectID == "" || req.TeacherMembershipID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "validation_error", "message": "missing required fields", "errors": fiber.Map{"class_room_id": []string{"required"}, "time_slot_id": []string{"required"}, "subject_id": []string{"required"}, "teacher_membership_id": []string{"required"}}})
+	}
+	if req.DayOfWeek < 1 || req.DayOfWeek > 7 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "validation_error", "message": "day_of_week must be 1-7", "errors": fiber.Map{"day_of_week": []string{"must be between 1 and 7"}}})
+	}
+
+	err = h.svc.SetupClassTimetableSlot(c.Context(), schoolID, req.ClassRoomID, req.TimeSlotID, req.SubjectID, req.TeacherMembershipID, req.DayOfWeek, req.RoomID)
+	if err != nil {
+		h.logger.Error("setup class timetable slot failed", zap.Error(err))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"code": "created", "message": "class timetable slot created"})
+}
+
 func (h *TimetableHandler) CreateTemplate(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {

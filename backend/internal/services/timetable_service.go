@@ -2,12 +2,14 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 	"somotracker/backend/internal/database/sqlc"
 )
 
@@ -29,15 +31,17 @@ type TimetableService interface {
 	CreateTemplate(ctx context.Context, schoolID uuid.UUID, req CreateTemplateRequest) (uuid.UUID, error)
 	ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error)
 	ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error)
+	SetupClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, classRoomID, timeSlotID, subjectID, teacherMembershipID string, dayOfWeek int, roomID string) error
 }
 
 type timetableService struct {
 	queries *sqlc.Queries
 	pool    *pgxpool.Pool
+	logger  *zap.Logger
 }
 
 func NewTimetableService(pool *pgxpool.Pool, queries *sqlc.Queries) TimetableService {
-	return &timetableService{queries: queries, pool: pool}
+	return &timetableService{queries: queries, pool: pool, logger: zap.L().With(zap.String("service", "timetable"))}
 }
 
 func (s *timetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error) {
@@ -46,6 +50,79 @@ func (s *timetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID
 
 func (s *timetableService) ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error) {
 	return s.queries.ListTimeSlotsByTemplate(ctx, pgtype.UUID{Bytes: templateID, Valid: true})
+}
+
+func (s *timetableService) SetupClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, classRoomID, timeSlotID, subjectID, teacherMembershipID string, dayOfWeek int, roomID string) error {
+	if dayOfWeek < 1 || dayOfWeek > 7 {
+		return fmt.Errorf("day_of_week must be between 1 and 7")
+	}
+
+	// Parse IDs upfront with context
+	classRoomUUID, err := uuid.Parse(classRoomID)
+	if err != nil {
+		return fmt.Errorf("invalid class_room_id: %w", err)
+	}
+	timeSlotUUID, err := uuid.Parse(timeSlotID)
+	if err != nil {
+		return fmt.Errorf("invalid time_slot_id: %w", err)
+	}
+	subjectUUID, err := uuid.Parse(subjectID)
+	if err != nil {
+		return fmt.Errorf("invalid subject_id: %w", err)
+	}
+	teacherUUID, err := uuid.Parse(teacherMembershipID)
+	if err != nil {
+		return fmt.Errorf("invalid teacher_membership_id: %w", err)
+	}
+
+	var roomUUID pgtype.UUID
+	if roomID != "" {
+		r, err := uuid.Parse(roomID)
+		if err != nil {
+			return fmt.Errorf("invalid room_id: %w", err)
+		}
+		roomUUID = pgtype.UUID{Bytes: r, Valid: true}
+	}
+
+	// Resolve current academic term: active term preferred, fallback to latest
+	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+	if err != nil {
+		s.logger.Warn("current term not found, falling back to latest", zap.Error(err))
+		latest, err2 := s.queries.GetLatestAcademicTermBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+		if err2 != nil {
+			return fmt.Errorf("no academic term found for school: %w", err2)
+		}
+		termRow.ID = latest.ID
+	}
+
+	// Use transaction for atomicity
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := s.queries.WithTx(tx)
+
+	// Optional: ensure uniqueness per class_room, day, time_slot, term
+	_, err = qtx.CreateClassTimetableSlot(ctx, sqlc.CreateClassTimetableSlotParams{
+		SchoolID:            pgtype.UUID{Bytes: schoolID, Valid: true},
+		ClassRoomID:         pgtype.UUID{Bytes: classRoomUUID, Valid: true},
+		AcademicTermID:      pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true},
+		DayOfWeek:           int32(dayOfWeek),
+		TimeSlotID:          pgtype.UUID{Bytes: timeSlotUUID, Valid: true},
+		SubjectID:           pgtype.UUID{Bytes: subjectUUID, Valid: true},
+		TeacherMembershipID: pgtype.UUID{Bytes: teacherUUID, Valid: true},
+		RoomID:              roomUUID,
+	})
+	if err != nil {
+		return fmt.Errorf("create class timetable slot: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *timetableService) CreateTemplate(ctx context.Context, schoolID uuid.UUID, req CreateTemplateRequest) (uuid.UUID, error) {

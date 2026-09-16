@@ -171,6 +171,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Post("/school/classes", r.Classes.CreateClass)
 	protected.Get("/timetable/templates", r.Timetable.ListTemplates)
 	protected.Post("/timetable/templates", r.Timetable.CreateTemplate)
+	protected.Post("/timetable/setup", r.Timetable.SetupClassTimetableSlot)
 	protected.Get("/timetable/templates/:id/slots", r.Timetable.ListTimeSlotsByTemplate)
 	protected.Get("/admins", r.Admins.ListAdmins)
 	protected.Delete("/admins", r.Admins.DeleteAdmins)

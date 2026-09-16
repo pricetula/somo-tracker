@@ -82,12 +82,22 @@ export function useTimetableWizard(initialSlots?: TimeSlotDraft[]) {
         });
     }, [slots]);
 
+    const hasGapsOrOverlap = useMemo(() => {
+        for (let i = 0; i < slots.length - 1; i++) {
+            const curr = slots[i];
+            const next = slots[i + 1];
+            if (curr.end_time !== next.start_time) return true;
+        }
+        return false;
+    }, [slots]);
+
     return {
         slots,
         updateSlot,
         addSlot,
         deleteSlot,
         slotsValid,
+        hasGapsOrOverlap,
         setSlots,
     };
 }

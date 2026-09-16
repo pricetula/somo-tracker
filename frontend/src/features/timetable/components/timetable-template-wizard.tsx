@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,9 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { toast } from "sonner";
-import { getErrorMessage } from "@/lib/errors";
 import { useTimetableWizard } from "../hooks/use-timetable-wizard";
 import { TimeSlotRow } from "./time-slot-row";
-import { createTimetableTemplate } from "../services/timetable-api";
-import { useRouter } from "next/navigation";
+import { useCreateTimetableTemplate } from "../hooks/use-timetable-templates";
 
 const metadataSchema = z.object({
     name: z.string().min(1, "Template name is required"),
@@ -27,25 +24,20 @@ const metadataSchema = z.object({
 
 type MetadataForm = z.infer<typeof metadataSchema>;
 
-export function TimetableTemplateWizard({ schoolId }: { schoolId: string }) {
+export function TimetableTemplateWizard() {
     const [step, setStep] = useState<1 | 2>(1);
-    const [isSaving, setIsSaving] = useState(false);
-    const router = useRouter();
 
     const form = useForm<MetadataForm>({
         resolver: zodResolver(metadataSchema),
         defaultValues: { name: "", description: "" },
-        mode: "onChange",
     });
 
-    const { slots, updateSlot, addSlot, deleteSlot, slotsValid } = useTimetableWizard();
+    const { slots, updateSlot, addSlot, deleteSlot, slotsValid, hasGapsOrOverlap } =
+        useTimetableWizard();
 
-    const name = useWatch({
-        control: form.control,
-        name: "name",
-        defaultValue: "",
-    });
-    const canProceed = !!name.trim() && !form.formState.errors.name;
+    const createMutation = useCreateTimetableTemplate();
+
+    const canProceed = form.getValues().name.trim().length > 0;
 
     const handleNext = useCallback(() => {
         form.trigger().then((valid) => {
@@ -55,36 +47,20 @@ export function TimetableTemplateWizard({ schoolId }: { schoolId: string }) {
 
     const handleBack = useCallback(() => setStep(1), []);
 
-    const handleSave = useCallback(async () => {
+    const handleSave = useCallback(() => {
         const values = form.getValues();
-        if (!values.name.trim()) {
-            toast.error("Template name is required");
-            return;
-        }
-        if (!slotsValid) {
-            toast.error("Check slot times");
-            return;
-        }
-        setIsSaving(true);
-        try {
-            await createTimetableTemplate(schoolId, {
-                name: values.name.trim(),
-                description: values.description?.trim() || undefined,
-                time_slots: slots.map((s) => ({
-                    name: s.name,
-                    start_time: s.start_time,
-                    end_time: s.end_time,
-                    is_instructional: s.is_instructional,
-                })),
-            });
-            toast.success("Timetable template saved");
-            router.push(`/dashboard/schools/${schoolId}/timetables`);
-        } catch (err) {
-            toast.error(getErrorMessage(err));
-        } finally {
-            setIsSaving(false);
-        }
-    }, [form, slots, slotsValid, schoolId, router]);
+        if (!slotsValid || hasGapsOrOverlap) return;
+        createMutation.mutate({
+            name: values.name.trim(),
+            description: values.description?.trim() || undefined,
+            time_slots: slots.map((s) => ({
+                name: s.name,
+                start_time: s.start_time,
+                end_time: s.end_time,
+                is_instructional: s.is_instructional,
+            })),
+        });
+    }, [form, slots, slotsValid, hasGapsOrOverlap, createMutation]);
 
     if (step === 1) {
         return (
@@ -169,16 +145,7 @@ export function TimetableTemplateWizard({ schoolId }: { schoolId: string }) {
                                     />
                                 </td>
                                 {days.map((d) => (
-                                    <td
-                                        key={d}
-                                        className={`border-r px-4 align-top ${!slot.is_instructional ? "bg-row-disabled" : ""}`}
-                                    >
-                                        {!slot.is_instructional ? (
-                                            <div className="flex h-28 cursor-not-allowed items-center">
-                                                {slot.name || "Break period"}
-                                            </div>
-                                        ) : null}
-                                    </td>
+                                    <td key={d} className="border-r px-4 align-top" />
                                 ))}
                             </tr>
                         ))}
@@ -196,8 +163,11 @@ export function TimetableTemplateWizard({ schoolId }: { schoolId: string }) {
                     <Button variant="secondary" onClick={handleBack}>
                         Back
                     </Button>
-                    <Button onClick={handleSave} disabled={isSaving || !slotsValid}>
-                        {isSaving ? "Saving..." : "Save Template"}
+                    <Button
+                        onClick={handleSave}
+                        disabled={createMutation.isPending || !slotsValid || hasGapsOrOverlap}
+                    >
+                        {createMutation.isPending ? "Saving..." : "Save Template"}
                     </Button>
                 </div>
             </div>

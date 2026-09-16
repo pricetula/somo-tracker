@@ -16,12 +16,16 @@ type Querier interface {
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateStream(ctx context.Context, arg CreateStreamParams) (Stream, error)
+	CreateTimeSlot(ctx context.Context, arg CreateTimeSlotParams) (pgtype.UUID, error)
+	CreateTimetableTemplate(ctx context.Context, arg CreateTimetableTemplateParams) (pgtype.UUID, error)
 	DeleteSession(ctx context.Context, token string) error
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
+	ListTimeSlotsByTemplate(ctx context.Context, timetableTemplateID pgtype.UUID) ([]TimeSlot, error)
+	ListTimetableTemplatesBySchool(ctx context.Context, schoolID pgtype.UUID) ([]TimetableTemplate, error)
 	// Updates invitation/acceptance timestamps and role for an existing membership.
 	UpdateMembershipInvitationState(ctx context.Context, arg UpdateMembershipInvitationStateParams) error
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error

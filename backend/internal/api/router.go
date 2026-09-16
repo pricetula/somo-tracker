@@ -46,6 +46,7 @@ type Router struct {
 	TeacherInvitation  *TeacherInvitationHandler
 	FinanceInvitation  *FinanceInvitationHandler
 	GuardianInvitation *GuardianInvitationHandler
+	Timetable          *TimetableHandler
 	limiter            *redis_rate.Limiter
 	cfg                *config.Config
 }
@@ -65,6 +66,7 @@ func NewRouter(
 	teachersSvc services.TeachersService,
 	financeSvc services.FinanceService,
 	guardiansSvc services.GuardiansService,
+	timetableSvc services.TimetableService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
@@ -81,6 +83,7 @@ func NewRouter(
 		Teachers:           NewTeachersHandler(teachersSvc, zap.L()),
 		Finance:            NewFinanceHandler(financeSvc, zap.L()),
 		Guardians:          NewGuardiansHandler(guardiansSvc, zap.L()),
+		Timetable:          NewTimetableHandler(timetableSvc, zap.L()),
 		AdminInvitation:    nil,
 		TeacherInvitation:  nil,
 		FinanceInvitation:  nil,
@@ -166,6 +169,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/school/classes", r.Classes.ListClasses)
 	protected.Get("/school/classes/:id", r.Classes.GetClass)
 	protected.Post("/school/classes", r.Classes.CreateClass)
+	protected.Post("/timetable/templates", r.Timetable.CreateTemplate)
 	protected.Get("/admins", r.Admins.ListAdmins)
 	protected.Delete("/admins", r.Admins.DeleteAdmins)
 	protected.Get("/teachers", r.Teachers.ListTeachers)

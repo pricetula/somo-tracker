@@ -60,6 +60,9 @@ func main() {
 			return services.NewClassesService(pool, logger)
 		}),
 		fx.Provide(services.NewAdminsService),
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries) services.TimetableService {
+			return services.NewTimetableService(pool, q)
+		}),
 		fx.Provide(services.NewTeachersService),
 		fx.Provide(services.NewFinanceService),
 		fx.Provide(services.NewGuardiansService),

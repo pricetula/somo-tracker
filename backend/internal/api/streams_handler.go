@@ -63,12 +63,21 @@ func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
 	}
 
-	var body []string
+	var body []struct {
+		Name  string `json:"name"`
+		Color string `json:"color"`
+	}
 	if err := c.Bind().Body(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON body")
 	}
+	names := make([]string, len(body))
+	colors := make([]string, len(body))
+	for i, item := range body {
+		names[i] = item.Name
+		colors[i] = item.Color
+	}
 
-	ids, err := h.service.CreateStreams(c.Context(), schoolID, body)
+	ids, err := h.service.CreateStreams(c.Context(), schoolID, names, colors)
 	if err != nil {
 		if strings.Contains(err.Error(), "bad_request:") {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])

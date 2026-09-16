@@ -28,18 +28,7 @@ export default function GradeLevelsPage() {
         []
     );
 
-    if (isLoading) {
-        return (
-            <div className="space-y-4">
-                <h1 className="text-2xl font-semibold">Grade Levels</h1>
-                <div className="text-muted-foreground h-[480px] rounded-md border p-4 text-sm">
-                    Loading grade levels…
-                </div>
-            </div>
-        );
-    }
-
-    if (isError || !data) {
+    if (isError) {
         return (
             <div className="space-y-4">
                 <h1 className="text-2xl font-semibold">Grade Levels</h1>
@@ -54,15 +43,13 @@ export default function GradeLevelsPage() {
     }
 
     return (
-        <div className="space-y-4">
-            <h1 className="text-2xl font-semibold">Grade Levels</h1>
-            <StaticTable<GradeLevel>
-                columns={columns}
-                data={data ?? []}
-                getRowId={(row) => row.id}
-                height={480}
-                rowHeight={44}
-            />
-        </div>
+        <StaticTable<GradeLevel>
+            columns={columns}
+            data={data ?? []}
+            getRowId={(row) => row.id}
+            height={480}
+            rowHeight={44}
+            isLoading={isLoading}
+        />
     );
 }

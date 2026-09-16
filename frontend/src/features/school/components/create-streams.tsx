@@ -1,13 +1,24 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2 } from "lucide-react";
-import { useCreateStreams } from "../hooks/use-streams";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { useCreateStreams } from "@/features/streams/hooks/use-streams";
 import { useGrades } from "@/features/grades/hooks/use-grades";
 import { useMeSession } from "@/features/auth/hooks/use-me-session";
+
+const schema = z.object({
+    name: z.string().min(1, "Stream name is required"),
+    color: z.string().min(1, "Color is required"),
+});
+
+type FormValues = z.infer<typeof schema>;
 
 interface CreateStreamsProps {
     onSuccess: () => void;
@@ -17,9 +28,7 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
     const { data: me } = useMeSession();
     const { data: gradesData } = useGrades();
     const { mutate: createStreams, isPending } = useCreateStreams();
-
-    const [inputValue, setInputValue] = useState("");
-    const [names, setNames] = useState<string[]>([]);
+    const [names, setNames] = React.useState<string[]>([]);
 
     const grades = gradesData?.grades ?? [];
     const firstGrade = grades[0];
@@ -30,13 +39,18 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
         return `${gradeLabel} ${names[0]}`;
     }, [names, firstGrade]);
 
-    const addName = () => {
-        const trimmed = inputValue.trim();
+    const form = useForm<FormValues>({
+        resolver: zodResolver(schema),
+        defaultValues: { name: "", color: "#0050d1" },
+    });
+
+    const addName = (values: FormValues) => {
+        const trimmed = values.name.trim();
         if (!trimmed) return;
         if (!names.includes(trimmed)) {
             setNames((prev) => [...prev, trimmed]);
         }
-        setInputValue("");
+        form.reset({ name: "", color: values.color || "#0050d1" });
     };
 
     const removeName = (n: string) => {
@@ -45,32 +59,42 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
 
     const handleSubmit = () => {
         if (names.length === 0) return;
-        createStreams(names, {
-            onSuccess,
-        });
+        const items = names.map((n) => ({ name: n, color: form.getValues().color || "#0050d1" }));
+        createStreams(items, { onSuccess });
     };
 
     return (
         <div className="space-y-6">
             <h2 className="text-xl font-semibold">Create Streams</h2>
 
-            <div className="flex gap-2">
-                <Input
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                            e.preventDefault();
-                            addName();
-                        }
-                    }}
-                    placeholder="Stream name, e.g. Blue"
-                    className="flex-1"
-                />
-                <Button type="button" onClick={addName} variant="outline" size="icon">
-                    <Plus className="h-4 w-4" />
-                </Button>
-            </div>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(addName)} className="flex items-end gap-2">
+                    <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                            <FormItem className="flex-1">
+                                <FormControl>
+                                    <Input
+                                        {...field}
+                                        placeholder="Stream name, e.g. Blue"
+                                        className="flex-1"
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                            }
+                                        }}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" variant="outline" size="icon">
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </form>
+            </Form>
 
             <div className="text-muted-foreground text-xs">
                 Examples: Blue · Red · Green · Yellow · Purple

@@ -126,6 +126,8 @@ function buildNavItems(): NavItem[] {
             icon: <Settings2Icon className="size-4" />,
             items: [
                 { title: "General", url: "/settings" },
+                { title: "Streams", url: "/settings/streams" },
+                { title: "Grade Levels", url: "/settings/grade-levels" },
                 { title: "Academic Years", url: "/academic-years" },
             ],
         },
@@ -158,9 +160,11 @@ export function NavMain() {
                                 <SidebarMenuSub>
                                     {item.items?.map((subItem) => (
                                         <SidebarMenuSubItem key={subItem.title}>
-                                            <SidebarMenuSubButton href={subItem.url}>
-                                                {subItem.title}
-                                            </SidebarMenuSubButton>
+                                            <SidebarMenuSubButton
+                                                render={
+                                                    <Link href={subItem.url}>{subItem.title}</Link>
+                                                }
+                                            />
                                         </SidebarMenuSubItem>
                                     ))}
                                 </SidebarMenuSub>

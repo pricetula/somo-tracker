@@ -14,7 +14,7 @@ import (
 
 type StreamsService interface {
 	ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error)
-	CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error)
+	CreateStreams(ctx context.Context, schoolID string, names []string, colors []string) ([]string, error)
 	GetStream(ctx context.Context, streamID string) (*sqlc.Stream, error)
 	UpdateStream(ctx context.Context, streamID string, name *string, color *string) (*sqlc.Stream, error)
 	DeleteStreams(ctx context.Context, ids []string) error
@@ -49,7 +49,7 @@ func (s *streamsService) ListStreams(ctx context.Context, schoolID string) ([]sq
 	return rows, nil
 }
 
-func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error) {
+func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, names []string, colors []string) ([]string, error) {
 	if schoolID == "" {
 		return nil, fmt.Errorf("bad_request: school_id is required")
 	}
@@ -63,20 +63,29 @@ func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, nam
 	}
 
 	created := make([]string, 0, len(names))
-	for _, name := range names {
+	for i, name := range names {
 		if name == "" {
 			continue
 		}
-		streamRow, err := s.queries.CreateStream(ctx, sqlc.CreateStreamParams{
+		colorVal := ""
+		if i < len(colors) && colors[i] != "" {
+			colorVal = colors[i]
+		}
+		params := sqlc.CreateStreamParams{
 			SchoolID: pgtype.UUID{Bytes: schoolUUID, Valid: true},
 			Name:     name,
-		})
+		}
+		if colorVal != "" {
+			params.Color = pgtype.Text{String: colorVal, Valid: true}
+		} else {
+			params.Color = pgtype.Text{Valid: false}
+		}
+		streamRow, err := s.queries.CreateStream(ctx, params)
 		if err != nil {
 			s.logger.Warn("streams: create stream skipped or failed",
 				zap.String("stream_name", name),
 				zap.Error(err),
 			)
-			// If conflict (already exists), skip; otherwise return error
 			continue
 		}
 		created = append(created, streamRow.ID.String())

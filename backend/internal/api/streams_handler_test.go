@@ -28,6 +28,7 @@ type mockStreamsService struct {
 type streamsCall struct {
 	schoolID string
 	names    []string
+	colors   []string
 }
 
 func (m *mockStreamsService) ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error) {
@@ -49,8 +50,8 @@ func (m *mockStreamsService) DeleteStreams(ctx context.Context, ids []string) er
 	return nil
 }
 
-func (m *mockStreamsService) CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error) {
-	m.calls = append(m.calls, streamsCall{schoolID: schoolID, names: names})
+func (m *mockStreamsService) CreateStreams(ctx context.Context, schoolID string, names []string, colors []string) ([]string, error) {
+	m.calls = append(m.calls, streamsCall{schoolID: schoolID, names: names, colors: colors})
 
 	// Mimic service validation for tests that need it
 	if schoolID == "" {

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { SkeletonRows } from "@/components/shared/data-table/skeleton-rows";
 import { Checkbox } from "@/components/ui/checkbox";
 import { buttonVariants } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -44,6 +45,8 @@ export interface StaticTableProps<TItem> {
     emptyState?: ReactNode;
     /** Link for the "Add" button shown above the table. */
     addHref?: string;
+    /** When true, renders skeleton loading rows instead of data or empty state. */
+    isLoading?: boolean;
 
     className?: string;
 }
@@ -62,6 +65,7 @@ export function StaticTable<TItem>({
     height = 600,
     emptyState,
     addHref,
+    isLoading,
     className,
 }: StaticTableProps<TItem>) {
     // ── Selection state (controlled vs uncontrolled) ─────────────────
@@ -183,7 +187,14 @@ export function StaticTable<TItem>({
                         })}
                     </div>
 
-                    {data.length === 0 ? (
+                    {isLoading ? (
+                        /* ── Skeleton loading state ──────────────── */
+                        <SkeletonRows
+                            rowHeight={rowHeight}
+                            gridTemplateColumns={gridTemplateColumns}
+                            isCheckable={!!isCheckable}
+                        />
+                    ) : data.length === 0 ? (
                         /* ── Empty state ────────────────────── */
                         <div
                             className="text-muted-foreground flex items-center justify-center text-xs"

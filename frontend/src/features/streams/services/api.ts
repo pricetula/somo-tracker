@@ -8,8 +8,10 @@ export async function listStreams(): Promise<Stream[]> {
     return res?.streams ?? [];
 }
 
-export async function createStreams(names: string[]): Promise<CreateStreamsResponse> {
-    return api.post<CreateStreamsResponse>("/api/school/streams", names);
+export async function createStreams(
+    items: { name: string; color?: string }[]
+): Promise<CreateStreamsResponse> {
+    return api.post<CreateStreamsResponse>("/api/school/streams", items);
 }
 
 export interface GetStreamResponse {

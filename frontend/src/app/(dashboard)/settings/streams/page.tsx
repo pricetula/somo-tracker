@@ -37,19 +37,16 @@ export default function StreamsPage() {
                 cell: (row) => (
                     <span className="inline-flex items-center gap-2">
                         {row.color ? (
-                            <>
-                                <span
-                                    className="inline-block h-3 w-3 rounded-full border shadow-sm"
-                                    style={{ backgroundColor: row.color }}
-                                />
-                                <span className="text-muted-foreground text-xs">{row.color}</span>
-                            </>
+                            <span
+                                className="inline-block h-3 w-3 rounded-full border shadow-sm"
+                                style={{ backgroundColor: row.color }}
+                            />
                         ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                         )}
                     </span>
                 ),
-                width: "1fr",
+                width: "60px",
             },
         ],
         []
@@ -61,18 +58,7 @@ export default function StreamsPage() {
         setSelectedIds(new Set());
     };
 
-    if (isLoading) {
-        return (
-            <div className="space-y-4">
-                <h1 className="text-2xl font-semibold">Streams</h1>
-                <div className="text-muted-foreground h-120 rounded-md border p-4 text-sm">
-                    Loading streams…
-                </div>
-            </div>
-        );
-    }
-
-    if (isError || !data) {
+    if (isError) {
         return (
             <div className="space-y-4">
                 <h1 className="text-2xl font-semibold">Streams</h1>
@@ -85,36 +71,17 @@ export default function StreamsPage() {
     }
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold">Streams</h1>
-                <div className="flex items-center gap-2">
-                    {Array.from(selectedIds).length > 0 && (
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleDelete}
-                            disabled={deleteStreams.isPending}
-                        >
-                            Delete selected ({Array.from(selectedIds).length})
-                        </Button>
-                    )}
-                    <Link href="/settings/streams/add" className={cn(buttonVariants())}>
-                        Add stream
-                    </Link>
-                </div>
-            </div>
-
-            <StaticTable<Stream>
-                columns={columns}
-                data={data ?? []}
-                getRowId={(row) => row.id}
-                height={480}
-                rowHeight={44}
-                isCheckable
-                selectedIds={selectedIds}
-                onSelectionChange={setSelectedIds}
-            />
-        </div>
+        <StaticTable<Stream>
+            addHref="/settings/streams/add"
+            columns={columns}
+            data={data ?? []}
+            getRowId={(row) => row.id}
+            height={480}
+            rowHeight={44}
+            isCheckable
+            isLoading={isLoading}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+        />
     );
 }

@@ -13,17 +13,17 @@ func TestStreamsService_ValidationErrors(t *testing.T) {
 	svc := NewStreamsService(nil, nil, zap.NewNop())
 
 	// Test empty schoolID
-	_, err := svc.CreateStreams(context.Background(), "", []string{"stream1"})
+	_, err := svc.CreateStreams(context.Background(), "", []string{"stream1"}, []string{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bad_request: school_id is required")
 
 	// Test empty names slice
-	_, err = svc.CreateStreams(context.Background(), "school-123", []string{})
+	_, err = svc.CreateStreams(context.Background(), "school-123", []string{}, []string{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bad_request: at least one stream name is required")
 
 	// Test invalid schoolID (not a valid UUID)
-	_, err = svc.CreateStreams(context.Background(), "not-a-uuid", []string{"stream1"})
+	_, err = svc.CreateStreams(context.Background(), "not-a-uuid", []string{"stream1"}, []string{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bad_request: invalid school_id")
 

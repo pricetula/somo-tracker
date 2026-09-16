@@ -1,13 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
 import { useStream, useUpdateStream, useCreateStreams } from "../hooks/use-streams";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
+
+const streamSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    color: z.string().min(1, "Color is required"),
+});
+
+type StreamValues = z.infer<typeof streamSchema>;
 
 interface StreamFormProps {
     streamId?: string;
@@ -20,29 +37,33 @@ export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
     const { data: stream, isLoading } = useStream(streamId || "");
     const update = useUpdateStream();
     const create = useCreateStreams();
-    const [name, setName] = useState(stream?.name ?? "");
-    const [color, setColor] = useState(stream?.color ?? "");
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name.trim()) {
-            toast.error("Name is required");
-            return;
+    const form = useForm<StreamValues>({
+        resolver: zodResolver(streamSchema),
+        defaultValues: {
+            name: "",
+            color: "#0050d1",
+        },
+    });
+
+    useEffect(() => {
+        if (stream && form.reset) {
+            form.reset({ name: stream.name ?? "", color: stream.color ?? "#0050d1" });
         }
+    }, [stream, form]);
+
+    const onSubmit = async (values: StreamValues) => {
         try {
             if (isEdit) {
                 await update.mutateAsync({
                     id: streamId!,
-                    data: { name: name.trim(), color: color || null },
+                    data: { name: values.name.trim(), color: values.color },
                 });
             } else {
-                await create.mutateAsync([name.trim()]);
+                await create.mutateAsync([{ name: values.name.trim(), color: values.color }]);
             }
-            if (onSuccess) {
-                onSuccess();
-            } else {
-                router.back();
-            }
+            if (onSuccess) onSuccess();
+            else router.back();
         } catch (err) {
             toast.error(getErrorMessage(err));
         }
@@ -53,39 +74,56 @@ export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
     }
 
     return (
-        <form key={stream?.id ?? streamId ?? "new"} onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor="stream-name">Stream name</Label>
-                <Input
-                    id="stream-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g., Arts"
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Stream name</FormLabel>
+                            <FormControl>
+                                <Input
+                                    id="stream-name"
+                                    placeholder="e.g., Arts"
+                                    {...field}
+                                    disabled={update.isPending || create.isPending}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
                 />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="stream-color">Color</Label>
-                <div className="flex items-center gap-3">
-                    <input
-                        id="stream-color"
-                        type="color"
-                        value={color || "#3b82f6"}
-                        onChange={(e) => setColor(e.target.value)}
-                        className="h-9 w-9 cursor-pointer rounded border-0 p-0"
-                    />
-                    <Input
-                        value={color}
-                        onChange={(e) => setColor(e.target.value)}
-                        placeholder="#3b82f6"
-                        className="flex-1"
-                    />
+                <FormField
+                    control={form.control}
+                    name="color"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Color</FormLabel>
+                            <FormControl>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        id="stream-color"
+                                        type="color"
+                                        {...field}
+                                        disabled={update.isPending || create.isPending}
+                                        className="m-0 h-6 w-7 cursor-pointer appearance-none border-0 bg-transparent p-0 [&::-moz-color-swatch]:rounded-md [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
+                                    />
+                                    <div className="h-7 w-full rounded-md border p-1 px-2 text-xs">
+                                        {field.value}
+                                    </div>
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <div className="flex items-center gap-2 pt-2">
+                    <Button type="submit" disabled={update.isPending || create.isPending}>
+                        {isEdit ? "Save changes" : "Add stream"}
+                    </Button>
                 </div>
-            </div>
-            <div className="flex items-center gap-2 pt-2">
-                <Button type="submit" disabled={update.isPending || create.isPending}>
-                    {isEdit ? "Save changes" : "Add stream"}
-                </Button>
-            </div>
-        </form>
+            </form>
+        </Form>
     );
 }

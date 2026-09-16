@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     listStreams,
     createStreams,
@@ -50,21 +50,49 @@ export function useStreams() {
  */
 export function useCreateStreams() {
     const { data: me } = useMeSession();
+    const queryClient = useQueryClient();
 
-    return useMutation<CreateStreamsResponse, Error, string[]>({
+    return useMutation<CreateStreamsResponse, Error, { name: string; color?: string }[]>({
         mutationKey: streamsKeys.create,
-        mutationFn: async (names) => {
-            // Only create if we have an active school
+        mutationFn: async (items) => {
             if (!me?.active_school_id) {
                 throw new Error("No active school");
             }
-            return createStreams(names);
+            return createStreams(items);
+        },
+        async onMutate(items) {
+            await queryClient.cancelQueries({ queryKey: streamsKeys.list });
+            const previousList = queryClient.getQueryData<Stream[]>(streamsKeys.list);
+            const optimistic = items.map(
+                (item, idx) =>
+                    ({
+                        id: `optimistic-${idx}`,
+                        school_id: me?.active_school_id ?? "",
+                        name: item.name,
+                        color: item.color ?? "#0050d1",
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    }) as Stream
+            );
+            if (previousList) {
+                queryClient.setQueryData<Stream[]>(streamsKeys.list, [
+                    ...previousList,
+                    ...optimistic,
+                ]);
+            }
+            return { previousList };
+        },
+        onError(err, _variables, context) {
+            if (context?.previousList) {
+                queryClient.setQueryData<Stream[]>(streamsKeys.list, context.previousList);
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled(_data, _err) {
+            queryClient.invalidateQueries({ queryKey: streamsKeys.list });
         },
         onSuccess: (data) => {
             toast.success(data.message ?? "Streams created successfully");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
@@ -82,6 +110,7 @@ export function useStream(id: string) {
 }
 
 export function useUpdateStream() {
+    const queryClient = useQueryClient();
     return useMutation<
         Stream,
         Error,
@@ -89,11 +118,47 @@ export function useUpdateStream() {
     >({
         mutationKey: streamsKeys.create,
         mutationFn: async ({ id, data }) => updateStream(id, data),
+        async onMutate(variables) {
+            await queryClient.cancelQueries({ queryKey: streamsKeys.detail(variables.id) });
+            await queryClient.cancelQueries({ queryKey: streamsKeys.list });
+            const previousStream = queryClient.getQueryData<Stream>(
+                streamsKeys.detail(variables.id)
+            );
+            const previousList = queryClient.getQueryData<Stream[]>(streamsKeys.list);
+            if (previousStream) {
+                queryClient.setQueryData<Stream>(streamsKeys.detail(variables.id), {
+                    ...previousStream,
+                    ...variables.data,
+                });
+            }
+            if (previousList) {
+                queryClient.setQueryData<Stream[]>(
+                    streamsKeys.list,
+                    previousList.map((s) =>
+                        s.id === variables.id ? { ...s, ...variables.data } : s
+                    )
+                );
+            }
+            return { previousStream, previousList };
+        },
+        onError(err, variables, context) {
+            if (context?.previousStream) {
+                queryClient.setQueryData<Stream>(
+                    streamsKeys.detail(variables.id),
+                    context.previousStream
+                );
+            }
+            if (context?.previousList) {
+                queryClient.setQueryData<Stream[]>(streamsKeys.list, context.previousList);
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled(_data, _err, variables) {
+            queryClient.invalidateQueries({ queryKey: streamsKeys.detail(variables.id) });
+            queryClient.invalidateQueries({ queryKey: streamsKeys.list });
+        },
         onSuccess: (_data) => {
             toast.success("Stream updated");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }

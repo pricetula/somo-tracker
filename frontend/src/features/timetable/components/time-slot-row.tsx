@@ -34,7 +34,7 @@ export function TimeSlotRow({ slot, onChange, onDelete, canDelete }: Props) {
                 />
             </div>
             <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2">
                     <Checkbox
                         checked={slot.is_instructional}
                         onCheckedChange={(checked) => onChange({ is_instructional: !!checked })}

@@ -25,10 +25,10 @@ export function TimetableGrid({
     return (
         <div className="space-y-4">
             <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-sm">
+                <table className="w-full">
                     <thead>
                         <tr className="border-b">
-                            <th className="bg-background sticky top-0 left-0 z-30 w-96 border-r px-4 py-3 text-left font-medium">
+                            <th className="bg-background text-muted-foreground sticky top-0 left-0 z-30 w-96 border-r px-4 py-3 text-left font-medium">
                                 Time Slot
                             </th>
                             {days.map((d) => (
@@ -71,7 +71,7 @@ export function TimetableGrid({
                                     !slot.is_instructional ? (
                                         <td
                                             key={d}
-                                            className="bg-row-disabled align-center border-r p-4 pt-10"
+                                            className="bg-row-disabled border-r p-4 text-center align-middle"
                                         >
                                             {slot.name}
                                         </td>

@@ -109,7 +109,7 @@ export function TimetableTemplateWizard() {
         <div className="space-y-4">
             <div>
                 <h2 className="text-xl font-semibold">Configure Time Slots & Weekly Matrix</h2>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     Define your daily bell schedule sequence. Duration and start times auto-cascade.
                 </p>
             </div>

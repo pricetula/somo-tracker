@@ -11,7 +11,7 @@ export function WeeklyMatrix({ rowCount }: Props) {
 
     return (
         <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full">
                 <thead>
                     <tr>
                         {days.map((d) => (

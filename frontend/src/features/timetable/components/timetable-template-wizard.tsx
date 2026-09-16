@@ -122,18 +122,16 @@ export function TimetableTemplateWizard() {
                 onAddSlot={addSlot}
             />
 
-            <div className="flex items-center justify-between">
-                <div className="flex gap-2">
-                    <Button variant="secondary" onClick={handleBack}>
-                        Back
-                    </Button>
-                    <Button
-                        onClick={handleSave}
-                        disabled={createMutation.isPending || !slotsValid || hasGapsOrOverlap}
-                    >
-                        {createMutation.isPending ? "Saving..." : "Save Template"}
-                    </Button>
-                </div>
+            <div className="flex gap-2">
+                <Button variant="secondary" onClick={handleBack}>
+                    Back
+                </Button>
+                <Button
+                    onClick={handleSave}
+                    disabled={createMutation.isPending || !slotsValid || hasGapsOrOverlap}
+                >
+                    {createMutation.isPending ? "Saving..." : "Save Template"}
+                </Button>
             </div>
         </div>
     );

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -51,6 +53,42 @@ func (h *TimetableHandler) ListTemplates(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
 	}
 	return c.Status(fiber.StatusOK).JSON(items)
+}
+
+func (h *TimetableHandler) ListTimeSlotsByTemplate(c fiber.Ctx) error {
+	templateIDStr := c.Params("id")
+	templateID, err := uuid.Parse(templateIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid template id", "errors": fiber.Map{}})
+	}
+	slots, err := h.svc.ListTimeSlotsByTemplate(c.Context(), templateID)
+	if err != nil {
+		h.logger.Error("list time slots failed", zap.Error(err))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+	}
+	result := make([]fiber.Map, 0, len(slots))
+	for _, s := range slots {
+		start := s.StartTime
+		end := s.EndTime
+		startStr := ""
+		if start.Valid {
+			startStr = fmt.Sprintf("%02d:%02d", start.Microseconds/3600000000, (start.Microseconds%3600000000)/60000000)
+		}
+		endStr := ""
+		if end.Valid {
+			endStr = fmt.Sprintf("%02d:%02d", end.Microseconds/3600000000, (end.Microseconds%3600000000)/60000000)
+		}
+		result = append(result, fiber.Map{
+			"id":                    s.ID.String(),
+			"timetable_template_id": s.TimetableTemplateID.String(),
+			"name":                  s.Name,
+			"start_time":            startStr,
+			"end_time":              endStr,
+			"sequence_index":        s.SequenceIndex,
+			"is_instructional":      s.IsInstructional,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(result)
 }
 
 func (h *TimetableHandler) CreateTemplate(c fiber.Ctx) error {

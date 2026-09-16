@@ -52,13 +52,10 @@ export function TimetableGrid({
                                             canDelete={slots.length > 1}
                                         />
                                     ) : (
-                                        <div className="space-y-1 p-3">
-                                            <div className="font-medium">{slot.name}</div>
+                                        <div className="min-h-31 w-48 space-y-1 p-3 pt-4">
+                                            <div className="mb-4 font-medium">{slot.name}</div>
                                             <div className="text-muted-foreground text-xs">
                                                 {slot.start_time} — {slot.end_time}
-                                            </div>
-                                            <div className="text-xs">
-                                                {slot.is_instructional ? "Instructional" : "Break"}
                                             </div>
                                         </div>
                                     )}

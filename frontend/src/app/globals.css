@@ -165,7 +165,7 @@
     /* ── Teal focus ring for CBC surfaces ────────────────────────────── */
     .bg-row-disabled {
         background: repeating-linear-gradient(
-            45deg,
+            38.6deg,
             var(--background),
             var(--background) 10px,
             var(--accent) 10px,

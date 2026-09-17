@@ -130,14 +130,26 @@ export function TimetableGrid({
                                                       key={d}
                                                       className="border-r px-4 py-4 align-top"
                                                   >
-                                                      <div className="bg-card rounded-md border p-3 text-sm">
-                                                          <div className="font-medium">
-                                                              {assignment.subject_name || "Subject"}
-                                                          </div>
-                                                          <div className="text-muted-foreground text-xs">
-                                                              {assignment.teacher_name ||
-                                                                  "Unassigned teacher"}
-                                                          </div>
+                                                      <div className="flex flex-col space-y-4">
+                                                          {(assignment.subject_name && (
+                                                              <Link
+                                                                  href={`/subjects/${assignment.subject_id}`}
+                                                              >
+                                                                  {assignment.subject_name}
+                                                              </Link>
+                                                          )) ||
+                                                              "Unassigned subject"}
+
+                                                          {(assignment.teacher_name && (
+                                                              <Link
+                                                                  href={`/teachers/${assignment.teacher_membership_id}`}
+                                                                  className="text-muted-foreground"
+                                                              >
+                                                                  {assignment.teacher_name}
+                                                              </Link>
+                                                          )) ||
+                                                              "Unassigned teacher"}
+
                                                           {assignment.room_name && (
                                                               <div className="text-muted-foreground text-xs">
                                                                   Room: {assignment.room_name}
@@ -148,11 +160,17 @@ export function TimetableGrid({
                                               );
                                           }
                                           return (
-                                              <td key={d} className="border-r px-4 py-4 align-top">
+                                              <td
+                                                  key={d}
+                                                  className="border-r px-4 py-4 text-center align-middle"
+                                              >
                                                   {templateId && selectedIds.classId ? (
                                                       <Link
                                                           href={`/timetable/${templateId}/assign?classId=${selectedIds.classId}&gradeId=${selectedIds.gradeId}&day=${dayNumber}&slot=${slot.id}`}
-                                                          className={`block h-full w-full ${buttonVariants({ variant: "outline", size: "sm" })}`}
+                                                          className={buttonVariants({
+                                                              variant: "outline",
+                                                              size: "sm",
+                                                          })}
                                                       >
                                                           <Plus />
                                                           <span>Assign</span>

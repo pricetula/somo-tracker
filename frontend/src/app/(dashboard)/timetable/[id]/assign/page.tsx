@@ -11,6 +11,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { AlertCircle } from "lucide-react";
 
 export default function AssignSlotPage() {
     const router = useRouter();
@@ -35,8 +36,11 @@ export default function AssignSlotPage() {
         return (
             <AlertDialog open>
                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Time table not selected</AlertDialogTitle>
+                    <AlertDialogHeader className="mb-2">
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertCircle size="16" />
+                            <span>Time table not selected</span>
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             To continue, please select a time table first.
                         </AlertDialogDescription>
@@ -53,8 +57,11 @@ export default function AssignSlotPage() {
         return (
             <AlertDialog open>
                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Day not selected</AlertDialogTitle>
+                    <AlertDialogHeader className="mb-2">
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertCircle size="16" />
+                            <span>Day not selected</span>
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             To continue, please select a day first.
                         </AlertDialogDescription>
@@ -71,8 +78,11 @@ export default function AssignSlotPage() {
         return (
             <AlertDialog open>
                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Time slot not selected</AlertDialogTitle>
+                    <AlertDialogHeader className="mb-2">
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertCircle size="16" />
+                            <span>Time slot not selected</span>
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             To continue, please select a time slot first.
                         </AlertDialogDescription>
@@ -89,8 +99,11 @@ export default function AssignSlotPage() {
         return (
             <AlertDialog open>
                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Class not selected</AlertDialogTitle>
+                    <AlertDialogHeader className="mb-2">
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertCircle size="16" />
+                            <span>Class not selected</span>
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             To assign a timetable slot, please select a class first.
                         </AlertDialogDescription>
@@ -107,8 +120,11 @@ export default function AssignSlotPage() {
         return (
             <AlertDialog open>
                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Grade not selected</AlertDialogTitle>
+                    <AlertDialogHeader className="mb-2">
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertCircle size="16" />
+                            <span>Grade not selected</span>
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             To assign a timetable slot, please select a grade first.
                         </AlertDialogDescription>

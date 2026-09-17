@@ -1,5 +1,6 @@
 import { api } from "@/lib/api/client";
 import type {
+    ClassTimetableSlotWithDetails,
     CreateTimetableTemplatePayload,
     TimetableTemplate,
 } from "../types/timetable-template";
@@ -33,5 +34,15 @@ export type TimeSlotResponse = {
 
 export async function getTimeSlotsByTemplate(id: string): Promise<TimeSlotResponse[]> {
     const data = await api.get<TimeSlotResponse[]>(`/api/timetable/templates/${id}/slots`);
+    return data;
+}
+
+export async function getClassTimetableSlots(
+    templateId: string,
+    classId: string
+): Promise<ClassTimetableSlotWithDetails[]> {
+    const data = await api.get<ClassTimetableSlotWithDetails[]>(
+        `/api/timetable/templates/${templateId}/classes/${classId}/slots`
+    );
     return data;
 }

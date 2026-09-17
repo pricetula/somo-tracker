@@ -126,6 +126,25 @@ func (h *TimetableHandler) ListTimeSlotsByTemplate(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(result)
 }
 
+func (h *TimetableHandler) GetClassSlotsByTemplate(c fiber.Ctx) error {
+	templateIDStr := c.Params("id")
+	classIDStr := c.Params("classId")
+	templateID, err := uuid.Parse(templateIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid template id", "errors": fiber.Map{}})
+	}
+	classID, err := uuid.Parse(classIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid class id", "errors": fiber.Map{}})
+	}
+	rows, err := h.svc.GetClassTimetableSlotsByTemplate(c.Context(), classID, templateID)
+	if err != nil {
+		h.logger.Error("get class timetable slots failed", zap.Error(err))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+	}
+	return c.Status(fiber.StatusOK).JSON(rows)
+}
+
 func (h *TimetableHandler) SetupClassTimetableSlot(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {

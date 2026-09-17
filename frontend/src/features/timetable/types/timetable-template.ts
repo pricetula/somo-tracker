@@ -41,3 +41,29 @@ export type CreateTimetableTemplatePayload = {
         is_instructional: boolean;
     }>;
 };
+
+export type ClassTimetableSlotWithDetails = {
+    id: string;
+    school_id: string;
+    class_room_id: string;
+    academic_term_id: string;
+    day_of_week: number;
+    time_slot_id: string;
+    subject_id: string;
+    teacher_membership_id: string;
+    room_id?: string | null;
+    created_at: string;
+    updated_at: string;
+    class_name: string;
+    class_stream?: string | null;
+    grade_name?: string | null;
+    time_slot_name: string;
+    start_time: string;
+    end_time: string;
+    sequence_index: number;
+    is_instructional: boolean;
+    subject_name?: string | null;
+    teacher_name?: string | null;
+    teacher_email?: string | null;
+    room_name?: string | null;
+};

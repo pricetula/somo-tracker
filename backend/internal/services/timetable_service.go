@@ -29,6 +29,8 @@ type CreateTemplateRequest struct {
 
 type TimetableService interface {
 	CreateTemplate(ctx context.Context, schoolID uuid.UUID, req CreateTemplateRequest) (uuid.UUID, error)
+	GetTemplate(ctx context.Context, templateID uuid.UUID) (sqlc.TimetableTemplate, error)
+	UpdateTemplate(ctx context.Context, templateID uuid.UUID, name string, description string) error
 	ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error)
 	ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error)
 	SetupClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, classRoomID, timeSlotID, subjectID, teacherMembershipID string, dayOfWeek int, roomID string) error
@@ -42,6 +44,23 @@ type timetableService struct {
 
 func NewTimetableService(pool *pgxpool.Pool, queries *sqlc.Queries) TimetableService {
 	return &timetableService{queries: queries, pool: pool, logger: zap.L().With(zap.String("service", "timetable"))}
+}
+
+func (s *timetableService) GetTemplate(ctx context.Context, templateID uuid.UUID) (sqlc.TimetableTemplate, error) {
+	return s.queries.GetTimetableTemplate(ctx, pgtype.UUID{Bytes: templateID, Valid: true})
+}
+
+func (s *timetableService) UpdateTemplate(ctx context.Context, templateID uuid.UUID, name string, description string) error {
+	desc := pgtype.Text{}
+	if description != "" {
+		desc.String = description
+		desc.Valid = true
+	}
+	return s.queries.UpdateTimetableTemplate(ctx, sqlc.UpdateTimetableTemplateParams{
+		ID:          pgtype.UUID{Bytes: templateID, Valid: true},
+		Name:        name,
+		Description: desc,
+	})
 }
 
 func (s *timetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error) {
@@ -100,7 +119,11 @@ func (s *timetableService) SetupClassTimetableSlot(ctx context.Context, schoolID
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			s.logger.Error("rollback failed", zap.Error(rbErr))
+		}
+	}()
 
 	qtx := s.queries.WithTx(tx)
 
@@ -132,7 +155,11 @@ func (s *timetableService) CreateTemplate(ctx context.Context, schoolID uuid.UUI
 	if err != nil {
 		return uuid.Nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			s.logger.Error("rollback failed", zap.Error(rbErr))
+		}
+	}()
 
 	qtx := s.queries.WithTx(tx)
 

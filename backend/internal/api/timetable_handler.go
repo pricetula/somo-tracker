@@ -55,6 +55,43 @@ func (h *TimetableHandler) ListTemplates(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(items)
 }
 
+func (h *TimetableHandler) UpdateTemplate(c fiber.Ctx) error {
+	templateIDStr := c.Params("id")
+	templateID, err := uuid.Parse(templateIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid template id", "errors": fiber.Map{}})
+	}
+	var req struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid body", "errors": fiber.Map{}})
+	}
+	if req.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "validation_error", "message": "name is required", "errors": fiber.Map{"name": []string{"name is required"}}})
+	}
+	if err := h.svc.UpdateTemplate(c.Context(), templateID, req.Name, req.Description); err != nil {
+		h.logger.Error("update timetable template failed", zap.Error(err))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+	}
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "template updated"})
+}
+
+func (h *TimetableHandler) GetTemplate(c fiber.Ctx) error {
+	templateIDStr := c.Params("id")
+	templateID, err := uuid.Parse(templateIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid template id", "errors": fiber.Map{}})
+	}
+	template, err := h.svc.GetTemplate(c.Context(), templateID)
+	if err != nil {
+		h.logger.Error("get timetable template failed", zap.Error(err))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+	}
+	return c.Status(fiber.StatusOK).JSON(template)
+}
+
 func (h *TimetableHandler) ListTimeSlotsByTemplate(c fiber.Ctx) error {
 	templateIDStr := c.Params("id")
 	templateID, err := uuid.Parse(templateIDStr)

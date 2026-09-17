@@ -36,6 +36,26 @@ func (q *Queries) CreateTimetableTemplate(ctx context.Context, arg CreateTimetab
 	return id, err
 }
 
+const getTimetableTemplate = `-- name: GetTimetableTemplate :one
+SELECT id, school_id, name, description, created_at, updated_at
+FROM timetable_templates
+WHERE id = $1
+`
+
+func (q *Queries) GetTimetableTemplate(ctx context.Context, id pgtype.UUID) (TimetableTemplate, error) {
+	row := q.db.QueryRow(ctx, getTimetableTemplate, id)
+	var i TimetableTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listTimetableTemplatesBySchool = `-- name: ListTimetableTemplatesBySchool :many
 SELECT id, school_id, name, description, created_at, updated_at
 FROM timetable_templates
@@ -68,4 +88,21 @@ func (q *Queries) ListTimetableTemplatesBySchool(ctx context.Context, schoolID p
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateTimetableTemplate = `-- name: UpdateTimetableTemplate :exec
+UPDATE timetable_templates
+SET name = $2, description = $3, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateTimetableTemplateParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+}
+
+func (q *Queries) UpdateTimetableTemplate(ctx context.Context, arg UpdateTimetableTemplateParams) error {
+	_, err := q.db.Exec(ctx, updateTimetableTemplate, arg.ID, arg.Name, arg.Description)
+	return err
 }

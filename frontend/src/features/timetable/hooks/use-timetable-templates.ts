@@ -1,3 +1,4 @@
+import { api } from "@/lib/api/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createTimetableTemplate, getTimetableTemplates } from "../services/timetable-api";
 import type {
@@ -6,6 +7,22 @@ import type {
 } from "../types/timetable-template";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
+
+export function useUpdateTimetableTemplate() {
+    return useMutation<
+        { message: string },
+        Error,
+        { id: string; name: string; description: string }
+    >({
+        mutationFn: ({ id, name, description }) =>
+            api.patch(`/api/timetable/templates/${id}`, { name, description }) as Promise<{
+                message: string;
+            }>,
+        onError(err) {
+            toast.error(getErrorMessage(err));
+        },
+    });
+}
 
 export const timetableTemplateKeys = {
     list: ["timetable-templates", "list"] as const,

@@ -27,7 +27,7 @@ test.describe("Timetable Template Wizard", () => {
         // Ensure at least two slots
         await page.getByRole("button", { name: /\+ add time slot/i }).click();
 
-        const startInputs = page.locator('input[type="time"]').filter({ hasText: "" });
+        const _startInputs = page.locator('input[type="time"]').filter({ hasText: "" });
         // Change second slot start to create a gap
         const secondStart = page.locator('input[type="time"]').nth(2);
         await secondStart.fill("09:30");
@@ -44,7 +44,7 @@ test.describe("Timetable Template Wizard", () => {
         await page.getByLabel(/template name/i).fill("Cascade Test");
         await page.getByRole("button", { name: /next/i }).click();
 
-        const endInputs = page.locator('input[type="time"]').filter({ hasText: "" });
+        const _endInputs = page.locator('input[type="time"]').filter({ hasText: "" });
         const firstEnd = page.locator('input[type="time"]').nth(1);
         await firstEnd.fill("09:30");
 

@@ -22,6 +22,7 @@ type Querier interface {
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
+	GetTimetableTemplate(ctx context.Context, id pgtype.UUID) (TimetableTemplate, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
 	ListTimeSlotsByTemplate(ctx context.Context, timetableTemplateID pgtype.UUID) ([]TimeSlot, error)
@@ -29,6 +30,7 @@ type Querier interface {
 	// Updates invitation/acceptance timestamps and role for an existing membership.
 	UpdateMembershipInvitationState(ctx context.Context, arg UpdateMembershipInvitationStateParams) error
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
+	UpdateTimetableTemplate(ctx context.Context, arg UpdateTimetableTemplateParams) error
 	// Upserts (or updates) a school_membership during bulk invitation.
 	// On conflict over the school/user unique constraint, updates invitation state,
 	// role, active flag, and invitation metadata. Returns the full row.

@@ -557,4 +557,148 @@ paths:
       summary: Create streams
       tags:
       - Streams
+  /subjects:
+    get:
+      consumes:
+      - application/json
+      description: List subjects with pagination for data table
+      parameters:
+      - in: query
+        name: page
+        type: integer
+        description: Page number default 1
+      - in: query
+        name: limit
+        type: integer
+        description: Page size default 50
+      - in: query
+        name: search
+        type: string
+        description: Search name or code
+      - in: query
+        name: grade
+        type: string
+        description: Grade filter
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+      summary: List subjects
+      tags:
+      - Subjects
+  /topics:
+    get:
+      consumes:
+      - application/json
+      description: List topics for a subject
+      parameters:
+      - in: query
+        name: subject_id
+        type: string
+        required: true
+        description: Subject ID
+      - in: query
+        name: page
+        type: integer
+        description: Page number
+      - in: query
+        name: limit
+        type: integer
+        description: Page size
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        "400":
+          description: Bad Request
+          schema:
+            type: object
+      summary: List topics
+      tags:
+      - Topics
+  /sub-topics:
+    get:
+      consumes:
+      - application/json
+      description: List sub topics for a topic
+      parameters:
+      - in: query
+        name: topic_id
+        type: string
+        description: Topic ID
+      - in: query
+        name: page
+        type: integer
+        description: Page number
+      - in: query
+        name: limit
+        type: integer
+        description: Page size
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+      summary: List sub topics
+      tags:
+      - SubTopics
+  /subjects/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get subject details with topics list
+      parameters:
+      - in: path
+        name: id
+        type: string
+        required: true
+        description: Subject ID
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+      summary: Get subject detail
+      tags:
+      - Subjects
+  /topics/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get topic details with sub topics list
+      parameters:
+      - in: path
+        name: id
+        type: string
+        required: true
+        description: Topic ID
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+      summary: Get topic detail
+      tags:
+      - Topics
 swagger: "2.0"

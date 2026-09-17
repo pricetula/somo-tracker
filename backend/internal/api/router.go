@@ -200,4 +200,12 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/guardians/invitations/jobs/:job_id", r.GuardianInvitation.GetJob)
 	protected.Post("/guardians/invitations/jobs/:job_id/retry-failed", r.GuardianInvitation.RetryFailed)
 	protected.Get("/guardians/invitations/jobs/:job_id/events", r.GuardianInvitation.Events)
+
+	// Subjects list for data table with infinite pagination
+	protected.Get("/subjects", subjectsListHandler(pool))
+	protected.Get("/subjects/:id", subjectsDetailHandler(pool))
+	protected.Get("/topics", topicsListHandler(pool))
+	protected.Get("/topics/:id", topicsDetailHandler(pool))
+	protected.Get("/sub-topics", subTopicsListHandler(pool))
+	protected.Get("/sub-topics/:id", subTopicsListHandler(pool))
 }

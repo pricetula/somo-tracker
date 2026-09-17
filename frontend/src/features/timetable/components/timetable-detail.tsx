@@ -20,7 +20,6 @@ export function TimetableDetail({ templateId }: Props) {
                 <ClassesCombobox
                     value={selectedIds.classId}
                     onChange={(v, d) => {
-                        console.log(";dddd", d);
                         setSelectedIds({
                             classId: v,
                             gradeId: d?.gradeId || "",

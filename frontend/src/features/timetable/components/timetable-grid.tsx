@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { TimeSlotRow } from "./time-slot-row";
 import type { TimeSlotDraft } from "../types/timetable-template";
 import { formatDateString } from "@/lib/utils/date";
+import { Plus } from "lucide-react";
 
 type Props = {
     slots: TimeSlotDraft[];
@@ -109,15 +110,10 @@ export function TimetableGrid({
                                                   {templateId ? (
                                                       <Link
                                                           href={`/timetable/${templateId}/assign?classId=${selectedIds.classId}&gradeId=${selectedIds.gradeId}&day=${dayIdx + 1}&slot=${slot.id}`}
-                                                          className="block h-full w-full"
+                                                          className={`block h-full w-full ${buttonVariants({ variant: "outline", size: "sm" })}`}
                                                       >
-                                                          <Button
-                                                              variant="outline"
-                                                              size="sm"
-                                                              className="w-full"
-                                                          >
-                                                              Assign
-                                                          </Button>
+                                                          <Plus />
+                                                          <span>Assign</span>
                                                       </Link>
                                                   ) : null}
                                               </td>

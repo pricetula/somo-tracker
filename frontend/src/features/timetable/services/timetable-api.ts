@@ -46,3 +46,7 @@ export async function getClassTimetableSlots(
     );
     return data;
 }
+
+export async function deleteClassTimetableSlot(slotId: string): Promise<void> {
+    await api.delete(`/api/timetable/class-timetable-slots/${slotId}`);
+}

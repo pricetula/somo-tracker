@@ -44,6 +44,15 @@ func (q *Queries) CreateClassTimetableSlot(ctx context.Context, arg CreateClassT
 	return id, err
 }
 
+const deleteClassTimetableSlot = `-- name: DeleteClassTimetableSlot :exec
+DELETE FROM class_timetable_slots WHERE id = $1
+`
+
+func (q *Queries) DeleteClassTimetableSlot(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteClassTimetableSlot, id)
+	return err
+}
+
 const getClassTimetableSlotsByTemplate = `-- name: GetClassTimetableSlotsByTemplate :many
 SELECT
   cts.id,

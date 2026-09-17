@@ -3,6 +3,9 @@ INSERT INTO class_timetable_slots (school_id, class_room_id, academic_term_id, d
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id;
 
+-- name: DeleteClassTimetableSlot :exec
+DELETE FROM class_timetable_slots WHERE id = $1;
+
 -- name: GetClassTimetableSlotsByTemplate :many
 SELECT
   cts.id,

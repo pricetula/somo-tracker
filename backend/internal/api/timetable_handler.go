@@ -145,6 +145,26 @@ func (h *TimetableHandler) GetClassSlotsByTemplate(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(rows)
 }
 
+// @Summary Delete a class timetable slot
+// @Tags Timetable
+// @Produce json
+// @Param id path string true "Class timetable slot ID"
+// @Success 204
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/timetable/class-timetable-slots/{id} [delete]
+func (h *TimetableHandler) DeleteClassTimetableSlot(c fiber.Ctx) error {
+	slotIDStr := c.Params("id")
+	slotID, err := uuid.Parse(slotIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid slot id", "errors": fiber.Map{}})
+	}
+	if err := h.svc.DeleteClassTimetableSlot(c.Context(), slotID); err != nil {
+		h.logger.Error("delete class timetable slot failed", zap.Error(err))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+	}
+	return c.Status(fiber.StatusNoContent).Send(nil)
+}
+
 func (h *TimetableHandler) SetupClassTimetableSlot(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {

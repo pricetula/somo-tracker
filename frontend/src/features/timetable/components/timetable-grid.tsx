@@ -4,7 +4,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { TimeSlotRow } from "./time-slot-row";
 import type { ClassTimetableSlotWithDetails, TimeSlotDraft } from "../types/timetable-template";
 import { formatDateString } from "@/lib/utils/date";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { useDeleteClassTimetableSlot } from "../hooks/use-delete-class-timetable-slot";
 
 type Props = {
     slots: TimeSlotDraft[];
@@ -33,8 +34,10 @@ export function TimetableGrid({
     selectedIds,
     assignments = [],
 }: Props) {
+    const deleteMutation = useDeleteClassTimetableSlot(templateId || "", selectedIds.classId);
     const assignmentMap = React.useMemo(() => {
         const map = new Map<string, ClassTimetableSlotWithDetails>();
+        if (!assignments) return map;
         for (const a of assignments) {
             const key = `${a.time_slot_id}_${a.day_of_week}`;
             map.set(key, a);
@@ -130,31 +133,50 @@ export function TimetableGrid({
                                                       key={d}
                                                       className="border-r px-4 py-4 align-top"
                                                   >
-                                                      <div className="flex flex-col space-y-4">
+                                                      <div className="flex flex-col space-y-2">
                                                           {(assignment.subject_name && (
                                                               <Link
                                                                   href={`/subjects/${assignment.subject_id}`}
+                                                                  className="block font-medium"
                                                               >
                                                                   {assignment.subject_name}
                                                               </Link>
-                                                          )) ||
-                                                              "Unassigned subject"}
+                                                          )) || (
+                                                              <span className="font-medium">
+                                                                  Unassigned subject
+                                                              </span>
+                                                          )}
 
                                                           {(assignment.teacher_name && (
                                                               <Link
                                                                   href={`/teachers/${assignment.teacher_membership_id}`}
-                                                                  className="text-muted-foreground"
+                                                                  className="text-muted-foreground block text-sm"
                                                               >
                                                                   {assignment.teacher_name}
                                                               </Link>
-                                                          )) ||
-                                                              "Unassigned teacher"}
+                                                          )) || (
+                                                              <span className="text-muted-foreground text-sm">
+                                                                  Unassigned teacher
+                                                              </span>
+                                                          )}
 
                                                           {assignment.room_name && (
                                                               <div className="text-muted-foreground text-xs">
                                                                   Room: {assignment.room_name}
                                                               </div>
                                                           )}
+                                                          <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              className="self-end"
+                                                              onClick={() =>
+                                                                  deleteMutation.mutate(
+                                                                      assignment.id
+                                                                  )
+                                                              }
+                                                          >
+                                                              <Trash2 className="h-4 w-4" />
+                                                          </Button>
                                                       </div>
                                                   </td>
                                               );

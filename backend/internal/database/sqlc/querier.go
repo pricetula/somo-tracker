@@ -19,6 +19,7 @@ type Querier interface {
 	CreateStream(ctx context.Context, arg CreateStreamParams) (Stream, error)
 	CreateTimeSlot(ctx context.Context, arg CreateTimeSlotParams) (pgtype.UUID, error)
 	CreateTimetableTemplate(ctx context.Context, arg CreateTimetableTemplateParams) (pgtype.UUID, error)
+	DeleteClassTimetableSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteSession(ctx context.Context, token string) error
 	GetClassTimetableSlotsByTemplate(ctx context.Context, arg GetClassTimetableSlotsByTemplateParams) ([]GetClassTimetableSlotsByTemplateRow, error)
 	GetClassTimetableSlotsByTemplateWithDetails(ctx context.Context, arg GetClassTimetableSlotsByTemplateWithDetailsParams) ([]GetClassTimetableSlotsByTemplateWithDetailsRow, error)

@@ -35,6 +35,7 @@ type TimetableService interface {
 	ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error)
 	SetupClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, classRoomID, timeSlotID, subjectID, teacherMembershipID string, dayOfWeek int, roomID string) error
 	GetClassTimetableSlotsByTemplate(ctx context.Context, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error)
+	DeleteClassTimetableSlot(ctx context.Context, slotID uuid.UUID) error
 }
 
 type timetableService struct {
@@ -215,6 +216,10 @@ func (s *timetableService) GetClassTimetableSlotsByTemplate(ctx context.Context,
 		ClassRoomID:         pgtype.UUID{Bytes: classRoomID, Valid: true},
 		TimetableTemplateID: pgtype.UUID{Bytes: templateID, Valid: true},
 	})
+}
+
+func (s *timetableService) DeleteClassTimetableSlot(ctx context.Context, slotID uuid.UUID) error {
+	return s.queries.DeleteClassTimetableSlot(ctx, pgtype.UUID{Bytes: slotID, Valid: true})
 }
 
 func parseTime(v string) (pgtype.Time, error) {

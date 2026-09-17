@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useSubjects } from "../hooks/use-subjects";
 import {
     Combobox,
@@ -54,7 +55,18 @@ export function SubjectsCombobox({
                 )}
                 {!isLoading && !isError && (
                     <>
-                        <ComboboxEmpty>No subjects found</ComboboxEmpty>
+                        <ComboboxEmpty>
+                            {items.length === 0 ? (
+                                <div className="text-muted-foreground space-y-1 p-4 text-sm">
+                                    <div>No subjects found</div>
+                                    <Link href="/curriculum/add" className="text-primary underline">
+                                        Add a subject
+                                    </Link>
+                                </div>
+                            ) : (
+                                "No subjects found"
+                            )}
+                        </ComboboxEmpty>
                         <ComboboxList>
                             {(item) => (
                                 <ComboboxItem key={item.value} value={item}>

@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     createFinanceInvitations,
     getFinanceInvitationJob,
@@ -25,6 +25,7 @@ export interface BulkInvitePayload {
 }
 
 export function useBulkInviteFinances() {
+    const queryClient = useQueryClient();
     return useMutation({
         mutationKey: financeInvitationKeys.bulk,
         mutationFn: (payload) => {
@@ -33,6 +34,10 @@ export function useBulkInviteFinances() {
         },
         onSuccess: (data) => {
             toast.success(data.message ?? "Invitation job queued");
+            queryClient.invalidateQueries({ queryKey: ["finance"] });
+            if (data?.job_id) {
+                queryClient.invalidateQueries({ queryKey: financeInvitationKeys.job(data.job_id) });
+            }
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

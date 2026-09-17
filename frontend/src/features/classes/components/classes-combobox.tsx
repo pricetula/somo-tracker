@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useClasses } from "../hooks/use-classes";
 import {
     Combobox,
@@ -54,7 +55,18 @@ export function ClassesCombobox({
                 )}
                 {!isLoading && !isError && (
                     <>
-                        <ComboboxEmpty>No classes found</ComboboxEmpty>
+                        <ComboboxEmpty>
+                            {items.length === 0 ? (
+                                <div className="text-muted-foreground space-y-1 p-4 text-sm">
+                                    <div>No classes found</div>
+                                    <Link href="/classes/add" className="text-primary underline">
+                                        Create a class
+                                    </Link>
+                                </div>
+                            ) : (
+                                "No classes found"
+                            )}
+                        </ComboboxEmpty>
                         <ComboboxList>
                             {(item) => (
                                 <ComboboxItem key={item.value} value={item}>

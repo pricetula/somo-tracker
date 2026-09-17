@@ -164,14 +164,32 @@ export function useUpdateStream() {
 }
 
 export function useDeleteStreams() {
+    const queryClient = useQueryClient();
     return useMutation<void, Error, string[]>({
         mutationKey: streamsKeys.multiDelete,
         mutationFn: async (ids) => deleteStreams(ids),
+        async onMutate(ids) {
+            await queryClient.cancelQueries({ queryKey: streamsKeys.list });
+            const previousList = queryClient.getQueryData<Stream[]>(streamsKeys.list);
+            if (previousList) {
+                queryClient.setQueryData<Stream[]>(
+                    streamsKeys.list,
+                    previousList.filter((s) => !ids.includes(s.id))
+                );
+            }
+            return { previousList };
+        },
+        onError(err, ids, context) {
+            if (context?.previousList) {
+                queryClient.setQueryData<Stream[]>(streamsKeys.list, context.previousList);
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled() {
+            queryClient.invalidateQueries({ queryKey: streamsKeys.list });
+        },
         onSuccess: () => {
             toast.success("Streams deleted");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }

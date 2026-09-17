@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     createTeacherInvitations,
     getTeacherInvitationJob,
@@ -25,6 +25,7 @@ export interface BulkInvitePayload {
 }
 
 export function useBulkInviteTeachers() {
+    const queryClient = useQueryClient();
     return useMutation({
         mutationKey: teacherInvitationKeys.bulk,
         mutationFn: (payload) => {
@@ -33,6 +34,10 @@ export function useBulkInviteTeachers() {
         },
         onSuccess: (data) => {
             toast.success(data.message ?? "Invitation job queued");
+            queryClient.invalidateQueries({ queryKey: ["teachers"] });
+            if (data?.job_id) {
+                queryClient.invalidateQueries({ queryKey: teacherInvitationKeys.job(data.job_id) });
+            }
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

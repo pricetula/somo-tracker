@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createInvitations, getInvitationJob, retryFailedInvitations } from "@/lib/api/invitations";
 import type {
     BulkInvitationResponse,
@@ -29,6 +29,7 @@ export interface BulkInvitePayload {
 // ─── Mutation: bulk invite ────────────────────────────────────────────────
 
 export function useBulkInviteUsers() {
+    const queryClient = useQueryClient();
     return useMutation<BulkInvitationResponse, Error, BulkInvitePayload>({
         mutationKey: invitationKeys.bulk,
         mutationFn: (payload) => {
@@ -40,6 +41,10 @@ export function useBulkInviteUsers() {
         },
         onSuccess: (data) => {
             toast.success(data.message ?? "Invitation job queued");
+            queryClient.invalidateQueries({ queryKey: ["admins"] });
+            if (data.job_id) {
+                queryClient.invalidateQueries({ queryKey: invitationKeys.job(data.job_id) });
+            }
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

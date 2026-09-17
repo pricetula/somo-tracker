@@ -25,12 +25,39 @@ export function useCreateTimetableTemplate() {
     return useMutation<TimetableTemplate, Error, CreateTimetableTemplatePayload>({
         mutationKey: timetableTemplateKeys.create,
         mutationFn: (payload) => createTimetableTemplate(payload),
-        onSuccess: (data) => {
-            toast.success("Timetable template saved");
+        async onMutate(payload) {
+            await queryClient.cancelQueries({ queryKey: timetableTemplateKeys.list });
+            const previous = queryClient.getQueryData<TimetableTemplate[]>(
+                timetableTemplateKeys.list
+            );
+            const optimistic: TimetableTemplate = {
+                id: `optimistic-${Date.now()}`,
+                name: payload.name,
+                description: payload.description ?? "",
+                school_id: payload.school_id,
+                academic_period_id: payload.academic_period_id,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            } as TimetableTemplate;
+            if (previous) {
+                queryClient.setQueryData<TimetableTemplate[]>(timetableTemplateKeys.list, [
+                    optimistic,
+                    ...previous,
+                ]);
+            }
+            return { previous };
+        },
+        onError(err, _variables, context) {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableTemplateKeys.list, context.previous);
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled() {
             queryClient.invalidateQueries({ queryKey: timetableTemplateKeys.list });
         },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
+        onSuccess: () => {
+            toast.success("Timetable template saved");
         },
     });
 }

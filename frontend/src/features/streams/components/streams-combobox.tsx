@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
+import Link from "next/link";
 import { useStreams } from "../hooks/use-streams";
-import { useCreateStreams } from "../hooks/use-streams";
 import {
     Combobox,
     ComboboxInput,
@@ -11,9 +11,6 @@ import {
     ComboboxItem,
     ComboboxEmpty,
 } from "@/components/ui/combobox";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 
 interface StreamsComboboxProps {
     value?: string;
@@ -23,9 +20,6 @@ interface StreamsComboboxProps {
 
 export function StreamsCombobox({ value, onChange, disabled }: StreamsComboboxProps) {
     const { data: streams, isLoading, isError } = useStreams();
-    const { mutate: createStreams, isPending } = useCreateStreams();
-    const [createName, setCreateName] = useState("");
-    const [showCreate, setShowCreate] = useState(false);
 
     const items = useMemo(() => {
         if (!streams) return [];
@@ -37,20 +31,6 @@ export function StreamsCombobox({ value, onChange, disabled }: StreamsComboboxPr
 
     const selectedItem = items.find((i) => i.value === value);
 
-    const handleCreate = () => {
-        const trimmed = createName.trim();
-        if (!trimmed) return;
-        createStreams([trimmed], {
-            onSuccess: (data) => {
-                if (data.stream_ids.length > 0) {
-                    onChange(data.stream_ids[0]);
-                    setCreateName("");
-                    setShowCreate(false);
-                }
-            },
-        });
-    };
-
     return (
         <div className="space-y-2">
             <Combobox
@@ -58,9 +38,9 @@ export function StreamsCombobox({ value, onChange, disabled }: StreamsComboboxPr
                 itemToStringValue={(item) => item?.label ?? ""}
                 value={selectedItem ?? null}
                 onValueChange={(item) => onChange(item?.value ?? "")}
-                disabled={disabled || isPending}
+                disabled={disabled}
             >
-                <ComboboxInput placeholder="Select or search stream" showClear />
+                <ComboboxInput placeholder="Select stream" showClear />
                 <ComboboxContent>
                     {isLoading && (
                         <div className="text-muted-foreground p-4 text-sm">Loading streams...</div>
@@ -70,7 +50,21 @@ export function StreamsCombobox({ value, onChange, disabled }: StreamsComboboxPr
                     )}
                     {!isLoading && !isError && (
                         <>
-                            <ComboboxEmpty>No streams found</ComboboxEmpty>
+                            <ComboboxEmpty>
+                                {items.length === 0 ? (
+                                    <div className="text-muted-foreground space-y-1 p-4 text-sm">
+                                        <div>No streams found</div>
+                                        <Link
+                                            href="/settings/streams/add"
+                                            className="text-primary underline"
+                                        >
+                                            Add a stream
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    "No streams found"
+                                )}
+                            </ComboboxEmpty>
                             <ComboboxList>
                                 {(item) => (
                                     <ComboboxItem key={item.value} value={item}>
@@ -78,53 +72,7 @@ export function StreamsCombobox({ value, onChange, disabled }: StreamsComboboxPr
                                     </ComboboxItem>
                                 )}
                             </ComboboxList>
-                            {items.length > 0 && (
-                                <>
-                                    <hr className="border-border/50 my-1" />
-                                    <button
-                                        type="button"
-                                        className="text-muted-foreground hover:text-foreground w-full cursor-pointer px-2 py-1 text-left text-xs"
-                                        onClick={() => setShowCreate((v) => !v)}
-                                    >
-                                        {showCreate ? "Cancel create" : "Create new stream..."}
-                                    </button>
-                                </>
-                            )}
                         </>
-                    )}
-                    {showCreate && (
-                        <div className="space-y-2 p-2">
-                            <Input
-                                placeholder="Stream name"
-                                value={createName}
-                                onChange={(e) => setCreateName(e.target.value)}
-                                autoFocus
-                                className="h-7 text-xs"
-                            />
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="default"
-                                    onClick={handleCreate}
-                                    disabled={isPending || !createName.trim()}
-                                    className="h-7 text-xs"
-                                >
-                                    <Plus className="size-3" />
-                                    {isPending ? "Creating..." : "Create"}
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
-                                        setShowCreate(false);
-                                        setCreateName("");
-                                    }}
-                                    className="h-7 text-xs"
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
-                        </div>
                     )}
                 </ComboboxContent>
             </Combobox>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useTeachers } from "../hooks/use-teachers-list";
 import {
     Combobox,
@@ -54,7 +55,21 @@ export function TeachersCombobox({
                 )}
                 {!isLoading && !isError && (
                     <>
-                        <ComboboxEmpty>No teachers found</ComboboxEmpty>
+                        <ComboboxEmpty>
+                            {items.length === 0 ? (
+                                <div className="text-muted-foreground space-y-1 p-4 text-sm">
+                                    <div>No teachers found</div>
+                                    <Link
+                                        href="/teachers/invite"
+                                        className="text-primary underline"
+                                    >
+                                        Invite a teacher
+                                    </Link>
+                                </div>
+                            ) : (
+                                "No teachers found"
+                            )}
+                        </ComboboxEmpty>
                         <ComboboxList>
                             {(item) => (
                                 <ComboboxItem key={item.value} value={item}>

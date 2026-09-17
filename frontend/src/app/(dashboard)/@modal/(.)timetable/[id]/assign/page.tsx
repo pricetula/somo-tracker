@@ -12,6 +12,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { AlertCircle } from "lucide-react";
 
 export default function AssignSlotModalPage() {
     const router = useRouter();
@@ -96,8 +97,11 @@ export default function AssignSlotModalPage() {
         return (
             <AlertDialog open>
                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Class not selected</AlertDialogTitle>
+                    <AlertDialogHeader className="mb-2">
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertCircle size="16" />
+                            <span>Class not selected</span>
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             To assign a timetable slot, please select a class first.
                         </AlertDialogDescription>

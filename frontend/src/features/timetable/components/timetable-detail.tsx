@@ -15,7 +15,7 @@ export function TimetableDetail({ templateId }: Props) {
 
     return (
         <div className="space-y-6 p-6">
-            <header>
+            <header className="flex items-center justify-between">
                 <h1 className="text-2xl font-semibold">Timetable Template</h1>
                 <ClassesCombobox
                     value={selectedIds.classId}

@@ -1,7 +1,8 @@
+import React from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { TimeSlotRow } from "./time-slot-row";
-import type { TimeSlotDraft } from "../types/timetable-template";
+import type { ClassTimetableSlotWithDetails, TimeSlotDraft } from "../types/timetable-template";
 import { formatDateString } from "@/lib/utils/date";
 import { Plus } from "lucide-react";
 
@@ -15,6 +16,7 @@ type Props = {
     days?: string[];
     templateId?: string;
     selectedIds: { classId: string; gradeId: string };
+    assignments?: ClassTimetableSlotWithDetails[];
 };
 
 const DEFAULT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -29,7 +31,17 @@ export function TimetableGrid({
     days = DEFAULT_DAYS,
     templateId,
     selectedIds,
+    assignments = [],
 }: Props) {
+    const assignmentMap = React.useMemo(() => {
+        const map = new Map<string, ClassTimetableSlotWithDetails>();
+        for (const a of assignments) {
+            const key = `${a.time_slot_id}_${a.day_of_week}`;
+            map.set(key, a);
+        }
+        return map;
+    }, [assignments]);
+
     return (
         <div className="space-y-4">
             <div className="overflow-x-auto rounded-md border">
@@ -97,19 +109,49 @@ export function TimetableGrid({
                                               </div>
                                           )}
                                       </td>
-                                      {days.map((d, dayIdx) =>
-                                          !slot.is_instructional ? (
-                                              <td
-                                                  key={d}
-                                                  className="bg-row-disabled border-r p-4 text-center align-middle"
-                                              >
-                                                  {slot.name}
-                                              </td>
-                                          ) : (
+                                      {days.map((d, dayIdx) => {
+                                          const dayNumber = dayIdx + 1;
+                                          if (!slot.is_instructional) {
+                                              return (
+                                                  <td
+                                                      key={d}
+                                                      className="bg-row-disabled border-r p-4 text-center align-middle"
+                                                  >
+                                                      {slot.name}
+                                                  </td>
+                                              );
+                                          }
+                                          const assignment = assignmentMap.get(
+                                              `${slot.id}_${dayNumber}`
+                                          );
+                                          if (assignment) {
+                                              return (
+                                                  <td
+                                                      key={d}
+                                                      className="border-r px-4 py-4 align-top"
+                                                  >
+                                                      <div className="bg-card rounded-md border p-3 text-sm">
+                                                          <div className="font-medium">
+                                                              {assignment.subject_name || "Subject"}
+                                                          </div>
+                                                          <div className="text-muted-foreground text-xs">
+                                                              {assignment.teacher_name ||
+                                                                  "Unassigned teacher"}
+                                                          </div>
+                                                          {assignment.room_name && (
+                                                              <div className="text-muted-foreground text-xs">
+                                                                  Room: {assignment.room_name}
+                                                              </div>
+                                                          )}
+                                                      </div>
+                                                  </td>
+                                              );
+                                          }
+                                          return (
                                               <td key={d} className="border-r px-4 py-4 align-top">
-                                                  {templateId ? (
+                                                  {templateId && selectedIds.classId ? (
                                                       <Link
-                                                          href={`/timetable/${templateId}/assign?classId=${selectedIds.classId}&gradeId=${selectedIds.gradeId}&day=${dayIdx + 1}&slot=${slot.id}`}
+                                                          href={`/timetable/${templateId}/assign?classId=${selectedIds.classId}&gradeId=${selectedIds.gradeId}&day=${dayNumber}&slot=${slot.id}`}
                                                           className={`block h-full w-full ${buttonVariants({ variant: "outline", size: "sm" })}`}
                                                       >
                                                           <Plus />
@@ -117,8 +159,8 @@ export function TimetableGrid({
                                                       </Link>
                                                   ) : null}
                                               </td>
-                                          )
-                                      )}
+                                          );
+                                      })}
                                   </tr>
                               ))}
                     </tbody>

@@ -6,6 +6,7 @@ import { ClassesCombobox } from "@/features/classes/components/classes-combobox"
 import { TimetableGrid } from "./timetable-grid";
 import { useTimeSlots } from "../hooks/use-time-slots";
 import { useTimetableTemplate } from "../hooks/use-timetable-template";
+import { useClassTimetableSlots } from "../hooks/use-class-timetable-slots";
 import { TemplateHeaderEdit } from "./template-header-edit";
 
 type Props = {
@@ -15,6 +16,10 @@ type Props = {
 export function TimetableDetail({ templateId }: Props) {
     const [selectedIds, setSelectedIds] = React.useState({ classId: "", gradeId: "" });
     const { data: slots = [], isLoading } = useTimeSlots(templateId);
+    const { data: assignments = [], isLoading: assignmentsLoading } = useClassTimetableSlots(
+        templateId,
+        selectedIds.classId
+    );
     const {
         data: template,
         isLoading: templateLoading,
@@ -53,9 +58,10 @@ export function TimetableDetail({ templateId }: Props) {
             </header>
             <TimetableGrid
                 slots={slots}
-                isLoading={isLoading}
+                isLoading={isLoading || assignmentsLoading}
                 templateId={templateId}
                 selectedIds={selectedIds}
+                assignments={assignments}
             />
         </div>
     );

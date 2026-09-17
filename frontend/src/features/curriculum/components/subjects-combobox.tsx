@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/combobox";
 
 interface SubjectsComboboxProps {
+    gradeId?: string;
     value?: string;
     onChange: (value: string) => void;
     disabled?: boolean;
@@ -20,6 +21,7 @@ interface SubjectsComboboxProps {
 }
 
 export function SubjectsCombobox({
+    gradeId,
     value,
     onChange,
     disabled,
@@ -28,12 +30,16 @@ export function SubjectsCombobox({
     const { data, isLoading, isError } = useSubjects();
 
     const items = useMemo(() => {
-        const items = data?.items ?? [];
-        return items.map((s) => ({
+        let items = (data?.items ?? []).map((s) => ({
             value: s.id,
             label: `${s.name} (${s.code})`,
+            data: s,
         }));
-    }, [data]);
+        if (gradeId) {
+            items = items.filter((i) => i.data.gradeId === gradeId);
+        }
+        return items;
+    }, [data, gradeId]);
 
     const selectedItem = items.find((i) => i.value === value) ?? null;
 

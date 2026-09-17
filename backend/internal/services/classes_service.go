@@ -13,6 +13,7 @@ import (
 type ClassListItem struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
+	GradeID      string `json:"gradeId"`
 	Grade        string `json:"grade"`
 	Stream       string `json:"stream"`
 	AcademicYear string `json:"academicYear"`
@@ -69,7 +70,7 @@ func (s *classesService) ListClasses(ctx context.Context, schoolID uuid.UUID, pa
 
 	args := []interface{}{schoolID, academicYearID}
 	query := `
-		SELECT cr.id, cr.name, gl.local_label, COALESCE(cr.stream, ''), ay.name, ''
+		SELECT cr.id, cr.name, gl.id, gl.local_label, COALESCE(cr.stream, ''), ay.name, ''
 		FROM class_rooms cr
 		JOIN grade_levels gl ON gl.id = cr.grade_level_id
 		JOIN academic_years ay ON ay.id = cr.academic_year_id
@@ -122,7 +123,7 @@ func (s *classesService) ListClasses(ctx context.Context, schoolID uuid.UUID, pa
 		var it ClassListItem
 		var id uuid.UUID
 		var teacher string
-		if err := rows.Scan(&id, &it.Name, &it.Grade, &it.Stream, &it.AcademicYear, &teacher); err != nil {
+		if err := rows.Scan(&id, &it.Name, &it.GradeID, &it.Grade, &it.Stream, &it.AcademicYear, &teacher); err != nil {
 			s.logger.Error("list classes scan failed", zap.Error(err))
 			continue
 		}

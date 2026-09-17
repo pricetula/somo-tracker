@@ -1,6 +1,7 @@
 export interface ClassListItem {
     id: string;
     name: string;
+    gradeId: string;
     grade: string;
     stream: string;
     academicYear: string;

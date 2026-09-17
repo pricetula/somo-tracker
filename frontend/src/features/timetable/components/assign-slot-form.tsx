@@ -37,6 +37,7 @@ interface AssignSlotFormProps {
 }
 
 export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotFormProps) {
+    const [selectedGradeId, setSelectedGradeId] = React.useState<string>("");
     const { mutate, isPending } = useAssignSlot();
 
     const form = useForm<FormValues>({
@@ -47,6 +48,8 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotF
             teacher_membership_id: "",
         },
     });
+
+    const classRoomId = form.watch("class_room_id");
 
     const onSubmit = React.useCallback(
         (data: FormValues) => {
@@ -92,7 +95,10 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotF
                             <FormControl>
                                 <ClassesCombobox
                                     value={field.value}
-                                    onChange={field.onChange}
+                                    onChange={(v, d) => {
+                                        setSelectedGradeId(d?.gradeId || "");
+                                        field.onChange(v);
+                                    }}
                                     disabled={isPending}
                                     placeholder="Select class"
                                 />
@@ -110,9 +116,10 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotF
                             <FormLabel>Subject</FormLabel>
                             <FormControl>
                                 <SubjectsCombobox
+                                    gradeId={selectedGradeId}
                                     value={field.value}
                                     onChange={field.onChange}
-                                    disabled={isPending}
+                                    disabled={isPending || !classRoomId}
                                     placeholder="Select subject"
                                 />
                             </FormControl>
@@ -131,7 +138,7 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotF
                                 <TeachersCombobox
                                     value={field.value}
                                     onChange={field.onChange}
-                                    disabled={isPending}
+                                    disabled={isPending || !classRoomId}
                                     placeholder="Select teacher"
                                 />
                             </FormControl>

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
+import type { ClassListItem } from "@/features/classes/types/class.ts";
 import { useClasses } from "../hooks/use-classes";
 import {
     Combobox,
@@ -14,7 +15,7 @@ import {
 
 interface ClassesComboboxProps {
     value?: string;
-    onChange: (value: string) => void;
+    onChange: (value: string, data?: ClassListItem) => void;
     disabled?: boolean;
     placeholder?: string;
 }
@@ -32,6 +33,7 @@ export function ClassesCombobox({
         return items.map((c) => ({
             value: c.id,
             label: `${c.name} — ${c.grade} ${c.stream}`,
+            data: c,
         }));
     }, [data]);
 
@@ -42,7 +44,7 @@ export function ClassesCombobox({
             items={items}
             itemToStringValue={(item) => item?.label ?? ""}
             value={selectedItem}
-            onValueChange={(item) => onChange(item?.value ?? "")}
+            onValueChange={(item) => onChange(item?.value ?? "", item?.data)}
             disabled={disabled}
         >
             <ComboboxInput placeholder={placeholder} showClear />

@@ -3,6 +3,7 @@ export interface SubjectListItem {
     name: string;
     code: string;
     grade: string;
+    gradeId: string;
 }
 
 export interface TopicItem {

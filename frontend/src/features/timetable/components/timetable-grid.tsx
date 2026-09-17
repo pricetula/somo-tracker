@@ -13,6 +13,7 @@ type Props = {
     onAddSlot?: () => void;
     days?: string[];
     templateId?: string;
+    selectedIds: { classId: string; gradeId: string };
 };
 
 const DEFAULT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -26,6 +27,7 @@ export function TimetableGrid({
     onAddSlot,
     days = DEFAULT_DAYS,
     templateId,
+    selectedIds,
 }: Props) {
     return (
         <div className="space-y-4">
@@ -106,7 +108,7 @@ export function TimetableGrid({
                                               <td key={d} className="border-r px-4 py-4 align-top">
                                                   {templateId ? (
                                                       <Link
-                                                          href={`/timetable/${templateId}/assign?day=${dayIdx + 1}&slot=${slot.id}`}
+                                                          href={`/timetable/${templateId}/assign?classId=${selectedIds.classId}&gradeId=${selectedIds.gradeId}&day=${dayIdx + 1}&slot=${slot.id}`}
                                                           className="block h-full w-full"
                                                       >
                                                           <Button

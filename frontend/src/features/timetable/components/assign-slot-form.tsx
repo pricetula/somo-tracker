@@ -18,7 +18,6 @@ import {
 import { useAssignSlot } from "../hooks/use-assign-slot";
 import { ApiError } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/errors";
-import { ClassesCombobox } from "@/features/classes/components/classes-combobox";
 import { TeachersCombobox } from "@/features/teachers/components/teachers-combobox";
 import { SubjectsCombobox } from "@/features/curriculum/components/subjects-combobox";
 
@@ -33,29 +32,33 @@ type FormValues = z.infer<typeof schema>;
 interface AssignSlotFormProps {
     dayOfWeek: number;
     timeSlotId: string;
+    classId: string;
+    gradeId: string;
     onSuccess?: () => void;
 }
 
-export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotFormProps) {
-    const [selectedGradeId, setSelectedGradeId] = React.useState<string>("");
+export function AssignSlotForm({
+    dayOfWeek,
+    timeSlotId,
+    classId,
+    gradeId,
+    onSuccess,
+}: AssignSlotFormProps) {
     const { mutate, isPending } = useAssignSlot();
 
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
-            class_room_id: "",
             subject_id: "",
             teacher_membership_id: "",
         },
     });
 
-    const classRoomId = form.watch("class_room_id");
-
     const onSubmit = React.useCallback(
         (data: FormValues) => {
             mutate(
                 {
-                    class_room_id: data.class_room_id,
+                    class_room_id: classId,
                     day_of_week: dayOfWeek,
                     time_slot_id: timeSlotId,
                     subject_id: data.subject_id,
@@ -80,34 +83,12 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotF
                 }
             );
         },
-        [mutate, dayOfWeek, timeSlotId, onSuccess, form]
+        [mutate, dayOfWeek, timeSlotId, onSuccess, form, classId]
     );
 
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-                <FormField
-                    control={form.control}
-                    name="class_room_id"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Class</FormLabel>
-                            <FormControl>
-                                <ClassesCombobox
-                                    value={field.value}
-                                    onChange={(v, d) => {
-                                        setSelectedGradeId(d?.gradeId || "");
-                                        field.onChange(v);
-                                    }}
-                                    disabled={isPending}
-                                    placeholder="Select class"
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
                 <FormField
                     control={form.control}
                     name="subject_id"
@@ -116,10 +97,10 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotF
                             <FormLabel>Subject</FormLabel>
                             <FormControl>
                                 <SubjectsCombobox
-                                    gradeId={selectedGradeId}
+                                    gradeId={gradeId}
                                     value={field.value}
                                     onChange={field.onChange}
-                                    disabled={isPending || !classRoomId}
+                                    disabled={isPending || !classId}
                                     placeholder="Select subject"
                                 />
                             </FormControl>
@@ -138,7 +119,7 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, onSuccess }: AssignSlotF
                                 <TeachersCombobox
                                     value={field.value}
                                     onChange={field.onChange}
-                                    disabled={isPending || !classRoomId}
+                                    disabled={isPending || !classId}
                                     placeholder="Select teacher"
                                 />
                             </FormControl>

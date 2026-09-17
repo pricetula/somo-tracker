@@ -39,7 +39,7 @@ export function useTimetableTemplates() {
 export function useCreateTimetableTemplate() {
     const queryClient = useQueryClient();
 
-    return useMutation<TimetableTemplate, Error, CreateTimetableTemplatePayload>({
+    return useMutation<{ id: string }, Error, CreateTimetableTemplatePayload>({
         mutationKey: timetableTemplateKeys.create,
         mutationFn: (payload) => createTimetableTemplate(payload),
         async onMutate(payload) {
@@ -51,8 +51,7 @@ export function useCreateTimetableTemplate() {
                 id: `optimistic-${Date.now()}`,
                 name: payload.name,
                 description: payload.description ?? "",
-                school_id: payload.school_id,
-                academic_period_id: payload.academic_period_id,
+                school_id: "", // filled by server on success
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             } as TimetableTemplate;

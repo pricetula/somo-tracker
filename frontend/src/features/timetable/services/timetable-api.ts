@@ -6,8 +6,8 @@ import type {
 
 export async function createTimetableTemplate(
     payload: CreateTimetableTemplatePayload
-): Promise<TimetableTemplate> {
-    const data = await api.post<TimetableTemplate>(`/api/timetable/templates`, payload);
+): Promise<{ id: string }> {
+    const data = await api.post<{ id: string }>(`/api/timetable/templates`, payload);
     return data;
 }
 

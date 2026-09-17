@@ -30,14 +30,12 @@ type createTimetableTemplateRequest struct {
 	} `json:"time_slots"`
 }
 
-// @Summary Create timetable template
+// @Summary List timetable templates
 // @Tags Timetable
 // @Produce json
-// @Param body body createTimetableTemplateRequest true "Template payload"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
+// @Success 200 {array} sqlc.TimetableTemplate
 // @Failure 401 {object} map[string]interface{}
-// @Router /timetable/templates [post]
+// @Router /api/timetable/templates [get]
 func (h *TimetableHandler) ListTemplates(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
@@ -166,6 +164,15 @@ func (h *TimetableHandler) SetupClassTimetableSlot(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"code": "created", "message": "class timetable slot created"})
 }
 
+// @Summary Create timetable template
+// @Tags Timetable
+// @Accept json
+// @Produce json
+// @Param body body createTimetableTemplateRequest true "Template payload"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/timetable/templates [post]
 func (h *TimetableHandler) CreateTemplate(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {

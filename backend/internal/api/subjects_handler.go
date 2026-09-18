@@ -23,7 +23,7 @@ func subjectsListHandler(pool *pgxpool.Pool) fiber.Handler {
 		search := c.Query("search")
 		grade := c.Query("grade")
 
-		baseQuery := `SELECT s.id, s.grade_level_id, s.name, s.code, COALESCE(gl.local_label, '') FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id`
+		baseQuery := `SELECT s.id, s.grade_level_id, s.name, s.code, s.color, COALESCE(gl.local_label, '') FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id`
 		countQuery := `SELECT COUNT(*) FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id`
 		conds := []string{}
 		args := []interface{}{}
@@ -64,13 +64,14 @@ func subjectsListHandler(pool *pgxpool.Pool) fiber.Handler {
 			ID      string `json:"id"`
 			Name    string `json:"name"`
 			Code    string `json:"code"`
+			Color   string `json:"color"`
 			Grade   string `json:"grade"`
 			GradeID string `json:"gradeId"`
 		}
 		items := []subjectRow{}
 		for rows.Next() {
 			var r subjectRow
-			if err := rows.Scan(&r.ID, &r.GradeID, &r.Name, &r.Code, &r.Grade); err != nil {
+			if err := rows.Scan(&r.ID, &r.GradeID, &r.Name, &r.Code, &r.Color, &r.Grade); err != nil {
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to scan subjects", "errors": fiber.Map{}})
 			}
 			items = append(items, r)

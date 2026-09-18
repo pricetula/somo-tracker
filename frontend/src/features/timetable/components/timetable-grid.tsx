@@ -136,50 +136,53 @@ export function TimetableGrid({
                                                       key={d}
                                                       className="border-r px-4 py-4 align-top"
                                                   >
-                                                      <div className="flex flex-col space-y-2">
-                                                          {(assignment.subject_name && (
-                                                              <Link
-                                                                  href={`/subjects/${assignment.subject_id}`}
-                                                                  className="block font-medium"
-                                                              >
-                                                                  {assignment.subject_name}
-                                                              </Link>
-                                                          )) || (
-                                                              <span className="font-medium">
-                                                                  Unassigned subject
-                                                              </span>
-                                                          )}
+                                                      <div className="flex justify-between">
+                                                          <div className="flex flex-col items-start space-y-2">
+                                                              {(assignment.subject_name && (
+                                                                  <Link
+                                                                      href={`/subjects/${assignment.subject_id}`}
+                                                                      className="block font-medium"
+                                                                  >
+                                                                      {assignment.subject_name}
+                                                                  </Link>
+                                                              )) || (
+                                                                  <span className="font-medium">
+                                                                      Unassigned subject
+                                                                  </span>
+                                                              )}
 
-                                                          {(assignment.teacher_name && (
-                                                              <Link
-                                                                  href={`/teachers/${assignment.teacher_membership_id}`}
-                                                                  className="text-muted-foreground block text-sm"
-                                                              >
-                                                                  {assignment.teacher_name}
-                                                              </Link>
-                                                          )) || (
-                                                              <span className="text-muted-foreground text-sm">
-                                                                  Unassigned teacher
-                                                              </span>
-                                                          )}
+                                                              {(assignment.teacher_name && (
+                                                                  <Link
+                                                                      href={`/teachers/${assignment.teacher_membership_id}`}
+                                                                      className="text-muted-foreground block text-sm"
+                                                                  >
+                                                                      {assignment.teacher_name}
+                                                                  </Link>
+                                                              )) || (
+                                                                  <span className="text-muted-foreground text-sm">
+                                                                      Unassigned teacher
+                                                                  </span>
+                                                              )}
 
-                                                          {assignment.room_name && (
-                                                              <div className="text-muted-foreground text-xs">
-                                                                  Room: {assignment.room_name}
-                                                              </div>
-                                                          )}
-                                                          <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              className="self-end"
-                                                              onClick={() =>
-                                                                  deleteMutation.mutate(
-                                                                      assignment.id
-                                                                  )
-                                                              }
-                                                          >
-                                                              <Trash2 className="h-4 w-4" />
-                                                          </Button>
+                                                              {assignment.room_name && (
+                                                                  <div className="text-muted-foreground text-xs">
+                                                                      Room: {assignment.room_name}
+                                                                  </div>
+                                                              )}
+                                                              <Button
+                                                                  variant="destructive"
+                                                                  size="xs"
+                                                                  onClick={() =>
+                                                                      deleteMutation.mutate(
+                                                                          assignment.id
+                                                                      )
+                                                                  }
+                                                              >
+                                                                  <Trash2 className="h-4 w-4" />
+                                                                  <span>Delete</span>
+                                                              </Button>
+                                                          </div>
+                                                          <div className="h-20 w-1 bg-indigo-300" />
                                                       </div>
                                                   </td>
                                               );

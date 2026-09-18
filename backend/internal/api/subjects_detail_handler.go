@@ -14,8 +14,8 @@ func subjectsDetailHandler(pool *pgxpool.Pool) fiber.Handler {
 		}
 
 		// Subject details
-		var subjID, subjName, subjCode, grade string
-		err := pool.QueryRow(ctx, `SELECT s.id, s.name, s.code, COALESCE(gl.local_label,'') FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id WHERE s.id = $1`, id).Scan(&subjID, &subjName, &subjCode, &grade)
+		var subjID, subjName, subjCode, subjColor, grade string
+		err := pool.QueryRow(ctx, `SELECT s.id, s.name, s.code, s.color, COALESCE(gl.local_label,'') FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id WHERE s.id = $1`, id).Scan(&subjID, &subjName, &subjCode, &subjColor, &grade)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "subject not found", "errors": fiber.Map{}})
 		}
@@ -47,6 +47,7 @@ func subjectsDetailHandler(pool *pgxpool.Pool) fiber.Handler {
 			"id":     subjID,
 			"name":   subjName,
 			"code":   subjCode,
+			"color":  subjColor,
 			"grade":  grade,
 			"topics": topics,
 		})

@@ -4,6 +4,7 @@ export interface SubjectListItem {
     code: string;
     grade: string;
     gradeId: string;
+    color?: string;
 }
 
 export interface TopicItem {

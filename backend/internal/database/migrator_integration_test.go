@@ -1630,3 +1630,35 @@ func TestMigrator_ExpandSubjectCode(t *testing.T) {
 	`, eduSysID, longCode).Scan(&subjID)
 	require.NoError(t, err, "inserting long subject code should succeed after migration")
 }
+
+// TestMigrator_SubjectColor verifies migration 000016 adds color column to subjects
+func TestMigrator_SubjectColor(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// Verify color column exists
+	var exists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'subjects' AND column_name = 'color'
+		)
+	`).Scan(&exists)
+	require.NoError(t, err)
+	require.True(t, exists, "subjects.color column should exist")
+}

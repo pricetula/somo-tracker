@@ -734,6 +734,8 @@ type Subject struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	// FK to grade_levels(id). The grade level this subject belongs to. Cascades on grade level delete. Nullable for legacy subjects.
 	GradeLevelID pgtype.UUID `json:"grade_level_id"`
+	// Optional visual color identifier for the subject.
+	Color pgtype.Text `json:"color"`
 }
 
 // Maps 1:1 to a Stytch OIDC organization. All Somotracker data is scoped under exactly one tenant row.

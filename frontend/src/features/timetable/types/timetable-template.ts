@@ -63,6 +63,7 @@ export type ClassTimetableSlotWithDetails = {
     sequence_index: number;
     is_instructional: boolean;
     subject_name?: string | null;
+    subject_color?: string | null;
     teacher_name?: string | null;
     teacher_email?: string | null;
     room_name?: string | null;

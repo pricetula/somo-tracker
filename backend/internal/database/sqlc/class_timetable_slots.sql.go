@@ -161,6 +161,7 @@ SELECT
   ts.sequence_index,
   ts.is_instructional,
   s.name AS subject_name,
+  s.color AS subject_color,
   u.full_name AS teacher_name,
   u.email AS teacher_email,
   r.name AS room_name
@@ -203,6 +204,7 @@ type GetClassTimetableSlotsByTemplateWithDetailsRow struct {
 	SequenceIndex       int32              `json:"sequence_index"`
 	IsInstructional     bool               `json:"is_instructional"`
 	SubjectName         pgtype.Text        `json:"subject_name"`
+	SubjectColor        pgtype.Text        `json:"subject_color"`
 	TeacherName         pgtype.Text        `json:"teacher_name"`
 	TeacherEmail        pgtype.Text        `json:"teacher_email"`
 	RoomName            pgtype.Text        `json:"room_name"`
@@ -238,6 +240,7 @@ func (q *Queries) GetClassTimetableSlotsByTemplateWithDetails(ctx context.Contex
 			&i.SequenceIndex,
 			&i.IsInstructional,
 			&i.SubjectName,
+			&i.SubjectColor,
 			&i.TeacherName,
 			&i.TeacherEmail,
 			&i.RoomName,

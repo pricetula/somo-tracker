@@ -23,7 +23,7 @@ func subjectsListHandler(pool *pgxpool.Pool) fiber.Handler {
 		search := c.Query("search")
 		grade := c.Query("grade")
 
-		baseQuery := `SELECT s.id, s.grade_level_id, s.name, s.code, s.color, COALESCE(gl.local_label, '') FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id`
+		baseQuery := `SELECT s.id, s.grade_level_id, s.name, s.code, COALESCE(s.color, ''), COALESCE(gl.local_label, '') FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id`
 		countQuery := `SELECT COUNT(*) FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id`
 		conds := []string{}
 		args := []interface{}{}

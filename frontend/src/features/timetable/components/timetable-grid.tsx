@@ -182,7 +182,14 @@ export function TimetableGrid({
                                                                   <span>Delete</span>
                                                               </Button>
                                                           </div>
-                                                          <div className="h-20 w-1 bg-indigo-300" />
+                                                          <div
+                                                              className="h-20 w-1"
+                                                              style={{
+                                                                  backgroundColor:
+                                                                      assignment?.subject_color ??
+                                                                      "",
+                                                              }}
+                                                          />
                                                       </div>
                                                   </td>
                                               );

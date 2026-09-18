@@ -52,6 +52,7 @@ SELECT
   ts.sequence_index,
   ts.is_instructional,
   s.name AS subject_name,
+  s.color AS subject_color,
   u.full_name AS teacher_name,
   u.email AS teacher_email,
   r.name AS room_name

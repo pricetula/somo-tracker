@@ -154,12 +154,12 @@ export function TimetableGrid({
                                                               {(assignment.teacher_name && (
                                                                   <Link
                                                                       href={`/teachers/${assignment.teacher_membership_id}`}
-                                                                      className="text-muted-foreground block text-sm"
+                                                                      className="text-muted-foreground block"
                                                                   >
                                                                       {assignment.teacher_name}
                                                                   </Link>
                                                               )) || (
-                                                                  <span className="text-muted-foreground text-sm">
+                                                                  <span className="text-muted-foreground">
                                                                       Unassigned teacher
                                                                   </span>
                                                               )}

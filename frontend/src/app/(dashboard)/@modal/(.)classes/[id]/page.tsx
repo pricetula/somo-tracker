@@ -2,7 +2,7 @@
 
 import { useRouter, useParams } from "next/navigation";
 import { ClassDetail } from "@/features/classes";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export default function ClassDetailModalPage() {
     const router = useRouter();
@@ -16,13 +16,13 @@ export default function ClassDetailModalPage() {
     };
 
     return (
-        <Dialog open onOpenChange={handleOpenChange}>
-            <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Class Details</DialogTitle>
-                </DialogHeader>
+        <Sheet open onOpenChange={handleOpenChange}>
+            <SheetContent side="right" className="w-full sm:max-w-md">
+                <SheetHeader>
+                    <SheetTitle>Class Details</SheetTitle>
+                </SheetHeader>
                 <ClassDetail id={id} />
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 }

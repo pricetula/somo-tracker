@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ClassesCombobox } from "@/features/classes/components/classes-combobox";
 import { TimetableGrid } from "./timetable-grid";
@@ -14,7 +15,11 @@ type Props = {
 };
 
 export function TimetableDetail({ templateId }: Props) {
-    const [selectedIds, setSelectedIds] = React.useState({ classId: "", gradeId: "" });
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const classId = searchParams.get("classId") || "";
+    const selectedIds = React.useMemo(() => ({ classId, gradeId: "" }), [classId]);
+
     const { data: slots = [], isLoading } = useTimeSlots(templateId);
     const { data: assignments = [], isLoading: assignmentsLoading } = useClassTimetableSlots(
         templateId,
@@ -47,11 +52,14 @@ export function TimetableDetail({ templateId }: Props) {
                 />
                 <ClassesCombobox
                     value={selectedIds.classId}
-                    onChange={(v, d) => {
-                        setSelectedIds({
-                            classId: v,
-                            gradeId: d?.gradeId || "",
-                        });
+                    onChange={(v) => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        if (v) {
+                            params.set("classId", v);
+                        } else {
+                            params.delete("classId");
+                        }
+                        router.replace(`?${params.toString()}`, { scroll: false });
                     }}
                     placeholder="Select class"
                 />

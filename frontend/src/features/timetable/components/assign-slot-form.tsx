@@ -22,7 +22,6 @@ import { TeachersCombobox } from "@/features/teachers/components/teachers-combob
 import { SubjectsCombobox } from "@/features/curriculum/components/subjects-combobox";
 
 const schema = z.object({
-    class_room_id: z.string().min(1, "Class is required"),
     subject_id: z.string().min(1, "Subject is required"),
     teacher_membership_id: z.string().min(1, "Teacher is required"),
 });

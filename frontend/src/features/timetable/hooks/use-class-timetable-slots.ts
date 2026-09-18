@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-    getClassTimetableSlots,
-    type ClassTimetableSlotWithDetails,
-} from "../services/timetable-api";
+import { getClassTimetableSlots } from "../services/timetable-api";
+import type { ClassTimetableSlotWithDetails } from "../types/timetable-template";
 
 export const classTimetableSlotKeys = {
     byTemplateAndClass: (templateId: string, classId: string) =>

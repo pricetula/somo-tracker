@@ -16,6 +16,7 @@ export function useAssignSlot() {
         onSuccess: () => {
             toast.success("Timetable slot assigned");
             queryClient.invalidateQueries({ queryKey: ["timetable-time-slots"] });
+            queryClient.invalidateQueries({ queryKey: ["timetable-class-slots"] });
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

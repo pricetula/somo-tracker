@@ -23,6 +23,7 @@ type ClassListItem struct {
 type ClassDetail struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
+	GradeID       string `json:"gradeId"`
 	Grade         string `json:"grade"`
 	Stream        string `json:"stream"`
 	AcademicYear  string `json:"academicYear"`
@@ -139,7 +140,7 @@ func (s *classesService) GetClass(ctx context.Context, schoolID uuid.UUID, id uu
 		WITH current_year AS (
 			SELECT id FROM academic_years WHERE school_id = $1 ORDER BY start_date DESC LIMIT 1
 		)
-		SELECT cr.id, cr.name, gl.local_label, COALESCE(cr.stream, ''), ay.name, ''
+		SELECT cr.id, cr.name, gl.id, gl.local_label, COALESCE(cr.stream, ''), ay.name, ''
 		FROM class_rooms cr
 		JOIN grade_levels gl ON gl.id = cr.grade_level_id
 		JOIN academic_years ay ON ay.id = cr.academic_year_id
@@ -147,10 +148,12 @@ func (s *classesService) GetClass(ctx context.Context, schoolID uuid.UUID, id uu
 	`
 	var d ClassDetail
 	var teacher string
-	err := s.pool.QueryRow(ctx, query, schoolID, id).Scan(&d.ID, &d.Name, &d.Grade, &d.Stream, &d.AcademicYear, &teacher)
+	var gradeID uuid.UUID
+	err := s.pool.QueryRow(ctx, query, schoolID, id).Scan(&d.ID, &d.Name, &gradeID, &d.Grade, &d.Stream, &d.AcademicYear, &teacher)
 	if err != nil {
 		return nil, fmt.Errorf("not_found: class not found")
 	}
+	d.GradeID = gradeID.String()
 	d.TeacherName = teacher
 	d.StudentsCount = 0
 	return &d, nil

@@ -22,7 +22,6 @@ export default function AssignSlotPage() {
     const dayOfWeek = Number(searchParams.get("day") ?? 1);
     const timeSlotId = searchParams.get("slot") ?? "";
     const classId = searchParams.get("classId");
-    const gradeId = searchParams.get("gradeId");
 
     const handleContinue = () => {
         let url = "/timetable";
@@ -116,27 +115,6 @@ export default function AssignSlotPage() {
         );
     }
 
-    if (!gradeId) {
-        return (
-            <AlertDialog open>
-                <AlertDialogContent>
-                    <AlertDialogHeader className="mb-2">
-                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
-                            <AlertCircle size="16" />
-                            <span>Grade not selected</span>
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            To assign a timetable slot, please select a grade first.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction onClick={handleContinue}>Continue</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        );
-    }
-
     return (
         <div className="mx-auto max-w-2xl space-y-4 p-6">
             <h1 className="text-2xl font-semibold">Assign Timetable Slot</h1>
@@ -144,7 +122,6 @@ export default function AssignSlotPage() {
                 dayOfWeek={dayOfWeek}
                 timeSlotId={timeSlotId}
                 classId={classId ?? ""}
-                gradeId={gradeId ?? ""}
                 onSuccess={() => router.push(`/timetable/${id}`)}
             />
         </div>

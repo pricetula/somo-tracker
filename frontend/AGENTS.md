@@ -30,7 +30,7 @@ src/
 
 - Each feature is self-contained: logic, UI, and state all live within its folder.
 - External code imports a feature only through its `index.ts` — never internal paths.
-- Features must not import from each other. Shared logic belongs in `lib/`.
+- Cross-feature imports are allowed for now. Avoid circular dependencies. Shared logic that is truly generic belongs in `lib/`.
 - Route handlers live in `app/api/…/route.ts` — never in `features/`.
 - Page files (`page.tsx`) render a single feature container. No logic in page files.
 - Do not define multiple components in one `.tsx` file — one component per file.

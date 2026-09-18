@@ -16,7 +16,7 @@ type Props = {
     onAddSlot?: () => void;
     days?: string[];
     templateId?: string;
-    selectedIds: { classId: string; gradeId: string };
+    selectedIds?: { classId: string };
     assignments?: ClassTimetableSlotWithDetails[];
 };
 
@@ -34,7 +34,10 @@ export function TimetableGrid({
     selectedIds,
     assignments = [],
 }: Props) {
-    const deleteMutation = useDeleteClassTimetableSlot(templateId || "", selectedIds.classId);
+    const deleteMutation = useDeleteClassTimetableSlot(
+        templateId || "",
+        selectedIds?.classId || ""
+    );
     const assignmentMap = React.useMemo(() => {
         const map = new Map<string, ClassTimetableSlotWithDetails>();
         if (!assignments) return map;
@@ -186,9 +189,9 @@ export function TimetableGrid({
                                                   key={d}
                                                   className="border-r px-4 py-4 text-center align-middle"
                                               >
-                                                  {templateId && selectedIds.classId ? (
+                                                  {templateId && selectedIds?.classId ? (
                                                       <Link
-                                                          href={`/timetable/${templateId}/assign?classId=${selectedIds.classId}&gradeId=${selectedIds.gradeId}&day=${dayNumber}&slot=${slot.id}`}
+                                                          href={`/timetable/${templateId}/assign?classId=${selectedIds.classId}&day=${dayNumber}&slot=${slot.id}`}
                                                           className={buttonVariants({
                                                               variant: "outline",
                                                               size: "sm",

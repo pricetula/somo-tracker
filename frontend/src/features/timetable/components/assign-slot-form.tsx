@@ -20,6 +20,8 @@ import { ApiError } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/errors";
 import { TeachersCombobox } from "@/features/teachers/components/teachers-combobox";
 import { SubjectsCombobox } from "@/features/curriculum/components/subjects-combobox";
+import { useQuery } from "@tanstack/react-query";
+import { getClass } from "@/features/classes/services/api";
 
 const schema = z.object({
     subject_id: z.string().min(1, "Subject is required"),
@@ -32,17 +34,17 @@ interface AssignSlotFormProps {
     dayOfWeek: number;
     timeSlotId: string;
     classId: string;
-    gradeId: string;
     onSuccess?: () => void;
 }
 
-export function AssignSlotForm({
-    dayOfWeek,
-    timeSlotId,
-    classId,
-    gradeId,
-    onSuccess,
-}: AssignSlotFormProps) {
+export function AssignSlotForm({ dayOfWeek, timeSlotId, classId, onSuccess }: AssignSlotFormProps) {
+    const { data: classData, isLoading: isClassLoading } = useQuery({
+        queryKey: ["class", classId],
+        queryFn: () => getClass(classId),
+        enabled: !!classId,
+    });
+
+    const gradeId = classData?.gradeId ?? "";
     const { mutate, isPending } = useAssignSlot();
 
     const form = useForm<FormValues>({
@@ -85,6 +87,8 @@ export function AssignSlotForm({
         [mutate, dayOfWeek, timeSlotId, onSuccess, form, classId]
     );
 
+    const isDisabled = isPending || !classId || isClassLoading;
+
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -99,7 +103,7 @@ export function AssignSlotForm({
                                     gradeId={gradeId}
                                     value={field.value}
                                     onChange={field.onChange}
-                                    disabled={isPending || !classId}
+                                    disabled={isDisabled}
                                     placeholder="Select subject"
                                 />
                             </FormControl>
@@ -118,7 +122,7 @@ export function AssignSlotForm({
                                 <TeachersCombobox
                                     value={field.value}
                                     onChange={field.onChange}
-                                    disabled={isPending || !classId}
+                                    disabled={isDisabled}
                                     placeholder="Select teacher"
                                 />
                             </FormControl>
@@ -127,7 +131,7 @@ export function AssignSlotForm({
                     )}
                 />
 
-                <Button type="submit" className="w-full" disabled={isPending}>
+                <Button type="submit" className="w-full" disabled={isDisabled}>
                     {isPending ? (
                         <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

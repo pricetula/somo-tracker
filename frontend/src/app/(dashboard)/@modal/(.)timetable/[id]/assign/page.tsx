@@ -23,7 +23,6 @@ export default function AssignSlotModalPage() {
     const dayOfWeek = Number(searchParams.get("day") ?? 1);
     const timeSlotId = searchParams.get("slot") ?? "";
     const classId = searchParams.get("classId");
-    const gradeId = searchParams.get("gradeId");
 
     const handleOpenChange = (open: boolean) => {
         if (!open) {
@@ -123,27 +122,6 @@ export default function AssignSlotModalPage() {
         );
     }
 
-    if (!gradeId) {
-        return (
-            <AlertDialog open>
-                <AlertDialogContent>
-                    <AlertDialogHeader className="mb-2">
-                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
-                            <AlertCircle size="16" />
-                            <span>Grade not selected</span>
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            To assign a timetable slot, please select a grade first.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction onClick={handleContinue}>Continue</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        );
-    }
-
     return (
         <Dialog open onOpenChange={handleOpenChange}>
             <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
@@ -154,7 +132,6 @@ export default function AssignSlotModalPage() {
                     dayOfWeek={dayOfWeek}
                     timeSlotId={timeSlotId}
                     classId={classId ?? ""}
-                    gradeId={gradeId ?? ""}
                     onSuccess={() => router.back()}
                 />
             </DialogContent>

@@ -18,7 +18,7 @@ export function TimetableDetail({ templateId }: Props) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const classId = searchParams.get("classId") || "";
-    const selectedIds = React.useMemo(() => ({ classId, gradeId: "" }), [classId]);
+    const selectedIds = React.useMemo(() => ({ classId }), [classId]);
 
     const { data: slots = [], isLoading } = useTimeSlots(templateId);
     const { data: assignments = [], isLoading: assignmentsLoading } = useClassTimetableSlots(

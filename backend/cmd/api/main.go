@@ -63,6 +63,9 @@ func main() {
 		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries) services.TimetableService {
 			return services.NewTimetableService(pool, q)
 		}),
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries) services.AttendanceService {
+			return services.NewAttendanceService(pool, q)
+		}),
 		fx.Provide(services.NewTeachersService),
 		fx.Provide(services.NewFinanceService),
 		fx.Provide(services.NewGuardiansService),

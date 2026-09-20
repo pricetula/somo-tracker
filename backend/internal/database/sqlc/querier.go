@@ -18,14 +18,19 @@ type Querier interface {
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateStream(ctx context.Context, arg CreateStreamParams) (Stream, error)
 	CreateTimeSlot(ctx context.Context, arg CreateTimeSlotParams) (pgtype.UUID, error)
+	CreateTimetableAttendance(ctx context.Context, arg CreateTimetableAttendanceParams) (TimetableAttendance, error)
 	CreateTimetableTemplate(ctx context.Context, arg CreateTimetableTemplateParams) (pgtype.UUID, error)
 	DeleteClassTimetableSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteSession(ctx context.Context, token string) error
 	GetClassTimetableSlotsByTemplate(ctx context.Context, arg GetClassTimetableSlotsByTemplateParams) ([]GetClassTimetableSlotsByTemplateRow, error)
 	GetClassTimetableSlotsByTemplateWithDetails(ctx context.Context, arg GetClassTimetableSlotsByTemplateWithDetailsParams) ([]GetClassTimetableSlotsByTemplateWithDetailsRow, error)
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
+	// Gets a school membership by user_id and school_id.
+	GetSchoolMembershipByUserAndSchool(ctx context.Context, arg GetSchoolMembershipByUserAndSchoolParams) (GetSchoolMembershipByUserAndSchoolRow, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
+	GetTimetableAttendanceBySlotAndDate(ctx context.Context, arg GetTimetableAttendanceBySlotAndDateParams) ([]TimetableAttendance, error)
+	GetTimetableAttendanceByStudentAndDate(ctx context.Context, arg GetTimetableAttendanceByStudentAndDateParams) ([]TimetableAttendance, error)
 	GetTimetableTemplate(ctx context.Context, id pgtype.UUID) (TimetableTemplate, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)

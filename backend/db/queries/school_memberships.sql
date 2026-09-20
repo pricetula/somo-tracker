@@ -32,3 +32,9 @@ SET
     is_active = $5,
     updated_at = NOW()
 WHERE id = $6;
+
+-- name: GetSchoolMembershipByUserAndSchool :one
+-- Gets a school membership by user_id and school_id.
+SELECT id, school_id, user_id, role, is_active, invited_at, invited_by, accepted_at, created_at, updated_at
+FROM school_memberships
+WHERE user_id = $1 AND school_id = $2;

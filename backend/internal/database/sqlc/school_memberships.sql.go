@@ -11,6 +11,49 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getSchoolMembershipByUserAndSchool = `-- name: GetSchoolMembershipByUserAndSchool :one
+SELECT id, school_id, user_id, role, is_active, invited_at, invited_by, accepted_at, created_at, updated_at
+FROM school_memberships
+WHERE user_id = $1 AND school_id = $2
+`
+
+type GetSchoolMembershipByUserAndSchoolParams struct {
+	UserID   pgtype.UUID `json:"user_id"`
+	SchoolID pgtype.UUID `json:"school_id"`
+}
+
+type GetSchoolMembershipByUserAndSchoolRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	SchoolID   pgtype.UUID        `json:"school_id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	Role       UserRole           `json:"role"`
+	IsActive   bool               `json:"is_active"`
+	InvitedAt  pgtype.Timestamptz `json:"invited_at"`
+	InvitedBy  pgtype.UUID        `json:"invited_by"`
+	AcceptedAt pgtype.Timestamptz `json:"accepted_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Gets a school membership by user_id and school_id.
+func (q *Queries) GetSchoolMembershipByUserAndSchool(ctx context.Context, arg GetSchoolMembershipByUserAndSchoolParams) (GetSchoolMembershipByUserAndSchoolRow, error) {
+	row := q.db.QueryRow(ctx, getSchoolMembershipByUserAndSchool, arg.UserID, arg.SchoolID)
+	var i GetSchoolMembershipByUserAndSchoolRow
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.UserID,
+		&i.Role,
+		&i.IsActive,
+		&i.InvitedAt,
+		&i.InvitedBy,
+		&i.AcceptedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateMembershipInvitationState = `-- name: UpdateMembershipInvitationState :exec
 UPDATE school_memberships
 SET

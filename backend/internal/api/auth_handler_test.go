@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/database/sqlc"
 	"somotracker/backend/internal/services"
 )
 
@@ -56,13 +58,27 @@ func (m *mockAuthService) RevokeSession(_ context.Context, token string, _ strin
 	return m.revokeErr
 }
 
+// mockAttendanceService is a hand-rolled stub of services.AttendanceService for
+// transport-layer tests.
+type mockAttendanceService struct{}
+
+func (m *mockAttendanceService) CreateAttendance(ctx context.Context, schoolID uuid.UUID, userID uuid.UUID, req services.CreateAttendanceRequest) error {
+	return nil
+}
+func (m *mockAttendanceService) GetAttendanceBySlotAndDate(ctx context.Context, slotID uuid.UUID, date time.Time) ([]sqlc.TimetableAttendance, error) {
+	return nil, nil
+}
+func (m *mockAttendanceService) GetAttendanceByStudentAndDate(ctx context.Context, studentID uuid.UUID, date time.Time) ([]sqlc.TimetableAttendance, error) {
+	return nil, nil
+}
+
 // newTestRouter wires a real *Router against a mockAuthService. The rate
 // limiter is nil so the middleware falls through (no Redis required).
 func newTestRouter(mock *mockAuthService) *fiber.App {
 	cfg := &config.Config{
 		CAPTCHAEnabled: false,
 	}
-	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), nil, cfg)
+	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), &mockAttendanceService{}, nil, cfg)
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil, nil)
 	return app
@@ -340,7 +356,7 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{CAPTCHAEnabled: false}
-	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), nil, cfg) // nil limiter → passes through
+	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), &mockAttendanceService{}, nil, cfg) // nil limiter → passes through
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil, nil)
 

@@ -114,6 +114,7 @@ func TestHandleInvites_Validation(t *testing.T) {
 			req, err := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(tt.body))
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Idempotency-Key", "test-key-"+tt.name)
 
 			resp, err := app.Test(req, fiber.TestConfig{})
 			require.NoError(t, err)

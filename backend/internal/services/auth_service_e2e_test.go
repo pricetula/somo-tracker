@@ -21,6 +21,9 @@ func getTestDBPool(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Skip("test DB not available:", err)
 	}
+	if err := pool.Ping(context.Background()); err != nil {
+		t.Skip("test DB not available: ping failed:", err)
+	}
 	return pool
 }
 

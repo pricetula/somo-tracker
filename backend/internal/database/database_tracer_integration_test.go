@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,13 +14,15 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"somotracker/backend/internal/config"
-	"somotracker/backend/internal/testdb"
 )
 
 // integrationDSN returns the DSN used by the migrator integration tests so
 // every database integration test exercises the same test instance.
 func integrationDSN() string {
-	return testdb.DefaultDSN
+	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
+		return dsn
+	}
+	return "postgres://postgres:postgres@localhost:5433/somotracker_test?sslmode=disable"
 }
 
 func TestPoolTracer_EmitsSpan(t *testing.T) {

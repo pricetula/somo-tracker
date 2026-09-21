@@ -199,12 +199,8 @@ func (s *curriculumService) GetSubjectDetail(ctx context.Context, id string) (*C
 }
 
 func (s *curriculumService) ListTopics(ctx context.Context, subjectID string, page int, limit int) ([]CurriculumTopic, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 200 {
-		limit = 50
-	}
+	_ = page
+	_ = limit
 
 	sid, err := uuid.Parse(subjectID)
 	if err != nil {
@@ -268,12 +264,8 @@ func (s *curriculumService) GetTopicDetail(ctx context.Context, id string) (*Cur
 }
 
 func (s *curriculumService) ListSubTopics(ctx context.Context, topicID string, page int, limit int) ([]CurriculumSubTopic, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 200 {
-		limit = 50
-	}
+	_ = page
+	_ = limit
 
 	tid, err := uuid.Parse(topicID)
 	if err != nil {

@@ -15,11 +15,11 @@ func subTopicsListHandler(curriculumSvc services.CurriculumService) fiber.Handle
 		if topicID == "" {
 			id := c.Params("id")
 			if id == "" {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "topic_id or id required", "errors": fiber.Map{}})
+				return WriteError(c, ErrBadRequest("topic_id or id required", nil))
 			}
 			sub, err := curriculumSvc.GetSubTopic(ctx, id)
 			if err != nil {
-				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "sub topic not found", "errors": fiber.Map{}})
+				return WriteError(c, ErrNotFound("sub topic not found"))
 			}
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{
 				"id":      sub.ID,
@@ -40,7 +40,7 @@ func subTopicsListHandler(curriculumSvc services.CurriculumService) fiber.Handle
 
 		items, total, err := curriculumSvc.ListSubTopics(ctx, topicID, page, limit)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": err.Error(), "errors": fiber.Map{}})
+			return WriteError(c, ErrInternal("Something went wrong"))
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{

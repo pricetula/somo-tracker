@@ -36,8 +36,8 @@ Every non-2xx HTTP response from the backend MUST return this exact JSON body:
 }
 ```
 
-- Backend reference: `internal/middleware/errors.go`
-- Frontend reference: `src/lib/api/client.ts`
+- Backend reference: `backend/internal/api/errors.go`
+- Frontend reference: `frontend/src/lib/api/client.ts`
 
 ### Three universal forbidden patterns
 1. **Empty catch** — `catch (e) {}` or `if err != nil { }` — never silently drop an error.

@@ -26,6 +26,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v3"
+	"go.uber.org/zap"
 )
 
 const (
@@ -99,7 +100,7 @@ func EnsureCSRFTokenCookie() fiber.Handler {
 			token, err := GenerateCSRFToken()
 			if err != nil {
 				// Log but don't fail the request - validation will catch missing token
-				_ = err
+				zap.L().Warn("csrf: failed to generate token", zap.Error(err))
 			} else {
 				setCSRFCookie(c, token)
 			}
@@ -155,9 +156,11 @@ func constantTimeEqual(a, b string) bool {
 
 // csrfFailure returns a standardized CSRF validation failure response.
 func csrfFailure(c fiber.Ctx, code, message string) error {
+	reqID := c.Get("X-Request-ID")
 	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-		"code":    code,
-		"message": message,
-		"errors":  fiber.Map{},
+		"code":       code,
+		"message":    message,
+		"errors":     fiber.Map{},
+		"request_id": reqID,
 	})
 }

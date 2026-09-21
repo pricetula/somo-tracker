@@ -204,7 +204,7 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
   message "Unexpected error".
 - On any 401, the client forces a redirect to `/logout` unless
   `skipGlobal401Handler: true` is set.
-- Backend contract reference: `internal/middleware/errors.go`.
+- Backend contract reference: `backend/internal/api/errors.go`.
 
 ### `getErrorMessage` (`src/lib/errors.ts`)
 

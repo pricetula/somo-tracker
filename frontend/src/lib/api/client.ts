@@ -1,7 +1,7 @@
 /**
  * Base API client for communicating with the Go backend.
  *
- * Canonical Error Response Contract (from internal/middleware/errors.go):
+ * Canonical Error Response Contract (from backend/internal/api/errors.go):
  *
  * Every non-2xx HTTP response from the backend MUST return this exact JSON body:
  *
@@ -24,7 +24,7 @@
  * (honored + echoed by the backend) and are sent with `credentials: "include"`
  * so the HttpOnly `session_token` cookie is attached automatically by the browser.
  *
- * Backend counterpart: internal/middleware/errors.go
+ * Backend counterpart: backend/internal/api/errors.go
  */
 
 // ─── Environment detection ────────────────────────────────────────────────

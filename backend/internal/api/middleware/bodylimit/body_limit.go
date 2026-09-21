@@ -18,10 +18,12 @@ func Middleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// Fast-path: reject requests with an explicitly declared oversized body.
 		if cl := c.Request().Header.ContentLength(); cl > maxPayloadSize {
+			reqID := c.Get("X-Request-ID")
 			return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
-				"code":    "payload_too_large",
-				"message": "Request body exceeds the maximum allowed size",
-				"errors":  fiber.Map{},
+				"code":       "payload_too_large",
+				"message":    "Request body exceeds the maximum allowed size",
+				"errors":     fiber.Map{},
+				"request_id": reqID,
 			})
 		}
 
@@ -29,10 +31,12 @@ func Middleware() fiber.Handler {
 
 		// Intercept Fiber's native body-too-large error and return our contract.
 		if err != nil && errors.Is(err, fiber.ErrRequestEntityTooLarge) {
+			reqID := c.Get("X-Request-ID")
 			return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
-				"code":    "payload_too_large",
-				"message": "Request body exceeds the maximum allowed size",
-				"errors":  fiber.Map{},
+				"code":       "payload_too_large",
+				"message":    "Request body exceeds the maximum allowed size",
+				"errors":     fiber.Map{},
+				"request_id": reqID,
 			})
 		}
 

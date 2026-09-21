@@ -37,6 +37,29 @@ func (q *Queries) CreateStream(ctx context.Context, arg CreateStreamParams) (Str
 	return i, err
 }
 
+const getStream = `-- name: GetStream :one
+SELECT id, school_id, name, color FROM streams WHERE id = $1
+`
+
+type GetStreamRow struct {
+	ID       pgtype.UUID `json:"id"`
+	SchoolID pgtype.UUID `json:"school_id"`
+	Name     string      `json:"name"`
+	Color    pgtype.Text `json:"color"`
+}
+
+func (q *Queries) GetStream(ctx context.Context, id pgtype.UUID) (GetStreamRow, error) {
+	row := q.db.QueryRow(ctx, getStream, id)
+	var i GetStreamRow
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.Color,
+	)
+	return i, err
+}
+
 const listStreamsBySchool = `-- name: ListStreamsBySchool :many
 SELECT id, school_id, name, color, created_at, updated_at FROM streams WHERE school_id = $1
 `

@@ -6,8 +6,11 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+
+	"somotracker/backend/internal/database/sqlc"
 )
 
 type ClassListItem struct {
@@ -45,12 +48,13 @@ type ClassesService interface {
 }
 
 type classesService struct {
-	pool   *pgxpool.Pool
-	logger *zap.Logger
+	pool    *pgxpool.Pool
+	queries *sqlc.Queries
+	logger  *zap.Logger
 }
 
-func NewClassesService(pool *pgxpool.Pool, logger *zap.Logger) ClassesService {
-	return &classesService{pool: pool, logger: logger.With(zap.String("service", "classes"))}
+func NewClassesService(pool *pgxpool.Pool, queries *sqlc.Queries, logger *zap.Logger) ClassesService {
+	return &classesService{pool: pool, queries: queries, logger: logger.With(zap.String("service", "classes"))}
 }
 
 func (s *classesService) ListClasses(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, grades []string, streams []string) ([]ClassListItem, int, error) {
@@ -63,9 +67,11 @@ func (s *classesService) ListClasses(ctx context.Context, schoolID uuid.UUID, pa
 	offset := (page - 1) * limit
 
 	// Resolve current academic year for the school
-	var academicYearID uuid.UUID
-	if err := s.pool.QueryRow(ctx, `SELECT id FROM academic_years WHERE school_id = $1 ORDER BY start_date DESC LIMIT 1`, schoolID).Scan(&academicYearID); err != nil {
-		// No academic year yet → empty list
+	var academicYearID pgtype.UUID
+	ayRow, err := s.queries.GetCurrentAcademicYearBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+	if err == nil && ayRow.Valid {
+		academicYearID = ayRow
+	} else {
 		return []ClassListItem{}, 0, nil
 	}
 
@@ -169,7 +175,10 @@ func (s *classesService) CreateClass(ctx context.Context, schoolID uuid.UUID, re
 	}
 	// Resolve grade label
 	var gradeLabel string
-	if err := s.pool.QueryRow(ctx, `SELECT local_label FROM grade_levels WHERE id = $1`, gradeUUID).Scan(&gradeLabel); err != nil {
+	gradeRow, gradeErr := s.queries.GetGradeLevelByID(ctx, pgtype.UUID{Bytes: gradeUUID, Valid: true})
+	if gradeErr == nil && gradeRow.LocalLabel != "" {
+		gradeLabel = gradeRow.LocalLabel
+	} else if gradeErr != nil {
 		return nil, fmt.Errorf("bad_request: grade not found")
 	}
 	// Resolve stream name - required
@@ -181,14 +190,22 @@ func (s *classesService) CreateClass(ctx context.Context, schoolID uuid.UUID, re
 		return nil, fmt.Errorf("bad_request: invalid streamId")
 	}
 	var streamName string
-	if err := s.pool.QueryRow(ctx, `SELECT name FROM streams WHERE id = $1 AND school_id = $2`, streamUUID, schoolID).Scan(&streamName); err != nil {
+	streamRow, err := s.queries.GetStream(ctx, pgtype.UUID{Bytes: streamUUID, Valid: true})
+	if err != nil || !streamRow.ID.Valid {
 		return nil, fmt.Errorf("bad_request: stream not found")
 	}
+	expectedSchool := pgtype.UUID{Bytes: schoolID, Valid: true}
+	if streamRow.SchoolID != expectedSchool {
+		return nil, fmt.Errorf("bad_request: stream not found")
+	}
+	streamName = streamRow.Name
 	// Resolve current academic year for the school
 	var ayID uuid.UUID
-	if err := s.pool.QueryRow(ctx, `SELECT id FROM academic_years WHERE school_id = $1 ORDER BY start_date DESC LIMIT 1`, schoolID).Scan(&ayID); err != nil {
+	ayRow2, err := s.queries.GetCurrentAcademicYearBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+	if err != nil || !ayRow2.Valid {
 		return nil, fmt.Errorf("bad_request: no academic year found for school")
 	}
+	ayID = uuid.UUID(ayRow2.Bytes)
 	newID := uuid.New()
 	_, err = s.pool.Exec(ctx, `INSERT INTO class_rooms (id, school_id, academic_year_id, grade_level_id, name, stream, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6, now(), now())`,
 		newID, schoolID, ayID, gradeUUID, req.Name, streamName)

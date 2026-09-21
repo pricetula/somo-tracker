@@ -3,7 +3,6 @@ package api
 import (
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
@@ -48,6 +47,7 @@ type Router struct {
 	GuardianInvitation *GuardianInvitationHandler
 	Timetable          *TimetableHandler
 	Attendance         *AttendanceHandler
+	Curriculum         services.CurriculumService
 	limiter            *redis_rate.Limiter
 	cfg                *config.Config
 }
@@ -69,6 +69,7 @@ func NewRouter(
 	guardiansSvc services.GuardiansService,
 	timetableSvc services.TimetableService,
 	attendanceSvc services.AttendanceService,
+	curriculumSvc services.CurriculumService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
@@ -87,6 +88,7 @@ func NewRouter(
 		Guardians:          NewGuardiansHandler(guardiansSvc, zap.L()),
 		Timetable:          NewTimetableHandler(timetableSvc, zap.L()),
 		Attendance:         NewAttendanceHandler(attendanceSvc, zap.L()),
+		Curriculum:         curriculumSvc,
 		AdminInvitation:    nil,
 		TeacherInvitation:  nil,
 		FinanceInvitation:  nil,
@@ -98,7 +100,7 @@ func NewRouter(
 
 // RegisterRoutes attaches the grouped endpoints to the Fiber app.
 // Routes are split into public (auth-related) and protected groups.
-func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.Logger, pool *pgxpool.Pool) {
+func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.Logger, curriculumSvc services.CurriculumService) {
 	// IP blacklist middleware - checks blacklist before any other processing.
 	// Uses fail-open behavior: Redis errors allow request through.
 	app.Use(ipblacklist.NewIPBlacklistMiddleware(redisClient, logger, ipblacklist.DefaultConfig()))
@@ -211,10 +213,10 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/guardians/invitations/jobs/:job_id/events", r.GuardianInvitation.Events)
 
 	// Subjects list for data table with infinite pagination
-	protected.Get("/subjects", subjectsListHandler(pool))
-	protected.Get("/subjects/:id", subjectsDetailHandler(pool))
-	protected.Get("/topics", topicsListHandler(pool))
-	protected.Get("/topics/:id", topicsDetailHandler(pool))
-	protected.Get("/sub-topics", subTopicsListHandler(pool))
-	protected.Get("/sub-topics/:id", subTopicsListHandler(pool))
+	protected.Get("/subjects", subjectsListHandler(curriculumSvc))
+	protected.Get("/subjects/:id", subjectsDetailHandler(curriculumSvc))
+	protected.Get("/topics", topicsListHandler(curriculumSvc))
+	protected.Get("/topics/:id", topicsDetailHandler(curriculumSvc))
+	protected.Get("/sub-topics", subTopicsListHandler(curriculumSvc))
+	protected.Get("/sub-topics/:id", subTopicsListHandler(curriculumSvc))
 }

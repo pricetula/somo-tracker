@@ -11,6 +11,10 @@ import (
 )
 
 type Querier interface {
+	CountSearchSubjects(ctx context.Context, name string) (int64, error)
+	CountSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) (int64, error)
+	CountSubjects(ctx context.Context) (int64, error)
+	CountTopicsBySubject(ctx context.Context, subjectID pgtype.UUID) (int64, error)
 	CreateAcademicTerm(ctx context.Context, arg CreateAcademicTermParams) (AcademicTerm, error)
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
 	CreateClassTimetableSlot(ctx context.Context, arg CreateClassTimetableSlotParams) (pgtype.UUID, error)
@@ -22,20 +26,39 @@ type Querier interface {
 	CreateTimetableTemplate(ctx context.Context, arg CreateTimetableTemplateParams) (pgtype.UUID, error)
 	DeleteClassTimetableSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteSession(ctx context.Context, token string) error
+	GetAcademicTermRangeBySchool(ctx context.Context, arg GetAcademicTermRangeBySchoolParams) (GetAcademicTermRangeBySchoolRow, error)
+	GetAuthTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (pgtype.UUID, error)
+	GetAuthUserByEmail(ctx context.Context, email string) (pgtype.UUID, error)
 	GetClassTimetableSlotsByTemplate(ctx context.Context, arg GetClassTimetableSlotsByTemplateParams) ([]GetClassTimetableSlotsByTemplateRow, error)
 	GetClassTimetableSlotsByTemplateWithDetails(ctx context.Context, arg GetClassTimetableSlotsByTemplateWithDetailsParams) ([]GetClassTimetableSlotsByTemplateWithDetailsRow, error)
+	GetCountryByName(ctx context.Context, countryName string) (pgtype.UUID, error)
+	GetCurrentAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (pgtype.UUID, error)
+	GetEducationSystemByCountryAndName(ctx context.Context, arg GetEducationSystemByCountryAndNameParams) (pgtype.UUID, error)
+	GetGradeLevelByID(ctx context.Context, id pgtype.UUID) (GetGradeLevelByIDRow, error)
+	GetLatestAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (GetLatestAcademicYearBySchoolRow, error)
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
 	// Gets a school membership by user_id and school_id.
 	GetSchoolMembershipByUserAndSchool(ctx context.Context, arg GetSchoolMembershipByUserAndSchoolParams) (GetSchoolMembershipByUserAndSchoolRow, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
+	GetStream(ctx context.Context, id pgtype.UUID) (GetStreamRow, error)
+	GetSubTopicByID(ctx context.Context, id pgtype.UUID) (GetSubTopicByIDRow, error)
+	GetSubjectByID(ctx context.Context, id pgtype.UUID) (GetSubjectByIDRow, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
 	GetTimetableAttendanceBySlotAndDate(ctx context.Context, arg GetTimetableAttendanceBySlotAndDateParams) ([]TimetableAttendance, error)
 	GetTimetableAttendanceByStudentAndDate(ctx context.Context, arg GetTimetableAttendanceByStudentAndDateParams) ([]TimetableAttendance, error)
 	GetTimetableTemplate(ctx context.Context, id pgtype.UUID) (TimetableTemplate, error)
+	GetTopicByID(ctx context.Context, id pgtype.UUID) (GetTopicByIDRow, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
+	ListSubTopics(ctx context.Context, arg ListSubTopicsParams) ([]ListSubTopicsRow, error)
+	ListSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) ([]ListSubTopicsByTopicRow, error)
+	ListSubjects(ctx context.Context, arg ListSubjectsParams) ([]ListSubjectsRow, error)
+	ListSubjectsBySystem(ctx context.Context, educationSystemID pgtype.UUID) ([]ListSubjectsBySystemRow, error)
 	ListTimeSlotsByTemplate(ctx context.Context, timetableTemplateID pgtype.UUID) ([]TimeSlot, error)
 	ListTimetableTemplatesBySchool(ctx context.Context, schoolID pgtype.UUID) ([]TimetableTemplate, error)
+	ListTopics(ctx context.Context, arg ListTopicsParams) ([]ListTopicsRow, error)
+	ListTopicsBySubject(ctx context.Context, subjectID pgtype.UUID) ([]ListTopicsBySubjectRow, error)
+	SearchSubjects(ctx context.Context, arg SearchSubjectsParams) ([]SearchSubjectsRow, error)
 	// Updates invitation/acceptance timestamps and role for an existing membership.
 	UpdateMembershipInvitationState(ctx context.Context, arg UpdateMembershipInvitationStateParams) error
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error

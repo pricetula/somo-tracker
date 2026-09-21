@@ -196,11 +196,18 @@ func (s *attendanceService) ListAttendanceSessions(ctx context.Context, params L
 	}
 	if params.DateFrom == nil {
 		var ayStart time.Time
-		if err := s.pool.QueryRow(ctx, `SELECT start_date FROM academic_years WHERE school_id = $1 ORDER BY ay.start_date DESC LIMIT 1`, params.SchoolID).Scan(&ayStart); err == nil {
-			params.DateFrom = &ayStart
+		ayRow, err := s.queries.GetLatestAcademicYearBySchool(ctx, pgtype.UUID{Bytes: params.SchoolID, Valid: true})
+		if err == nil && ayRow.StartDate.Valid {
+			ayStart = ayRow.StartDate.Time
 		} else {
 			fallback := time.Now().Truncate(24*time.Hour).AddDate(0, 0, -30)
 			params.DateFrom = &fallback
+		}
+		if ayStart.IsZero() {
+			fallback := time.Now().Truncate(24*time.Hour).AddDate(0, 0, -30)
+			params.DateFrom = &fallback
+		} else {
+			params.DateFrom = &ayStart
 		}
 	}
 	if params.DateTo == nil {
@@ -210,11 +217,19 @@ func (s *attendanceService) ListAttendanceSessions(ctx context.Context, params L
 
 	var termStart, termEnd time.Time
 
-	err := s.pool.QueryRow(ctx, `
-		SELECT at.start_date, at.end_date FROM academic_terms at JOIN academic_years ay ON ay.id = at.academic_year_id WHERE ay.school_id = $1 AND at.start_date <= $2 AND at.end_date >= $3
-		ORDER BY at.start_date DESC LIMIT 1
-	`, params.SchoolID, *params.DateTo, *params.DateFrom).Scan(&termStart, &termEnd)
-	if err != nil {
+	termRow, err := s.queries.GetAcademicTermRangeBySchool(ctx, sqlc.GetAcademicTermRangeBySchoolParams{
+		SchoolID:  pgtype.UUID{Bytes: params.SchoolID, Valid: true},
+		StartDate: pgtype.Date{Time: *params.DateTo, Valid: true},
+		EndDate:   pgtype.Date{Time: *params.DateFrom, Valid: true},
+	})
+	if err == nil {
+		if termRow.StartDate.Valid {
+			termStart = termRow.StartDate.Time
+		}
+		if termRow.EndDate.Valid {
+			termEnd = termRow.EndDate.Time
+		}
+	} else {
 		s.logger.Warn("no academic term found for date range, using provided dates", zap.Error(err))
 		termStart = *params.DateFrom
 		termEnd = *params.DateTo

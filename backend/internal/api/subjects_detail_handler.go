@@ -1,11 +1,14 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgxpool"
+
+	"somotracker/backend/internal/services"
 )
 
-func subjectsDetailHandler(pool *pgxpool.Pool) fiber.Handler {
+func subjectsDetailHandler(curriculumSvc services.CurriculumService) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		ctx := c.Context()
 		id := c.Params("id")
@@ -13,43 +16,24 @@ func subjectsDetailHandler(pool *pgxpool.Pool) fiber.Handler {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "id required", "errors": fiber.Map{}})
 		}
 
-		// Subject details
-		var subjID, subjName, subjCode, subjColor, grade string
-		err := pool.QueryRow(ctx, `SELECT s.id, s.name, s.code, s.color, COALESCE(gl.local_label,'') FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id WHERE s.id = $1`, id).Scan(&subjID, &subjName, &subjCode, &subjColor, &grade)
+		detail, err := curriculumSvc.GetSubjectDetail(ctx, id)
 		if err != nil {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "subject not found", "errors": fiber.Map{}})
-		}
-
-		// Topics for subject
-		rows, err := pool.Query(ctx, `SELECT id, subject_id, name, sequence_index FROM topics WHERE subject_id = $1 ORDER BY sequence_index ASC`, id)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to list topics", "errors": fiber.Map{}})
-		}
-		defer rows.Close()
-		type topicRow struct {
-			ID          string `json:"id"`
-			SubjectID   string `json:"subjectId"`
-			Name        string `json:"name"`
-			Code        string `json:"code"`
-			Description string `json:"description"`
-		}
-		topics := []topicRow{}
-		for rows.Next() {
-			var tid, sid, name string
-			var seq int
-			if err := rows.Scan(&tid, &sid, &name, &seq); err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to scan topics", "errors": fiber.Map{}})
+			if strings.Contains(err.Error(), "bad_request:") {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
 			}
-			topics = append(topics, topicRow{ID: tid, SubjectID: sid, Name: name, Code: "", Description: ""})
+			if strings.Contains(err.Error(), "not_found") || strings.Contains(err.Error(), "internal_error") {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "subject not found", "errors": fiber.Map{}})
+			}
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": err.Error(), "errors": fiber.Map{}})
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"id":     subjID,
-			"name":   subjName,
-			"code":   subjCode,
-			"color":  subjColor,
-			"grade":  grade,
-			"topics": topics,
+			"id":     detail.ID,
+			"name":   detail.Name,
+			"code":   detail.Code,
+			"color":  detail.Color,
+			"grade":  detail.Grade,
+			"topics": detail.Topics,
 		})
 	}
 }

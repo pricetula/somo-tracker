@@ -5,10 +5,11 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgxpool"
+
+	"somotracker/backend/internal/services"
 )
 
-func subjectsListHandler(pool *pgxpool.Pool) fiber.Handler {
+func subjectsListHandler(curriculumSvc services.CurriculumService) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		ctx := c.Context()
 		page, _ := strconv.Atoi(c.Query("page", "1"))
@@ -19,62 +20,15 @@ func subjectsListHandler(pool *pgxpool.Pool) fiber.Handler {
 		if limit < 1 || limit > 200 {
 			limit = 50
 		}
-		offset := (page - 1) * limit
 		search := c.Query("search")
 		grade := c.Query("grade")
 
-		baseQuery := `SELECT s.id, s.grade_level_id, s.name, s.code, COALESCE(s.color, ''), COALESCE(gl.local_label, '') FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id`
-		countQuery := `SELECT COUNT(*) FROM subjects s LEFT JOIN grade_levels gl ON gl.id = s.grade_level_id`
-		conds := []string{}
-		args := []interface{}{}
-		argIdx := 1
-
-		if strings.TrimSpace(search) != "" {
-			conds = append(conds, `(s.name ILIKE $`+strconv.Itoa(argIdx)+` OR s.code ILIKE $`+strconv.Itoa(argIdx)+`)`)
-			args = append(args, "%"+search+"%")
-			argIdx++
-		}
-		if strings.TrimSpace(grade) != "" && grade != "all" {
-			conds = append(conds, `gl.local_label = $`+strconv.Itoa(argIdx))
-			args = append(args, grade)
-			argIdx++
-		}
-
-		where := ""
-		if len(conds) > 0 {
-			where = " WHERE " + strings.Join(conds, " AND ")
-		}
-
-		countSQL := countQuery + where
-		var total int
-		if err := pool.QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to count subjects", "errors": fiber.Map{}})
-		}
-
-		query := baseQuery + where + ` ORDER BY s.name ASC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
-		args = append(args, limit, offset)
-
-		rows, err := pool.Query(ctx, query, args...)
+		items, total, err := curriculumSvc.ListSubjects(ctx, page, limit, search, grade)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to list subjects", "errors": fiber.Map{}})
-		}
-		defer rows.Close()
-
-		type subjectRow struct {
-			ID      string `json:"id"`
-			Name    string `json:"name"`
-			Code    string `json:"code"`
-			Color   string `json:"color"`
-			Grade   string `json:"grade"`
-			GradeID string `json:"gradeId"`
-		}
-		items := []subjectRow{}
-		for rows.Next() {
-			var r subjectRow
-			if err := rows.Scan(&r.ID, &r.GradeID, &r.Name, &r.Code, &r.Color, &r.Grade); err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to scan subjects", "errors": fiber.Map{}})
+			if strings.Contains(err.Error(), "bad_request:") {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
 			}
-			items = append(items, r)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": err.Error(), "errors": fiber.Map{}})
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{

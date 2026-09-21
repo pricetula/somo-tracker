@@ -56,15 +56,18 @@ func main() {
 		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.GradesService {
 			return services.NewGradesService(pool, q, logger)
 		}),
-		fx.Provide(func(pool *pgxpool.Pool, logger *zap.Logger) services.ClassesService {
-			return services.NewClassesService(pool, logger)
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.ClassesService {
+			return services.NewClassesService(pool, q, logger)
 		}),
 		fx.Provide(services.NewAdminsService),
 		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries) services.TimetableService {
 			return services.NewTimetableService(pool, q)
 		}),
-		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries) services.AttendanceService {
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.AttendanceService {
 			return services.NewAttendanceService(pool, q)
+		}),
+		fx.Provide(func(q *sqlc.Queries, logger *zap.Logger) services.CurriculumService {
+			return services.NewCurriculumService(q, logger)
 		}),
 		fx.Provide(services.NewTeachersService),
 		fx.Provide(services.NewFinanceService),
@@ -74,8 +77,8 @@ func main() {
 		fx.Provide(observability.NewMeterProvider),
 		fx.Invoke(observability.MetricsInvoke),
 		fx.Provide(middleware.NewRequestIDHandler),
-		fx.Provide(func(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
-			return newFiberApp(cfg, logger, pool, router, reqIDHandler, redisClient, stytchClient)
+		fx.Provide(func(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, curriculumSvc services.CurriculumService, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
+			return newFiberApp(cfg, logger, pool, router, curriculumSvc, reqIDHandler, redisClient, stytchClient)
 		}),
 		fx.Invoke(database.RunMigrations),
 		somoredis.Module,
@@ -124,7 +127,7 @@ func newQuerier(pool *pgxpool.Pool) *sqlc.Queries {
 // newFiberApp creates and configures a Fiber v3 application with health
 // endpoints. The /readyz handler pings the database connection pool so the
 // API only reports ready when PostgreSQL is reachable.
-func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
+func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, curriculumSvc services.CurriculumService, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      "somotracker-api",
 		BodyLimit:    50 * 1024 * 1024, // 50MB
@@ -186,7 +189,7 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	guardianInvSvc := services.NewGuardianInvitationService(pool, logger)
 	router.GuardianInvitation = api.NewGuardianInvitationHandler(guardianInvSvc, stytchClient, asynqClient, redisClient, logger)
 
-	router.RegisterRoutes(app, redisClient, logger, pool)
+	router.RegisterRoutes(app, redisClient, logger, curriculumSvc)
 
 	// Start Asynq worker for admin invitation batches
 	mux := asynq.NewServeMux()

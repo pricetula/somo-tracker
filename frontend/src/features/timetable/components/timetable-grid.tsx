@@ -183,7 +183,7 @@ export function TimetableGrid({
                                                               </Button>
                                                           </div>
                                                           <div
-                                                              className="h-20 w-1"
+                                                              className="h-10 w-1"
                                                               style={{
                                                                   backgroundColor:
                                                                       assignment?.subject_color ??

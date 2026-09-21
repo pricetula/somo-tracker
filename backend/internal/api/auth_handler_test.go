@@ -71,6 +71,9 @@ func (m *mockAttendanceService) GetAttendanceBySlotAndDate(ctx context.Context, 
 func (m *mockAttendanceService) GetAttendanceByStudentAndDate(ctx context.Context, studentID uuid.UUID, date time.Time) ([]sqlc.TimetableAttendance, error) {
 	return nil, nil
 }
+func (m *mockAttendanceService) ListAttendanceSessions(ctx context.Context, params services.ListAttendanceSessionsParams) ([]services.AttendanceSession, int, error) {
+	return nil, 0, nil
+}
 
 // newTestRouter wires a real *Router against a mockAuthService. The rate
 // limiter is nil so the middleware falls through (no Redis required).

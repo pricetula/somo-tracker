@@ -27,6 +27,17 @@ func NewGenericInvitationService(pool *pgxpool.Pool, logger *zap.Logger, jobType
 	}
 }
 
+func (s *GenericInvitationService) DeleteBulkJobsForUser(ctx context.Context, userID uuid.UUID) error {
+	if s.pool == nil {
+		return fmt.Errorf("invitation_service: pool nil")
+	}
+	_, err := s.pool.Exec(ctx, `DELETE FROM bulk_jobs WHERE created_by = $1`, userID)
+	if err != nil {
+		return fmt.Errorf("delete_bulk_jobs_for_user: %w", err)
+	}
+	return nil
+}
+
 func (s *GenericInvitationService) CreateBulkJob(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, total int) (uuid.UUID, error) {
 	if s.pool == nil {
 		return uuid.Nil, fmt.Errorf("invitation_service: pool nil")

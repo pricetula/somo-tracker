@@ -21,7 +21,8 @@ CREATE TABLE bulk_jobs (
                                               ON DELETE CASCADE,
     tenant_id           UUID        NOT NULL    REFERENCES tenants(id)
                                               ON DELETE CASCADE,
-    created_by          UUID        NOT NULL    REFERENCES users(id),
+    created_by          UUID        NOT NULL    REFERENCES users(id)
+                                              ON DELETE CASCADE,
     status              TEXT        NOT NULL    DEFAULT 'QUEUED',
     total_records       INTEGER     NOT NULL,
     succeeded_count     INTEGER     NOT NULL    DEFAULT 0,

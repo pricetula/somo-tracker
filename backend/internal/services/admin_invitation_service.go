@@ -8,8 +8,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+	"somotracker/backend/internal/database/sqlc"
 )
 
 type InvitationItem struct {
@@ -69,25 +71,33 @@ type AdminInvitationService interface {
 }
 
 type adminInvitationService struct {
-	pool   *pgxpool.Pool
-	logger *zap.Logger
+	pool    *pgxpool.Pool
+	queries *sqlc.Queries
+	logger  *zap.Logger
 }
 
-func NewAdminInvitationService(pool *pgxpool.Pool, logger *zap.Logger) AdminInvitationService {
-	return &adminInvitationService{pool: pool, logger: logger.With(zap.String("service", "admin_invitation"))}
+func NewAdminInvitationService(pool *pgxpool.Pool, queries *sqlc.Queries, logger *zap.Logger) AdminInvitationService {
+	return &adminInvitationService{pool: pool, queries: queries, logger: logger.With(zap.String("service", "admin_invitation"))}
 }
 
 func (s *adminInvitationService) CreateBulkJob(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, total int) (uuid.UUID, error) {
-	if s.pool == nil {
-		return uuid.Nil, fmt.Errorf("admin_invitation_service: pool nil")
+	if s.queries == nil {
+		return uuid.Nil, fmt.Errorf("admin_invitation_service: queries nil")
 	}
-	var id uuid.UUID
-	q := `INSERT INTO bulk_jobs (job_type, idempotency_key, school_id, tenant_id, created_by, status, total_records, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (tenant_id, idempotency_key) DO UPDATE SET updated_at=NOW() WHERE bulk_jobs.tenant_id=$3 AND bulk_jobs.idempotency_key=$2 RETURNING id`
-	err := s.pool.QueryRow(ctx, q, "ADMIN_INVITATION", idempotencyKey, schoolID, tenantID, createdBy, "QUEUED", total, `{"source":"bulk_invitation"}`).Scan(&id)
+	row, err := s.queries.CreateBulkJob(ctx, sqlc.CreateBulkJobParams{
+		JobType:        "ADMIN_INVITATION",
+		IdempotencyKey: idempotencyKey,
+		SchoolID:       pgtype.UUID{Bytes: schoolID, Valid: true},
+		TenantID:       pgtype.UUID{Bytes: tenantID, Valid: true},
+		CreatedBy:      pgtype.UUID{Bytes: createdBy, Valid: true},
+		Status:         "QUEUED",
+		TotalRecords:   int32(total),
+		Metadata:       []byte(`{"source":"bulk_invitation"}`),
+	})
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("create_bulk_job: %w", err)
 	}
-	return id, nil
+	return uuid.UUID(row.Bytes), nil
 }
 
 func (s *adminInvitationService) CreateBulkJobWithItems(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error) {
@@ -158,11 +168,28 @@ func (s *adminInvitationService) InsertItems(ctx context.Context, jobID uuid.UUI
 }
 
 func (s *adminInvitationService) GetJob(ctx context.Context, jobID uuid.UUID) (*BulkJob, error) {
-	row := s.pool.QueryRow(ctx, `SELECT id, job_type, idempotency_key, school_id, tenant_id, created_by, status, total_records, succeeded_count, failed_count, deferred_count, metadata, created_at, updated_at FROM bulk_jobs WHERE id=$1`, jobID)
-	var b BulkJob
-	err := row.Scan(&b.ID, &b.JobType, &b.IdempotencyKey, &b.SchoolID, &b.TenantID, &b.CreatedBy, &b.Status, &b.TotalRecords, &b.SucceededCount, &b.FailedCount, &b.DeferredCount, &b.Metadata, &b.CreatedAt, &b.UpdatedAt)
+	if s.queries == nil {
+		return nil, fmt.Errorf("admin_invitation_service: queries nil")
+	}
+	row, err := s.queries.GetBulkJob(ctx, pgtype.UUID{Bytes: jobID, Valid: true})
 	if err != nil {
 		return nil, fmt.Errorf("get_job: %w", err)
+	}
+	b := BulkJob{
+		ID:             uuid.UUID(row.ID.Bytes),
+		JobType:        row.JobType,
+		IdempotencyKey: row.IdempotencyKey,
+		SchoolID:       uuid.UUID(row.SchoolID.Bytes),
+		TenantID:       uuid.UUID(row.TenantID.Bytes),
+		CreatedBy:      uuid.UUID(row.CreatedBy.Bytes),
+		Status:         row.Status,
+		TotalRecords:   int(row.TotalRecords),
+		SucceededCount: int(row.SucceededCount),
+		FailedCount:    int(row.FailedCount),
+		DeferredCount:  int(row.DeferredCount),
+		Metadata:       json.RawMessage(row.Metadata),
+		CreatedAt:      row.CreatedAt.Time,
+		UpdatedAt:      row.UpdatedAt.Time,
 	}
 	return &b, nil
 }

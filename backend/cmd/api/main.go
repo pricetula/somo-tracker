@@ -77,8 +77,8 @@ func main() {
 		fx.Provide(observability.NewMeterProvider),
 		fx.Invoke(observability.MetricsInvoke),
 		fx.Provide(middleware.NewRequestIDHandler),
-		fx.Provide(func(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, curriculumSvc services.CurriculumService, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
-			return newFiberApp(cfg, logger, pool, router, curriculumSvc, reqIDHandler, redisClient, stytchClient)
+		fx.Provide(func(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, queries *sqlc.Queries, router *api.Router, curriculumSvc services.CurriculumService, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
+			return newFiberApp(cfg, logger, pool, queries, router, curriculumSvc, reqIDHandler, redisClient, stytchClient)
 		}),
 		fx.Invoke(database.RunMigrations),
 		somoredis.Module,
@@ -127,7 +127,7 @@ func newQuerier(pool *pgxpool.Pool) *sqlc.Queries {
 // newFiberApp creates and configures a Fiber v3 application with health
 // endpoints. The /readyz handler pings the database connection pool so the
 // API only reports ready when PostgreSQL is reachable.
-func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, curriculumSvc services.CurriculumService, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
+func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, queries *sqlc.Queries, router *api.Router, curriculumSvc services.CurriculumService, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      "somotracker-api",
 		BodyLimit:    50 * 1024 * 1024, // 50MB
@@ -173,7 +173,7 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	app.Use(bodylimit.Middleware())
 	app.Use(timeout.Middleware())
 	// Initialize admin invitation dependencies
-	invSvc := services.NewAdminInvitationService(pool, logger)
+	invSvc := services.NewAdminInvitationService(pool, queries, logger)
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB})
 	router.AdminInvitation = api.NewAdminInvitationHandler(invSvc, stytchClient, asynqClient, redisClient, logger)
 

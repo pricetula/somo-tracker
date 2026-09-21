@@ -297,7 +297,10 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 
 	// Query user's currently active school (if any) for fast session lookup
 	var activeSchoolID string
-	schoolErr := s.pool.QueryRow(ctx, `SELECT school_id::text FROM school_memberships WHERE user_id = $1 AND is_active = true LIMIT 1`, userID).Scan(&activeSchoolID)
+	activeSchoolRow, schoolErr := s.queries.GetActiveSchoolMembershipByUser(ctx, pgtype.UUID{Bytes: userID, Valid: true})
+	if schoolErr == nil {
+		activeSchoolID = activeSchoolRow.String()
+	}
 	if schoolErr != nil && schoolErr != pgx.ErrNoRows {
 		s.logger.Warn("auth: failed to query active school membership",
 			zap.String("user_id", userID.String()),

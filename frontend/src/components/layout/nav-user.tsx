@@ -38,7 +38,7 @@ export function NavUser() {
                         <Avatar>
                             <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
-                        <div className="grid flex-1 text-left text-sm leading-tight">
+                        <div className="grid flex-1 text-left leading-tight">
                             <span className="truncate font-medium">User</span>
                             <span className="truncate text-xs">Signed in</span>
                         </div>
@@ -52,11 +52,11 @@ export function NavUser() {
                     >
                         <DropdownMenuGroup>
                             <DropdownMenuLabel className="p-0 font-normal">
-                                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                                <div className="flex items-center gap-2 px-1 py-1.5 text-left">
                                     <Avatar>
                                         <AvatarFallback>{initials}</AvatarFallback>
                                     </Avatar>
-                                    <div className="grid flex-1 text-left text-sm leading-tight">
+                                    <div className="grid flex-1 text-left leading-tight">
                                         <span className="truncate font-medium">User</span>
                                         <span className="truncate text-xs">Authenticated</span>
                                     </div>

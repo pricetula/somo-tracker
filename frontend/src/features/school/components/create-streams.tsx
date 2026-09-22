@@ -116,7 +116,7 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
             </div>
 
             {names.length > 0 && (
-                <div className="bg-muted text-muted-foreground rounded-md p-3 text-sm">
+                <div className="bg-muted text-muted-foreground rounded-md p-3">
                     Preview: <span className="text-foreground font-medium">{preview}</span>
                 </div>
             )}

@@ -25,7 +25,7 @@ export function ClassDetail({ id }: ClassDetailProps) {
                     {detail.grade} • {detail.stream} • {detail.academicYear}
                 </p>
             </div>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2">
                 <div>
                     <span className="font-medium">Teacher:</span> {detail.teacherName ?? "—"}
                 </div>

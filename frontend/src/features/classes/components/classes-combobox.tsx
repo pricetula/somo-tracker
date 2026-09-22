@@ -49,17 +49,13 @@ export function ClassesCombobox({
         >
             <ComboboxInput placeholder={placeholder} showClear />
             <ComboboxContent>
-                {isLoading && (
-                    <div className="text-muted-foreground p-4 text-sm">Loading classes...</div>
-                )}
-                {isError && (
-                    <div className="text-destructive p-4 text-sm">Error loading classes</div>
-                )}
+                {isLoading && <div className="text-muted-foreground p-4">Loading classes...</div>}
+                {isError && <div className="text-destructive p-4">Error loading classes</div>}
                 {!isLoading && !isError && (
                     <>
                         <ComboboxEmpty>
                             {items.length === 0 ? (
-                                <div className="text-muted-foreground space-y-1 p-4 text-sm">
+                                <div className="text-muted-foreground space-y-1 p-4">
                                     <div>No classes found</div>
                                     <Link href="/classes/add" className="text-primary underline">
                                         Create a class

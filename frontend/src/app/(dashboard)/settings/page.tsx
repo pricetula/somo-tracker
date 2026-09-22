@@ -9,7 +9,7 @@ export default function SettingsPage() {
 
             <section className="space-y-3">
                 <h2 className="text-lg font-medium">Appearance</h2>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     Switch between light, dark, or system theme.
                 </p>
                 <ThemeSwitch />

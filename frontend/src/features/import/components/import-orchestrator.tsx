@@ -96,8 +96,8 @@ export function ImportOrchestrator({
         const progressContent = progress ? (
             <div className="bg-muted rounded border p-4">
                 <div className="mb-2 font-medium">Job {jobId}</div>
-                <div className="text-sm">Status: {progress.status}</div>
-                <div className="mt-1 text-sm">
+                <div className="">Status: {progress.status}</div>
+                <div className="mt-1">
                     {progress.succeeded} / {progress.total} succeeded
                     {progress.failed > 0 && `, ${progress.failed} failed`}
                     {progress.deferred ? `, ${progress.deferred} deferred` : ""}
@@ -137,7 +137,7 @@ export function ImportOrchestrator({
                 )}
             </div>
         ) : (
-            <div className="bg-muted rounded border p-4 text-sm">Starting job…</div>
+            <div className="bg-muted rounded border p-4">Starting job…</div>
         );
         return (
             <div className="relative flex max-w-4xl gap-4 overflow-hidden">
@@ -149,7 +149,7 @@ export function ImportOrchestrator({
     // Optional: expose progress UI when requested (e.g., future resources)
     const progressBar =
         showProgress && progress ? (
-            <div className="bg-muted mt-4 rounded border p-3 text-sm">
+            <div className="bg-muted mt-4 rounded border p-3">
                 <div className="font-medium">Progress: {progress.status}</div>
                 <div>
                     {progress.succeeded} / {progress.total} succeeded
@@ -188,7 +188,7 @@ export function ImportOrchestrator({
                             isSubmitting={mutation.isPending}
                         />
                         {mutation.isError && (
-                            <div className="bg-destructive/10 text-destructive mt-4 rounded border p-3 text-sm">
+                            <div className="bg-destructive/10 text-destructive mt-4 rounded border p-3">
                                 Submit failed. Please retry.
                             </div>
                         )}

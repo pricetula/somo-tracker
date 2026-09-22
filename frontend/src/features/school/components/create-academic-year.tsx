@@ -127,7 +127,7 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
         <div>
             <div>
                 <h1 className="text-2xl font-semibold">Academic period setup</h1>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="text-muted-foreground mt-1">
                     Choose a year, select a date range for each term, name and save it.
                 </p>
             </div>
@@ -186,9 +186,7 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
                     </CardHeader>
                     <CardContent>
                         {terms.length === 0 ? (
-                            <p className="text-muted-foreground text-sm italic">
-                                No terms added yet.
-                            </p>
+                            <p className="text-muted-foreground italic">No terms added yet.</p>
                         ) : (
                             <ul className="space-y-2">
                                 {terms.map((t, i) => (
@@ -197,7 +195,7 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
                                         className="flex items-start justify-between gap-2 rounded-md border px-3 py-2"
                                     >
                                         <div>
-                                            <p className="text-sm font-medium">{t.name}</p>
+                                            <p className="font-medium">{t.name}</p>
                                             <p className="text-muted-foreground text-xs">
                                                 {t.start_date} → {t.end_date}
                                             </p>
@@ -236,7 +234,7 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
                         <DialogTitle>Name this term</DialogTitle>
                     </DialogHeader>
 
-                    <p className="-mt-2 text-sm text-amber-600">
+                    <p className="-mt-2 text-amber-600">
                         {range?.from && format(range.from, "MMM d, yyyy")}
                         {" → "}
                         {range?.to && format(range.to, "MMM d, yyyy")}

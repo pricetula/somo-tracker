@@ -50,3 +50,8 @@ WHERE s.school_id = $1
     s.admission_number ILIKE '%' || $2 || '%'
   )
   AND ($3::uuid IS NULL OR c.id = $3);
+
+-- name: DeleteStudents :exec
+DELETE FROM students
+WHERE school_id = $1
+  AND student_id = ANY($2);

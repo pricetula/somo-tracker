@@ -70,7 +70,7 @@ export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
     };
 
     if (isEdit && isLoading && !stream) {
-        return <div className="text-muted-foreground text-sm">Loading stream…</div>;
+        return <div className="text-muted-foreground">Loading stream…</div>;
     }
 
     return (

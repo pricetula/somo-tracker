@@ -43,16 +43,14 @@ export function StreamsCombobox({ value, onChange, disabled }: StreamsComboboxPr
                 <ComboboxInput placeholder="Select stream" showClear />
                 <ComboboxContent>
                     {isLoading && (
-                        <div className="text-muted-foreground p-4 text-sm">Loading streams...</div>
+                        <div className="text-muted-foreground p-4">Loading streams...</div>
                     )}
-                    {isError && (
-                        <div className="text-destructive p-4 text-sm">Error loading streams</div>
-                    )}
+                    {isError && <div className="text-destructive p-4">Error loading streams</div>}
                     {!isLoading && !isError && (
                         <>
                             <ComboboxEmpty>
                                 {items.length === 0 ? (
-                                    <div className="text-muted-foreground space-y-1 p-4 text-sm">
+                                    <div className="text-muted-foreground space-y-1 p-4">
                                         <div>No streams found</div>
                                         <Link
                                             href="/settings/streams/add"

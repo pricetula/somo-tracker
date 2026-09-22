@@ -31,8 +31,8 @@ export function TopicDetail({ _subjectId, topicId, subTopicId }: TopicDetailProp
                     Performance indicator placeholder for sub-topic.
                 </p>
                 <div className="space-y-1">
-                    <p className="text-muted-foreground text-sm">Completion: 72%</p>
-                    <p className="text-muted-foreground text-sm">Average score: 84/100</p>
+                    <p className="text-muted-foreground">Completion: 72%</p>
+                    <p className="text-muted-foreground">Average score: 84/100</p>
                 </div>
             </div>
         </div>

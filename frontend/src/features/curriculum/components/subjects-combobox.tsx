@@ -53,17 +53,13 @@ export function SubjectsCombobox({
         >
             <ComboboxInput placeholder={placeholder} showClear />
             <ComboboxContent>
-                {isLoading && (
-                    <div className="text-muted-foreground p-4 text-sm">Loading subjects...</div>
-                )}
-                {isError && (
-                    <div className="text-destructive p-4 text-sm">Error loading subjects</div>
-                )}
+                {isLoading && <div className="text-muted-foreground p-4">Loading subjects...</div>}
+                {isError && <div className="text-destructive p-4">Error loading subjects</div>}
                 {!isLoading && !isError && (
                     <>
                         <ComboboxEmpty>
                             {items.length === 0 ? (
-                                <div className="text-muted-foreground space-y-1 p-4 text-sm">
+                                <div className="text-muted-foreground space-y-1 p-4">
                                     <div>No subjects found</div>
                                     <Link href="/curriculum/add" className="text-primary underline">
                                         Add a subject

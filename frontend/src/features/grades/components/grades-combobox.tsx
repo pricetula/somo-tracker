@@ -46,12 +46,8 @@ export function GradesCombobox({
         >
             <ComboboxInput placeholder={placeholder} showClear />
             <ComboboxContent>
-                {isLoading && (
-                    <div className="text-muted-foreground p-4 text-sm">Loading grades...</div>
-                )}
-                {isError && (
-                    <div className="text-destructive p-4 text-sm">Error loading grades</div>
-                )}
+                {isLoading && <div className="text-muted-foreground p-4">Loading grades...</div>}
+                {isError && <div className="text-destructive p-4">Error loading grades</div>}
                 {!isLoading && !isError && (
                     <>
                         <ComboboxEmpty>No grades found</ComboboxEmpty>

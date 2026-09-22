@@ -29,3 +29,13 @@ export async function listStudents(params?: {
     const url = `/api/students${qs.toString() ? `?${qs}` : ""}`;
     return api.get<StudentListResponse>(url);
 }
+
+export interface DeleteStudentsResponse {
+    code: string;
+    message: string;
+    errors: Record<string, unknown>;
+}
+
+export async function deleteStudents(studentIds: string[]): Promise<DeleteStudentsResponse> {
+    return api.delete<DeleteStudentsResponse>("/api/students", { student_ids: studentIds });
+}

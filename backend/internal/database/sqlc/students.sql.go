@@ -45,6 +45,22 @@ func (q *Queries) CountStudents(ctx context.Context, arg CountStudentsParams) (i
 	return count, err
 }
 
+const deleteStudents = `-- name: DeleteStudents :exec
+DELETE FROM students
+WHERE school_id = $1
+  AND student_id = ANY($2)
+`
+
+type DeleteStudentsParams struct {
+	SchoolID  pgtype.UUID   `json:"school_id"`
+	StudentID []pgtype.UUID `json:"student_id"`
+}
+
+func (q *Queries) DeleteStudents(ctx context.Context, arg DeleteStudentsParams) error {
+	_, err := q.db.Exec(ctx, deleteStudents, arg.SchoolID, arg.StudentID)
+	return err
+}
+
 const listStudents = `-- name: ListStudents :many
 SELECT
     s.student_id,

@@ -27,6 +27,7 @@ type StudentListResponse struct {
 
 type StudentsService interface {
 	ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, classID *uuid.UUID) (*StudentListResponse, error)
+	DeleteStudents(ctx context.Context, schoolID uuid.UUID, studentIDs []uuid.UUID) error
 }
 
 type studentsService struct {
@@ -101,4 +102,24 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 		Items: items,
 		Total: int(total),
 	}, nil
+}
+
+func (s *studentsService) DeleteStudents(ctx context.Context, schoolID uuid.UUID, studentIDs []uuid.UUID) error {
+	if len(studentIDs) == 0 {
+		return fmt.Errorf("bad_request: student_ids must be provided and non-empty")
+	}
+
+	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+	uuids := make([]pgtype.UUID, 0, len(studentIDs))
+	for _, id := range studentIDs {
+		uuids = append(uuids, pgtype.UUID{Bytes: id, Valid: true})
+	}
+
+	if err := s.queries.DeleteStudents(ctx, sqlc.DeleteStudentsParams{
+		SchoolID:  schoolUUID,
+		StudentID: uuids,
+	}); err != nil {
+		return fmt.Errorf("delete students: %w", err)
+	}
+	return nil
 }

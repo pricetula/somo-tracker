@@ -229,7 +229,7 @@ export const FieldMapper = React.memo(function FieldMapper({
     return (
         <div>
             <div className="bg-muted/40 mb-4 flex items-center justify-between rounded-lg border px-4 py-3">
-                <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-4">
                     <span className="font-medium">
                         {mappedCount} / {desiredFields.length} mapped
                     </span>
@@ -267,7 +267,7 @@ export const FieldMapper = React.memo(function FieldMapper({
                         }`}
                         aria-hidden="true"
                     />
-                    <span className="text-sm font-medium tracking-tight">
+                    <span className="font-medium tracking-tight">
                         {result.isValid ? "Ready to save" : "Incomplete mapping"}
                     </span>
                 </div>

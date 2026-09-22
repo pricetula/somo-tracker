@@ -28,7 +28,7 @@ export default function TestSsePage() {
                 onChange={(e) => setJobId(e.target.value)}
                 className="rounded border p-2"
             />
-            <pre className="bg-muted h-96 overflow-auto rounded p-4 text-sm">{log.join("\n")}</pre>
+            <pre className="bg-muted h-96 overflow-auto rounded p-4">{log.join("\n")}</pre>
         </div>
     );
 }

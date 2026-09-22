@@ -99,7 +99,7 @@ export function TemplateHeaderEdit({
                     type="button"
                     aria-label="Edit template"
                     onClick={() => setIsEditing(true)}
-                    className="text-muted-foreground hover:text-foreground ml-3 inline-flex items-center gap-1.5 text-sm"
+                    className="text-muted-foreground hover:text-foreground ml-3 inline-flex items-center gap-1.5"
                 >
                     <Pencil className="h-4 w-4" />
                 </Button>

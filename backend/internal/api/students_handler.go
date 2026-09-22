@@ -10,6 +10,10 @@ import (
 	"somotracker/backend/internal/services"
 )
 
+type deleteStudentsRequest struct {
+	StudentIDs []string `json:"student_ids"`
+}
+
 type StudentsHandler struct {
 	svc    services.StudentsService
 	logger *zap.Logger
@@ -77,4 +81,86 @@ func (h *StudentsHandler) ListStudents(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(resp)
+}
+
+// DeleteStudents removes students by their IDs from the active school.
+// @Summary Delete students
+// @Description Delete students by student IDs
+// @Tags Students
+// @Accept json
+// @Produce json
+// @Param body body deleteStudentsRequest true "Student IDs to delete"
+// @Success 200 {object} map[string]any
+// @Failure 400 {object} map[string]any
+// @Failure 401 {object} map[string]any
+// @Security ApiKeyAuth
+// @Router /students [delete]
+func (h *StudentsHandler) DeleteStudents(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "active school not found",
+			"errors":  fiber.Map{},
+		})
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "invalid school id",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	var req deleteStudentsRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "invalid request body",
+			"errors":  fiber.Map{"body": []string{"malformed json"}},
+		})
+	}
+	if len(req.StudentIDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "student_ids must be provided",
+			"errors":  fiber.Map{"student_ids": []string{"required"}},
+		})
+	}
+
+	studentIDs := make([]uuid.UUID, 0, len(req.StudentIDs))
+	for _, s := range req.StudentIDs {
+		sid, err := uuid.Parse(s)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "bad_request",
+				"message": "invalid student id",
+				"errors":  fiber.Map{"student_ids": []string{"invalid uuid: " + s}},
+			})
+		}
+		studentIDs = append(studentIDs, sid)
+	}
+
+	if err := h.svc.DeleteStudents(c.Context(), schoolID, studentIDs); err != nil {
+		h.logger.Error("delete students failed", zap.Error(err))
+		if err.Error()[:len("bad_request:")] == "bad_request:" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "bad_request",
+				"message": err.Error()[len("bad_request:"):],
+				"errors":  fiber.Map{},
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to delete students",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"code":    "students_deleted",
+		"message": "students deleted successfully",
+		"errors":  fiber.Map{},
+	})
 }

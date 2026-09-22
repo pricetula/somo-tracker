@@ -219,6 +219,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/students/jobs/:job_id/events", r.StudentsImport.Events)
 	// Students listing
 	protected.Get("/students", r.Students.ListStudents)
+	protected.Delete("/students", r.Students.DeleteStudents)
 
 	// Subjects list for data table with infinite pagination
 	protected.Get("/subjects", subjectsListHandler(curriculumSvc))

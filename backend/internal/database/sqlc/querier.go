@@ -28,6 +28,7 @@ type Querier interface {
 	CreateTimetableTemplate(ctx context.Context, arg CreateTimetableTemplateParams) (pgtype.UUID, error)
 	DeleteClassTimetableSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteSession(ctx context.Context, token string) error
+	DeleteStudents(ctx context.Context, arg DeleteStudentsParams) error
 	GetAcademicTermRangeBySchool(ctx context.Context, arg GetAcademicTermRangeBySchoolParams) (GetAcademicTermRangeBySchoolRow, error)
 	GetActiveSchoolMembershipByUser(ctx context.Context, userID pgtype.UUID) (pgtype.UUID, error)
 	GetAuthTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (pgtype.UUID, error)

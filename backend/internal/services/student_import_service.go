@@ -179,7 +179,7 @@ func (s *studentImportService) TryFinalizeJob(ctx context.Context, jobID uuid.UU
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var job BulkJob
 	err = tx.QueryRow(ctx, `SELECT id, school_id, status, total_records, succeeded_count, failed_count, deferred_count FROM bulk_jobs WHERE id=$1 FOR UPDATE`, jobID).Scan(&job.ID, &job.SchoolID, &job.Status, &job.TotalRecords, &job.SucceededCount, &job.FailedCount, &job.DeferredCount)
@@ -203,9 +203,7 @@ func (s *studentImportService) TryFinalizeJob(ctx context.Context, jobID uuid.UU
 		return false, err
 	}
 	if newStatus == "COMPLETED" || newStatus == "COMPLETED_WITH_ERRORS" {
-		if err := s.RecomputeGenderCounts(ctx, job.SchoolID); err != nil {
-			// Log but don't block finalization
-		}
+		_ = s.RecomputeGenderCounts(ctx, job.SchoolID)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return false, err
@@ -265,10 +263,10 @@ func ParseDate(input string) (time.Time, error) {
 	}
 	layouts := []string{
 		"2006-01-02",
-		"02/01/2006",
-		"01/02/2006",
-		"02-01-2006",
-		"01-02-2006",
+		"02/01/2006", // MM/DD/YYYY
+		"01-02-2006", // MM-DD-YYYY (must come before DD-MM-YYYY)
+		"02-01-2006", // DD-MM-YYYY
+		"01/02/2006", // DD/MM/YYYY
 		"2006/01/02",
 	}
 	for _, l := range layouts {

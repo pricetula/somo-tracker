@@ -95,7 +95,7 @@ func (p *StudentImportProcessor) processSingleItem(ctx context.Context, jobID, i
 
 	var payload StudentItemPayload
 	if err := json.Unmarshal(item.Payload, &payload); err != nil {
-		p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid payload", attempts)
+		_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid payload", attempts)
 		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
 		return
 	}
@@ -106,14 +106,14 @@ func (p *StudentImportProcessor) processSingleItem(ctx context.Context, jobID, i
 	// Parse date
 	dob, err := services.ParseDate(payload.DateOfBirth)
 	if err != nil {
-		p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid date", attempts)
+		_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid date", attempts)
 		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
 		return
 	}
 
 	job, err := p.svc.GetJob(ctx, jobID)
 	if err != nil || job == nil {
-		p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "job not found", attempts)
+		_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "job not found", attempts)
 		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
 		return
 	}
@@ -124,12 +124,12 @@ func (p *StudentImportProcessor) processSingleItem(ctx context.Context, jobID, i
 	if err != nil {
 		// Check for unique violation
 		if isUniqueViolation(err) {
-			p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "admission_number already exists", attempts)
+			_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "admission_number already exists", attempts)
 			_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
 			return
 		}
 		// Transient? Mark deferred
-		p.svc.UpdateItemStatus(ctx, itemID, "DEFERRED", nil, err.Error(), attempts)
+		_ = p.svc.UpdateItemStatus(ctx, itemID, "DEFERRED", nil, err.Error(), attempts)
 		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 0, 1)
 		return
 	}

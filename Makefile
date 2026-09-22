@@ -63,8 +63,11 @@ test: test-short  ## Run unit tests (short mode, skips integration)
 test-short:  ## Run unit tests only, race-detected, junit output
 	cd backend && $(GOTESTSUM) --junitfile ../test-results/unit.xml -- -race -short -count=1 ./...
 
-test-integration:  ## Run integration tests (requires Docker)
+test-integration:  ## Run integration tests (requires Docker, uses shared test DB)
 	cd backend && $(GOTESTSUM) --junitfile ../test-results/integration.xml -- -race -count=1 ./...
+
+test-integration-tc:  ## Run integration tests with testcontainers (each test gets own DB)
+	cd backend && $(GOTESTSUM) --junitfile ../test-results/integration-tc.xml -- -race -count=1 -tags=integration ./internal/testdb/... ./internal/database/...
 
 # Shared long-lived test database.
 # `make test-db-up` starts the postgres:16-alpine instance on port 5433 with
@@ -116,7 +119,8 @@ test-coverage:  ## Run tests with coverage report
 	cd backend && go tool cover -html=../coverage.out -o ../coverage.html
 	@echo "Coverage report: coverage.html"
 
-test-all: test-short test-integration  ## Run unit + integration tests
+test-all: test-short test-integration  ## Run unit + integration tests (shared DB)
+test-all-tc: test-short test-integration-tc  ## Run unit + integration tests (testcontainers)
 
 # ─── Code generation ─────────────────────────────────────────────────────────
 

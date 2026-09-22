@@ -331,6 +331,7 @@ All frontend HTTP calls must go through `src/lib/api/client.ts` (`api.get/post/�
 - `api` resolves the correct base at call time: browser → `NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend"`, server → `API_URL ?? "http://somotracker_api:3030"`.
 - Never hardcode `/backend` or the full backend host in components/hooks. The client handles the proxy prefix automatically.
 - Hardcoding the proxy prefix causes double-prefixing or breaks when the proxy changes. Always call `api.get('/api/...')`.
+- **Do not use `fetch('/api/...')` directly.** Direct fetch bypasses `getApiBase()` and the Next.js rewrite, resulting in 404s against localhost:3000. Always use the `api` client, e.g. `api.get('/api/students')`, which correctly proxies to `/backend/api/students`. See `src/lib/api/students.ts` as the canonical example.
 
 ## 15. Time Formatting — date-fns only
 

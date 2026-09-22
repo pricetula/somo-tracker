@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	CountSearchSubjects(ctx context.Context, name string) (int64, error)
+	CountStudents(ctx context.Context, arg CountStudentsParams) (int64, error)
 	CountSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) (int64, error)
 	CountSubjects(ctx context.Context) (int64, error)
 	CountTopicsBySubject(ctx context.Context, subjectID pgtype.UUID) (int64, error)
@@ -57,6 +58,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	IncrementBulkJobCounts(ctx context.Context, arg IncrementBulkJobCountsParams) error
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
+	ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error)
 	ListSubTopics(ctx context.Context, arg ListSubTopicsParams) ([]ListSubTopicsRow, error)
 	ListSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) ([]ListSubTopicsByTopicRow, error)
 	ListSubjects(ctx context.Context, arg ListSubjectsParams) ([]ListSubjectsRow, error)

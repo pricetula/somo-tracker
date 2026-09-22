@@ -189,6 +189,14 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, que
 	guardianInvSvc := services.NewGuardianInvitationService(pool, logger)
 	router.GuardianInvitation = api.NewGuardianInvitationHandler(guardianInvSvc, stytchClient, asynqClient, redisClient, logger)
 
+	// Initialize student import dependencies
+	studentImportSvc := services.NewStudentImportService(pool, logger)
+	router.StudentsImport = api.NewStudentsImportHandler(studentImportSvc, asynqClient, redisClient, logger)
+
+	// Initialize students listing
+	studentsSvc := services.NewStudentsService(queries)
+	router.Students = api.NewStudentsHandler(studentsSvc, logger)
+
 	router.RegisterRoutes(app, redisClient, logger, curriculumSvc)
 
 	// Start Asynq worker for admin invitation batches
@@ -208,9 +216,12 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, que
 	guardianProcessor := worker.NewGuardianInvitationProcessor(guardianInvSvc, stytchClient, logger, redisClient)
 	mux.HandleFunc("guardian:invitation:batch", guardianProcessor.ProcessTask)
 	mux.HandleFunc("guardian:invitation:retry", guardianProcessor.ProcessRetryTask)
+	// Student import worker
+	studentProcessor := worker.NewStudentImportProcessor(studentImportSvc, logger, redisClient)
+	mux.HandleFunc("student:import:batch", studentProcessor.ProcessTask)
 	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB}, asynq.Config{
 		Concurrency: 10,
-		Queues:      map[string]int{"admin_invitation": 1},
+		Queues:      map[string]int{"admin_invitation": 1, "student_import": 1},
 	})
 	go func() {
 		logger.Info("asynq server starting", zap.String("queue", "admin_invitation"), zap.Int("concurrency", 10))

@@ -1662,3 +1662,80 @@ func TestMigrator_SubjectColor(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, exists, "subjects.color column should exist")
 }
+
+// TestMigrator_AddStudentBulkImportSupport verifies migration 000017
+func TestMigrator_AddStudentBulkImportSupport(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// Table exists
+	var tableExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = 'student_gender_counts'
+		)
+	`).Scan(&tableExists)
+	require.NoError(t, err)
+	require.True(t, tableExists, "student_gender_counts table should exist")
+
+	// Columns exist
+	cols := []string{"school_id", "male_count", "female_count", "other_count", "total_count", "updated_at"}
+	for _, col := range cols {
+		var colExists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'student_gender_counts' AND column_name = $1
+			)
+		`, col).Scan(&colExists)
+		require.NoError(t, err)
+		require.Truef(t, colExists, "column %s should exist on student_gender_counts", col)
+	}
+
+	// updated_at trigger exists
+	var trigExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.triggers
+			WHERE event_object_table = 'student_gender_counts'
+			  AND trigger_name = 'student_gender_counts_updated_at_trg'
+			  AND trigger_schema = 'public'
+		)
+	`).Scan(&trigExists)
+	require.NoError(t, err)
+	require.True(t, trigExists, "student_gender_counts_updated_at_trg should exist")
+
+	// bulk_jobs job_type check includes STUDENT_IMPORT
+	var jobTypeCheck string
+	err = db.QueryRowContext(ctx, `
+		SELECT conname FROM pg_constraint
+		WHERE conrelid = 'bulk_jobs'::regclass AND contype = 'c'
+	`).Scan(&jobTypeCheck)
+	require.NoError(t, err)
+	// Verify constraint exists
+	var constraintExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.table_constraints
+			WHERE table_name = 'bulk_jobs' AND constraint_name = 'bulk_jobs_job_type_check'
+		)
+	`).Scan(&constraintExists)
+	require.NoError(t, err)
+	require.True(t, constraintExists, "bulk_jobs_job_type_check should exist")
+}

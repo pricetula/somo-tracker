@@ -320,7 +320,7 @@ type AcademicYear struct {
 type BulkJob struct {
 	// Auto-generated UUID primary key.
 	ID pgtype.UUID `json:"id"`
-	// Bulk operation category. Extendable via CHECK constraint or lookup table migration.
+	// Bulk operation category. Extendable via CHECK constraint or lookup table migration. Supported: ADMIN_INVITATION, STUDENT_IMPORT.
 	JobType string `json:"job_type"`
 	// Client-supplied idempotency token to prevent duplicate submissions.
 	IdempotencyKey string `json:"idempotency_key"`
@@ -697,6 +697,22 @@ type StudentClassEnrollment struct {
 	// UTC timestamp of row creation.
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Denormalized gender counts per school for fast reporting. Updated after bulk student imports and student CRUD operations.
+type StudentGenderCount struct {
+	// FK to schools(id). One row per school.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// Number of students with gender normalized to M.
+	MaleCount int32 `json:"male_count"`
+	// Number of students with gender normalized to F.
+	FemaleCount int32 `json:"female_count"`
+	// Number of students with gender normalized to OTHER.
+	OtherCount int32 `json:"other_count"`
+	// Sum of male + female + other.
+	TotalCount int32 `json:"total_count"`
+	// Last recompute timestamp.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 

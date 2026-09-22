@@ -45,6 +45,8 @@ type Router struct {
 	TeacherInvitation  *TeacherInvitationHandler
 	FinanceInvitation  *FinanceInvitationHandler
 	GuardianInvitation *GuardianInvitationHandler
+	StudentsImport     *StudentsImportHandler
+	Students           *StudentsHandler
 	Timetable          *TimetableHandler
 	Attendance         *AttendanceHandler
 	Curriculum         services.CurriculumService
@@ -211,6 +213,12 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/guardians/invitations/jobs/:job_id", r.GuardianInvitation.GetJob)
 	protected.Post("/guardians/invitations/jobs/:job_id/retry-failed", r.GuardianInvitation.RetryFailed)
 	protected.Get("/guardians/invitations/jobs/:job_id/events", r.GuardianInvitation.Events)
+	// Students bulk import
+	protected.Post("/students/add", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:student:import:tenant"), r.StudentsImport.HandleImport)
+	protected.Get("/students/jobs/:job_id", r.StudentsImport.GetJob)
+	protected.Get("/students/jobs/:job_id/events", r.StudentsImport.Events)
+	// Students listing
+	protected.Get("/students", r.Students.ListStudents)
 
 	// Subjects list for data table with infinite pagination
 	protected.Get("/subjects", subjectsListHandler(curriculumSvc))

@@ -58,7 +58,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	IncrementBulkJobCounts(ctx context.Context, arg IncrementBulkJobCountsParams) error
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
-	ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error)
+	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
 	ListSubTopics(ctx context.Context, arg ListSubTopicsParams) ([]ListSubTopicsRow, error)
 	ListSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) ([]ListSubTopicsByTopicRow, error)
 	ListSubjects(ctx context.Context, arg ListSubjectsParams) ([]ListSubjectsRow, error)

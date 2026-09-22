@@ -663,7 +663,7 @@ type Student struct {
 	// Date of birth.
 	DateOfBirth pgtype.Date `json:"date_of_birth"`
 	// Gender (free-text for international flexibility).
-	Gender string `json:"gender"`
+	Gender interface{} `json:"gender"`
 	// JSONB for flexible external identifiers (e.g. NEMIS, KICD tracking codes).
 	Metadata []byte `json:"metadata"`
 	// UTC timestamp of row creation.

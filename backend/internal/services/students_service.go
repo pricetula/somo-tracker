@@ -16,6 +16,8 @@ type StudentListItem struct {
 	FullName        string `json:"full_name"`
 	DateOfBirth     string `json:"date_of_birth"`
 	Gender          string `json:"gender"`
+	ClassID         string `json:"class_id"`
+	ClassName       string `json:"class_name"`
 }
 
 type StudentListResponse struct {
@@ -24,7 +26,7 @@ type StudentListResponse struct {
 }
 
 type StudentsService interface {
-	ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string) (*StudentListResponse, error)
+	ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, classID *uuid.UUID) (*StudentListResponse, error)
 }
 
 type studentsService struct {
@@ -35,7 +37,7 @@ func NewStudentsService(queries *sqlc.Queries) StudentsService {
 	return &studentsService{queries: queries}
 }
 
-func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string) (*StudentListResponse, error) {
+func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, classID *uuid.UUID) (*StudentListResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -45,9 +47,14 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 	offset := (page - 1) * limit
 
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+	var classUUID pgtype.UUID
+	if classID != nil {
+		classUUID = pgtype.UUID{Bytes: *classID, Valid: true}
+	}
 	rows, err := s.queries.ListStudents(ctx, sqlc.ListStudentsParams{
 		SchoolID: schoolUUID,
 		Column2:  search,
+		Column5:  classUUID,
 		Limit:    int32(limit),
 		Offset:   int32(offset),
 	})
@@ -58,6 +65,7 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 	total, err := s.queries.CountStudents(ctx, sqlc.CountStudentsParams{
 		SchoolID: schoolUUID,
 		Column2:  search,
+		Column3:  classUUID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("count students: %w", err)
@@ -69,12 +77,23 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 		if r.DateOfBirth.Valid {
 			dobStr = r.DateOfBirth.Time.Format("2006-01-02")
 		}
+		classID := ""
+		if r.ClassID.Valid {
+			classID = r.ClassID.String()
+		}
+		className := ""
+		if r.ClassName.Valid {
+			className = r.ClassName.String
+		}
+		genderStr := fmt.Sprintf("%v", r.Gender)
 		items = append(items, StudentListItem{
 			StudentID:       r.StudentID.String(),
 			AdmissionNumber: r.AdmissionNumber,
 			FullName:        r.FullName,
 			DateOfBirth:     dobStr,
-			Gender:          r.Gender,
+			Gender:          genderStr,
+			ClassID:         classID,
+			ClassName:       className,
 		})
 	}
 

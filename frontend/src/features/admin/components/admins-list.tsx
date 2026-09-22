@@ -11,6 +11,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { adminFilterGroups, mapAdminFiltersToParams } from "./admins-filters";
 
 function listAdminsWithFilters(params: {
     page?: number;
@@ -19,19 +20,12 @@ function listAdminsWithFilters(params: {
     filters?: Record<string, string | string[]>;
     invitation_status?: string;
 }) {
-    const invitationStatus =
-        typeof params.filters?.status === "string"
-            ? params.filters.status
-            : params.invitation_status;
-
+    const { invitation_status } = mapAdminFiltersToParams(params.filters);
     return listAdmins({
         page: params.page,
         limit: params.limit,
         search: params.search,
-        invitation_status:
-            invitationStatus === "all" || !invitationStatus
-                ? undefined
-                : (invitationStatus as "invited" | "accepted"),
+        invitation_status: invitation_status ?? params.invitation_status,
     });
 }
 
@@ -43,27 +37,7 @@ export function AdminsTable() {
         },
         [deleteAdmins]
     );
-    const filterGroups = useMemo(
-        () => [
-            {
-                id: "invitation",
-                label: "Invitation Status",
-                items: [
-                    {
-                        id: "status",
-                        label: "Status",
-                        type: "sub_menu_single" as const,
-                        submenu: [
-                            { id: "all", label: "All", value: "all" },
-                            { id: "invited", label: "Invited", value: "invited" },
-                            { id: "accepted", label: "Accepted", value: "accepted" },
-                        ],
-                    },
-                ],
-            },
-        ],
-        []
-    );
+    const filterGroups = useMemo(() => adminFilterGroups, []);
 
     const columns = useMemo(
         () => [

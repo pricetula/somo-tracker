@@ -2,24 +2,27 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
 import { listStudents, type StudentListItem } from "@/lib/api/students";
+import { studentFilterGroups, mapStudentFiltersToParams } from "./students-filters";
 
-function listStudentsWithFilters(params: { page?: number; limit?: number; search?: string }) {
+function listStudentsWithFilters(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    filters?: Record<string, string | string[]>;
+}) {
+    const { class_id } = mapStudentFiltersToParams(params.filters);
     return listStudents({
         page: params.page,
         limit: params.limit,
         search: params.search,
+        class_id,
     });
 }
 
 export function StudentsTable() {
+    const filterGroups = useMemo(() => studentFilterGroups, []);
     const columns = useMemo(
         () => [
-            {
-                id: "admission_number",
-                header: "Admission No.",
-                cell: (row: StudentListItem) => row.admission_number,
-                width: "1fr",
-            },
             {
                 id: "name",
                 header: "Name",
@@ -34,9 +37,15 @@ export function StudentsTable() {
                 width: "2fr",
             },
             {
-                id: "dob",
-                header: "Date of Birth",
-                cell: (row: StudentListItem) => row.date_of_birth || "—",
+                id: "admission_number",
+                header: "Admission No.",
+                cell: (row: StudentListItem) => row.admission_number,
+                width: "1fr",
+            },
+            {
+                id: "class",
+                header: "Class",
+                cell: (row: StudentListItem) => row.class_name || "—",
                 width: "1fr",
             },
             {
@@ -52,7 +61,7 @@ export function StudentsTable() {
     return (
         <DataTable<
             StudentListItem,
-            Record<string, never>,
+            { filters?: Record<string, string | string[]> },
             { items: StudentListItem[]; total: number }
         >
             queryKey={["students"]}
@@ -62,6 +71,7 @@ export function StudentsTable() {
             isCheckable
             isSearchable
             searchPlaceholder="Search by name or admission number…"
+            filterGroups={filterGroups}
             addHref="/students/add"
             pageSize={50}
             height={600}

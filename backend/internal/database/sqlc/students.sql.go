@@ -13,22 +13,33 @@ import (
 
 const countStudents = `-- name: CountStudents :one
 SELECT COUNT(*)
-FROM students
-WHERE school_id = $1
+FROM students s
+LEFT JOIN LATERAL (
+    SELECT sce.class_room_id
+    FROM student_class_enrollments sce
+    WHERE sce.student_id = s.student_id
+      AND sce.status = 'ACTIVE'
+    ORDER BY sce.enrolled_at DESC
+    LIMIT 1
+) e ON true
+LEFT JOIN class_rooms c ON c.id = e.class_room_id
+WHERE s.school_id = $1
   AND (
     $2::text = '' OR
-    full_name ILIKE '%' || $2 || '%' OR
-    admission_number ILIKE '%' || $2 || '%'
+    s.full_name ILIKE '%' || $2 || '%' OR
+    s.admission_number ILIKE '%' || $2 || '%'
   )
+  AND ($3::uuid IS NULL OR c.id = $3)
 `
 
 type CountStudentsParams struct {
 	SchoolID pgtype.UUID `json:"school_id"`
 	Column2  string      `json:"column_2"`
+	Column3  pgtype.UUID `json:"column_3"`
 }
 
 func (q *Queries) CountStudents(ctx context.Context, arg CountStudentsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countStudents, arg.SchoolID, arg.Column2)
+	row := q.db.QueryRow(ctx, countStudents, arg.SchoolID, arg.Column2, arg.Column3)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -36,23 +47,35 @@ func (q *Queries) CountStudents(ctx context.Context, arg CountStudentsParams) (i
 
 const listStudents = `-- name: ListStudents :many
 SELECT
-    student_id,
-    school_id,
-    admission_number,
-    full_name,
-    date_of_birth,
-    gender,
-    metadata,
-    created_at,
-    updated_at
-FROM students
-WHERE school_id = $1
+    s.student_id,
+    s.school_id,
+    s.admission_number,
+    s.full_name,
+    s.date_of_birth,
+    s.gender,
+    s.metadata,
+    s.created_at,
+    s.updated_at,
+    c.id AS class_id,
+    c.name AS class_name
+FROM students s
+LEFT JOIN LATERAL (
+    SELECT sce.class_room_id
+    FROM student_class_enrollments sce
+    WHERE sce.student_id = s.student_id
+      AND sce.status = 'ACTIVE'
+    ORDER BY sce.enrolled_at DESC
+    LIMIT 1
+) e ON true
+LEFT JOIN class_rooms c ON c.id = e.class_room_id
+WHERE s.school_id = $1
   AND (
     $2::text = '' OR
-    full_name ILIKE '%' || $2 || '%' OR
-    admission_number ILIKE '%' || $2 || '%'
+    s.full_name ILIKE '%' || $2 || '%' OR
+    s.admission_number ILIKE '%' || $2 || '%'
   )
-ORDER BY created_at DESC
+  AND ($5::uuid IS NULL OR c.id = $5)
+ORDER BY s.created_at DESC
 LIMIT $3 OFFSET $4
 `
 
@@ -61,22 +84,38 @@ type ListStudentsParams struct {
 	Column2  string      `json:"column_2"`
 	Limit    int32       `json:"limit"`
 	Offset   int32       `json:"offset"`
+	Column5  pgtype.UUID `json:"column_5"`
 }
 
-func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error) {
+type ListStudentsRow struct {
+	StudentID       pgtype.UUID        `json:"student_id"`
+	SchoolID        pgtype.UUID        `json:"school_id"`
+	AdmissionNumber string             `json:"admission_number"`
+	FullName        string             `json:"full_name"`
+	DateOfBirth     pgtype.Date        `json:"date_of_birth"`
+	Gender          interface{}        `json:"gender"`
+	Metadata        []byte             `json:"metadata"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ClassID         pgtype.UUID        `json:"class_id"`
+	ClassName       pgtype.Text        `json:"class_name"`
+}
+
+func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error) {
 	rows, err := q.db.Query(ctx, listStudents,
 		arg.SchoolID,
 		arg.Column2,
 		arg.Limit,
 		arg.Offset,
+		arg.Column5,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Student
+	var items []ListStudentsRow
 	for rows.Next() {
-		var i Student
+		var i ListStudentsRow
 		if err := rows.Scan(
 			&i.StudentID,
 			&i.SchoolID,
@@ -87,6 +126,8 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]S
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ClassID,
+			&i.ClassName,
 		); err != nil {
 			return nil, err
 		}

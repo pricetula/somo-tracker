@@ -52,8 +52,21 @@ func (h *StudentsHandler) ListStudents(c fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
 	search := c.Query("search")
+	classIDStr := c.Query("class_id")
+	var classID *uuid.UUID
+	if classIDStr != "" {
+		cid, err := uuid.Parse(classIDStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "bad_request",
+				"message": "invalid class_id",
+				"errors":  fiber.Map{},
+			})
+		}
+		classID = &cid
+	}
 
-	resp, err := h.svc.ListStudents(c.Context(), schoolID, page, limit, search)
+	resp, err := h.svc.ListStudents(c.Context(), schoolID, page, limit, search, classID)
 	if err != nil {
 		h.logger.Error("list students failed", zap.Error(err))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

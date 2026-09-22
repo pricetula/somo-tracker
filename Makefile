@@ -1,4 +1,4 @@
-.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api sqlc-gen generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help migrated migrate-down migrate-range migrate-verify test-db-up test-db-down test-db-status test-db-logs test-db-reset
+.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api sqlc-gen generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help migrated migrate-down migrate-range migrate-verify
 
 # ─── Docker Compose shortcuts ────────────────────────────────────────────────
 
@@ -63,53 +63,8 @@ test: test-short  ## Run unit tests (short mode, skips integration)
 test-short:  ## Run unit tests only, race-detected, junit output
 	cd backend && $(GOTESTSUM) --junitfile ../test-results/unit.xml -- -race -short -count=1 ./...
 
-test-integration:  ## Run integration tests (requires Docker, uses shared test DB)
-	cd backend && $(GOTESTSUM) --junitfile ../test-results/integration.xml -- -race -count=1 ./...
-
-test-integration-tc:  ## Run integration tests with testcontainers (each test gets own DB)
-	cd backend && $(GOTESTSUM) --junitfile ../test-results/integration-tc.xml -- -race -count=1 -tags=integration ./internal/testdb/... ./internal/database/...
-
-# Shared long-lived test database.
-# `make test-db-up` starts the postgres:16-alpine instance on port 5433 with
-# tmpfs storage. `make test` (above) then runs -tags=integration tests
-# against it without spinning up containers per test.
-TEST_DSN ?= postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable
-
-test-db-up:  ## Start the test Postgres (port 5433, tmpfs, no data persistence)
-	docker compose -f docker-compose.test.yml up -d
-	@echo "Waiting for Postgres to become ready..."
-	@for i in $$(seq 1 30); do \
-		if docker exec somotracker_postgres_test pg_isready -U somo_admin -d somotracker_test >/dev/null 2>&1; then \
-			echo "Test Postgres is ready on port 5433."; \
-			exit 0; \
-		fi; \
-		sleep 1; \
-	done; \
-	echo "Test Postgres failed to become ready within 30s. Check: docker compose -f docker-compose.test.yml logs"; \
-	exit 1
-
-test-db-down:  ## Tear down the test Postgres
-	docker compose -f docker-compose.test.yml down
-
-test-db-status:  ## Print test Postgres container status
-	docker compose -f docker-compose.test.yml ps
-
-test-db-logs:  ## Tail test Postgres logs
-	docker compose -f docker-compose.test.yml logs -f
-
-test-db-reset:  ## Recreate the test Postgres (drops all data)
-	docker compose -f docker-compose.test.yml down
-	docker compose -f docker-compose.test.yml up -d
-	@echo "Waiting for Postgres to become ready..."
-	@for i in $$(seq 1 30); do \
-		if docker exec somotracker_postgres_test pg_isready -U somo_admin -d somotracker_test >/dev/null 2>&1; then \
-			echo "Test Postgres is ready on port 5433."; \
-			exit 0; \
-		fi; \
-		sleep 1; \
-	done; \
-	echo "Test Postgres failed to become ready within 30s."; \
-	exit 1
+test-integration:  ## Run integration tests with testcontainers (each test gets own DB)
+	cd backend && $(GOTESTSUM) --junitfile ../test-results/integration.xml -- -race -count=1 -tags=integration ./internal/testdb/... ./internal/database/...
 
 test-verbose:  ## Run all tests with verbose output
 	cd backend && $(GOTESTSUM) --format standard-verbose -- -race -count=1 ./...
@@ -119,8 +74,7 @@ test-coverage:  ## Run tests with coverage report
 	cd backend && go tool cover -html=../coverage.out -o ../coverage.html
 	@echo "Coverage report: coverage.html"
 
-test-all: test-short test-integration  ## Run unit + integration tests (shared DB)
-test-all-tc: test-short test-integration-tc  ## Run unit + integration tests (testcontainers)
+test-all: test-short test-integration  ## Run unit + integration tests (testcontainers)
 
 # ─── Code generation ─────────────────────────────────────────────────────────
 

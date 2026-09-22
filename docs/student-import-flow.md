@@ -153,3 +153,49 @@ When all items processed:
 ## Testing
 * Migration integration test: `TestMigrator_AddStudentBulkImportSupport`.
 * End-to-end: POST with Idempotency-Key → verify job status via SSE → verify rows in `students` and counts in `student_gender_counts`.
+
+### Comprehensive Test Plan
+
+#### Unit Tests – Backend
+* **Service**: `internal/services/student_import_service_test.go`
+  * `NormalizeGender` – M/male/boy → M; F/female/girl → F; empty/unknown → OTHER
+  * `ParseDate` – tolerant layouts `2006-01-02`, `02/01/2006`, `01-02-2006`, `2006/01/02`, RFC3339; invalid → error
+  * `CreateBulkJobWithItems` – idempotency key with `UNIQUE(school_id,idempotency_key)` returns same job_id, no duplicate items
+  * `IncrementJobCounters` – atomic `UPDATE … RETURNING`
+  * `TryFinalizeJob` – returns false while pending, true only once when sum == total; `FOR UPDATE` prevents double finalisation
+  * `InsertStudent` – rejects duplicate admission_number via functional unique index, stores trimmed value
+* **Handler**: `internal/api/students_import_handler_test.go`
+  * `POST /students/add` – 401 without session, 403 non-ADMIN, 400 validation, 202 with job
+  * In-file dedup – first occurrence wins
+  * Idempotency – duplicate key returns existing job
+  * Batch enqueue – payload batch size ≤100
+* **Worker**: `internal/worker/student_import_worker_test.go`
+  * Normalises gender, parses DOB, succeeds insert, marks SUCCEEDED
+  * Unique violation → FAILED
+  * Transient error → DEFERRED
+  * Completion → `TryFinalizeJob` called once, gender counts recomputed
+
+#### Unit Tests – Frontend
+* **API client** `src/lib/api/students.test.ts` – query string building, uses `api.get('/api/students?...')`
+* **Feature hooks** – `useStudentImport` builds payload with `Idempotency-Key`, handles 202 → polling
+* **Component** – `StudentsTable` renders columns, correct `queryKey`, uses `api` client, `addHref="/students/add"`
+
+#### Integration / E2E
+* **Backend E2E** `backend/internal/api/students_import_e2e_test.go` `//go:build integration`
+  * Seed school + admin, POST 50 rows mixed valid/invalid/duplicates
+  * Poll SSE → status `COMPLETED_WITH_ERRORS`
+  * Assert `bulk_jobs` counters, `bulk_job_items` statuses, rows in `students`, `student_gender_counts` matches
+  * Repeat same Idempotency-Key → same job_id, no duplicate rows
+* **Frontend E2E** `frontend/tests/e2e/students-import.spec.ts` Playwright
+  * Login ADMIN → `/students/add` upload CSV → orchestrator progress → completion
+  * `/students` DataTable shows rows, search works
+  * Re-import same file → existing job returned
+* **Regression**
+  * Single student create/update/delete → trigger keeps `student_gender_counts` in sync
+  * Delete admin user → `bulk_jobs.created_by` becomes NULL, audit trail preserved
+  * Admission number case/space variation → unique constraint rejects
+
+#### CI
+* `go test ./... -tags integration` against ephemeral Postgres
+* `pnpm lint` + `pnpm test`
+* Playwright E2E on staging after migration `000018` applied

@@ -1739,3 +1739,84 @@ func TestMigrator_AddStudentBulkImportSupport(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, constraintExists, "bulk_jobs_job_type_check should exist")
 }
+
+// TestMigrator_StudentImportHardening verifies migration 000018
+func TestMigrator_StudentImportHardening(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// student_gender enum exists
+	var enumExists bool
+	err = db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_type WHERE typname = 'student_gender')`).Scan(&enumExists)
+	require.NoError(t, err)
+	require.True(t, enumExists, "student_gender enum should exist")
+
+	// students.gender is enum type
+	var colType string
+	err = db.QueryRowContext(ctx, `
+		SELECT udt_name FROM information_schema.columns WHERE table_name='students' AND column_name='gender'
+	`).Scan(&colType)
+	require.NoError(t, err)
+	require.Equal(t, "student_gender", colType)
+
+	// bulk_jobs unique constraint school_id + idempotency_key
+	var uniqExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pg_constraint WHERE conname='bulk_jobs_school_id_idempotency_key_key'
+		)
+	`).Scan(&uniqExists)
+	require.NoError(t, err)
+	require.True(t, uniqExists, "bulk_jobs unique constraint should exist")
+
+	// bulk_jobs.created_by ON DELETE SET NULL
+	var deleteAction string
+	err = db.QueryRowContext(ctx, `
+		SELECT cls.relname FROM pg_class cls JOIN pg_constraint con ON con.conrelid = cls.oid
+		WHERE con.conname = 'bulk_jobs_created_by_fkey' AND con.contype = 'f'
+	`).Scan(&deleteAction)
+	// Simplified check: verify constraint exists
+	var fkExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pg_constraint WHERE conname='bulk_jobs_created_by_fkey' AND confdeltype='s'
+		)
+	`).Scan(&fkExists)
+	require.NoError(t, err)
+	require.True(t, fkExists, "bulk_jobs.created_by FK should be ON DELETE SET NULL")
+
+	// functional unique index on admission_number
+	var idxExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pg_indexes WHERE indexname='students_school_admission_number_ci'
+		)
+	`).Scan(&idxExists)
+	require.NoError(t, err)
+	require.True(t, idxExists, "functional unique index on admission_number should exist")
+
+	// trigger for gender counts
+	var trigExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pg_trigger WHERE tgname='students_gender_counts_tri'
+		)
+	`).Scan(&trigExists)
+	require.NoError(t, err)
+	require.True(t, trigExists, "students_gender_counts_tri should exist")
+}

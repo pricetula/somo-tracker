@@ -149,32 +149,13 @@ func contains(s, substr string) bool {
 }
 
 func (p *StudentImportProcessor) deriveJobStatus(ctx context.Context, jobID uuid.UUID) {
-	job, err := p.svc.GetJob(ctx, jobID)
-	if err != nil || job == nil {
-		return
-	}
-	items, err := p.svc.GetItemsByJobID(ctx, jobID)
+	finalized, err := p.svc.TryFinalizeJob(ctx, jobID)
 	if err != nil {
-		return
+		p.logger.Error("try finalize job failed", zap.Error(err), zap.String("job_id", jobID.String()))
 	}
-	var pending int
-	for _, it := range items {
-		if it.Status == "PENDING" || it.Status == "PROCESSING" {
-			pending++
-		}
+	if finalized {
+		p.logger.Info("job finalized", zap.String("job_id", jobID.String()))
 	}
-	var newStatus string
-	if pending > 0 {
-		newStatus = "PROCESSING"
-	} else {
-		if job.FailedCount > 0 {
-			newStatus = "COMPLETED_WITH_ERRORS"
-		} else {
-			newStatus = "COMPLETED"
-		}
-		_ = p.svc.RecomputeGenderCounts(ctx, job.SchoolID)
-	}
-	_ = p.svc.UpdateJobStatus(ctx, jobID, newStatus)
 	p.publishProgress(ctx, jobID)
 }
 

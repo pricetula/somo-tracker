@@ -120,14 +120,15 @@ func (h *StudentsImportHandler) HandleImport(c fiber.Ctx) error {
 			continue
 		}
 
-		key := strings.ToLower(adm)
+		admNorm := strings.TrimSpace(adm)
+		key := strings.ToLower(admNorm)
 		if _, exists := seenAdmission[key]; exists {
 			// skip duplicate within file, first wins
 			continue
 		}
 		seenAdmission[key] = struct{}{}
 		// Normalize fields for storage
-		row.AdmissionNumber = adm
+		row.AdmissionNumber = admNorm
 		row.FullName = name
 		row.DateOfBirth = dobRaw
 		row.Gender = services.NormalizeGender(genderRaw)

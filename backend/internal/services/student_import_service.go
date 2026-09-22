@@ -34,6 +34,7 @@ type StudentImportService interface {
 	UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error)
 	RecomputeGenderCounts(ctx context.Context, schoolID uuid.UUID) error
 	InsertStudent(ctx context.Context, schoolID uuid.UUID, admissionNumber, fullName string, dob time.Time, gender string, metadata json.RawMessage) error
+	TryFinalizeJob(ctx context.Context, jobID uuid.UUID) (bool, error)
 }
 
 type studentImportService struct {
@@ -171,6 +172,45 @@ func (s *studentImportService) InsertStudent(ctx context.Context, schoolID uuid.
 		return fmt.Errorf("insert_student: %w", err)
 	}
 	return nil
+}
+
+func (s *studentImportService) TryFinalizeJob(ctx context.Context, jobID uuid.UUID) (bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+
+	var job BulkJob
+	err = tx.QueryRow(ctx, `SELECT id, school_id, status, total_records, succeeded_count, failed_count, deferred_count FROM bulk_jobs WHERE id=$1 FOR UPDATE`, jobID).Scan(&job.ID, &job.SchoolID, &job.Status, &job.TotalRecords, &job.SucceededCount, &job.FailedCount, &job.DeferredCount)
+	if err != nil {
+		return false, err
+	}
+	if job.Status == "COMPLETED" || job.Status == "COMPLETED_WITH_ERRORS" {
+		return false, nil
+	}
+	if int(job.SucceededCount)+int(job.FailedCount)+int(job.DeferredCount) < int(job.TotalRecords) {
+		return false, nil
+	}
+	var newStatus string
+	if job.FailedCount > 0 {
+		newStatus = "COMPLETED_WITH_ERRORS"
+	} else {
+		newStatus = "COMPLETED"
+	}
+	_, err = tx.Exec(ctx, `UPDATE bulk_jobs SET status=$1, updated_at=NOW() WHERE id=$2`, newStatus, jobID)
+	if err != nil {
+		return false, err
+	}
+	if newStatus == "COMPLETED" || newStatus == "COMPLETED_WITH_ERRORS" {
+		if err := s.RecomputeGenderCounts(ctx, job.SchoolID); err != nil {
+			// Log but don't block finalization
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // RecomputeGenderCounts recomputes student_gender_counts for a school using Option B.

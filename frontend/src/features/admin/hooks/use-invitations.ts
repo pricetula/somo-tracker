@@ -59,7 +59,7 @@ export function useRetryFailedInvitations() {
         mutationKey: invitationKeys.retry("retry"),
         mutationFn: (jobId) => retryFailedInvitations(jobId),
         onSuccess: (data) => {
-            toast.success(data.message ?? `Retry queued (${data.count})`);
+            toast.success(data.message);
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

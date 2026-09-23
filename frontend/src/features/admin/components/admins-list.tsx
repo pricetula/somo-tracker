@@ -18,7 +18,7 @@ function listAdminsWithFilters(params: {
     limit?: number;
     search?: string;
     filters?: Record<string, string | string[]>;
-    invitation_status?: string;
+    invitation_status?: "all" | "invited" | "accepted";
 }) {
     const { invitation_status } = mapAdminFiltersToParams(params.filters);
     return listAdmins({

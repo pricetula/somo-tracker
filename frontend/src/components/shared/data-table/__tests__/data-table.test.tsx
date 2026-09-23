@@ -209,7 +209,7 @@ describe("DataTable", () => {
                     rows: [],
                     isPending: false,
                     isError: true,
-                    error: "string error message",
+                    error: new Error("string error message"),
                 })
             );
 
@@ -1688,7 +1688,6 @@ describe("DataTable", () => {
                     getRowId={(row) => row.id}
                     isCheckable
                     deleteFn={deleteFn}
-                    deleteParams={{ school_id: "123" }}
                 />
             );
 

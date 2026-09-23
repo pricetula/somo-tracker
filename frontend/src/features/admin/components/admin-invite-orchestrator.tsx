@@ -54,7 +54,11 @@ export function AdminInviteOrchestrator() {
         } catch {}
         const resp = await mutation.mutateAsync({ invitations, idempotencyKey: key });
         // Return shape expected by ImportOrchestrator
-        return { job_id: resp.job_id, total_records: resp.total_records, status: resp.status };
+        return {
+            job_id: resp.job_id ?? "",
+            total_records: resp.total_records,
+            status: resp.status,
+        };
     };
 
     const handleReset = () => {

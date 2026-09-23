@@ -30,6 +30,14 @@ func NewTeacherInvitationHandler(svc services.TeacherInvitationServiceInterface,
 	return &TeacherInvitationHandler{svc: svc, stytch: cli, asynq: asynqClient, redis: redisClient, logger: logger.With(zap.String("handler", "teacher_invitation"))}
 }
 
+// @Summary Bulk invite teachers
+// @Tags Teacher Invitations
+// @Accept json
+// @Produce json
+// @Param body body BulkInvitationRequest true "Bulk invitation payload"
+// @Success 200 {object} BulkInvitationResponse
+// @Success 202 {object} BulkInvitationResponse
+// @Router /api/teachers/invitations [post]
 func (h *TeacherInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	// Extract locals
 	schoolIDStr := c.Locals("active_school_id")
@@ -192,6 +200,12 @@ func (h *TeacherInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	})
 }
 
+// @Summary Get invitation job status
+// @Tags Teacher Invitations
+// @Produce json
+// @Param job_id path string true "Job ID"
+// @Success 200 {object} InvitationJob
+// @Router /api/teachers/invitations/jobs/{job_id} [get]
 func (h *TeacherInvitationHandler) GetJob(c fiber.Ctx) error {
 	jobIDStr := c.Params("job_id")
 	jobID, err := uuid.Parse(jobIDStr)
@@ -216,6 +230,12 @@ func (h *TeacherInvitationHandler) GetJob(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(job)
 }
 
+// @Summary Retry failed invitation jobs
+// @Tags Teacher Invitations
+// @Produce json
+// @Param job_id path string true "Job ID"
+// @Success 200 {object} InvitationRetryResponse
+// @Router /api/teachers/invitations/jobs/{job_id}/retry-failed [post]
 func (h *TeacherInvitationHandler) RetryFailed(c fiber.Ctx) error {
 	jobIDStr := c.Params("job_id")
 	jobID, err := uuid.Parse(jobIDStr)
@@ -256,6 +276,12 @@ func (h *TeacherInvitationHandler) RetryFailed(c fiber.Ctx) error {
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{"job_id": jobID.String(), "message": "retry queued", "count": len(items)})
 }
 
+// @Summary Get invitation job events
+// @Tags Teacher Invitations
+// @Produce json
+// @Param job_id path string true "Job ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/teachers/invitations/jobs/{job_id}/events [get]
 func (h *TeacherInvitationHandler) Events(c fiber.Ctx) error {
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")

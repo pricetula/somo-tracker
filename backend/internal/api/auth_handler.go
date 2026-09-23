@@ -11,6 +11,28 @@ import (
 	"somotracker/backend/internal/services"
 )
 
+type MagicLinkRequest struct {
+	Email string `json:"email"`
+}
+
+type MagicLinkResponse struct {
+	Code    string                 `json:"code"`
+	Message string                 `json:"message"`
+	Errors  map[string]interface{} `json:"errors"`
+}
+
+type CallbackResponse struct {
+	Code    string                 `json:"code"`
+	Message string                 `json:"message"`
+	Errors  map[string]interface{} `json:"errors"`
+}
+
+type LogoutResponse struct {
+	Code    string                 `json:"code"`
+	Message string                 `json:"message"`
+	Errors  map[string]interface{} `json:"errors"`
+}
+
 // authHandler responds to /api/auth/*.
 type authHandler struct {
 	svc services.AuthService
@@ -27,9 +49,11 @@ func newAuthHandler(svc services.AuthService, cfg *config.Config) *authHandler {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param email formData string true "User email"
+// @Param email formData string false "User email"
+// @Param body body MagicLinkRequest false "JSON body"
 // @Param org_id query string false "Organization ID or slug"
-// @Success 200 {object} map[string]interface{}
+// @Param body body MagicLinkRequest true "Magic link request"
+// @Success 200 {object} MagicLinkResponse
 // @Router /api/auth/magic-link/send [post]
 //
 // Request body (JSON):
@@ -166,7 +190,7 @@ func (h *authHandler) clearCSRFCookie() *fiber.Cookie {
 // @Accept json
 // @Produce json
 // @Param token query string true "Magic-link token"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} CallbackResponse
 // @Router /api/auth/callback [get]
 //
 // Stytch redirects the user's browser to this URL with the magic-link token
@@ -255,7 +279,7 @@ func (h *authHandler) inviteCallback(c fiber.Ctx) error {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} LogoutResponse
 // @Router /api/auth/logout [post]
 //
 // It requires a valid session cookie and returns a sanitized response.

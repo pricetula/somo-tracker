@@ -158,3 +158,4 @@ export interface DataTableProps<TItem, TParams extends object, TResult> {
 
     className?: string;
 }
+export type DeleteApiFn = (ids: string[]) => Promise<{ deleted: number }>;

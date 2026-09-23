@@ -39,6 +39,33 @@ type BulkInvitationRequest struct {
 	Invitations []InvitationRow `json:"invitations"`
 }
 
+type BulkInvitationResponse struct {
+	JobID        string `json:"job_id"`
+	Status       string `json:"status"`
+	TotalRecords int    `json:"total_records,omitempty"`
+	Message      string `json:"message"`
+}
+
+type InvitationJob struct {
+	JobID        string `json:"job_id"`
+	Status       string `json:"status"`
+	TotalRecords int    `json:"total_records"`
+}
+
+type InvitationRetryResponse struct {
+	JobID   string `json:"job_id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+// @Summary Bulk invite admins
+// @Tags Admin Invitations
+// @Accept json
+// @Produce json
+// @Param body body BulkInvitationRequest true "Bulk invitation payload"
+// @Success 200 {object} BulkInvitationResponse
+// @Success 202 {object} BulkInvitationResponse
+// @Router /api/admins/invitations [post]
 func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	// Extract locals
 	schoolIDStr := c.Locals("active_school_id")
@@ -201,6 +228,12 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	})
 }
 
+// @Summary Get invitation job status
+// @Tags Admin Invitations
+// @Produce json
+// @Param job_id path string true "Job ID"
+// @Success 200 {object} InvitationJob
+// @Router /api/admins/invitations/jobs/{job_id} [get]
 func (h *AdminInvitationHandler) GetJob(c fiber.Ctx) error {
 	jobIDStr := c.Params("job_id")
 	jobID, err := uuid.Parse(jobIDStr)
@@ -225,6 +258,12 @@ func (h *AdminInvitationHandler) GetJob(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(job)
 }
 
+// @Summary Retry failed invitation jobs
+// @Tags Admin Invitations
+// @Produce json
+// @Param job_id path string true "Job ID"
+// @Success 200 {object} InvitationRetryResponse
+// @Router /api/admins/invitations/jobs/{job_id}/retry-failed [post]
 func (h *AdminInvitationHandler) RetryFailed(c fiber.Ctx) error {
 	jobIDStr := c.Params("job_id")
 	jobID, err := uuid.Parse(jobIDStr)
@@ -265,6 +304,12 @@ func (h *AdminInvitationHandler) RetryFailed(c fiber.Ctx) error {
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{"job_id": jobID.String(), "message": "retry queued", "count": len(items)})
 }
 
+// @Summary Get invitation job events
+// @Tags Admin Invitations
+// @Produce json
+// @Param job_id path string true "Job ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/admins/invitations/jobs/{job_id}/events [get]
 func (h *AdminInvitationHandler) Events(c fiber.Ctx) error {
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")

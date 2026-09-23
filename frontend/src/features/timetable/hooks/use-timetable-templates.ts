@@ -63,7 +63,7 @@ export function useCreateTimetableTemplate() {
             }
             return { previous };
         },
-        onError(err, _variables, context) {
+        onError(err, _variables, context: { previous?: unknown }) {
             if (context?.previous) {
                 queryClient.setQueryData(timetableTemplateKeys.list, context.previous);
             }

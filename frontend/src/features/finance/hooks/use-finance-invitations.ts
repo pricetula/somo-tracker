@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/finance-invitations";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
+import type { BulkInvitationResponse, InvitationRow } from "@/lib/api/finance-invitations";
 
 export const financeInvitationKeys = {
     bulk: ["finance", "invitation", "bulk"] as const,
@@ -26,9 +27,13 @@ export interface BulkInvitePayload {
 
 export function useBulkInviteFinances() {
     const queryClient = useQueryClient();
-    return useMutation({
+    return useMutation<
+        BulkInvitationResponse,
+        Error,
+        { invitations: InvitationRow[]; idempotencyKey?: string }
+    >({
         mutationKey: financeInvitationKeys.bulk,
-        mutationFn: (payload) => {
+        mutationFn: (payload: { invitations: InvitationRow[]; idempotencyKey?: string }) => {
             const idempotencyKey = payload.idempotencyKey ?? crypto.randomUUID();
             return createFinanceInvitations({ invitations: payload.invitations }, idempotencyKey);
         },

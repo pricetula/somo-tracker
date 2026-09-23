@@ -11,6 +11,7 @@ import {
     retryTeacherInvitations,
 } from "@/lib/api/teacher-invitations";
 import { getErrorMessage } from "@/lib/errors";
+import type { InvitationRow } from "@/lib/api/teacher-invitations";
 import { toast } from "sonner";
 
 export const teacherInvitationKeys = {
@@ -28,7 +29,7 @@ export function useBulkInviteTeachers() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationKey: teacherInvitationKeys.bulk,
-        mutationFn: (payload) => {
+        mutationFn: (payload: { invitations: InvitationRow[]; idempotencyKey?: string }) => {
             const idempotencyKey = payload.idempotencyKey ?? crypto.randomUUID();
             return createTeacherInvitations({ invitations: payload.invitations }, idempotencyKey);
         },

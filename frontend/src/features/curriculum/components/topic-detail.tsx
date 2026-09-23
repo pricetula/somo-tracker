@@ -5,7 +5,7 @@ import { getSubTopic } from "../services/api";
 import type { SubTopicItem } from "../types/curriculum";
 
 interface TopicDetailProps {
-    subjectId: string;
+    _subjectId?: string;
     topicId: string;
     subTopicId: string;
 }

@@ -25,6 +25,8 @@ interface ImportOrchestratorProps {
     showProgress?: boolean;
     onProgress?: (data: ProgressData) => void;
     onReset?: () => void;
+    isSubmitting?: boolean;
+    [key: string]: unknown;
 }
 
 /**
@@ -184,7 +186,7 @@ export function ImportOrchestrator({
                         <Upload
                             onCancel={() => setImportType("")}
                             fieldDef={fieldDef}
-                            onMappedList={mutation.mutate}
+                            onMappedList={mutation.mutateAsync}
                             isSubmitting={mutation.isPending}
                         />
                         {mutation.isError && (
@@ -200,7 +202,7 @@ export function ImportOrchestrator({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -12, scale: 0.98 }}
                         transition={{ duration: 0.25, ease: "easeInOut" }}
-                        className="flex h-full w-full items-center justify-center gap-4"
+                        className="flex h-58 w-full items-center justify-center gap-4"
                     >
                         <Button onClick={() => setImportType("upload")}>Upload</Button>
                         <Button variant="outline" onClick={() => setImportType("manual")}>

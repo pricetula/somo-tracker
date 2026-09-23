@@ -79,20 +79,7 @@ export interface paths {
         };
     };
     "/api/auth/callback": {
-        get: {
-            parameters: {
-                query: {
-                    /** Magic-link token */
-                    token: string;
-                };
-            };
-            responses: {
-                /** OK */
-                200: {
-                    schema: { [key: string]: unknown };
-                };
-            };
-        };
+        get: operations["_api_auth_callback"];
     };
     "/api/auth/invite/callback": {
         get: {
@@ -109,34 +96,10 @@ export interface paths {
         };
     };
     "/api/auth/logout": {
-        post: {
-            responses: {
-                /** OK */
-                200: {
-                    schema: { [key: string]: unknown };
-                };
-            };
-        };
+        post: operations["_api_auth_logout"];
     };
     "/api/auth/magic-link/send": {
-        post: {
-            parameters: {
-                formData: {
-                    /** User email */
-                    email: string;
-                };
-                query: {
-                    /** Organization ID or slug */
-                    org_id?: string;
-                };
-            };
-            responses: {
-                /** OK */
-                200: {
-                    schema: { [key: string]: unknown };
-                };
-            };
-        };
+        post: operations["_api_auth_magic-link_send"];
     };
     "/api/me": {
         get: {
@@ -361,6 +324,15 @@ export interface paths {
             };
         };
     };
+    "/api/admins/invitations": {
+        post: operations["_api_admins_invitations"];
+    };
+    "/api/admins/invitations/jobs/{job_id}": {
+        get: operations["_api_admins_invitations_jobs_j"];
+    };
+    "/api/admins/invitations/jobs/{job_id}/retry-failed": {
+        post: operations["_api_admins_invitations_jobs_j"];
+    };
 }
 
 export interface definitions {
@@ -398,8 +370,148 @@ export interface definitions {
         /** @description "2026-01-15" */
         start_date?: string;
     };
+    "api.InvitationRow": {
+        email: string;
+        full_name: string;
+    };
+    "api.BulkInvitationRequest": {
+        invitations: definitions["api.InvitationRow"][];
+    };
+    "api.BulkInvitationResponse": {
+        job_id?: string;
+        status?: string;
+        total_records?: number;
+        message?: string;
+    };
+    "api.InvitationJob": {
+        job_id?: string;
+        status?: string;
+        total_records?: number;
+    };
+    "api.InvitationRetryResponse": {
+        job_id?: string;
+        status?: string;
+        message?: string;
+    };
+    "api.MagicLinkRequest": {
+        email: string;
+        org_id?: string;
+    };
+    "api.MagicLinkResponse": {
+        code?: string;
+        message?: string;
+        errors?: { [key: string]: unknown };
+    };
+    "api.CallbackResponse": {
+        code?: string;
+        message?: string;
+        errors?: { [key: string]: unknown };
+    };
+    "api.LogoutResponse": {
+        code?: string;
+        message?: string;
+        errors?: { [key: string]: unknown };
+    };
 }
 
-export interface operations {}
+export interface operations {
+    _api_auth_callback: {
+        parameters: {
+            query: {
+                token: string;
+            };
+        };
+        responses: {
+            /** OK */
+            200: {
+                schema: definitions["api.CallbackResponse"];
+            };
+        };
+    };
+    _api_auth_logout: {
+        parameters: {};
+        responses: {
+            /** OK */
+            200: {
+                schema: definitions["api.LogoutResponse"];
+            };
+        };
+    };
+    "_api_auth_magic-link_send": {
+        parameters: {
+            formData: {
+                email?: string;
+            };
+            body: {
+                body?: definitions["api.MagicLinkRequest"];
+            };
+        };
+        responses: {
+            /** OK */
+            200: {
+                schema: definitions["api.MagicLinkResponse"];
+            };
+        };
+    };
+    _api_admins_invitations: {
+        parameters: {
+            body: {
+                body: definitions["api.BulkInvitationRequest"];
+            };
+        };
+        responses: {
+            /** OK */
+            200: {
+                schema: definitions["api.BulkInvitationResponse"];
+            };
+            /** Accepted */
+            202: {
+                schema: definitions["api.BulkInvitationResponse"];
+            };
+        };
+    };
+    _api_admins_invitations_jobs_j: {
+        parameters: {
+            path: {
+                job_id: string;
+            };
+        };
+        responses: {
+            /** OK */
+            200: {
+                schema: definitions["api.InvitationRetryResponse"];
+            };
+        };
+    };
+}
 
 export interface external {}
+
+// Named type re-exports for frontend compatibility
+export type InvitationRow = definitions["api.InvitationRow"];
+export type BulkInvitationRequest = definitions["api.BulkInvitationRequest"];
+export type BulkInvitationResponse = definitions["api.BulkInvitationResponse"];
+export type InvitationJob = definitions["api.InvitationJob"];
+export type InvitationRetryResponse = definitions["api.InvitationRetryResponse"];
+export type MagicLinkRequest = definitions["api.MagicLinkRequest"];
+export type MagicLinkResponse = definitions["api.MagicLinkResponse"];
+export type CallbackResponse = definitions["api.CallbackResponse"];
+export type LogoutResponse = definitions["api.LogoutResponse"];
+
+export interface CreateSchoolPayload {
+    name: string;
+    domain?: string;
+}
+export interface CreateSchoolResponse {
+    id: string;
+    name: string;
+    domain?: string;
+}
+export interface ListSchoolsResponse {
+    items: Array<{ id: string; name: string; domain?: string }>;
+    total?: number;
+}
+
+export interface BulkInvitationResponseExtended extends BulkInvitationResponse {
+    count?: number;
+}

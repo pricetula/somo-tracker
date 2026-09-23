@@ -11,6 +11,7 @@ import {
     retryGuardiansInvitations,
 } from "@/lib/api/guardians-invitations";
 import { getErrorMessage } from "@/lib/errors";
+import type { InvitationRow } from "@/lib/api/guardians-invitations";
 import { toast } from "sonner";
 
 export const guardianInvitationKeys = {
@@ -28,7 +29,7 @@ export function useBulkInviteGuardians() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationKey: guardianInvitationKeys.bulk,
-        mutationFn: (payload) => {
+        mutationFn: (payload: { invitations: InvitationRow[]; idempotencyKey?: string }) => {
             const idempotencyKey = payload.idempotencyKey ?? crypto.randomUUID();
             return createGuardiansInvitations({ invitations: payload.invitations }, idempotencyKey);
         },

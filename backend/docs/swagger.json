@@ -181,22 +181,21 @@
         },
         "/api/auth/callback": {
             "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "operationId": "_api_auth_callback",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "Authenticate magic-link token",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Magic-link token",
                         "name": "token",
                         "in": "query",
+                        "type": "string",
                         "required": true
                     }
                 ],
@@ -204,8 +203,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/api.CallbackResponse"
                         }
                     }
                 }
@@ -241,22 +239,22 @@
         },
         "/api/auth/logout": {
             "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "operationId": "_api_auth_logout",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "Logout and revoke session",
+                "parameters": [],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/api.LogoutResponse"
                         }
                     }
                 }
@@ -264,37 +262,37 @@
         },
         "/api/auth/magic-link/send": {
             "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "operationId": "_api_auth_magic-link_send",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "Send magic-link email",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "User email",
                         "name": "email",
                         "in": "formData",
-                        "required": true
+                        "type": "string",
+                        "required": false
                     },
                     {
-                        "type": "string",
-                        "description": "Organization ID or slug",
-                        "name": "org_id",
-                        "in": "query"
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.MagicLinkRequest"
+                        },
+                        "required": false
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/api.MagicLinkResponse"
                         }
                     }
                 }
@@ -734,6 +732,104 @@
                     }
                 }
             }
+        },
+        "/api/admins/invitations": {
+            "post": {
+                "tags": [
+                    "Admin Invitations"
+                ],
+                "operationId": "_api_admins_invitations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.BulkInvitationRequest"
+                        },
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.BulkInvitationResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/api.BulkInvitationResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admins/invitations/jobs/{job_id}": {
+            "get": {
+                "tags": [
+                    "Admin Invitations"
+                ],
+                "operationId": "_api_admins_invitations_jobs_j",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "name": "job_id",
+                        "in": "path",
+                        "type": "string",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.InvitationJob"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admins/invitations/jobs/{job_id}/retry-failed": {
+            "post": {
+                "tags": [
+                    "Admin Invitations"
+                ],
+                "operationId": "_api_admins_invitations_jobs_j",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "name": "job_id",
+                        "in": "path",
+                        "type": "string",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.InvitationRetryResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -837,6 +933,133 @@
                 "start_date": {
                     "description": "\"2026-01-15\"",
                     "type": "string"
+                }
+            }
+        },
+        "api.InvitationRow": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "email",
+                "full_name"
+            ]
+        },
+        "api.BulkInvitationRequest": {
+            "type": "object",
+            "properties": {
+                "invitations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.InvitationRow"
+                    }
+                }
+            },
+            "required": [
+                "invitations"
+            ]
+        },
+        "api.BulkInvitationResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_records": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.InvitationJob": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_records": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.InvitationRetryResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.MagicLinkRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "email"
+            ]
+        },
+        "api.MagicLinkResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "errors": {
+                    "type": "object"
+                }
+            }
+        },
+        "api.CallbackResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "errors": {
+                    "type": "object"
+                }
+            }
+        },
+        "api.LogoutResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "errors": {
+                    "type": "object"
                 }
             }
         }

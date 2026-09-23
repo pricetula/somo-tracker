@@ -15,7 +15,7 @@ export default function GuardianInviteModalPage() {
 
     return (
         <Dialog open onOpenChange={handleOpenChange}>
-            <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+            <DialogContent className="max-h-[85vh] overflow-y-auto md:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Invite Guardians</DialogTitle>
                 </DialogHeader>

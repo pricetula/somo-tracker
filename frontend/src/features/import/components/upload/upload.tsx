@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { Undo2 } from "lucide-react";
 import { UploadFile } from "./upload-file";
 import { FieldMapper, FieldDef, ExtractedRow, MappingResult, MappedRow } from "./field-mapper";
 
@@ -38,7 +38,7 @@ export function Upload({ onCancel, fieldDef, onMappedList, isSubmitting }: Uploa
             <div className="flex items-center justify-between">
                 <h2 className="text-foreground font-semibold tracking-tight">Import admins</h2>
                 <Button size="icon" variant="outline" onClick={onCancel} aria-label="Cancel">
-                    <X className="h-4 w-4" />
+                    <Undo2 className="h-4 w-4" />
                 </Button>
             </div>
 

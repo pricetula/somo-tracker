@@ -86,7 +86,7 @@ export function CurriculumTable() {
             filterGroups={filterGroups}
             addHref="/curriculum/add"
             pageSize={50}
-            height={600}
+            height={500}
         />
     );
 }

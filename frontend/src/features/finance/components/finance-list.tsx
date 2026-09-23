@@ -146,7 +146,7 @@ export function FinanceTable() {
             deleteFn={handleDelete}
             addHref="/finance/invite"
             pageSize={50}
-            height={600}
+            height={500}
         />
     );
 }

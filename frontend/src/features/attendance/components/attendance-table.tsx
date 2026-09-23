@@ -241,7 +241,7 @@ export function AttendanceTable() {
             searchPlaceholder="Search class, teacher, subject…"
             filterGroups={filterGroups}
             pageSize={50}
-            height={600}
+            height={500}
         />
     );
 }

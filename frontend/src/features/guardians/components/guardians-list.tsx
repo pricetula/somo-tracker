@@ -146,7 +146,7 @@ export function GuardiansTable() {
             deleteFn={handleDelete}
             addHref="/guardians/invite"
             pageSize={50}
-            height={600}
+            height={500}
         />
     );
 }

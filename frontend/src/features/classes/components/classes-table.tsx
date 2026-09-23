@@ -121,7 +121,7 @@ export function ClassesTable() {
             filterGroups={filterGroups}
             addHref="/classes/add"
             pageSize={50}
-            height={600}
+            height={500}
         />
     );
 }

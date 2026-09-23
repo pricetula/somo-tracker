@@ -146,7 +146,7 @@ export function TeachersTable() {
             deleteFn={handleDelete}
             addHref="/teachers/invite"
             pageSize={50}
-            height={600}
+            height={500}
         />
     );
 }

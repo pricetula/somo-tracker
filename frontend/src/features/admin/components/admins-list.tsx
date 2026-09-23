@@ -122,7 +122,7 @@ export function AdminsTable() {
             deleteFn={handleDelete}
             addHref="/admins/invite"
             pageSize={50}
-            height={600}
+            height={500}
         />
     );
 }

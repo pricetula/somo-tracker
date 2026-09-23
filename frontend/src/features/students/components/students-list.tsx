@@ -116,7 +116,7 @@ export function StudentsTable() {
             deleteFn={deleteStudents}
             addHref="/students/add"
             pageSize={50}
-            height={600}
+            height={500}
         />
     );
 }

@@ -16,7 +16,7 @@ export function ChildrenWrapper({ children }: AppLayoutProps) {
 
     return (
         <div
-            className="overflow-x-hidden px-6 transition-[width] duration-200 ease-linear md:px-12"
+            className="overflow-x-hidden px-6 transition-[width] duration-200 ease-linear"
             style={{ width: `calc(100vw - ${sidebarWidth})` }}
         >
             {children}

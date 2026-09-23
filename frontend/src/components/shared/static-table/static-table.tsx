@@ -126,9 +126,13 @@ export function StaticTable<TItem>({
 
     // ── Determine if "Select all" is checked / indeterminate ─────────
     const allSelected =
-        data.length > 0 && data.every((row, i) => selectedIds.has(String(getRowId(row, i))));
+        data?.length &&
+        data.length > 0 &&
+        data.every((row, i) => selectedIds.has(String(getRowId(row, i))));
     const someSelected =
-        data.some((row, i) => selectedIds.has(String(getRowId(row, i)))) && !allSelected;
+        data?.some &&
+        data.some((row, i) => selectedIds.has(String(getRowId(row, i)))) &&
+        !allSelected;
 
     // ── Scroll ref for auto-scrolling ────────────────────────────────
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -163,7 +167,7 @@ export function StaticTable<TItem>({
                         {isCheckable && (
                             <div className="flex items-center justify-center">
                                 <Checkbox
-                                    checked={allSelected}
+                                    checked={Boolean(allSelected)}
                                     indeterminate={someSelected && !allSelected}
                                     onCheckedChange={handleSelectAll}
                                 />
@@ -194,7 +198,7 @@ export function StaticTable<TItem>({
                             gridTemplateColumns={gridTemplateColumns}
                             isCheckable={!!isCheckable}
                         />
-                    ) : data.length === 0 ? (
+                    ) : !data?.length ? (
                         /* ── Empty state ────────────────────── */
                         <div
                             className="text-muted-foreground flex items-center justify-center text-xs"
@@ -205,7 +209,7 @@ export function StaticTable<TItem>({
                     ) : (
                         /* ── Scrollable rows (vertical) ─────── */
                         <div ref={scrollRef} style={{ height, overflow: "auto" }}>
-                            {data.map((row, index) => {
+                            {(data || []).map((row, index) => {
                                 const rowId = String(getRowId(row, index));
                                 const isChecked = selectedIds.has(rowId);
 

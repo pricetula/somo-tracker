@@ -32,8 +32,8 @@ function listAdminsWithFilters(params: {
 export function AdminsTable() {
     const { mutateAsync: deleteAdmins } = useDeleteAdmins();
     const handleDelete = useCallback(
-        async (id: string | number) => {
-            await deleteAdmins([String(id)]);
+        async (ids: string[]) => {
+            await deleteAdmins(ids);
         },
         [deleteAdmins]
     );
@@ -89,7 +89,7 @@ export function AdminsTable() {
                             />
                             <DropdownMenuItem
                                 onSelect={() => {
-                                    void handleDelete(row.user_id);
+                                    void handleDelete([row.user_id]);
                                 }}
                                 className="text-destructive focus:text-destructive"
                             >

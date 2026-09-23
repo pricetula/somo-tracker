@@ -44,7 +44,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
     isCheckable,
     isRowCheckable,
     deleteFn,
-    deleteParams,
     addHref,
     rowHeight = 40,
     height = 600,
@@ -254,10 +253,8 @@ export function DataTable<TItem, TParams extends object, TResult>({
         setSelectedIds(new Set());
 
         try {
-            // Delete sequentially
-            for (const id of idsToDelete) {
-                await deleteFn(id, deleteParams);
-            }
+            // Delete all selected IDs at once
+            await deleteFn(idsToDelete);
             // Invalidate to get fresh data
             queryClient.invalidateQueries({ queryKey });
         } catch (err) {
@@ -269,7 +266,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
         } finally {
             setDeletingIds(new Set());
         }
-    }, [deleteFn, deleteParams, queryClient, queryKey, selectedIds, getRowId]);
+    }, [deleteFn, queryClient, queryKey, selectedIds, getRowId]);
 
     // ── Determine if "Check all" is checked / indeterminate ──────────
     const selectableRows = useMemo(

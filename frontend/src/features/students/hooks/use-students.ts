@@ -83,7 +83,7 @@ export function useDeleteStudents() {
             toast.error(getErrorMessage(err));
         },
         onSettled() {
-            queryClient.invalidateQueries({ queryKey: studentKeys.list });
+            // queryClient.invalidateQueries({ queryKey: studentKeys.list });
         },
         onSuccess: () => {
             toast.success("Students deleted");

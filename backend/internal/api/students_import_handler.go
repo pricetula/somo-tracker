@@ -103,6 +103,42 @@ func (h *StudentsImportHandler) HandleImport(c fiber.Ctx) error {
 		})
 	}
 
+	// Enqueue batches for async processing
+	if h.asynq != nil {
+		batchSize := 100
+		totalBatches := (len(items) + batchSize - 1) / batchSize
+		for b := 0; b < totalBatches; b++ {
+			start := b * batchSize
+			end := start + batchSize
+			if end > len(items) {
+				end = len(items)
+			}
+			batchItemIDs := make([]string, 0, end-start)
+			for j := start; j < end; j++ {
+				batchItemIDs = append(batchItemIDs, items[j].ID.String())
+			}
+			payload, marshalErr := json.Marshal(map[string]interface{}{
+				"job_id":      jobID.String(),
+				"batch_index": b,
+				"item_ids":    batchItemIDs,
+			})
+			if marshalErr != nil {
+				h.logger.Error("asynq payload marshal failed", zap.Error(marshalErr))
+				continue
+			}
+			_, enqueueErr := h.asynq.EnqueueContext(c.Context(), asynq.NewTask("student:import:batch", payload), asynq.Queue("student_import"), asynq.TaskID(fmt.Sprintf("%s_%d", jobID.String(), b)))
+			if enqueueErr != nil {
+				h.logger.Error("asynq enqueue failed", zap.Error(enqueueErr))
+				continue
+			}
+		}
+	}
+
+	// Publish initial progress
+	if h.redis != nil {
+		_ = h.redis.Publish(c.Context(), "bulk_progress_"+jobID.String(), fmt.Sprintf(`{"status":"QUEUED","total":%d}`, len(items))).Err()
+	}
+
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
 		"job_id": jobID.String(),
 		"status": "QUEUED",
@@ -120,8 +156,9 @@ func (h *StudentsImportHandler) GetJob(c fiber.Ctx) error {
 		})
 	}
 
-	tenantID, ok := c.Locals("tenant_id").(uuid.UUID)
-	if !ok {
+	tenantIDStr := c.Locals("tenant_id")
+	tenantID, err := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
+	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"code":    "unauthorized",
 			"message": "tenant not found",
@@ -142,7 +179,7 @@ func (h *StudentsImportHandler) GetJob(c fiber.Ctx) error {
 }
 
 func (h *StudentsImportHandler) Events(c fiber.Ctx) error {
-	jobIDStr := c.Query("job_id")
+	jobIDStr := c.Params("job_id")
 	if jobIDStr == "" {
 		return c.Status(fiber.StatusBadRequest).SendString("event: error\ndata: missing job_id\n\n")
 	}
@@ -151,8 +188,9 @@ func (h *StudentsImportHandler) Events(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("event: error\ndata: invalid job_id\n\n")
 	}
 
-	tenantID, ok := c.Locals("tenant_id").(uuid.UUID)
-	if !ok {
+	tenantIDStr := c.Locals("tenant_id")
+	tenantID, err := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
+	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).SendString("event: error\ndata: unauthorized\n\n")
 	}
 

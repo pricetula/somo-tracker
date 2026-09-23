@@ -38,8 +38,8 @@ function listTeachersWithFilters(params: {
 export function TeachersTable() {
     const { mutateAsync: deleteTeachers } = useDeleteTeachers();
     const handleDelete = useCallback(
-        async (id: string | number) => {
-            await deleteTeachers([String(id)]);
+        async (ids: string[]) => {
+            await deleteTeachers(ids);
         },
         [deleteTeachers]
     );
@@ -113,7 +113,7 @@ export function TeachersTable() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 onSelect={() => {
-                                    void handleDelete(row.user_id);
+                                    void handleDelete([row.user_id]);
                                 }}
                                 className="text-destructive focus:text-destructive"
                             >

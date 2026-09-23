@@ -38,8 +38,8 @@ function listGuardiansWithFilters(params: {
 export function GuardiansTable() {
     const { mutateAsync: deleteGuardians } = useDeleteGuardians();
     const handleDelete = useCallback(
-        async (id: string | number) => {
-            await deleteGuardians([String(id)]);
+        async (ids: string[]) => {
+            await deleteGuardians(ids);
         },
         [deleteGuardians]
     );
@@ -113,7 +113,7 @@ export function GuardiansTable() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 onSelect={() => {
-                                    void handleDelete(row.user_id);
+                                    void handleDelete([row.user_id]);
                                 }}
                                 className="text-destructive focus:text-destructive"
                             >

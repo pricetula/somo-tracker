@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
@@ -30,12 +30,6 @@ function listStudentsWithFilters(params: {
 
 export function StudentsTable() {
     const { mutateAsync: deleteStudents } = useDeleteStudents();
-    const handleDelete = useCallback(
-        async (id: string | number) => {
-            await deleteStudents([String(id)]);
-        },
-        [deleteStudents]
-    );
 
     const filterGroups = useMemo(() => studentFilterGroups, []);
     const columns = useMemo(
@@ -89,7 +83,7 @@ export function StudentsTable() {
                             />
                             <DropdownMenuItem
                                 onSelect={() => {
-                                    void handleDelete(row.student_id);
+                                    void deleteStudents([row.student_id]);
                                 }}
                                 className="text-destructive focus:text-destructive"
                             >
@@ -102,7 +96,7 @@ export function StudentsTable() {
                 align: "right" as const,
             },
         ],
-        [handleDelete]
+        [deleteStudents]
     );
 
     return (
@@ -119,7 +113,7 @@ export function StudentsTable() {
             isSearchable
             searchPlaceholder="Search by name or admission number…"
             filterGroups={filterGroups}
-            deleteFn={handleDelete}
+            deleteFn={deleteStudents}
             addHref="/students/add"
             pageSize={50}
             height={600}

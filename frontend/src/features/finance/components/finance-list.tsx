@@ -38,8 +38,8 @@ function listFinanceWithFilters(params: {
 export function FinanceTable() {
     const { mutateAsync: deleteFinance } = useDeleteFinance();
     const handleDelete = useCallback(
-        async (id: string | number) => {
-            await deleteFinance([String(id)]);
+        async (ids: string[]) => {
+            await deleteFinance(ids);
         },
         [deleteFinance]
     );
@@ -113,7 +113,7 @@ export function FinanceTable() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 onSelect={() => {
-                                    void handleDelete(row.user_id);
+                                    void handleDelete([row.user_id]);
                                 }}
                                 className="text-destructive focus:text-destructive"
                             >

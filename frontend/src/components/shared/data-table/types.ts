@@ -37,15 +37,6 @@ export type ListApiFn<TResult, TParams extends object> = (
     params: TParams & { page?: number; limit?: number }
 ) => Promise<TResult>;
 
-/**
- * Signature for a delete function that the DataTable calls.
- * The function receives the row id and returns a promise.
- */
-export type DeleteApiFn<TParams extends object = object> = (
-    id: string | number,
-    params?: TParams
-) => Promise<void>;
-
 // ─── Column definition ───────────────────────────────────────────────────
 
 export interface DataTableColumn<TItem> {
@@ -142,9 +133,7 @@ export interface DataTableProps<TItem, TParams extends object, TResult> {
     /** Mutation key for the delete mutation, tracked independently from the list query. */
     deleteMutationKey?: readonly unknown[];
     /** Delete function. Receives the row id. */
-    deleteFn?: DeleteApiFn<TParams>;
-    /** Extra params forwarded to deleteFn (e.g. school_id for nested resources). */
-    deleteParams?: TParams;
+    deleteFn?: (ids: string[]) => Promise<void>;
 
     // ─── Add ─────────────────────────────────────────────────────────
     /** If provided, renders an add button as a Link to this href. */

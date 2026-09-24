@@ -1,5 +1,3 @@
-import React from "react";
-import { Separator } from "@/components/ui/separator";
 import { StudentSummaryCard } from "@/features/students";
 import { ParentSummaryCard } from "@/features/guardians";
 import { TeacherSummaryCard } from "@/features/teachers";
@@ -7,17 +5,11 @@ import { TeacherSummaryCard } from "@/features/teachers";
 export function AdminDashboard() {
     return (
         <article>
-            <header className="flex items-center gap-4">
+            <header className="flex w-full max-w-4xl flex-col gap-4 md:flex-row md:justify-between">
                 <StudentSummaryCard />
-                <Separator
-                    orientation="vertical"
-                    className="border-r border-dashed bg-transparent"
-                />
+
                 <ParentSummaryCard />
-                <Separator
-                    orientation="vertical"
-                    className="border-r border-dashed bg-transparent"
-                />
+
                 <TeacherSummaryCard />
             </header>
         </article>

@@ -47,7 +47,7 @@ export function TeacherSummaryCard() {
             </Link>
 
             {teachers_without_assignment > 0 && (
-                <Link href="/teachers" className="text-destructive space-x-1 text-center">
+                <Link href="/teachers" className="text-destructive space-x-1">
                     <TriangleAlert size="12" className="inline" />
                     <span>
                         <b>{teachersWithoutAssignment}</b> Unassigned

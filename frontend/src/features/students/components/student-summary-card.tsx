@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Plus, TriangleAlert, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Help } from "@/components/help";
 import { numberCompactor } from "@/lib/number-compactor";
 import { useStudentSummary } from "../hooks/use-student-summary";
 
@@ -42,13 +43,13 @@ export function StudentSummaryCard() {
         : 0;
 
     return (
-        <article className="flex h-30 flex-col justify-center gap-2">
+        <article className="flex min-h-30 flex-col justify-center gap-2">
             <header className="mb-6 space-y-2">
                 <h2 className="text-xl font-bold">
                     <Link href="/students">{totalStudents} Students</Link>
                 </h2>
                 {total_students > 0 && (
-                    <div className="flex w-40 items-center">
+                    <div className="flex items-center">
                         <div className="mr-2">Male</div>
                         <div className="flex w-20 items-center">
                             <div
@@ -61,6 +62,13 @@ export function StudentSummaryCard() {
                             ></div>
                         </div>
                         <div className="ml-2">Female</div>
+                        <Help>
+                            <div>
+                                <p>Represents the male to female student percentage ratio</p>
+                                <span>Male {malePercentage.toFixed(1)}%</span>
+                                <span>Female {femalePercentage.toFixed(1)}%</span>
+                            </div>
+                        </Help>
                     </div>
                 )}
             </header>
@@ -68,6 +76,7 @@ export function StudentSummaryCard() {
                 <Link href="/students/add">
                     <Plus size="12" className="inline" />
                     <span>Add students</span>
+                    <Help>Male to Female student percentage (%) ratio</Help>
                 </Link>
             )}
             {unassigned_count > 0 && (
@@ -76,6 +85,7 @@ export function StudentSummaryCard() {
                     <span>
                         <b>{unassignedCount}</b> Unassigned
                     </span>
+                    <Help>Number of students without a class</Help>
                 </Link>
             )}
             {unlinked_guardians_count > 0 && (
@@ -84,6 +94,7 @@ export function StudentSummaryCard() {
                     <span>
                         <b>{unlinkedGuardiansCount}</b> Unlinked Guardians
                     </span>
+                    <Help>Number of students without a guardian/parent</Help>
                 </Link>
             )}
         </article>

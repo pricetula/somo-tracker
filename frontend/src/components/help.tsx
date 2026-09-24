@@ -4,17 +4,17 @@ import React from "react";
 import { HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-interface GraphHelpProps {
+interface HelpProps {
     children: React.ReactNode;
 }
 
 /**
- * GraphHelp — Inline help tooltip for charts and visualisations.
+ * Help — Inline help tooltip for charts and visualisations.
  *
  * Renders a small help icon that shows descriptive text on hover.
  * Usage: inline inside a heading or label, wrapping the explanation.
  */
-export function GraphHelp({ children }: GraphHelpProps) {
+export function Help({ children }: HelpProps) {
     return (
         <Tooltip>
             <TooltipTrigger>

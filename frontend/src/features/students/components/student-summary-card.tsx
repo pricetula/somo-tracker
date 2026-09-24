@@ -1,14 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { Plus, TriangleAlert, Users } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { numberCompactor } from "@/lib/number-compactor";
 import { useStudentSummary } from "../hooks/use-student-summary";
-import { Plus, TriangleAlert, Users } from "lucide-react";
 
 export function StudentSummaryCard() {
     const { data: summary, isLoading, isError } = useStudentSummary();
 
-    if (isLoading) return <div>Loading...</div>;
+    if (isLoading)
+        return (
+            <div className="h-30 w-40 space-y-2">
+                <div className="mb-6 space-y-2">
+                    <Skeleton className="h-6 w-40" />
+                    <Skeleton className="h-4 w-40" />
+                </div>
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-40" />
+            </div>
+        );
 
     if (isError) return <div>Error loading summary.</div>;
 

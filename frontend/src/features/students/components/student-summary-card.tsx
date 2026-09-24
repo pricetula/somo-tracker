@@ -43,8 +43,8 @@ export function StudentSummaryCard() {
         : 0;
 
     return (
-        <article className="flex min-h-30 flex-col gap-2">
-            <header className="mb-2 space-y-2">
+        <article className="flex min-h-30 flex-col">
+            <header className="mb-8 space-y-2">
                 <h2 className="text-xl font-bold">
                     <Link href="/students">{totalStudents} Students</Link>
                 </h2>
@@ -72,31 +72,39 @@ export function StudentSummaryCard() {
                     </div>
                 )}
             </header>
-            {!unassigned_count && !unlinked_guardians_count && (
-                <Link href="/students/add">
-                    <Plus size="12" className="inline" />
-                    <span>Add students</span>
-                    <Help>Male to Female student percentage (%) ratio</Help>
-                </Link>
-            )}
-            {unassigned_count > 0 && (
-                <Link href="/students?without_class=true" className="text-destructive space-x-2">
-                    <TriangleAlert size="12" className="inline" />
-                    <span>
-                        <b>{unassignedCount}</b> Unassigned
-                    </span>
-                    <Help>Number of students without a class</Help>
-                </Link>
-            )}
-            {unlinked_guardians_count > 0 && (
-                <Link href="/students?without_guardian=true" className="space-x-2 text-amber-600">
-                    <Users size="12" className="inline" />
-                    <span>
-                        <b>{unlinkedGuardiansCount}</b> Unlinked Guardians
-                    </span>
-                    <Help>Number of students without a guardian/parent</Help>
-                </Link>
-            )}
+            <div className="mt-auto space-y-2">
+                {!unassigned_count && !unlinked_guardians_count && (
+                    <Link href="/students/add">
+                        <Plus size="12" className="inline" />
+                        <span>Add students</span>
+                        <Help>Male to Female student percentage (%) ratio</Help>
+                    </Link>
+                )}
+                {unassigned_count > 0 && (
+                    <Link
+                        href="/students?without_class=true"
+                        className="text-destructive space-x-2"
+                    >
+                        <TriangleAlert size="12" className="inline" />
+                        <span>
+                            <b>{unassignedCount}</b> Unassigned
+                        </span>
+                        <Help>Number of students without a class</Help>
+                    </Link>
+                )}
+                {unlinked_guardians_count > 0 && (
+                    <Link
+                        href="/students?without_guardian=true"
+                        className="space-x-2 text-amber-600"
+                    >
+                        <Users size="12" className="inline" />
+                        <span>
+                            <b>{unlinkedGuardiansCount}</b> Unlinked Guardians
+                        </span>
+                        <Help>Number of students without a guardian/parent</Help>
+                    </Link>
+                )}
+            </div>
         </article>
     );
 }

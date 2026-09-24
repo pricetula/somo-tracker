@@ -33,35 +33,37 @@ export function ParentSummaryCard() {
         : 0;
 
     return (
-        <article className="flex min-h-30 flex-col gap-2">
+        <article className="flex min-h-30 flex-col">
             <header className="mb-8 space-y-2">
                 <h2 className="text-xl font-bold">
                     <Link href="/guardians">{totalGuardians} Guardians</Link>
                 </h2>
             </header>
-            {!guardians_without_student && (
-                <Link href="/guardians/invite">
-                    <Plus size="12" className="inline" />
-                    <span>Invite guardians</span>
-                    <Help>Invite new guardians to the school</Help>
-                </Link>
-            )}
-            {guardians_without_student > 0 && (
-                <Link href="/guardians" className="text-destructive space-x-2">
-                    <TriangleAlert size="12" className="inline" />
-                    <span>
-                        <b>{guardiansWithoutStudent}</b> Guardians without students
-                    </span>
-                    <Help>Number of guardians not linked to any student</Help>
-                </Link>
-            )}
-            {total_guardians > 0 && guardians_without_student === 0 && (
-                <Link href="/guardians" className="text-muted-foreground space-x-2">
-                    <Users size="12" className="inline" />
-                    <span>All guardians linked</span>
-                    <Help>All guardians are linked to at least one student</Help>
-                </Link>
-            )}
+            <div className="mt-auto space-y-2">
+                {!guardians_without_student && (
+                    <Link href="/guardians/invite">
+                        <Plus size="12" className="inline" />
+                        <span>Invite guardians</span>
+                        <Help>Invite new guardians to the school</Help>
+                    </Link>
+                )}
+                {guardians_without_student > 0 && (
+                    <Link href="/guardians" className="text-destructive space-x-2">
+                        <TriangleAlert size="12" className="inline" />
+                        <span>
+                            <b>{guardiansWithoutStudent}</b> Guardians without students
+                        </span>
+                        <Help>Number of guardians not linked to any student</Help>
+                    </Link>
+                )}
+                {total_guardians > 0 && guardians_without_student === 0 && (
+                    <Link href="/guardians" className="text-muted-foreground space-x-2">
+                        <Users size="12" className="inline" />
+                        <span>All guardians linked</span>
+                        <Help>All guardians are linked to at least one student</Help>
+                    </Link>
+                )}
+            </div>
         </article>
     );
 }

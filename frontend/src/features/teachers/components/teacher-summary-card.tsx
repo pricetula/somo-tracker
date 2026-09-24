@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, TriangleAlert } from "lucide-react";
+import { Plus, TriangleAlert, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Help } from "@/components/help";
 import { numberCompactor } from "@/lib/number-compactor";
@@ -33,31 +33,37 @@ export function TeacherSummaryCard() {
         : 0;
 
     return (
-        <article className="flex min-h-30 flex-col gap-2">
+        <article className="flex min-h-30 flex-col">
             <header className="mb-8 space-y-2">
                 <h2 className="text-xl font-bold">
                     <Link href="/teachers">{totalTeachers} Teachers</Link>
                 </h2>
             </header>
-
-            <Link href="/teachers/invite">
-                <Plus size="12" className="inline" />
-                <span>Invite teachers</span>
-                <Help>Invite new teachers to the school</Help>
-            </Link>
-
-            {teachers_without_assignment > 0 && (
-                <Link href="/teachers" className="text-destructive space-x-1">
-                    <TriangleAlert size="12" className="inline" />
-                    <span>
-                        <b>{teachersWithoutAssignment}</b> Unassigned
-                    </span>
-                    <Help>
-                        {teachersWithoutAssignment} teachers have not been assigned to a timetable
-                        slot
-                    </Help>
-                </Link>
-            )}
+            <div className="mt-auto space-y-2">
+                {!teachers_without_assignment && (
+                    <Link href="/teachers/invite">
+                        <Plus size="12" className="inline" />
+                        <span>Invite teachers</span>
+                        <Help>Invite new teachers to the school</Help>
+                    </Link>
+                )}
+                {teachers_without_assignment > 0 && (
+                    <Link href="/teachers" className="text-destructive space-x-2">
+                        <TriangleAlert size="12" className="inline" />
+                        <span>
+                            <b>{teachersWithoutAssignment}</b> Teachers without assignment
+                        </span>
+                        <Help>Number of teachers not assigned to a timetable slot</Help>
+                    </Link>
+                )}
+                {total_teachers > 0 && teachers_without_assignment === 0 && (
+                    <Link href="/teachers" className="text-muted-foreground space-x-2">
+                        <Users size="12" className="inline" />
+                        <span>All teachers assigned</span>
+                        <Help>All teachers are assigned to at least one timetable slot</Help>
+                    </Link>
+                )}
+            </div>
         </article>
     );
 }

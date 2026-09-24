@@ -120,6 +120,14 @@ export interface DataTableProps<TItem, TParams extends object, TResult> {
     isSearchable?: boolean;
     searchPlaceholder?: string;
 
+    // ─── URL sync ─────────────────────────────────────────────────────
+    /** Enable mirroring of search and filters to URL query params. */
+    enableUrlSync?: boolean;
+    /** URL param name for search. Defaults to "search". */
+    urlSearchParam?: string;
+    /** Map filter item id → URL param name. Falls back to `filter_<itemId>`. */
+    urlFilterParamMap?: Record<string, string>;
+
     // ─── Filter ──────────────────────────────────────────────────────
     filterGroups?: FilterGroup[];
 

@@ -117,6 +117,9 @@ export function StudentsTable() {
             addHref="/students/add"
             pageSize={50}
             height={500}
+            enableUrlSync
+            urlSearchParam="search"
+            urlFilterParamMap={{ class: "class_id" }}
         />
     );
 }

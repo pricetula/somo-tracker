@@ -48,6 +48,7 @@ type Querier interface {
 	GetSchoolMembershipRole(ctx context.Context, arg GetSchoolMembershipRoleParams) (UserRole, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
 	GetStream(ctx context.Context, id pgtype.UUID) (GetStreamRow, error)
+	GetStudentSummary(ctx context.Context, arg GetStudentSummaryParams) (GetStudentSummaryRow, error)
 	GetSubTopicByID(ctx context.Context, id pgtype.UUID) (GetSubTopicByIDRow, error)
 	GetSubjectByID(ctx context.Context, id pgtype.UUID) (GetSubjectByIDRow, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)

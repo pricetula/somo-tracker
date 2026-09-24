@@ -54,4 +54,21 @@ WHERE s.school_id = $1
 -- name: DeleteStudents :exec
 DELETE FROM students
 WHERE school_id = $1
-  AND student_id = ANY($2);
+  AND student_id = ANY($2::uuid[]);
+
+-- name: GetStudentSummary :one
+SELECT
+  gc.total_count AS total_students,
+  gc.male_count AS male_count,
+  gc.female_count AS female_count,
+  gc.total_count - (SELECT COUNT(DISTINCT student_id)
+                     FROM student_class_enrollments
+                     WHERE student_class_enrollments.school_id = $1
+                       AND academic_term_id = $2
+                       AND status = 'ACTIVE') AS unassigned_count,
+  gc.total_count - (SELECT COUNT(DISTINCT gsl.student_id)
+                     FROM guardian_student_links gsl
+                     JOIN school_memberships sm ON sm.id = gsl.school_membership_id
+                     WHERE sm.school_id = $1) AS unlinked_guardians_count
+FROM student_gender_counts gc
+WHERE gc.school_id = $1;

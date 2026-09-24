@@ -39,3 +39,15 @@ export interface DeleteStudentsResponse {
 export async function deleteStudents(studentIds: string[]): Promise<DeleteStudentsResponse> {
     return api.delete<DeleteStudentsResponse>("/api/students", { student_ids: studentIds });
 }
+
+export type StudentSummary = {
+    total_students: number;
+    male_count: number;
+    female_count: number;
+    unassigned_count: number;
+    unlinked_guardians_count: number;
+};
+
+export async function getStudentSummary(): Promise<StudentSummary> {
+    return api.get<StudentSummary>("/api/students/summary");
+}

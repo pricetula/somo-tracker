@@ -25,9 +25,18 @@ type StudentListResponse struct {
 	Total int               `json:"total"`
 }
 
+type StudentSummary struct {
+	TotalStudents          int64 `json:"total_students"`
+	MaleCount              int64 `json:"male_count"`
+	FemaleCount            int64 `json:"female_count"`
+	UnassignedCount        int64 `json:"unassigned_count"`
+	UnlinkedGuardiansCount int64 `json:"unlinked_guardians_count"`
+}
+
 type StudentsService interface {
 	ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, classID *uuid.UUID) (*StudentListResponse, error)
 	DeleteStudents(ctx context.Context, schoolID uuid.UUID, studentIDs []uuid.UUID) error
+	GetStudentSummary(ctx context.Context, schoolID uuid.UUID) (*StudentSummary, error)
 }
 
 type studentsService struct {
@@ -116,10 +125,37 @@ func (s *studentsService) DeleteStudents(ctx context.Context, schoolID uuid.UUID
 	}
 
 	if err := s.queries.DeleteStudents(ctx, sqlc.DeleteStudentsParams{
-		SchoolID:  schoolUUID,
-		StudentID: uuids,
+		SchoolID: schoolUUID,
+		Column2:  uuids,
 	}); err != nil {
 		return fmt.Errorf("delete students: %w", err)
 	}
 	return nil
+}
+
+func (s *studentsService) GetStudentSummary(ctx context.Context, schoolID uuid.UUID) (*StudentSummary, error) {
+	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+
+	// Resolve current academic term strictly on backend; never pass from client
+	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, schoolUUID)
+	if err != nil {
+		return nil, fmt.Errorf("no academic term found for school: %w", err)
+	}
+	termUUID := pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true}
+
+	row, err := s.queries.GetStudentSummary(ctx, sqlc.GetStudentSummaryParams{
+		SchoolID:       schoolUUID,
+		AcademicTermID: termUUID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get student summary: %w", err)
+	}
+
+	return &StudentSummary{
+		TotalStudents:          int64(row.TotalStudents),
+		MaleCount:              int64(row.MaleCount),
+		FemaleCount:            int64(row.FemaleCount),
+		UnassignedCount:        int64(row.UnassignedCount),
+		UnlinkedGuardiansCount: int64(row.UnlinkedGuardiansCount),
+	}, nil
 }

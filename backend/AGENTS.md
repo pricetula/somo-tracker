@@ -54,6 +54,16 @@ etc.) refer to the **root** `AGENTS.md` at the project root.
 
 ---
 
+## Academic Term / Year Resolution — Strict Backend Resolution
+
+Any endpoint that needs the current academic term or year must resolve it **strictly inside the backend handler/service** using the school's active data (e.g., `GetCurrentAcademicTermBySchool` / `GetLatestAcademicTermBySchool`).
+
+- **Never** expose `term_id` or `academic_year_id` as query/body parameters to clients.
+- **Never** pass term/year IDs from the frontend; resolution belongs to the API layer.
+- If a service/module needs a term, it queries the database for the school's current term and falls back to the latest if none is active.
+
+---
+
 ## Swagger / Endpoint URI Verification
 
 Before writing `swaggo` annotations (`@Router`, `@Param body`) for any new endpoint:

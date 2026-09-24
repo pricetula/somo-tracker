@@ -48,17 +48,61 @@ func (q *Queries) CountStudents(ctx context.Context, arg CountStudentsParams) (i
 const deleteStudents = `-- name: DeleteStudents :exec
 DELETE FROM students
 WHERE school_id = $1
-  AND student_id = ANY($2)
+  AND student_id = ANY($2::uuid[])
 `
 
 type DeleteStudentsParams struct {
-	SchoolID  pgtype.UUID   `json:"school_id"`
-	StudentID []pgtype.UUID `json:"student_id"`
+	SchoolID pgtype.UUID   `json:"school_id"`
+	Column2  []pgtype.UUID `json:"column_2"`
 }
 
 func (q *Queries) DeleteStudents(ctx context.Context, arg DeleteStudentsParams) error {
-	_, err := q.db.Exec(ctx, deleteStudents, arg.SchoolID, arg.StudentID)
+	_, err := q.db.Exec(ctx, deleteStudents, arg.SchoolID, arg.Column2)
 	return err
+}
+
+const getStudentSummary = `-- name: GetStudentSummary :one
+SELECT
+  gc.total_count AS total_students,
+  gc.male_count AS male_count,
+  gc.female_count AS female_count,
+  gc.total_count - (SELECT COUNT(DISTINCT student_id)
+                     FROM student_class_enrollments
+                     WHERE student_class_enrollments.school_id = $1
+                       AND academic_term_id = $2
+                       AND status = 'ACTIVE') AS unassigned_count,
+  gc.total_count - (SELECT COUNT(DISTINCT gsl.student_id)
+                     FROM guardian_student_links gsl
+                     JOIN school_memberships sm ON sm.id = gsl.school_membership_id
+                     WHERE sm.school_id = $1) AS unlinked_guardians_count
+FROM student_gender_counts gc
+WHERE gc.school_id = $1
+`
+
+type GetStudentSummaryParams struct {
+	SchoolID       pgtype.UUID `json:"school_id"`
+	AcademicTermID pgtype.UUID `json:"academic_term_id"`
+}
+
+type GetStudentSummaryRow struct {
+	TotalStudents          int32 `json:"total_students"`
+	MaleCount              int32 `json:"male_count"`
+	FemaleCount            int32 `json:"female_count"`
+	UnassignedCount        int32 `json:"unassigned_count"`
+	UnlinkedGuardiansCount int32 `json:"unlinked_guardians_count"`
+}
+
+func (q *Queries) GetStudentSummary(ctx context.Context, arg GetStudentSummaryParams) (GetStudentSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getStudentSummary, arg.SchoolID, arg.AcademicTermID)
+	var i GetStudentSummaryRow
+	err := row.Scan(
+		&i.TotalStudents,
+		&i.MaleCount,
+		&i.FemaleCount,
+		&i.UnassignedCount,
+		&i.UnlinkedGuardiansCount,
+	)
+	return i, err
 }
 
 const listStudents = `-- name: ListStudents :many

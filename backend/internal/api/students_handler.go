@@ -164,3 +164,44 @@ func (h *StudentsHandler) DeleteStudents(c fiber.Ctx) error {
 		"errors":  fiber.Map{},
 	})
 }
+
+// GetStudentSummary returns student count details for the active school and term.
+// @Summary Student summary
+// @Description Get student count summary by gender and enrollment/guardian status
+// @Tags Students
+// @Produce json
+// @Success 200 {object} services.StudentSummary
+// @Failure 400 {object} map[string]any
+// @Failure 401 {object} map[string]any
+// @Security ApiKeyAuth
+// @Router /students/summary [get]
+func (h *StudentsHandler) GetStudentSummary(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "active school not found",
+			"errors":  fiber.Map{},
+		})
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "invalid school id",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	summary, err := h.svc.GetStudentSummary(c.Context(), schoolID)
+	if err != nil {
+		h.logger.Error("get student summary failed", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to get student summary",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(summary)
+}

@@ -189,6 +189,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/admins", r.Admins.ListAdmins)
 	protected.Delete("/admins", r.Admins.DeleteAdmins)
 	protected.Get("/teachers", r.Teachers.ListTeachers)
+	protected.Get("/teachers/summary", r.Teachers.GetTeacherSummary)
 	protected.Delete("/teachers", r.Teachers.DeleteTeachers)
 	protected.Get("/finance", r.Finance.ListFinance)
 	protected.Delete("/finance", r.Finance.DeleteFinance)

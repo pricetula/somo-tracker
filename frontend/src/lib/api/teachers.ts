@@ -45,3 +45,12 @@ export interface DeleteTeachersResponse {
 export async function deleteTeachers(userIds: string[]): Promise<DeleteTeachersResponse> {
     return api.delete<DeleteTeachersResponse>("/api/teachers", { user_ids: userIds });
 }
+
+export type TeacherSummary = {
+    total_teachers: number;
+    teachers_without_assignment: number;
+};
+
+export async function getTeacherSummary(): Promise<TeacherSummary> {
+    return api.get<TeacherSummary>("/api/teachers/summary");
+}

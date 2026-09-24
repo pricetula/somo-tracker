@@ -2,6 +2,7 @@ import React from "react";
 import { Separator } from "@/components/ui/separator";
 import { StudentSummaryCard } from "@/features/students";
 import { ParentSummaryCard } from "@/features/guardians";
+import { TeacherSummaryCard } from "@/features/teachers";
 
 export function AdminDashboard() {
     return (
@@ -13,6 +14,11 @@ export function AdminDashboard() {
                     className="border-r border-dashed bg-transparent"
                 />
                 <ParentSummaryCard />
+                <Separator
+                    orientation="vertical"
+                    className="border-r border-dashed bg-transparent"
+                />
+                <TeacherSummaryCard />
             </header>
         </article>
     );

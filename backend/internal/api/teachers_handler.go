@@ -110,6 +110,47 @@ func (h *TeachersHandler) DeleteTeachers(c fiber.Ctx) error {
 	})
 }
 
+// GetTeacherSummary returns teacher count details for the active school.
+// @Summary Teacher summary
+// @Description Get teacher count summary total and without timetable assignment
+// @Tags Teachers
+// @Produce json
+// @Success 200 {object} services.TeacherSummary
+// @Failure 400 {object} map[string]any
+// @Failure 401 {object} map[string]any
+// @Security ApiKeyAuth
+// @Router /teachers/summary [get]
+func (h *TeachersHandler) GetTeacherSummary(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "active school not found in session",
+			"errors":  fiber.Map{},
+		})
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "invalid school id",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	summary, err := h.svc.GetTeacherSummary(c.Context(), schoolID)
+	if err != nil {
+		h.logger.Error("get teacher summary failed", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to get teacher summary",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(summary)
+}
+
 func (h *TeachersHandler) ListTeachers(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {

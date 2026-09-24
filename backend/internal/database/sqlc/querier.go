@@ -52,6 +52,7 @@ type Querier interface {
 	GetStudentSummary(ctx context.Context, arg GetStudentSummaryParams) (GetStudentSummaryRow, error)
 	GetSubTopicByID(ctx context.Context, id pgtype.UUID) (GetSubTopicByIDRow, error)
 	GetSubjectByID(ctx context.Context, id pgtype.UUID) (GetSubjectByIDRow, error)
+	GetTeacherSummary(ctx context.Context, arg GetTeacherSummaryParams) (GetTeacherSummaryRow, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
 	GetTenantStytchOrgID(ctx context.Context, id pgtype.UUID) (string, error)
 	GetTimetableAttendanceBySlotAndDate(ctx context.Context, arg GetTimetableAttendanceBySlotAndDateParams) ([]TimetableAttendance, error)

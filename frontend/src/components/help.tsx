@@ -19,7 +19,7 @@ export function Help({ children }: HelpProps) {
         <Tooltip>
             <TooltipTrigger>
                 <span className="text-muted-foreground hover:text-foreground ml-1 inline-flex cursor-help items-center align-middle transition-colors">
-                    <HelpCircle className="h-4 w-4" />
+                    <HelpCircle className="h-3 w-3" />
                 </span>
             </TooltipTrigger>
             <TooltipContent className="side-top max-w-xs p-3 text-xs">{children}</TooltipContent>

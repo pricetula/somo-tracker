@@ -320,7 +320,7 @@ type AcademicYear struct {
 type BulkJob struct {
 	// Auto-generated UUID primary key.
 	ID pgtype.UUID `json:"id"`
-	// Bulk operation category. Extendable via CHECK constraint or lookup table migration. Supported: ADMIN_INVITATION, STUDENT_IMPORT.
+	// Bulk operation category. Extendable via CHECK constraint or lookup table migration. Supported: ADMIN_INVITATION, STUDENT_IMPORT, TEACHER_INVITATION, GUARDIAN_INVITATION, FINANCE_INVITATION.
 	JobType string `json:"job_type"`
 	// Client-supplied idempotency token to prevent duplicate submissions.
 	IdempotencyKey string `json:"idempotency_key"`

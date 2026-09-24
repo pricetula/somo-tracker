@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+
+	"somotracker/backend/internal/database/sqlc"
 )
 
 type TeacherListItem struct {
@@ -29,18 +32,25 @@ type TeacherListResponse struct {
 	Limit int               `json:"limit"`
 }
 
+type TeacherSummary struct {
+	TotalTeachers             int64 `json:"total_teachers"`
+	TeachersWithoutAssignment int64 `json:"teachers_without_assignment"`
+}
+
 type TeachersService interface {
 	ListTeachers(ctx context.Context, schoolID uuid.UUID, page, limit int, search string, invitationStatus string) (*TeacherListResponse, error)
 	DeleteTeachers(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error
+	GetTeacherSummary(ctx context.Context, schoolID uuid.UUID) (*TeacherSummary, error)
 }
 
 type teachersService struct {
-	pool   *pgxpool.Pool
-	logger *zap.Logger
+	pool    *pgxpool.Pool
+	queries *sqlc.Queries
+	logger  *zap.Logger
 }
 
-func NewTeachersService(pool *pgxpool.Pool, logger *zap.Logger) TeachersService {
-	return &teachersService{pool: pool, logger: logger.With(zap.String("service", "teachers"))}
+func NewTeachersService(pool *pgxpool.Pool, queries *sqlc.Queries, logger *zap.Logger) TeachersService {
+	return &teachersService{pool: pool, queries: queries, logger: logger.With(zap.String("service", "teachers"))}
 }
 
 func (s *teachersService) DeleteTeachers(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error {
@@ -150,5 +160,28 @@ func (s *teachersService) ListTeachers(ctx context.Context, schoolID uuid.UUID, 
 		Total: total,
 		Page:  page,
 		Limit: limit,
+	}, nil
+}
+
+func (s *teachersService) GetTeacherSummary(ctx context.Context, schoolID uuid.UUID) (*TeacherSummary, error) {
+	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+
+	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, schoolUUID)
+	if err != nil {
+		return nil, fmt.Errorf("no academic term found for school: %w", err)
+	}
+	termUUID := pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true}
+
+	row, err := s.queries.GetTeacherSummary(ctx, sqlc.GetTeacherSummaryParams{
+		SchoolID:       schoolUUID,
+		AcademicTermID: termUUID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get teacher summary: %w", err)
+	}
+
+	return &TeacherSummary{
+		TotalTeachers:             row.TotalTeachers,
+		TeachersWithoutAssignment: row.TeachersWithoutAssignment,
 	}, nil
 }

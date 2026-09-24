@@ -28,6 +28,8 @@ WHERE s.school_id = $1
     s.admission_number ILIKE '%' || $2 || '%'
   )
   AND ($5::uuid IS NULL OR c.id = $5)
+  AND ($6::bool IS NOT TRUE OR c.id IS NULL)
+  AND ($7::bool IS NOT TRUE OR NOT EXISTS (SELECT 1 FROM guardian_student_links WHERE guardian_student_links.student_id = s.student_id))
 ORDER BY s.created_at DESC
 LIMIT $3 OFFSET $4;
 
@@ -49,7 +51,9 @@ WHERE s.school_id = $1
     s.full_name ILIKE '%' || $2 || '%' OR
     s.admission_number ILIKE '%' || $2 || '%'
   )
-  AND ($3::uuid IS NULL OR c.id = $3);
+  AND ($3::uuid IS NULL OR c.id = $3)
+  AND ($4::bool IS NOT TRUE OR c.id IS NULL)
+  AND ($5::bool IS NOT TRUE OR NOT EXISTS (SELECT 1 FROM guardian_student_links WHERE guardian_student_links.student_id = s.student_id));
 
 -- name: DeleteStudents :exec
 DELETE FROM students

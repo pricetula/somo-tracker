@@ -69,8 +69,10 @@ func (h *StudentsHandler) ListStudents(c fiber.Ctx) error {
 		}
 		classID = &cid
 	}
+	withoutClass := c.Query("without_class") == "true"
+	withoutGuardian := c.Query("without_guardian") == "true"
 
-	resp, err := h.svc.ListStudents(c.Context(), schoolID, page, limit, search, classID)
+	resp, err := h.svc.ListStudents(c.Context(), schoolID, page, limit, search, classID, withoutClass, withoutGuardian)
 	if err != nil {
 		h.logger.Error("list students failed", zap.Error(err))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

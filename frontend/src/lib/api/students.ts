@@ -20,12 +20,16 @@ export async function listStudents(params?: {
     limit?: number;
     search?: string;
     class_id?: string;
+    without_class?: boolean;
+    without_guardian?: boolean;
 }): Promise<StudentListResponse> {
     const qs = new URLSearchParams();
     if (params?.page) qs.set("page", String(params.page));
     if (params?.limit) qs.set("limit", String(params.limit));
     if (params?.search) qs.set("search", params.search);
     if (params?.class_id) qs.set("class_id", params.class_id);
+    if (params?.without_class) qs.set("without_class", "true");
+    if (params?.without_guardian) qs.set("without_guardian", "true");
     const url = `/api/students${qs.toString() ? `?${qs}` : ""}`;
     return api.get<StudentListResponse>(url);
 }

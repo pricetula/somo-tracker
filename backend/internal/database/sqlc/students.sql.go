@@ -30,16 +30,26 @@ WHERE s.school_id = $1
     s.admission_number ILIKE '%' || $2 || '%'
   )
   AND ($3::uuid IS NULL OR c.id = $3)
+  AND ($4::bool IS NOT TRUE OR c.id IS NULL)
+  AND ($5::bool IS NOT TRUE OR NOT EXISTS (SELECT 1 FROM guardian_student_links WHERE guardian_student_links.student_id = s.student_id))
 `
 
 type CountStudentsParams struct {
 	SchoolID pgtype.UUID `json:"school_id"`
 	Column2  string      `json:"column_2"`
 	Column3  pgtype.UUID `json:"column_3"`
+	Column4  bool        `json:"column_4"`
+	Column5  bool        `json:"column_5"`
 }
 
 func (q *Queries) CountStudents(ctx context.Context, arg CountStudentsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countStudents, arg.SchoolID, arg.Column2, arg.Column3)
+	row := q.db.QueryRow(ctx, countStudents,
+		arg.SchoolID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -135,6 +145,8 @@ WHERE s.school_id = $1
     s.admission_number ILIKE '%' || $2 || '%'
   )
   AND ($5::uuid IS NULL OR c.id = $5)
+  AND ($6::bool IS NOT TRUE OR c.id IS NULL)
+  AND ($7::bool IS NOT TRUE OR NOT EXISTS (SELECT 1 FROM guardian_student_links WHERE guardian_student_links.student_id = s.student_id))
 ORDER BY s.created_at DESC
 LIMIT $3 OFFSET $4
 `
@@ -145,6 +157,8 @@ type ListStudentsParams struct {
 	Limit    int32       `json:"limit"`
 	Offset   int32       `json:"offset"`
 	Column5  pgtype.UUID `json:"column_5"`
+	Column6  bool        `json:"column_6"`
+	Column7  bool        `json:"column_7"`
 }
 
 type ListStudentsRow struct {
@@ -168,6 +182,8 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]L
 		arg.Limit,
 		arg.Offset,
 		arg.Column5,
+		arg.Column6,
+		arg.Column7,
 	)
 	if err != nil {
 		return nil, err

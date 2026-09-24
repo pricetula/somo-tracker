@@ -34,7 +34,7 @@ type StudentSummary struct {
 }
 
 type StudentsService interface {
-	ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, classID *uuid.UUID) (*StudentListResponse, error)
+	ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, classID *uuid.UUID, withoutClass bool, withoutGuardian bool) (*StudentListResponse, error)
 	DeleteStudents(ctx context.Context, schoolID uuid.UUID, studentIDs []uuid.UUID) error
 	GetStudentSummary(ctx context.Context, schoolID uuid.UUID) (*StudentSummary, error)
 }
@@ -47,7 +47,7 @@ func NewStudentsService(queries *sqlc.Queries) StudentsService {
 	return &studentsService{queries: queries}
 }
 
-func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, classID *uuid.UUID) (*StudentListResponse, error) {
+func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, page int, limit int, search string, classID *uuid.UUID, withoutClass bool, withoutGuardian bool) (*StudentListResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -65,6 +65,8 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 		SchoolID: schoolUUID,
 		Column2:  search,
 		Column5:  classUUID,
+		Column6:  withoutClass,
+		Column7:  withoutGuardian,
 		Limit:    int32(limit),
 		Offset:   int32(offset),
 	})
@@ -76,6 +78,8 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 		SchoolID: schoolUUID,
 		Column2:  search,
 		Column3:  classUUID,
+		Column4:  withoutClass,
+		Column5:  withoutGuardian,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("count students: %w", err)

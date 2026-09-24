@@ -19,12 +19,14 @@ function listStudentsWithFilters(params: {
     search?: string;
     filters?: Record<string, string | string[]>;
 }) {
-    const { class_id } = mapStudentFiltersToParams(params.filters);
+    const { class_id, without_class, without_guardian } = mapStudentFiltersToParams(params.filters);
     return listStudents({
         page: params.page,
         limit: params.limit,
         search: params.search,
         class_id,
+        without_class,
+        without_guardian,
     });
 }
 
@@ -119,7 +121,11 @@ export function StudentsTable() {
             height={500}
             enableUrlSync
             urlSearchParam="search"
-            urlFilterParamMap={{ class: "class_id" }}
+            urlFilterParamMap={{
+                class: "class_id",
+                without_class: "without_class",
+                without_guardian: "without_guardian",
+            }}
         />
     );
 }

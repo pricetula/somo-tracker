@@ -193,6 +193,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/finance", r.Finance.ListFinance)
 	protected.Delete("/finance", r.Finance.DeleteFinance)
 	protected.Get("/guardians", r.Guardians.ListGuardians)
+	protected.Get("/guardians/summary", r.Guardians.GetGuardianSummary)
 	protected.Delete("/guardians", r.Guardians.DeleteGuardians)
 	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
 	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)

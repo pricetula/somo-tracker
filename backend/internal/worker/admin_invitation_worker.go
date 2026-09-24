@@ -17,7 +17,7 @@ import (
 
 type AdminInvitationProcessor struct {
 	svc       services.AdminInvitationService
-	stytchCli *stytch.Client
+	stytchCli stytch.Inviter
 	logger    *zap.Logger
 	redis     RedisPublisher
 }
@@ -44,7 +44,7 @@ type InvitationPayload struct {
 	Role     string `json:"role"`
 }
 
-func NewAdminInvitationProcessor(svc services.AdminInvitationService, cli *stytch.Client, logger *zap.Logger, pub RedisPublisher) *AdminInvitationProcessor {
+func NewAdminInvitationProcessor(svc services.AdminInvitationService, cli stytch.Inviter, logger *zap.Logger, pub RedisPublisher) *AdminInvitationProcessor {
 	return &AdminInvitationProcessor{
 		svc:       svc,
 		stytchCli: cli,

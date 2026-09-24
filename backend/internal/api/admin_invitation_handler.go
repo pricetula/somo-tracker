@@ -20,13 +20,13 @@ import (
 
 type AdminInvitationHandler struct {
 	svc    services.AdminInvitationService
-	stytch *stytch.Client
+	stytch stytch.Inviter
 	asynq  *asynq.Client
 	redis  *redis.Client
 	logger *zap.Logger
 }
 
-func NewAdminInvitationHandler(svc services.AdminInvitationService, cli *stytch.Client, asynqClient *asynq.Client, redisClient *redis.Client, logger *zap.Logger) *AdminInvitationHandler {
+func NewAdminInvitationHandler(svc services.AdminInvitationService, cli stytch.Inviter, asynqClient *asynq.Client, redisClient *redis.Client, logger *zap.Logger) *AdminInvitationHandler {
 	return &AdminInvitationHandler{svc: svc, stytch: cli, asynq: asynqClient, redis: redisClient, logger: logger.With(zap.String("handler", "admin_invitation"))}
 }
 

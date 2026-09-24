@@ -43,8 +43,8 @@ export function StudentSummaryCard() {
         : 0;
 
     return (
-        <article className="flex min-h-30 flex-col justify-center gap-2">
-            <header className="mb-6 space-y-2">
+        <article className="flex min-h-30 flex-col gap-2">
+            <header className="mb-2 space-y-2">
                 <h2 className="text-xl font-bold">
                     <Link href="/students">{totalStudents} Students</Link>
                 </h2>

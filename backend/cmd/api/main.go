@@ -221,10 +221,10 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, que
 	mux.HandleFunc("student:import:batch", studentProcessor.ProcessTask)
 	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB}, asynq.Config{
 		Concurrency: 10,
-		Queues:      map[string]int{"admin_invitation": 1, "student_import": 1},
+		Queues:      map[string]int{"admin_invitation": 1, "teacher_invitation": 1, "finance_invitation": 1, "guardian_invitation": 1, "student_import": 1},
 	})
 	go func() {
-		logger.Info("asynq server starting", zap.String("queue", "admin_invitation"), zap.Int("concurrency", 10))
+		logger.Info("asynq server starting", zap.Any("queues", map[string]int{"admin_invitation": 1, "teacher_invitation": 1, "finance_invitation": 1, "guardian_invitation": 1, "student_import": 1}), zap.Int("concurrency", 10))
 		if err := asynqServer.Start(mux); err != nil {
 			logger.Warn("asynq server stopped", zap.Error(err))
 		}

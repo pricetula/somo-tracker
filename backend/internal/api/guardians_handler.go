@@ -110,6 +110,47 @@ func (h *GuardiansHandler) DeleteGuardians(c fiber.Ctx) error {
 	})
 }
 
+// GetGuardianSummary returns guardian count details for the active school.
+// @Summary Guardian summary
+// @Description Get guardian count summary total and without student
+// @Tags Guardians
+// @Produce json
+// @Success 200 {object} services.GuardianSummary
+// @Failure 400 {object} map[string]any
+// @Failure 401 {object} map[string]any
+// @Security ApiKeyAuth
+// @Router /guardians/summary [get]
+func (h *GuardiansHandler) GetGuardianSummary(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "active school not found in session",
+			"errors":  fiber.Map{},
+		})
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "invalid school id",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	summary, err := h.svc.GetGuardianSummary(c.Context(), schoolID)
+	if err != nil {
+		h.logger.Error("get guardian summary failed", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to get guardian summary",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(summary)
+}
+
 func (h *GuardiansHandler) ListGuardians(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {

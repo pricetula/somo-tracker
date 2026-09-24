@@ -44,7 +44,7 @@ func TestStudentsImportFullE2E_DuplicateAdmissionNumber(t *testing.T) {
 	require.NoError(t, err)
 	err = pool.QueryRow(ctx, `INSERT INTO countries (id, country_name, country_code) VALUES (gen_random_uuid(),'C','CC') RETURNING id`).Scan(&countryID)
 	require.NoError(t, err)
-	err = pool.QueryRow(ctx, `INSERT INTO education_systems (id, name) VALUES (gen_random_uuid(),'S') RETURNING id`).Scan(&edSysID)
+	err = pool.QueryRow(ctx, `INSERT INTO education_systems (id, country_id, system_name) VALUES (gen_random_uuid(),$1,'S') RETURNING id`, countryID).Scan(&edSysID)
 	require.NoError(t, err)
 	err = pool.QueryRow(ctx, `INSERT INTO schools (id, tenant_id, school_name, country_id, education_system_id) VALUES (gen_random_uuid(),$1,'S',$2,$3) RETURNING id`, tenantID, countryID, edSysID).Scan(&schoolID)
 	require.NoError(t, err)
@@ -102,9 +102,8 @@ func TestStudentsImportFullE2E_DuplicateAdmissionNumber(t *testing.T) {
 	server := asynq.NewServer(asynq.RedisClientOpt{Addr: "localhost:6379"}, asynq.Config{Concurrency: 2})
 	mux := asynq.NewServeMux()
 	mux.HandleFunc("student:import:batch", processor.ProcessTask)
-	server.Mux = mux
-	srvCtx, srvCancel := context.WithCancel(context.Background())
-	go server.Run(srvCtx)
+	_, srvCancel := context.WithCancel(context.Background())
+	go server.Run(mux)
 	defer func() { srvCancel(); server.Shutdown() }()
 
 	require.Eventually(t, func() bool {

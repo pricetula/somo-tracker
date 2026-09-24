@@ -47,3 +47,12 @@ export interface DeleteGuardiansResponse {
 export async function deleteGuardians(userIds: string[]): Promise<DeleteGuardiansResponse> {
     return api.delete<DeleteGuardiansResponse>("/api/guardians", { user_ids: userIds });
 }
+
+export interface GuardianSummary {
+    total_guardians: number;
+    guardians_without_student: number;
+}
+
+export async function getGuardianSummary(): Promise<GuardianSummary> {
+    return api.get<GuardianSummary>("/api/guardians/summary");
+}

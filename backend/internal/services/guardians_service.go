@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+
+	"somotracker/backend/internal/database/sqlc"
 )
 
 type GuardianListItem struct {
@@ -29,18 +32,25 @@ type GuardianListResponse struct {
 	Limit int                `json:"limit"`
 }
 
+type GuardianSummary struct {
+	TotalGuardians          int64 `json:"total_guardians"`
+	GuardiansWithoutStudent int64 `json:"guardians_without_student"`
+}
+
 type GuardiansService interface {
 	ListGuardians(ctx context.Context, schoolID uuid.UUID, page, limit int, search string, invitationStatus string) (*GuardianListResponse, error)
 	DeleteGuardians(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error
+	GetGuardianSummary(ctx context.Context, schoolID uuid.UUID) (*GuardianSummary, error)
 }
 
 type guardiansService struct {
-	pool   *pgxpool.Pool
-	logger *zap.Logger
+	pool    *pgxpool.Pool
+	queries *sqlc.Queries
+	logger  *zap.Logger
 }
 
-func NewGuardiansService(pool *pgxpool.Pool, logger *zap.Logger) GuardiansService {
-	return &guardiansService{pool: pool, logger: logger.With(zap.String("service", "guardians"))}
+func NewGuardiansService(pool *pgxpool.Pool, queries *sqlc.Queries, logger *zap.Logger) GuardiansService {
+	return &guardiansService{pool: pool, queries: queries, logger: logger.With(zap.String("service", "guardians"))}
 }
 
 func (s *guardiansService) DeleteGuardians(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error {
@@ -150,5 +160,17 @@ func (s *guardiansService) ListGuardians(ctx context.Context, schoolID uuid.UUID
 		Total: total,
 		Page:  page,
 		Limit: limit,
+	}, nil
+}
+
+func (s *guardiansService) GetGuardianSummary(ctx context.Context, schoolID uuid.UUID) (*GuardianSummary, error) {
+	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+	row, err := s.queries.GetGuardianSummary(ctx, schoolUUID)
+	if err != nil {
+		return nil, fmt.Errorf("get guardian summary: %w", err)
+	}
+	return &GuardianSummary{
+		TotalGuardians:          row.TotalGuardians,
+		GuardiansWithoutStudent: row.GuardiansWithoutStudent,
 	}, nil
 }

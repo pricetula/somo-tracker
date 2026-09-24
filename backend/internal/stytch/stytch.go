@@ -56,6 +56,13 @@ const (
 	retryMaxDelay    = 2 * time.Second
 )
 
+// Inviter defines the interface for Stytch invitation operations needed by workers.
+// This enables test mocking while keeping production code using the concrete Client.
+type Inviter interface {
+	InviteMember(ctx context.Context, email, fullName, role, tenantID string) (*InviteMemberResult, error)
+	ClassifyStytchError(err error) (retry bool, permanent bool, duplicate bool, reason string)
+}
+
 // Client wraps the official Stytch B2B SDK with circuit-breaker protection,
 // idempotent retry logic, secure error mapping, and structured logging.
 type Client struct {

@@ -1,6 +1,7 @@
 import React from "react";
 import { Separator } from "@/components/ui/separator";
 import { StudentSummaryCard } from "@/features/students";
+import { ParentSummaryCard } from "@/features/guardians";
 
 export function AdminDashboard() {
     return (
@@ -11,7 +12,7 @@ export function AdminDashboard() {
                     orientation="vertical"
                     className="border-r border-dashed bg-transparent"
                 />
-                <div>ss</div>
+                <ParentSummaryCard />
             </header>
         </article>
     );

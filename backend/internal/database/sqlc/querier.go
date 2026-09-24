@@ -41,6 +41,7 @@ type Querier interface {
 	GetCurrentAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (pgtype.UUID, error)
 	GetEducationSystemByCountryAndName(ctx context.Context, arg GetEducationSystemByCountryAndNameParams) (pgtype.UUID, error)
 	GetGradeLevelByID(ctx context.Context, id pgtype.UUID) (GetGradeLevelByIDRow, error)
+	GetGuardianSummary(ctx context.Context, schoolID pgtype.UUID) (GetGuardianSummaryRow, error)
 	GetLatestAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (GetLatestAcademicYearBySchoolRow, error)
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
 	// Gets a school membership by user_id and school_id.

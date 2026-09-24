@@ -7,7 +7,10 @@ export function AdminDashboard() {
         <article>
             <header className="flex items-center gap-4">
                 <StudentSummaryCard />
-                <Separator orientation="vertical" />
+                <Separator
+                    orientation="vertical"
+                    className="border-r border-dashed bg-transparent"
+                />
                 <div>ss</div>
             </header>
         </article>

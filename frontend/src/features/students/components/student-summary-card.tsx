@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { numberCompactor } from "@/lib/number-compactor";
 import { useStudentSummary } from "../hooks/use-student-summary";
+import { Plus, TriangleAlert, Users } from "lucide-react";
 
 export function StudentSummaryCard() {
     const { data: summary, isLoading, isError } = useStudentSummary();
@@ -13,11 +16,20 @@ export function StudentSummaryCard() {
 
     const malePercentage = (summary.male_count / summary.total_students) * 100;
     const femalePercentage = (summary.female_count / summary.total_students) * 100;
+    const totalStudents = summary.total_students ? numberCompactor(summary.total_students) : 0;
+    const unassignedCount = summary.unassigned_count
+        ? numberCompactor(summary.unassigned_count)
+        : 0;
+    const unlinkedGuardiansCount = summary.unlinked_guardians_count
+        ? numberCompactor(summary.unlinked_guardians_count)
+        : 0;
 
     return (
-        <article>
-            <header className="mb-4 space-y-2">
-                <h2 className="text-xl font-bold">{summary.total_students} Students</h2>
+        <article className="h-30 w-40 space-y-2">
+            <header className="mb-6 space-y-2">
+                <h2 className="text-xl font-bold">
+                    <Link href="/students">{totalStudents} Students</Link>
+                </h2>
                 <div className="flex w-40 items-center">
                     <div className="mr-2">Male</div>
                     <div
@@ -31,8 +43,34 @@ export function StudentSummaryCard() {
                     <div className="ml-2">Female</div>
                 </div>
             </header>
-            <p>{summary.unassigned_count} Unassigned</p>
-            <p>{summary.unlinked_guardians_count} Unlinked Guardians</p>
+            {!summary.unassigned_count && !summary.unlinked_guardians_count && (
+                <Link href="/students/add" className="block">
+                    <Plus size="12" className="inline" />
+                    <span>Add students</span>
+                </Link>
+            )}
+            {summary.unassigned_count && (
+                <Link
+                    href="/students?without_class=true"
+                    className="text-destructive block space-x-2"
+                >
+                    <TriangleAlert size="12" className="inline" />
+                    <span>
+                        <b>{unassignedCount}</b> Unassigned
+                    </span>
+                </Link>
+            )}
+            {summary.unlinked_guardians_count && (
+                <Link
+                    href="/students?without_guardian=true"
+                    className="block space-x-2 text-amber-600"
+                >
+                    <Users size="12" className="inline" />
+                    <span>
+                        <b>{unlinkedGuardiansCount}</b> Unlinked Guardians
+                    </span>
+                </Link>
+            )}
         </article>
     );
 }

@@ -9,4 +9,5 @@ SELECT
   )) AS teachers_without_assignment
 FROM school_memberships sm
 WHERE sm.school_id = $1
-  AND sm.role = 'TEACHER';
+  AND sm.role = 'TEACHER'
+  AND sm.is_active = true;

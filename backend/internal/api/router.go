@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
@@ -49,6 +50,7 @@ type Router struct {
 	Students           *StudentsHandler
 	Timetable          *TimetableHandler
 	Attendance         *AttendanceHandler
+	Events             *EventsHandler
 	Curriculum         services.CurriculumService
 	limiter            *redis_rate.Limiter
 	cfg                *config.Config
@@ -74,6 +76,7 @@ func NewRouter(
 	curriculumSvc services.CurriculumService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
+	pool *pgxpool.Pool,
 ) *Router {
 	return &Router{
 		Auth:               newAuthHandler(authSvc, cfg),
@@ -90,6 +93,7 @@ func NewRouter(
 		Guardians:          NewGuardiansHandler(guardiansSvc, zap.L()),
 		Timetable:          NewTimetableHandler(timetableSvc, zap.L()),
 		Attendance:         NewAttendanceHandler(attendanceSvc, zap.L()),
+		Events:             NewEventsHandler(pool, zap.L()),
 		Curriculum:         curriculumSvc,
 		AdminInvitation:    nil,
 		TeacherInvitation:  nil,
@@ -196,6 +200,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/guardians", r.Guardians.ListGuardians)
 	protected.Get("/guardians/summary", r.Guardians.GetGuardianSummary)
 	protected.Delete("/guardians", r.Guardians.DeleteGuardians)
+	protected.Get("/events", r.Events.ListEvents)
 	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
 	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
 	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)

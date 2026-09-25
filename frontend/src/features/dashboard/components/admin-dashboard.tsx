@@ -1,10 +1,11 @@
 import { StudentSummaryCard } from "@/features/students";
 import { ParentSummaryCard } from "@/features/guardians";
 import { TeacherSummaryCard } from "@/features/teachers";
+import { UpcomingEventsWidget } from "./upcoming-events-widget";
 
 export function AdminDashboard() {
     return (
-        <article>
+        <article className="space-y-8">
             <header className="grid w-full max-w-5xl grid-cols-1 items-start gap-8 md:grid-cols-3 md:gap-6">
                 <div className="border-r-0 pr-0 md:border-r md:border-dashed md:pr-6">
                     <StudentSummaryCard />
@@ -16,6 +17,9 @@ export function AdminDashboard() {
                     <TeacherSummaryCard />
                 </div>
             </header>
+            <section className="w-full max-w-5xl">
+                <UpcomingEventsWidget />
+            </section>
         </article>
     );
 }

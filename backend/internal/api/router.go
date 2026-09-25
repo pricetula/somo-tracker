@@ -51,6 +51,7 @@ type Router struct {
 	Timetable          *TimetableHandler
 	Attendance         *AttendanceHandler
 	Events             *EventsHandler
+	Rooms              *RoomsHandler
 	Curriculum         services.CurriculumService
 	limiter            *redis_rate.Limiter
 	cfg                *config.Config
@@ -74,6 +75,7 @@ func NewRouter(
 	timetableSvc services.TimetableService,
 	attendanceSvc services.AttendanceService,
 	curriculumSvc services.CurriculumService,
+	roomsSvc services.RoomsService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 	pool *pgxpool.Pool,
@@ -94,6 +96,7 @@ func NewRouter(
 		Timetable:          NewTimetableHandler(timetableSvc, zap.L()),
 		Attendance:         NewAttendanceHandler(attendanceSvc, zap.L()),
 		Events:             NewEventsHandler(pool, zap.L()),
+		Rooms:              NewRoomsHandler(roomsSvc),
 		Curriculum:         curriculumSvc,
 		AdminInvitation:    nil,
 		TeacherInvitation:  nil,
@@ -201,6 +204,9 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/guardians/summary", r.Guardians.GetGuardianSummary)
 	protected.Delete("/guardians", r.Guardians.DeleteGuardians)
 	protected.Get("/events", r.Events.ListEvents)
+	protected.Post("/rooms", r.Rooms.CreateRoom)
+	protected.Patch("/rooms", r.Rooms.UpdateRoom)
+	protected.Delete("/rooms/:id", r.Rooms.DeleteRoom)
 	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
 	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
 	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)

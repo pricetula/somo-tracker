@@ -21,12 +21,14 @@ type Querier interface {
 	CreateBulkJob(ctx context.Context, arg CreateBulkJobParams) (pgtype.UUID, error)
 	CreateClassTimetableSlot(ctx context.Context, arg CreateClassTimetableSlotParams) (pgtype.UUID, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
+	CreateRoom(ctx context.Context, arg CreateRoomParams) (Room, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateStream(ctx context.Context, arg CreateStreamParams) (Stream, error)
 	CreateTimeSlot(ctx context.Context, arg CreateTimeSlotParams) (pgtype.UUID, error)
 	CreateTimetableAttendance(ctx context.Context, arg CreateTimetableAttendanceParams) (TimetableAttendance, error)
 	CreateTimetableTemplate(ctx context.Context, arg CreateTimetableTemplateParams) (pgtype.UUID, error)
 	DeleteClassTimetableSlot(ctx context.Context, id pgtype.UUID) error
+	DeleteRoom(ctx context.Context, arg DeleteRoomParams) error
 	DeleteSession(ctx context.Context, token string) error
 	DeleteStudents(ctx context.Context, arg DeleteStudentsParams) error
 	GetAcademicTermRangeBySchool(ctx context.Context, arg GetAcademicTermRangeBySchoolParams) (GetAcademicTermRangeBySchoolRow, error)
@@ -61,6 +63,7 @@ type Querier interface {
 	GetTopicByID(ctx context.Context, id pgtype.UUID) (GetTopicByIDRow, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	IncrementBulkJobCounts(ctx context.Context, arg IncrementBulkJobCountsParams) error
+	ListRoomsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Room, error)
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
 	ListSubTopics(ctx context.Context, arg ListSubTopicsParams) ([]ListSubTopicsRow, error)
@@ -75,6 +78,7 @@ type Querier interface {
 	UpdateBulkJobStatus(ctx context.Context, arg UpdateBulkJobStatusParams) error
 	// Updates invitation/acceptance timestamps and role for an existing membership.
 	UpdateMembershipInvitationState(ctx context.Context, arg UpdateMembershipInvitationStateParams) error
+	UpdateRoom(ctx context.Context, arg UpdateRoomParams) (Room, error)
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
 	UpdateTimetableTemplate(ctx context.Context, arg UpdateTimetableTemplateParams) error
 	// Upserts (or updates) a school_membership during bulk invitation.

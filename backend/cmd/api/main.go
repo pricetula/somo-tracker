@@ -69,6 +69,9 @@ func main() {
 		fx.Provide(func(q *sqlc.Queries, logger *zap.Logger) services.CurriculumService {
 			return services.NewCurriculumService(q, logger)
 		}),
+		fx.Provide(func(q *sqlc.Queries, logger *zap.Logger) services.RoomsService {
+			return services.NewRoomsService(q, logger)
+		}),
 		fx.Provide(services.NewTeachersService),
 		fx.Provide(services.NewFinanceService),
 		fx.Provide(services.NewGuardiansService),

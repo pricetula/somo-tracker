@@ -47,6 +47,17 @@ pattern as the existing tests.
 
 ---
 
+## Handler / Service Separation
+
+Handlers must be thin transport adapters only. No raw SQL, no `pgxpool` queries, and no direct `sqlc` calls inside `internal/api/*.go`.
+
+All database access must go through `internal/services` and use sqlc-generated queries:
+- Handler extracts request data, validates input, and calls a service method.
+- Service contains business logic and invokes `*sqlc.Queries` methods only.
+- Never import `github.com/jackc/pgx/v5/pgxpool` in handlers.
+
+This keeps RLS context, transactions, and testability in the service layer.
+
 ## General Rules
 
 For all other backend conventions (error handling, API patterns, dependencies,

@@ -30,31 +30,32 @@ var (
 // interfaces (not concrete implementations), which makes it fully testable
 // with mock services.
 type Router struct {
-	Auth               *authHandler
-	Me                 *meHandler
-	School             *SchoolHandler
-	SchoolCreate       *SchoolCreateHandler
-	AcademicPeriod     *AcademicPeriodHandler
-	Streams            *StreamsHandler
-	Grades             *GradesHandler
-	Classes            *ClassesHandler
-	AdminInvitation    *AdminInvitationHandler
-	Admins             *AdminsHandler
-	Teachers           *TeachersHandler
-	Finance            *FinanceHandler
-	Guardians          *GuardiansHandler
-	TeacherInvitation  *TeacherInvitationHandler
-	FinanceInvitation  *FinanceInvitationHandler
-	GuardianInvitation *GuardianInvitationHandler
-	StudentsImport     *StudentsImportHandler
-	Students           *StudentsHandler
-	Timetable          *TimetableHandler
-	Attendance         *AttendanceHandler
-	Events             *EventsHandler
-	Rooms              *RoomsHandler
-	Curriculum         services.CurriculumService
-	limiter            *redis_rate.Limiter
-	cfg                *config.Config
+	Auth                   *authHandler
+	Me                     *meHandler
+	School                 *SchoolHandler
+	SchoolCreate           *SchoolCreateHandler
+	AcademicPeriod         *AcademicPeriodHandler
+	Streams                *StreamsHandler
+	Grades                 *GradesHandler
+	Classes                *ClassesHandler
+	AdminInvitation        *AdminInvitationHandler
+	Admins                 *AdminsHandler
+	Teachers               *TeachersHandler
+	Finance                *FinanceHandler
+	Guardians              *GuardiansHandler
+	TeacherInvitation      *TeacherInvitationHandler
+	FinanceInvitation      *FinanceInvitationHandler
+	GuardianInvitation     *GuardianInvitationHandler
+	StudentsImport         *StudentsImportHandler
+	Students               *StudentsHandler
+	Timetable              *TimetableHandler
+	TimetableSubstitutions *TimetableSubstitutionsHandler
+	Attendance             *AttendanceHandler
+	Events                 *EventsHandler
+	Rooms                  *RoomsHandler
+	Curriculum             services.CurriculumService
+	limiter                *redis_rate.Limiter
+	cfg                    *config.Config
 }
 
 // NewRouter creates a Router from the injected services and the Redis
@@ -191,6 +192,9 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/timetable/templates/:id/slots", r.Timetable.ListTimeSlotsByTemplate)
 	protected.Get("/timetable/templates/:id/classes/:classId/slots", r.Timetable.GetClassSlotsByTemplate)
 	protected.Delete("/timetable/class-timetable-slots/:id", r.Timetable.DeleteClassTimetableSlot)
+	protected.Post("/timetable/substitutions", r.TimetableSubstitutions.CreateSubstitution)
+	protected.Patch("/timetable/substitutions", r.TimetableSubstitutions.UpdateSubstitution)
+	protected.Delete("/timetable/substitutions/:id", r.TimetableSubstitutions.DeleteSubstitution)
 	protected.Post("/attendance", r.Attendance.CreateAttendance)
 	protected.Get("/attendance/sessions", r.Attendance.ListAttendanceSessions)
 	protected.Get("/admins", r.Admins.ListAdmins)

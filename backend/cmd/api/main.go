@@ -200,6 +200,10 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, que
 	studentsSvc := services.NewStudentsService(queries)
 	router.Students = api.NewStudentsHandler(studentsSvc, logger)
 
+	// Initialize timetable substitutions
+	timetableSubstitutionsSvc := services.NewTimetableSubstitutionsService(queries)
+	router.TimetableSubstitutions = api.NewTimetableSubstitutionsHandler(timetableSubstitutionsSvc, logger)
+
 	router.RegisterRoutes(app, redisClient, logger, curriculumSvc)
 
 	// Start Asynq worker for admin invitation batches

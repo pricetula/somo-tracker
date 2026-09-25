@@ -26,11 +26,13 @@ type Querier interface {
 	CreateStream(ctx context.Context, arg CreateStreamParams) (Stream, error)
 	CreateTimeSlot(ctx context.Context, arg CreateTimeSlotParams) (pgtype.UUID, error)
 	CreateTimetableAttendance(ctx context.Context, arg CreateTimetableAttendanceParams) (TimetableAttendance, error)
+	CreateTimetableSubstitution(ctx context.Context, arg CreateTimetableSubstitutionParams) (TimetableSubstitution, error)
 	CreateTimetableTemplate(ctx context.Context, arg CreateTimetableTemplateParams) (pgtype.UUID, error)
 	DeleteClassTimetableSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteRoom(ctx context.Context, arg DeleteRoomParams) error
 	DeleteSession(ctx context.Context, token string) error
 	DeleteStudents(ctx context.Context, arg DeleteStudentsParams) error
+	DeleteTimetableSubstitution(ctx context.Context, id pgtype.UUID) error
 	GetAcademicTermRangeBySchool(ctx context.Context, arg GetAcademicTermRangeBySchoolParams) (GetAcademicTermRangeBySchoolRow, error)
 	GetActiveSchoolMembershipByUser(ctx context.Context, userID pgtype.UUID) (pgtype.UUID, error)
 	GetAuthTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (pgtype.UUID, error)
@@ -59,6 +61,7 @@ type Querier interface {
 	GetTenantStytchOrgID(ctx context.Context, id pgtype.UUID) (string, error)
 	GetTimetableAttendanceBySlotAndDate(ctx context.Context, arg GetTimetableAttendanceBySlotAndDateParams) ([]TimetableAttendance, error)
 	GetTimetableAttendanceByStudentAndDate(ctx context.Context, arg GetTimetableAttendanceByStudentAndDateParams) ([]TimetableAttendance, error)
+	GetTimetableSubstitution(ctx context.Context, id pgtype.UUID) (TimetableSubstitution, error)
 	GetTimetableTemplate(ctx context.Context, id pgtype.UUID) (TimetableTemplate, error)
 	GetTopicByID(ctx context.Context, id pgtype.UUID) (GetTopicByIDRow, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
@@ -80,6 +83,7 @@ type Querier interface {
 	UpdateMembershipInvitationState(ctx context.Context, arg UpdateMembershipInvitationStateParams) error
 	UpdateRoom(ctx context.Context, arg UpdateRoomParams) (Room, error)
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
+	UpdateTimetableSubstitution(ctx context.Context, arg UpdateTimetableSubstitutionParams) error
 	UpdateTimetableTemplate(ctx context.Context, arg UpdateTimetableTemplateParams) error
 	// Upserts (or updates) a school_membership during bulk invitation.
 	// On conflict over the school/user unique constraint, updates invitation state,

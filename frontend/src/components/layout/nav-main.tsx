@@ -27,6 +27,7 @@ import {
     AlertTriangleIcon,
     HeartPulse,
     DollarSignIcon,
+    CalendarRange,
 } from "lucide-react";
 
 interface NavItem {
@@ -94,6 +95,11 @@ function buildNavItems(): NavItem[] {
                 { title: "Grading Scales", url: "/assessments/grading-scales" },
                 { title: "Weight Configs", url: "/assessments/weight-configs" },
             ],
+        },
+        {
+            title: "School Events",
+            url: "/events",
+            icon: <CalendarRange className="size-4" />,
         },
         {
             title: "Reports",

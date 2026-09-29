@@ -27,6 +27,14 @@ type EventItem struct {
 	RequiresAttendance bool   `json:"requires_attendance"`
 }
 
+type CreateEventRequest struct {
+	Title              string `json:"title"`
+	EventType          string `json:"event_type"`
+	StartDate          string `json:"start_date"`
+	EndDate            string `json:"end_date"`
+	RequiresAttendance bool   `json:"requires_attendance"`
+}
+
 // ListEvents returns school events for the active school within a date range.
 // @Summary List events
 // @Description List upcoming school events for active school
@@ -111,4 +119,90 @@ func (h *EventsHandler) ListEvents(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(items)
+}
+
+// CreateEvent creates a new school event for the active school.
+// @Summary Create event
+// @Description Create a new school event
+// @Tags Events
+// @Accept json
+// @Produce json
+// @Param body body CreateEventRequest true "Event data"
+// @Success 201 {object} EventItem
+// @Failure 400 {object} map[string]any
+// @Failure 401 {object} map[string]any
+// @Security ApiKeyAuth
+// @Router /events [post]
+func (h *EventsHandler) CreateEvent(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "active school not found",
+			"errors":  fiber.Map{},
+		})
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "invalid school id",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	var req CreateEventRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "invalid request body",
+			"errors":  fiber.Map{"body": []string{"Unable to parse JSON"}},
+		})
+	}
+
+	errors := make(map[string][]string)
+	if req.Title == "" {
+		errors["title"] = []string{"title is required"}
+	}
+	if req.EventType == "" {
+		errors["event_type"] = []string{"event_type is required"}
+	}
+	if req.StartDate == "" {
+		errors["start_date"] = []string{"start_date is required"}
+	}
+	if req.EndDate == "" {
+		errors["end_date"] = []string{"end_date is required"}
+	}
+	if len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "validation_error",
+			"message": "validation failed",
+			"errors":  errors,
+		})
+	}
+
+	var id uuid.UUID
+	err = h.pool.QueryRow(c.Context(), `
+		INSERT INTO school_events (school_id, title, event_type, start_date, end_date, requires_attendance)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id
+	`, schoolID, req.Title, req.EventType, req.StartDate, req.EndDate, req.RequiresAttendance).Scan(&id)
+	if err != nil {
+		h.logger.Error("create event failed", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to create event",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	item := EventItem{
+		ID:                 id.String(),
+		Title:              req.Title,
+		EventType:          req.EventType,
+		StartDate:          req.StartDate,
+		EndDate:            req.EndDate,
+		RequiresAttendance: req.RequiresAttendance,
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
 }

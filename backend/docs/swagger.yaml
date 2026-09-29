@@ -67,6 +67,51 @@ definitions:
         description: '"2026-01-15"'
         type: string
     type: object
+  events.EventItem:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+      event_type:
+        type: string
+      start_date:
+        type: string
+      end_date:
+        type: string
+      requires_attendance:
+        type: boolean
+    type: object
+  events.CreateEventRequest:
+    properties:
+      title:
+        type: string
+      event_type:
+        type: string
+      start_date:
+        type: string
+      end_date:
+        type: string
+      requires_attendance:
+        type: boolean
+    type: object
+  events.PublicHoliday:
+    properties:
+      id:
+        type: string
+      country_id:
+        type: string
+      name:
+        type: string
+      month:
+        type: integer
+      day:
+        type: integer
+      created_at:
+        type: string
+      updated_at:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -701,4 +746,79 @@ paths:
       summary: Get topic detail
       tags:
       - Topics
+  /events:
+    get:
+      description: List school events for the active school within a date range
+      parameters:
+      - in: query
+        name: from
+        type: string
+        description: Start date YYYY-MM-DD
+      - in: query
+        name: to
+        type: string
+        description: End date YYYY-MM-DD
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/events.EventItem'
+      tags:
+      - Events
+    post:
+      consumes:
+      - application/json
+      description: Create a new school event
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/events.CreateEventRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/events.EventItem'
+        "400":
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+      tags:
+      - Events
+  /public-holidays:
+    get:
+      description: List public holidays for a country within a date range
+      parameters:
+      - in: query
+        name: country_id
+        type: string
+        description: Country UUID
+        required: true
+      - in: query
+        name: from
+        type: string
+        description: Start date YYYY-MM-DD
+      - in: query
+        name: to
+        type: string
+        description: End date YYYY-MM-DD
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/events.PublicHoliday'
+      tags:
+      - Events
 swagger: "2.0"

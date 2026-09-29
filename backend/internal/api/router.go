@@ -209,6 +209,8 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Delete("/guardians", r.Guardians.DeleteGuardians)
 	protected.Get("/events", r.Events.ListEvents)
 	protected.Post("/events", r.Events.CreateEvent)
+	protected.Patch("/events/:id", r.Events.UpdateEvent)
+	protected.Delete("/events/:id", r.Events.DeleteEvent)
 	protected.Post("/rooms", r.Rooms.CreateRoom)
 	protected.Patch("/rooms", r.Rooms.UpdateRoom)
 	protected.Delete("/rooms/:id", r.Rooms.DeleteRoom)

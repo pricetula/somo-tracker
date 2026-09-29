@@ -6,12 +6,17 @@ import { useQuery } from "@tanstack/react-query";
 import { eventApi } from "../services/event-api";
 import { Button } from "@/components/ui/button";
 import { EventCreateDialog } from "./EventCreateDialog";
+import { useDeleteEvent } from "../hooks/useDeleteEvent";
+import { X } from "lucide-react";
+import type { Event } from "../types/event.types";
 
 export function TimelineBar({ year }: { year: number }) {
     const [open, setOpen] = useState(false);
+    const [editingEvent, setEditingEvent] = useState<Event | null>(null);
     const start = startOfYear(new Date(year, 0, 1));
     const end = endOfYear(new Date(year, 11, 31));
     const days = eachDayOfInterval({ start, end });
+    const deleteEvent = useDeleteEvent();
 
     const { data: events = [], isLoading } = useQuery({
         queryKey: ["events", "year", year],
@@ -24,7 +29,7 @@ export function TimelineBar({ year }: { year: number }) {
     });
 
     const cellDays = 3;
-    const rows = events.map((ev) => {
+    const rows = (events ?? []).map((ev) => {
         const startOffsetDays = Math.max(0, differenceInDays(new Date(ev.start_date), start));
         const durationDays = Math.max(
             1,
@@ -59,7 +64,10 @@ export function TimelineBar({ year }: { year: number }) {
                             <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => setOpen(true)}
+                                onClick={() => {
+                                    setEditingEvent(null);
+                                    setOpen(true);
+                                }}
                                 className="h-6 text-[10px]"
                             >
                                 + Add
@@ -70,10 +78,21 @@ export function TimelineBar({ year }: { year: number }) {
                                 key={ev.id}
                                 className="flex h-10 items-center truncate border-b px-2 text-sm"
                             >
-                                {ev.title}
-                                <span className="text-muted-foreground ml-2 text-[10px]">
-                                    {ev.event_type}
-                                </span>
+                                <div className="min-w-0 flex-1 truncate">
+                                    {ev.title}
+                                    <span className="text-muted-foreground ml-2 text-[10px]">
+                                        {ev.event_type}
+                                    </span>
+                                </div>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="text-muted-foreground hover:bg-destructive hover:text-destructive-foreground hover:dark:bg-destructive/50 ml-1 h-5 w-5 shrink-0"
+                                    onClick={() => deleteEvent.mutate(ev.id)}
+                                    title="Delete event"
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
                             </div>
                         ))}
                         {isLoading && (
@@ -127,6 +146,10 @@ export function TimelineBar({ year }: { year: number }) {
                                             <div
                                                 title={`${ev.title} (${ev.event_type}) • ${ev.start_date} → ${ev.end_date}`}
                                                 className={`mt-2 h-6 rounded-xl border align-middle ${color} cursor-pointer truncate border-2 border-white/5 px-1 text-white hover:border-white/50`}
+                                                onClick={() => {
+                                                    setEditingEvent(ev);
+                                                    setOpen(true);
+                                                }}
                                             >
                                                 {ev.title}
                                             </div>
@@ -148,7 +171,7 @@ export function TimelineBar({ year }: { year: number }) {
                     </div>
                 </div>
             </div>
-            <EventCreateDialog open={open} onOpenChange={setOpen} />
+            <EventCreateDialog open={open} onOpenChange={setOpen} event={editingEvent} />
         </>
     );
 }

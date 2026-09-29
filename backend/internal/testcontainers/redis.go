@@ -63,7 +63,7 @@ func SetupRedis(t *testing.T) *RedisContainer {
 	// Cleanup on test completion
 	t.Cleanup(func() {
 		if rc.Client != nil {
-			rc.Client.Close()
+			_ = rc.Client.Close()
 		}
 	})
 
@@ -81,7 +81,7 @@ func (rc *RedisContainer) Terminate(t *testing.T) {
 	defer cancel()
 
 	if rc.Client != nil {
-		rc.Client.Close()
+		_ = rc.Client.Close()
 	}
 	if rc.Container != nil {
 		if err := rc.Container.Terminate(ctx); err != nil {

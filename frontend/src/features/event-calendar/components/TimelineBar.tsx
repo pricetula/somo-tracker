@@ -46,19 +46,19 @@ export function TimelineBar({ year }: { year: number }) {
     const getColor = (type: string) => typeColor[type?.toUpperCase()] || "bg-gray-500";
 
     const dayWidth = 24;
-    const headerHeight = 28;
-    const rowHeight = 32;
+    const headerHeight = 40;
+    const rowHeight = 40;
 
     return (
         <>
             <div className="w-full overflow-hidden rounded-lg border">
                 <div className="flex">
                     <div className="bg-muted/30 w-60 shrink-0 border-r">
-                        <div className="text-muted-foreground flex h-7 items-center justify-between border-b px-2 text-xs font-medium">
+                        <div className="text-muted-foreground flex h-10 items-center justify-between border-b px-2 text-xs font-medium">
                             Events
                             <Button
                                 size="sm"
-                                variant="default"
+                                variant="outline"
                                 onClick={() => setOpen(true)}
                                 className="h-6 text-[10px]"
                             >
@@ -68,7 +68,7 @@ export function TimelineBar({ year }: { year: number }) {
                         {rows.map((ev) => (
                             <div
                                 key={ev.id}
-                                className="flex h-8 items-center truncate border-b px-2 text-sm"
+                                className="flex h-10 items-center truncate border-b px-2 text-sm"
                             >
                                 {ev.title}
                                 <span className="text-muted-foreground ml-2 text-[10px]">
@@ -99,7 +99,7 @@ export function TimelineBar({ year }: { year: number }) {
                                     return (
                                         <div
                                             key={i}
-                                            className="bg-muted/30 flex items-center border-r border-b px-1 text-[10px] font-medium"
+                                            className="bg-muted/30 flex h-10 items-center border-r border-b px-1 text-[10px] font-medium"
                                             style={{ width: monthWidth }}
                                         >
                                             {format(monthStart, "MMM")}
@@ -126,9 +126,9 @@ export function TimelineBar({ year }: { year: number }) {
                                         >
                                             <div
                                                 title={`${ev.title} (${ev.event_type}) • ${ev.start_date} → ${ev.end_date}`}
-                                                className={`mt-2 rounded-lg border ${color} cursor-pointer truncate border-2 border-white/5 px-1 text-[10px] text-white hover:border-white/50`}
+                                                className={`mt-2 h-6 rounded-xl border align-middle ${color} cursor-pointer truncate border-2 border-white/5 px-1 text-white hover:border-white/50`}
                                             >
-                                                {color}-{ev.title}
+                                                {ev.title}
                                             </div>
                                         </div>
                                     );

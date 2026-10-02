@@ -23,7 +23,7 @@ export interface paths {
                 };
                 body: {
                     /** User IDs to delete */
-                    body: definitions["api.deleteAdminsRequest"];
+                    body: definitions["internal_api.deleteAdminsRequest"];
                 };
             };
             responses: {
@@ -59,7 +59,7 @@ export interface paths {
                 };
                 body: {
                     /** User IDs to delete */
-                    body: definitions["api.deleteAdminsRequest"];
+                    body: definitions["internal_api.deleteAdminsRequest"];
                 };
             };
             responses: {
@@ -78,8 +78,151 @@ export interface paths {
             };
         };
     };
+    "/api/admins/invitations": {
+        post: {
+            parameters: {
+                body: {
+                    /** Bulk invitation payload */
+                    body: definitions["internal_api.BulkInvitationRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+                /** Accepted */
+                202: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+            };
+        };
+    };
+    "/api/admins/invitations/jobs/{job_id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationJob"];
+                };
+            };
+        };
+    };
+    "/api/admins/invitations/jobs/{job_id}/events": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/admins/invitations/jobs/{job_id}/retry-failed": {
+        post: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationRetryResponse"];
+                };
+            };
+        };
+    };
+    "/api/attendance": {
+        post: {
+            parameters: {
+                body: {
+                    /** Attendance payload */
+                    body: definitions["internal_api.createAttendanceRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/attendance/sessions": {
+        get: {
+            parameters: {
+                query: {
+                    /** Page number */
+                    page?: number;
+                    /** Page size */
+                    limit?: number;
+                    /** Search class/teacher/subject */
+                    search?: string;
+                    /** Filter: SUBMITTED, IN_PROGRESS, MISSED */
+                    status?: string;
+                    /** YYYY-MM-DD */
+                    date_from?: string;
+                    /** YYYY-MM-DD */
+                    date_to?: string;
+                    /** Comma-separated grade labels */
+                    grades?: string;
+                    /** Comma-separated stream names */
+                    streams?: string;
+                    /** Comma-separated subject names */
+                    subjects?: string;
+                    /** Comma-separated teacher names */
+                    teachers?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
     "/api/auth/callback": {
-        get: operations["_api_auth_callback"];
+        get: {
+            parameters: {
+                query: {
+                    /** Magic-link token */
+                    token: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.CallbackResponse"];
+                };
+            };
+        };
     };
     "/api/auth/invite/callback": {
         get: {
@@ -96,10 +239,174 @@ export interface paths {
         };
     };
     "/api/auth/logout": {
-        post: operations["_api_auth_logout"];
+        post: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.LogoutResponse"];
+                };
+            };
+        };
     };
     "/api/auth/magic-link/send": {
-        post: operations["_api_auth_magic-link_send"];
+        post: {
+            parameters: {
+                formData: {
+                    /** User email */
+                    email?: string;
+                };
+                body: {
+                    /** Magic link request */
+                    body: definitions["internal_api.MagicLinkRequest"];
+                };
+                query: {
+                    /** Organization ID or slug */
+                    org_id?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.MagicLinkResponse"];
+                };
+            };
+        };
+    };
+    "/api/finance/invitations": {
+        post: {
+            parameters: {
+                body: {
+                    /** Bulk invitation payload */
+                    body: definitions["internal_api.BulkInvitationRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+                /** Accepted */
+                202: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+            };
+        };
+    };
+    "/api/finance/invitations/jobs/{job_id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationJob"];
+                };
+            };
+        };
+    };
+    "/api/finance/invitations/jobs/{job_id}/events": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/finance/invitations/jobs/{job_id}/retry-failed": {
+        post: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationRetryResponse"];
+                };
+            };
+        };
+    };
+    "/api/guardians/invitations": {
+        post: {
+            parameters: {
+                body: {
+                    /** Bulk invitation payload */
+                    body: definitions["internal_api.BulkInvitationRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+                /** Accepted */
+                202: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+            };
+        };
+    };
+    "/api/guardians/invitations/jobs/{job_id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationJob"];
+                };
+            };
+        };
+    };
+    "/api/guardians/invitations/jobs/{job_id}/events": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/guardians/invitations/jobs/{job_id}/retry-failed": {
+        post: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationRetryResponse"];
+                };
+            };
+        };
     };
     "/api/me": {
         get: {
@@ -146,13 +453,372 @@ export interface paths {
             parameters: {
                 body: {
                     /** Academic period payload */
-                    body: definitions["services.AcademicPeriodRequest"];
+                    body: definitions["somotracker_backend_internal_services.AcademicPeriodRequest"];
                 };
             };
             responses: {
                 /** Created */
                 201: {
                     schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/teachers/invitations": {
+        post: {
+            parameters: {
+                body: {
+                    /** Bulk invitation payload */
+                    body: definitions["internal_api.BulkInvitationRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+                /** Accepted */
+                202: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+            };
+        };
+    };
+    "/api/teachers/invitations/jobs/{job_id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationJob"];
+                };
+            };
+        };
+    };
+    "/api/teachers/invitations/jobs/{job_id}/events": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/teachers/invitations/jobs/{job_id}/retry-failed": {
+        post: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationRetryResponse"];
+                };
+            };
+        };
+    };
+    "/api/timetable/class-timetable-slots/{id}": {
+        delete: {
+            parameters: {
+                path: {
+                    /** Class timetable slot ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** No Content */
+                204: never;
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/timetable/substitutions": {
+        get: {
+            parameters: {
+                query: {
+                    /** Page number */
+                    page?: number;
+                    /** Page size */
+                    limit?: number;
+                    /** YYYY-MM-DD */
+                    date_from?: string;
+                    /** YYYY-MM-DD */
+                    date_to?: string;
+                    /** Filter: PENDING, ASSIGNED, COMPLETED, CANCELLED */
+                    status?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        post: {
+            parameters: {
+                body: {
+                    /** Substitution payload */
+                    body: definitions["internal_api.createSubstitutionRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        patch: {
+            parameters: {
+                body: {
+                    /** Update payload */
+                    body: definitions["internal_api.updateSubstitutionRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/timetable/substitutions/{id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Substitution ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Not Found */
+                404: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        delete: {
+            parameters: {
+                path: {
+                    /** Substitution ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** No Content */
+                204: never;
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/timetable/templates": {
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown }[];
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        post: {
+            parameters: {
+                body: {
+                    /** Template payload */
+                    body: definitions["internal_api.createTimetableTemplateRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/events": {
+        /** List upcoming school events for active school */
+        get: {
+            parameters: {
+                query: {
+                    /** Start date YYYY-MM-DD */
+                    from?: string;
+                    /** End date YYYY-MM-DD */
+                    to?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.EventItem"][];
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Create a new school event */
+        post: {
+            parameters: {
+                body: {
+                    /** Event data */
+                    body: definitions["internal_api.CreateEventRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: definitions["internal_api.EventItem"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/events/{id}": {
+        /** Delete a school event */
+        delete: {
+            parameters: {
+                path: {
+                    /** Event ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Update a school event */
+        patch: {
+            parameters: {
+                path: {
+                    /** Event ID */
+                    id: string;
+                };
+                body: {
+                    /** Event data */
+                    body: definitions["internal_api.UpdateEventRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.EventItem"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/guardians/summary": {
+        /** Get guardian count summary total and without student */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["somotracker_backend_internal_services.GuardianSummary"];
                 };
                 /** Bad Request */
                 400: {
@@ -196,7 +862,7 @@ export interface paths {
             parameters: {
                 body: {
                     /** Class payload */
-                    body: definitions["api.createClassRequest"];
+                    body: definitions["internal_api.createClassRequest"];
                 };
             };
             responses: {
@@ -278,6 +944,87 @@ export interface paths {
             };
         };
     };
+    "/school/rooms": {
+        /** List all rooms for the active school with pagination */
+        get: {
+            parameters: {
+                query: {
+                    /** Page number */
+                    page?: number;
+                    /** Page size */
+                    limit?: number;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Create a new room for the active school */
+        post: {
+            parameters: {
+                body: {
+                    /** Room details */
+                    body: definitions["internal_api.CreateRoomRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Update room details for the active school */
+        patch: {
+            parameters: {
+                body: {
+                    /** Room update */
+                    body: definitions["internal_api.UpdateRoomRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/rooms/{id}": {
+        /** Get a room by ID for the active school */
+        get: {
+            parameters: {
+                path: {
+                    /** Room ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Delete a room for the active school */
+        delete: {
+            parameters: {
+                path: {
+                    /** Room ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
     "/school/set-active": {
         /** Updates the user's active school in DB and session. */
         post: {
@@ -300,6 +1047,19 @@ export interface paths {
         };
     };
     "/school/streams": {
+        /** Lists all streams for the active school. */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
         /** Creates one or more streams for the active school. */
         post: {
             parameters: {
@@ -324,31 +1084,218 @@ export interface paths {
             };
         };
     };
-    "/api/admins/invitations": {
-        post: operations["_api_admins_invitations"];
+    "/students": {
+        /** List students with pagination and search */
+        get: {
+            parameters: {
+                query: {
+                    /** Page number default 1 */
+                    page?: number;
+                    /** Page size default 50 */
+                    limit?: number;
+                    /** Search full name or admission number */
+                    search?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["somotracker_backend_internal_services.StudentListResponse"];
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Delete students by student IDs */
+        delete: {
+            parameters: {
+                body: {
+                    /** Student IDs to delete */
+                    body: definitions["internal_api.deleteStudentsRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
     };
-    "/api/admins/invitations/jobs/{job_id}": {
-        get: operations["_api_admins_invitations_jobs_j"];
+    "/students/summary": {
+        /** Get student count summary by gender and enrollment/guardian status */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["somotracker_backend_internal_services.StudentSummary"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
     };
-    "/api/admins/invitations/jobs/{job_id}/retry-failed": {
-        post: operations["_api_admins_invitations_jobs_j"];
+    "/teachers/summary": {
+        /** Get teacher count summary total and without timetable assignment */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["somotracker_backend_internal_services.TeacherSummary"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
     };
 }
 
 export interface definitions {
-    "api.createClassRequest": {
+    "internal_api.BulkInvitationRequest": {
+        invitations?: definitions["internal_api.InvitationRow"][];
+    };
+    "internal_api.BulkInvitationResponse": {
+        job_id?: string;
+        message?: string;
+        status?: string;
+        total_records?: number;
+    };
+    "internal_api.CallbackResponse": {
+        code?: string;
+        errors?: { [key: string]: unknown };
+        message?: string;
+    };
+    "internal_api.CreateEventRequest": {
+        end_date?: string;
+        event_type?: string;
+        requires_attendance?: boolean;
+        start_date?: string;
+        title?: string;
+    };
+    "internal_api.CreateRoomRequest": {
+        capacity?: number;
+        name?: string;
+        room_type?: string;
+    };
+    "internal_api.EventItem": {
+        end_date?: string;
+        event_type?: string;
+        id?: string;
+        requires_attendance?: boolean;
+        start_date?: string;
+        title?: string;
+    };
+    "internal_api.InvitationJob": {
+        job_id?: string;
+        status?: string;
+        total_records?: number;
+    };
+    "internal_api.InvitationRetryResponse": {
+        job_id?: string;
+        message?: string;
+        status?: string;
+    };
+    "internal_api.InvitationRow": {
+        email?: string;
+        full_name?: string;
+    };
+    "internal_api.LogoutResponse": {
+        code?: string;
+        errors?: { [key: string]: unknown };
+        message?: string;
+    };
+    "internal_api.MagicLinkRequest": {
+        email?: string;
+    };
+    "internal_api.MagicLinkResponse": {
+        code?: string;
+        errors?: { [key: string]: unknown };
+        message?: string;
+    };
+    "internal_api.UpdateEventRequest": {
+        end_date?: string;
+        event_type?: string;
+        requires_attendance?: boolean;
+        start_date?: string;
+        title?: string;
+    };
+    "internal_api.UpdateRoomRequest": {
+        capacity?: number;
+        id?: string;
+        name?: string;
+        room_type?: string;
+    };
+    "internal_api.createAttendanceRequest": {
+        attendance_date?: string;
+        class_timetable_slot_id?: string;
+        records?: {
+            remarks?: string;
+            status?: string;
+            student_id?: string;
+        }[];
+    };
+    "internal_api.createClassRequest": {
         gradeId?: string;
         name?: string;
         streamId?: string;
     };
-    "api.deleteAdminsRequest": {
+    "internal_api.createSubstitutionRequest": {
+        class_timetable_slot_id?: string;
+        original_teacher_membership_id?: string;
+        reason?: string;
+        status?: string;
+        substitute_teacher_membership_id?: string;
+        substitution_date?: string;
+    };
+    "internal_api.createTimetableTemplateRequest": {
+        description?: string;
+        name?: string;
+        time_slots?: {
+            end_time?: string;
+            is_instructional?: boolean;
+            name?: string;
+            start_time?: string;
+        }[];
+    };
+    "internal_api.deleteAdminsRequest": {
         user_ids?: string[];
     };
-    "services.AcademicPeriodRequest": {
-        terms?: definitions["services.TermInput"][];
+    "internal_api.deleteStudentsRequest": {
+        student_ids?: string[];
+    };
+    "internal_api.updateSubstitutionRequest": {
+        id?: string;
+        reason?: string;
+        status?: string;
+        substitute_teacher_membership_id?: string;
+    };
+    "somotracker_backend_internal_services.AcademicPeriodRequest": {
+        terms?: definitions["somotracker_backend_internal_services.TermInput"][];
         year?: number;
     };
-    "services.AdminListItem": {
+    "somotracker_backend_internal_services.AdminListItem": {
         accepted_at?: string;
         created_at?: string;
         email?: string;
@@ -358,160 +1305,48 @@ export interface definitions {
         membership_id?: string;
         user_id?: string;
     };
-    "services.AdminListResponse": {
-        items?: definitions["services.AdminListItem"][];
+    "somotracker_backend_internal_services.AdminListResponse": {
+        items?: definitions["somotracker_backend_internal_services.AdminListItem"][];
         limit?: number;
         page?: number;
         total?: number;
     };
-    "services.TermInput": {
+    "somotracker_backend_internal_services.GuardianSummary": {
+        guardians_without_student?: number;
+        total_guardians?: number;
+    };
+    "somotracker_backend_internal_services.StudentListItem": {
+        admission_number?: string;
+        class_id?: string;
+        class_name?: string;
+        date_of_birth?: string;
+        full_name?: string;
+        gender?: string;
+        student_id?: string;
+    };
+    "somotracker_backend_internal_services.StudentListResponse": {
+        items?: definitions["somotracker_backend_internal_services.StudentListItem"][];
+        total?: number;
+    };
+    "somotracker_backend_internal_services.StudentSummary": {
+        female_count?: number;
+        male_count?: number;
+        total_students?: number;
+        unassigned_count?: number;
+        unlinked_guardians_count?: number;
+    };
+    "somotracker_backend_internal_services.TeacherSummary": {
+        teachers_without_assignment?: number;
+        total_teachers?: number;
+    };
+    "somotracker_backend_internal_services.TermInput": {
         end_date?: string;
         name?: string;
         /** @description "2026-01-15" */
         start_date?: string;
     };
-    "api.InvitationRow": {
-        email: string;
-        full_name: string;
-    };
-    "api.BulkInvitationRequest": {
-        invitations: definitions["api.InvitationRow"][];
-    };
-    "api.BulkInvitationResponse": {
-        job_id?: string;
-        status?: string;
-        total_records?: number;
-        message?: string;
-    };
-    "api.InvitationJob": {
-        job_id?: string;
-        status?: string;
-        total_records?: number;
-    };
-    "api.InvitationRetryResponse": {
-        job_id?: string;
-        status?: string;
-        message?: string;
-    };
-    "api.MagicLinkRequest": {
-        email: string;
-        org_id?: string;
-    };
-    "api.MagicLinkResponse": {
-        code?: string;
-        message?: string;
-        errors?: { [key: string]: unknown };
-    };
-    "api.CallbackResponse": {
-        code?: string;
-        message?: string;
-        errors?: { [key: string]: unknown };
-    };
-    "api.LogoutResponse": {
-        code?: string;
-        message?: string;
-        errors?: { [key: string]: unknown };
-    };
 }
 
-export interface operations {
-    _api_auth_callback: {
-        parameters: {
-            query: {
-                token: string;
-            };
-        };
-        responses: {
-            /** OK */
-            200: {
-                schema: definitions["api.CallbackResponse"];
-            };
-        };
-    };
-    _api_auth_logout: {
-        parameters: {};
-        responses: {
-            /** OK */
-            200: {
-                schema: definitions["api.LogoutResponse"];
-            };
-        };
-    };
-    "_api_auth_magic-link_send": {
-        parameters: {
-            formData: {
-                email?: string;
-            };
-            body: {
-                body?: definitions["api.MagicLinkRequest"];
-            };
-        };
-        responses: {
-            /** OK */
-            200: {
-                schema: definitions["api.MagicLinkResponse"];
-            };
-        };
-    };
-    _api_admins_invitations: {
-        parameters: {
-            body: {
-                body: definitions["api.BulkInvitationRequest"];
-            };
-        };
-        responses: {
-            /** OK */
-            200: {
-                schema: definitions["api.BulkInvitationResponse"];
-            };
-            /** Accepted */
-            202: {
-                schema: definitions["api.BulkInvitationResponse"];
-            };
-        };
-    };
-    _api_admins_invitations_jobs_j: {
-        parameters: {
-            path: {
-                job_id: string;
-            };
-        };
-        responses: {
-            /** OK */
-            200: {
-                schema: definitions["api.InvitationRetryResponse"];
-            };
-        };
-    };
-}
+export interface operations {}
 
 export interface external {}
-
-// Named type re-exports for frontend compatibility
-export type InvitationRow = definitions["api.InvitationRow"];
-export type BulkInvitationRequest = definitions["api.BulkInvitationRequest"];
-export type BulkInvitationResponse = definitions["api.BulkInvitationResponse"];
-export type InvitationJob = definitions["api.InvitationJob"];
-export type InvitationRetryResponse = definitions["api.InvitationRetryResponse"];
-export type MagicLinkRequest = definitions["api.MagicLinkRequest"];
-export type MagicLinkResponse = definitions["api.MagicLinkResponse"];
-export type CallbackResponse = definitions["api.CallbackResponse"];
-export type LogoutResponse = definitions["api.LogoutResponse"];
-
-export interface CreateSchoolPayload {
-    name: string;
-    domain?: string;
-}
-export interface CreateSchoolResponse {
-    id: string;
-    name: string;
-    domain?: string;
-}
-export interface ListSchoolsResponse {
-    items: Array<{ id: string; name: string; domain?: string }>;
-    total?: number;
-}
-
-export interface BulkInvitationResponseExtended extends BulkInvitationResponse {
-    count?: number;
-}

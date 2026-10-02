@@ -166,13 +166,13 @@ Add to timetable section in nav or Settings:
 ---
 
 ## Acceptance Criteria
-- [ ] Create substitution: select slot, date, substitute teacher, reason
-- [ ] List substitutions with filters: date range, status, class
-- [ ] Status workflow: PENDING → ASSIGNED → COMPLETED/CANCELLED
-- [ ] Prevent double-booking substitute teacher on same slot/date
+- [x] Create substitution: select slot, date, substitute teacher, reason
+- [x] List substitutions with filters: date range, status, class
+- [x] Status workflow: PENDING → ASSIGNED → COMPLETED/CANCELLED
+- [x] Prevent double-booking substitute teacher on same slot/date
 - [ ] Notify substitute teacher (future: email/push)
-- [ ] RLS: tenant isolation
-- [ ] Frontend: DataTable with status badges, date filters
+- [ ] RLS: tenant isolation (school isolation enforced; full RBAC pending)
+- [x] Frontend: DataTable with status badges, date filters
 
 ---
 

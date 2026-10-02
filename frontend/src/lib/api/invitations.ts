@@ -10,19 +10,43 @@
  */
 
 import { api } from "./client";
-import type {
-    BulkInvitationRequest,
-    BulkInvitationResponse,
-    InvitationJob,
-    InvitationRetryResponse,
-    InvitationRow,
-} from "./generated";
 
 // ─── Types ────────────────────────────────────────────────────────────────
+
+export interface InvitationRow {
+    email: string;
+    full_name: string;
+}
 
 export interface CreateInvitationsPayload {
     invitations: InvitationRow[];
     idempotencyKey?: string;
+}
+
+export interface BulkInvitationRequest {
+    invitations: InvitationRow[];
+}
+
+export interface BulkInvitationResponse {
+    job_id: string;
+    message: string;
+    status: string;
+    total_records: number;
+}
+
+export interface InvitationJob {
+    id: string;
+    status: string;
+    message: string;
+    total_records: number;
+    completed_records: number;
+    failed_records: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface InvitationRetryResponse {
+    message: string;
 }
 
 // ─── Bulk invite ──────────────────────────────────────────────────────────

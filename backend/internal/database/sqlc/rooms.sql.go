@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countRoomsBySchool = `-- name: CountRoomsBySchool :one
+SELECT COUNT(*) FROM rooms WHERE school_id = $1
+`
+
+func (q *Queries) CountRoomsBySchool(ctx context.Context, schoolID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countRoomsBySchool, schoolID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createRoom = `-- name: CreateRoom :one
 INSERT INTO rooms (school_id, name, capacity, room_type)
 VALUES ($1, $2, $3, $4)
@@ -58,15 +69,48 @@ func (q *Queries) DeleteRoom(ctx context.Context, arg DeleteRoomParams) error {
 	return err
 }
 
+const getRoom = `-- name: GetRoom :one
+SELECT id, school_id, name, capacity, room_type, created_at, updated_at
+FROM rooms
+WHERE id = $1 AND school_id = $2
+`
+
+type GetRoomParams struct {
+	ID       pgtype.UUID `json:"id"`
+	SchoolID pgtype.UUID `json:"school_id"`
+}
+
+func (q *Queries) GetRoom(ctx context.Context, arg GetRoomParams) (Room, error) {
+	row := q.db.QueryRow(ctx, getRoom, arg.ID, arg.SchoolID)
+	var i Room
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.Capacity,
+		&i.RoomType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listRoomsBySchool = `-- name: ListRoomsBySchool :many
 SELECT id, school_id, name, capacity, room_type, created_at, updated_at
 FROM rooms
 WHERE school_id = $1
 ORDER BY name ASC
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) ListRoomsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Room, error) {
-	rows, err := q.db.Query(ctx, listRoomsBySchool, schoolID)
+type ListRoomsBySchoolParams struct {
+	SchoolID pgtype.UUID `json:"school_id"`
+	Limit    int32       `json:"limit"`
+	Offset   int32       `json:"offset"`
+}
+
+func (q *Queries) ListRoomsBySchool(ctx context.Context, arg ListRoomsBySchoolParams) ([]Room, error) {
+	rows, err := q.db.Query(ctx, listRoomsBySchool, arg.SchoolID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,11 @@ import React from "react";
 import { ImportOrchestrator } from "@/features/import";
 import { useBulkInviteUsers } from "../hooks/use-invitations";
 import type { MappedRow } from "@/features/import/components/upload/field-mapper";
-import type { InvitationRow } from "@/lib/api/generated";
+
+interface InvitationRow {
+    email: string;
+    full_name: string;
+}
 
 const ADMIN_INVITE_FIELDS = [
     {

@@ -15,8 +15,17 @@ RETURNING id, school_id, name, capacity, room_type, created_at, updated_at;
 -- name: DeleteRoom :exec
 DELETE FROM rooms WHERE id = $1 AND school_id = $2;
 
+-- name: GetRoom :one
+SELECT id, school_id, name, capacity, room_type, created_at, updated_at
+FROM rooms
+WHERE id = $1 AND school_id = $2;
+
 -- name: ListRoomsBySchool :many
 SELECT id, school_id, name, capacity, room_type, created_at, updated_at
 FROM rooms
 WHERE school_id = $1
-ORDER BY name ASC;
+ORDER BY name ASC
+LIMIT $2 OFFSET $3;
+
+-- name: CountRoomsBySchool :one
+SELECT COUNT(*) FROM rooms WHERE school_id = $1;

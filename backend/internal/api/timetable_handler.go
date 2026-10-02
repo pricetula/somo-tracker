@@ -33,7 +33,7 @@ type createTimetableTemplateRequest struct {
 // @Summary List timetable templates
 // @Tags Timetable
 // @Produce json
-// @Success 200 {array} sqlc.TimetableTemplate
+// @Success 200 {array} object
 // @Failure 401 {object} map[string]interface{}
 // @Router /api/timetable/templates [get]
 func (h *TimetableHandler) ListTemplates(c fiber.Ctx) error {

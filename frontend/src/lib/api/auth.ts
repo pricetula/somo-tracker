@@ -1,10 +1,4 @@
 import { api } from "./client";
-import type {
-    MagicLinkRequest,
-    MagicLinkResponse,
-    CallbackResponse,
-    LogoutResponse,
-} from "./generated";
 
 export interface MeResult {
     user_name: string;
@@ -15,12 +9,28 @@ export interface MeResult {
     tenant_id: string;
 }
 
-export type {
-    MagicLinkRequest,
-    MagicLinkResponse,
-    CallbackResponse,
-    LogoutResponse,
-} from "./generated";
+export interface MagicLinkRequest {
+    email: string;
+    org_id?: string;
+}
+
+export interface MagicLinkResponse {
+    code?: string;
+    message?: string;
+    errors?: Record<string, string[]>;
+}
+
+export interface CallbackResponse {
+    code?: string;
+    message?: string;
+    errors?: Record<string, string[]>;
+}
+
+export interface LogoutResponse {
+    code?: string;
+    message?: string;
+    errors?: Record<string, string[]>;
+}
 
 export async function sendMagicLink(email: string, orgId?: string): Promise<MagicLinkResponse> {
     const body: MagicLinkRequest = { email };

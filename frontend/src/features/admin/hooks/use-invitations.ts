@@ -6,14 +6,35 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createInvitations, getInvitationJob, retryFailedInvitations } from "@/lib/api/invitations";
-import type {
-    BulkInvitationResponse,
-    InvitationJob,
-    InvitationRetryResponse,
-    InvitationRow,
-} from "@/lib/api/generated";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
+
+interface InvitationRow {
+    email: string;
+    full_name: string;
+}
+
+interface BulkInvitationResponse {
+    job_id: string;
+    message: string;
+    status: string;
+    total_records: number;
+}
+
+interface InvitationJob {
+    id: string;
+    status: string;
+    message: string;
+    total_records: number;
+    completed_records: number;
+    failed_records: number;
+    created_at: string;
+    updated_at: string;
+}
+
+interface InvitationRetryResponse {
+    message: string;
+}
 
 export const invitationKeys = {
     bulk: ["admin", "invitation", "bulk"] as const,

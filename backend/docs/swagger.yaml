@@ -1,6 +1,163 @@
 basePath: /api
 definitions:
-  api.createClassRequest:
+  internal_api.BulkInvitationRequest:
+    properties:
+      invitations:
+        items:
+          $ref: '#/definitions/internal_api.InvitationRow'
+        type: array
+    type: object
+  internal_api.BulkInvitationResponse:
+    properties:
+      job_id:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+      total_records:
+        type: integer
+    type: object
+  internal_api.CallbackResponse:
+    properties:
+      code:
+        type: string
+      errors:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+    type: object
+  internal_api.CreateEventRequest:
+    properties:
+      end_date:
+        type: string
+      event_type:
+        type: string
+      requires_attendance:
+        type: boolean
+      start_date:
+        type: string
+      title:
+        type: string
+    type: object
+  internal_api.CreateRoomRequest:
+    properties:
+      capacity:
+        type: integer
+      name:
+        type: string
+      room_type:
+        type: string
+    type: object
+  internal_api.EventItem:
+    properties:
+      end_date:
+        type: string
+      event_type:
+        type: string
+      id:
+        type: string
+      requires_attendance:
+        type: boolean
+      start_date:
+        type: string
+      title:
+        type: string
+    type: object
+  internal_api.InvitationJob:
+    properties:
+      job_id:
+        type: string
+      status:
+        type: string
+      total_records:
+        type: integer
+    type: object
+  internal_api.InvitationRetryResponse:
+    properties:
+      job_id:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  internal_api.InvitationRow:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+    type: object
+  internal_api.LogoutResponse:
+    properties:
+      code:
+        type: string
+      errors:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+    type: object
+  internal_api.MagicLinkRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  internal_api.MagicLinkResponse:
+    properties:
+      code:
+        type: string
+      errors:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+    type: object
+  internal_api.UpdateEventRequest:
+    properties:
+      end_date:
+        type: string
+      event_type:
+        type: string
+      requires_attendance:
+        type: boolean
+      start_date:
+        type: string
+      title:
+        type: string
+    type: object
+  internal_api.UpdateRoomRequest:
+    properties:
+      capacity:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      room_type:
+        type: string
+    type: object
+  internal_api.createAttendanceRequest:
+    properties:
+      attendance_date:
+        type: string
+      class_timetable_slot_id:
+        type: string
+      records:
+        items:
+          properties:
+            remarks:
+              type: string
+            status:
+              type: string
+            student_id:
+              type: string
+          type: object
+        type: array
+    type: object
+  internal_api.createClassRequest:
     properties:
       gradeId:
         type: string
@@ -9,23 +166,76 @@ definitions:
       streamId:
         type: string
     type: object
-  api.deleteAdminsRequest:
+  internal_api.createSubstitutionRequest:
+    properties:
+      class_timetable_slot_id:
+        type: string
+      original_teacher_membership_id:
+        type: string
+      reason:
+        type: string
+      status:
+        type: string
+      substitute_teacher_membership_id:
+        type: string
+      substitution_date:
+        type: string
+    type: object
+  internal_api.createTimetableTemplateRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      time_slots:
+        items:
+          properties:
+            end_time:
+              type: string
+            is_instructional:
+              type: boolean
+            name:
+              type: string
+            start_time:
+              type: string
+          type: object
+        type: array
+    type: object
+  internal_api.deleteAdminsRequest:
     properties:
       user_ids:
         items:
           type: string
         type: array
     type: object
-  services.AcademicPeriodRequest:
+  internal_api.deleteStudentsRequest:
+    properties:
+      student_ids:
+        items:
+          type: string
+        type: array
+    type: object
+  internal_api.updateSubstitutionRequest:
+    properties:
+      id:
+        type: string
+      reason:
+        type: string
+      status:
+        type: string
+      substitute_teacher_membership_id:
+        type: string
+    type: object
+  somotracker_backend_internal_services.AcademicPeriodRequest:
     properties:
       terms:
         items:
-          $ref: '#/definitions/services.TermInput'
+          $ref: '#/definitions/somotracker_backend_internal_services.TermInput'
         type: array
       year:
         type: integer
     type: object
-  services.AdminListItem:
+  somotracker_backend_internal_services.AdminListItem:
     properties:
       accepted_at:
         type: string
@@ -44,11 +254,11 @@ definitions:
       user_id:
         type: string
     type: object
-  services.AdminListResponse:
+  somotracker_backend_internal_services.AdminListResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/services.AdminListItem'
+          $ref: '#/definitions/somotracker_backend_internal_services.AdminListItem'
         type: array
       limit:
         type: integer
@@ -57,7 +267,60 @@ definitions:
       total:
         type: integer
     type: object
-  services.TermInput:
+  somotracker_backend_internal_services.GuardianSummary:
+    properties:
+      guardians_without_student:
+        type: integer
+      total_guardians:
+        type: integer
+    type: object
+  somotracker_backend_internal_services.StudentListItem:
+    properties:
+      admission_number:
+        type: string
+      class_id:
+        type: string
+      class_name:
+        type: string
+      date_of_birth:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      student_id:
+        type: string
+    type: object
+  somotracker_backend_internal_services.StudentListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/somotracker_backend_internal_services.StudentListItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  somotracker_backend_internal_services.StudentSummary:
+    properties:
+      female_count:
+        type: integer
+      male_count:
+        type: integer
+      total_students:
+        type: integer
+      unassigned_count:
+        type: integer
+      unlinked_guardians_count:
+        type: integer
+    type: object
+  somotracker_backend_internal_services.TeacherSummary:
+    properties:
+      teachers_without_assignment:
+        type: integer
+      total_teachers:
+        type: integer
+    type: object
+  somotracker_backend_internal_services.TermInput:
     properties:
       end_date:
         type: string
@@ -65,51 +328,6 @@ definitions:
         type: string
       start_date:
         description: '"2026-01-15"'
-        type: string
-    type: object
-  events.EventItem:
-    properties:
-      id:
-        type: string
-      title:
-        type: string
-      event_type:
-        type: string
-      start_date:
-        type: string
-      end_date:
-        type: string
-      requires_attendance:
-        type: boolean
-    type: object
-  events.CreateEventRequest:
-    properties:
-      title:
-        type: string
-      event_type:
-        type: string
-      start_date:
-        type: string
-      end_date:
-        type: string
-      requires_attendance:
-        type: boolean
-    type: object
-  events.PublicHoliday:
-    properties:
-      id:
-        type: string
-      country_id:
-        type: string
-      name:
-        type: string
-      month:
-        type: integer
-      day:
-        type: integer
-      created_at:
-        type: string
-      updated_at:
         type: string
     type: object
 host: localhost:8080
@@ -152,7 +370,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/api.deleteAdminsRequest'
+          $ref: '#/definitions/internal_api.deleteAdminsRequest'
       produces:
       - application/json
       - application/json
@@ -207,7 +425,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/api.deleteAdminsRequest'
+          $ref: '#/definitions/internal_api.deleteAdminsRequest'
       produces:
       - application/json
       - application/json
@@ -234,6 +452,177 @@ paths:
       tags:
       - Admins
       - Admins
+  /api/admins/invitations:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bulk invitation payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.BulkInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.BulkInvitationResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/internal_api.BulkInvitationResponse'
+      summary: Bulk invite admins
+      tags:
+      - Admin Invitations
+  /api/admins/invitations/jobs/{job_id}:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.InvitationJob'
+      summary: Get invitation job status
+      tags:
+      - Admin Invitations
+  /api/admins/invitations/jobs/{job_id}/events:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get invitation job events
+      tags:
+      - Admin Invitations
+  /api/admins/invitations/jobs/{job_id}/retry-failed:
+    post:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.InvitationRetryResponse'
+      summary: Retry failed invitation jobs
+      tags:
+      - Admin Invitations
+  /api/attendance:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Attendance payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.createAttendanceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Record attendance for a timetable slot
+      tags:
+      - Attendance
+  /api/attendance/sessions:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Search class/teacher/subject
+        in: query
+        name: search
+        type: string
+      - description: 'Filter: SUBMITTED, IN_PROGRESS, MISSED'
+        in: query
+        name: status
+        type: string
+      - description: YYYY-MM-DD
+        in: query
+        name: date_from
+        type: string
+      - description: YYYY-MM-DD
+        in: query
+        name: date_to
+        type: string
+      - description: Comma-separated grade labels
+        in: query
+        name: grades
+        type: string
+      - description: Comma-separated stream names
+        in: query
+        name: streams
+        type: string
+      - description: Comma-separated subject names
+        in: query
+        name: subjects
+        type: string
+      - description: Comma-separated teacher names
+        in: query
+        name: teachers
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List attendance sessions for admin dashboard
+      tags:
+      - Attendance
   /api/auth/callback:
     get:
       consumes:
@@ -250,8 +639,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_api.CallbackResponse'
       summary: Authenticate magic-link token
       tags:
       - Auth
@@ -283,8 +671,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_api.LogoutResponse'
       summary: Logout and revoke session
       tags:
       - Auth
@@ -296,11 +683,82 @@ paths:
       - description: User email
         in: formData
         name: email
-        required: true
         type: string
+      - description: JSON body
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/internal_api.MagicLinkRequest'
       - description: Organization ID or slug
         in: query
         name: org_id
+        type: string
+      - description: Magic link request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.MagicLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.MagicLinkResponse'
+      summary: Send magic-link email
+      tags:
+      - Auth
+  /api/finance/invitations:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bulk invitation payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.BulkInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.BulkInvitationResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/internal_api.BulkInvitationResponse'
+      summary: Bulk invite finance
+      tags:
+      - Finance Invitations
+  /api/finance/invitations/jobs/{job_id}:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.InvitationJob'
+      summary: Get invitation job status
+      tags:
+      - Finance Invitations
+  /api/finance/invitations/jobs/{job_id}/events:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
         type: string
       produces:
       - application/json
@@ -310,9 +768,107 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Send magic-link email
+      summary: Get invitation job events
       tags:
-      - Auth
+      - Finance Invitations
+  /api/finance/invitations/jobs/{job_id}/retry-failed:
+    post:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.InvitationRetryResponse'
+      summary: Retry failed invitation jobs
+      tags:
+      - Finance Invitations
+  /api/guardians/invitations:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bulk invitation payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.BulkInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.BulkInvitationResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/internal_api.BulkInvitationResponse'
+      summary: Bulk invite guardians
+      tags:
+      - Guardian Invitations
+  /api/guardians/invitations/jobs/{job_id}:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.InvitationJob'
+      summary: Get invitation job status
+      tags:
+      - Guardian Invitations
+  /api/guardians/invitations/jobs/{job_id}/events:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get invitation job events
+      tags:
+      - Guardian Invitations
+  /api/guardians/invitations/jobs/{job_id}/retry-failed:
+    post:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.InvitationRetryResponse'
+      summary: Retry failed invitation jobs
+      tags:
+      - Guardian Invitations
   /api/me:
     get:
       consumes:
@@ -375,7 +931,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/services.AcademicPeriodRequest'
+          $ref: '#/definitions/somotracker_backend_internal_services.AcademicPeriodRequest'
       produces:
       - application/json
       responses:
@@ -394,6 +950,476 @@ paths:
       summary: Create academic period
       tags:
       - Academic Periods
+  /api/teachers/invitations:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bulk invitation payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.BulkInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.BulkInvitationResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/internal_api.BulkInvitationResponse'
+      summary: Bulk invite teachers
+      tags:
+      - Teacher Invitations
+  /api/teachers/invitations/jobs/{job_id}:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.InvitationJob'
+      summary: Get invitation job status
+      tags:
+      - Teacher Invitations
+  /api/teachers/invitations/jobs/{job_id}/events:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get invitation job events
+      tags:
+      - Teacher Invitations
+  /api/teachers/invitations/jobs/{job_id}/retry-failed:
+    post:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.InvitationRetryResponse'
+      summary: Retry failed invitation jobs
+      tags:
+      - Teacher Invitations
+  /api/timetable/class-timetable-slots/{id}:
+    delete:
+      parameters:
+      - description: Class timetable slot ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete a class timetable slot
+      tags:
+      - Timetable
+  /api/timetable/substitutions:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: YYYY-MM-DD
+        in: query
+        name: date_from
+        type: string
+      - description: YYYY-MM-DD
+        in: query
+        name: date_to
+        type: string
+      - description: 'Filter: PENDING, ASSIGNED, COMPLETED, CANCELLED'
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List timetable substitutions
+      tags:
+      - Timetable
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.updateSubstitutionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update timetable substitution
+      tags:
+      - Timetable
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Substitution payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.createSubstitutionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create timetable substitution
+      tags:
+      - Timetable
+  /api/timetable/substitutions/{id}:
+    delete:
+      parameters:
+      - description: Substitution ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete timetable substitution
+      tags:
+      - Timetable
+    get:
+      parameters:
+      - description: Substitution ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get timetable substitution
+      tags:
+      - Timetable
+  /api/timetable/templates:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List timetable templates
+      tags:
+      - Timetable
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Template payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.createTimetableTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create timetable template
+      tags:
+      - Timetable
+  /events:
+    get:
+      description: List upcoming school events for active school
+      parameters:
+      - description: Start date YYYY-MM-DD
+        in: query
+        name: from
+        type: string
+      - description: End date YYYY-MM-DD
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_api.EventItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List events
+      tags:
+      - Events
+    post:
+      consumes:
+      - application/json
+      description: Create a new school event
+      parameters:
+      - description: Event data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.CreateEventRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_api.EventItem'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create event
+      tags:
+      - Events
+  /events/{id}:
+    delete:
+      description: Delete a school event
+      parameters:
+      - description: Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete event
+      tags:
+      - Events
+    patch:
+      consumes:
+      - application/json
+      description: Update a school event
+      parameters:
+      - description: Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Event data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.UpdateEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.EventItem'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update event
+      tags:
+      - Events
+  /guardians/summary:
+    get:
+      description: Get guardian count summary total and without student
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/somotracker_backend_internal_services.GuardianSummary'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Guardian summary
+      tags:
+      - Guardians
   /school/classes:
     get:
       parameters:
@@ -444,7 +1470,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/api.createClassRequest'
+          $ref: '#/definitions/internal_api.createClassRequest'
       produces:
       - application/json
       responses:
@@ -544,6 +1570,107 @@ paths:
       summary: Register a new school
       tags:
       - Schools
+  /school/rooms:
+    get:
+      description: List all rooms for the active school with pagination
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: List rooms
+      tags:
+      - Rooms
+    patch:
+      consumes:
+      - application/json
+      description: Update room details for the active school
+      parameters:
+      - description: Room update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.UpdateRoomRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: Update room
+      tags:
+      - Rooms
+    post:
+      consumes:
+      - application/json
+      description: Create a new room for the active school
+      parameters:
+      - description: Room details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.CreateRoomRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: object
+      summary: Create room
+      tags:
+      - Rooms
+  /school/rooms/{id}:
+    delete:
+      description: Delete a room for the active school
+      parameters:
+      - description: Room ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: Delete room
+      tags:
+      - Rooms
+    get:
+      description: Get a room by ID for the active school
+      parameters:
+      - description: Room ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: Get room
+      tags:
+      - Rooms
   /school/set-active:
     post:
       consumes:
@@ -571,6 +1698,22 @@ paths:
       tags:
       - Schools
   /school/streams:
+    get:
+      description: Lists all streams for the active school.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+      summary: List streams
+      tags:
+      - Streams
     post:
       consumes:
       - application/json
@@ -602,223 +1745,121 @@ paths:
       summary: Create streams
       tags:
       - Streams
-  /subjects:
-    get:
+  /students:
+    delete:
       consumes:
       - application/json
-      description: List subjects with pagination for data table
+      description: Delete students by student IDs
       parameters:
-      - in: query
-        name: page
-        type: integer
-        description: Page number default 1
-      - in: query
-        name: limit
-        type: integer
-        description: Page size default 50
-      - in: query
-        name: search
-        type: string
-        description: Search name or code
-      - in: query
-        name: grade
-        type: string
-        description: Grade filter
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: object
-            additionalProperties: true
-        "401":
-          description: Unauthorized
-          schema:
-            type: object
-      summary: List subjects
-      tags:
-      - Subjects
-  /topics:
-    get:
-      consumes:
-      - application/json
-      description: List topics for a subject
-      parameters:
-      - in: query
-        name: subject_id
-        type: string
-        required: true
-        description: Subject ID
-      - in: query
-        name: page
-        type: integer
-        description: Page number
-      - in: query
-        name: limit
-        type: integer
-        description: Page size
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: object
-            additionalProperties: true
-        "400":
-          description: Bad Request
-          schema:
-            type: object
-      summary: List topics
-      tags:
-      - Topics
-  /sub-topics:
-    get:
-      consumes:
-      - application/json
-      description: List sub topics for a topic
-      parameters:
-      - in: query
-        name: topic_id
-        type: string
-        description: Topic ID
-      - in: query
-        name: page
-        type: integer
-        description: Page number
-      - in: query
-        name: limit
-        type: integer
-        description: Page size
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: object
-            additionalProperties: true
-      summary: List sub topics
-      tags:
-      - SubTopics
-  /subjects/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Get subject details with topics list
-      parameters:
-      - in: path
-        name: id
-        type: string
-        required: true
-        description: Subject ID
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: object
-            additionalProperties: true
-      summary: Get subject detail
-      tags:
-      - Subjects
-  /topics/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Get topic details with sub topics list
-      parameters:
-      - in: path
-        name: id
-        type: string
-        required: true
-        description: Topic ID
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: object
-            additionalProperties: true
-      summary: Get topic detail
-      tags:
-      - Topics
-  /events:
-    get:
-      description: List school events for the active school within a date range
-      parameters:
-      - in: query
-        name: from
-        type: string
-        description: Start date YYYY-MM-DD
-      - in: query
-        name: to
-        type: string
-        description: End date YYYY-MM-DD
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: array
-            items:
-              $ref: '#/definitions/events.EventItem'
-      tags:
-      - Events
-    post:
-      consumes:
-      - application/json
-      description: Create a new school event
-      parameters:
-      - in: body
+      - description: Student IDs to delete
+        in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/events.CreateEventRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/events.EventItem'
-        "400":
-          description: Bad Request
-          schema:
-            type: object
-            additionalProperties: true
-      tags:
-      - Events
-  /public-holidays:
-    get:
-      description: List public holidays for a country within a date range
-      parameters:
-      - in: query
-        name: country_id
-        type: string
-        description: Country UUID
-        required: true
-      - in: query
-        name: from
-        type: string
-        description: Start date YYYY-MM-DD
-      - in: query
-        name: to
-        type: string
-        description: End date YYYY-MM-DD
+          $ref: '#/definitions/internal_api.deleteStudentsRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            type: array
-            items:
-              $ref: '#/definitions/events.PublicHoliday'
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete students
       tags:
-      - Events
+      - Students
+    get:
+      description: List students with pagination and search
+      parameters:
+      - description: Page number default 1
+        in: query
+        name: page
+        type: integer
+      - description: Page size default 50
+        in: query
+        name: limit
+        type: integer
+      - description: Search full name or admission number
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/somotracker_backend_internal_services.StudentListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List students
+      tags:
+      - Students
+  /students/summary:
+    get:
+      description: Get student count summary by gender and enrollment/guardian status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/somotracker_backend_internal_services.StudentSummary'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Student summary
+      tags:
+      - Students
+  /teachers/summary:
+    get:
+      description: Get teacher count summary total and without timetable assignment
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/somotracker_backend_internal_services.TeacherSummary'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Teacher summary
+      tags:
+      - Teachers
 swagger: "2.0"

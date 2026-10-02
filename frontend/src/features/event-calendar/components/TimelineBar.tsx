@@ -1,7 +1,7 @@
 "use client";
 
 import { eachDayOfInterval, format, differenceInDays, startOfYear, endOfYear } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { eventApi } from "../services/event-api";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,19 @@ export function TimelineBar({ year }: { year: number }) {
         };
     });
 
+    const dayWidth = 24;
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!scrollContainerRef.current) return;
+        const today = new Date(year, new Date().getMonth(), new Date().getDate());
+        const start = startOfYear(new Date(year, 0, 1));
+        const offsetDays = Math.max(0, differenceInDays(today, start));
+        const cellOffset = Math.floor(offsetDays / cellDays);
+        const scrollTo = Math.max(0, cellOffset * dayWidth - 120);
+        scrollContainerRef.current.scrollLeft = scrollTo;
+    }, [year, days.length]);
+
     const typeColor: Record<string, string> = {
         SPORTS: "bg-blue-500",
         EXAM: "bg-red-500",
@@ -50,7 +63,6 @@ export function TimelineBar({ year }: { year: number }) {
     };
     const getColor = (type: string) => typeColor[type?.toUpperCase()] || "bg-gray-500";
 
-    const dayWidth = 24;
     const headerHeight = 40;
     const rowHeight = 40;
 
@@ -103,7 +115,7 @@ export function TimelineBar({ year }: { year: number }) {
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-x-auto">
+                    <div ref={scrollContainerRef} className="flex-1 overflow-x-auto">
                         <div
                             style={{
                                 width: Math.ceil(days.length / cellDays) * dayWidth,

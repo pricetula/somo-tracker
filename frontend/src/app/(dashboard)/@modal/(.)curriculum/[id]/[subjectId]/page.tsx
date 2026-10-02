@@ -21,8 +21,8 @@ export default function SubjectDetailSheet() {
                     <SheetTitle>Subject</SheetTitle>
                 </SheetHeader>
                 <SubjectDetail
-                    subjectId={params?.id as string}
-                    topicId={params?.subjectId as string}
+                    gradeId={params?.id as string}
+                    subjectId={params?.subjectId as string}
                 />
             </SheetContent>
         </Sheet>

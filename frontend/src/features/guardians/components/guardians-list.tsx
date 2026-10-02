@@ -102,15 +102,17 @@ export function GuardiansTable() {
                 header: "",
                 cell: (row: GuardianListItem) => (
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                                <MoreVertical className="size-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
+                        <DropdownMenuTrigger
+                            render={
+                                <Button variant="ghost" size="icon">
+                                    <MoreVertical className="size-4" />
+                                </Button>
+                            }
+                        />
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                                <Link href={`/guardians/${row.membership_id}`}>Edit</Link>
-                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                render={<Link href={`/guardians/${row.membership_id}`}>Edit</Link>}
+                            />
                             <DropdownMenuItem
                                 onSelect={() => {
                                     void handleDelete([row.user_id]);

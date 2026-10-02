@@ -23,7 +23,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useCreateEvent } from "../hooks/useCreateEvent";
 import { useUpdateEvent } from "../hooks/useUpdateEvent";
 import { useDeleteEvent } from "../hooks/useDeleteEvent";
-import { Trash2Icon } from "lucide-react";
+
 import type { Event } from "../types/event.types";
 
 export function EventCreateDialog({

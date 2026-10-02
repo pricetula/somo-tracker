@@ -22,7 +22,7 @@ export default function TopicDetailSheet() {
                 </SheetHeader>
                 <TopicDetail
                     _subjectId={params?.id as string}
-                    topicId={params?.subjectId as string}
+                    subjectId={params?.subjectId as string}
                     subTopicId={params?.topicId as string}
                 />
             </SheetContent>

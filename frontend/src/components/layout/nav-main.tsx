@@ -81,10 +81,6 @@ function buildNavItems(): NavItem[] {
             title: "Attendance",
             url: "/attendance",
             icon: <CalendarCheck className="size-4" />,
-            items: [
-                { title: "Sessions", url: "/attendance" },
-                { title: "Summaries", url: "/attendance/summaries" },
-            ],
         },
         {
             title: "Assessments",

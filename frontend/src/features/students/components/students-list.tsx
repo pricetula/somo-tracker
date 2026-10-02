@@ -115,7 +115,9 @@ export function StudentsTable() {
             isSearchable
             searchPlaceholder="Search by name or admission number…"
             filterGroups={filterGroups}
-            deleteFn={deleteStudents}
+            deleteFn={async (ids) => {
+                await deleteStudents(ids);
+            }}
             addHref="/students/add"
             pageSize={50}
             height={500}

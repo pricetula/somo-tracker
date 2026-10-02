@@ -52,7 +52,7 @@ export function StudentsImportOrchestrator() {
             full_name: String(r.data.full_name ?? ""),
             date_of_birth: String(r.data.date_of_birth ?? ""),
             gender: String(r.data.gender ?? ""),
-            metadata: r.data.metadata ? r.data.metadata : {},
+            metadata: (r.data.metadata ?? {}) as Record<string, unknown>,
         }));
         const canonical = JSON.stringify(
             students.slice().sort((a, b) => a.admission_number.localeCompare(b.admission_number))

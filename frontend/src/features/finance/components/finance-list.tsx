@@ -102,15 +102,17 @@ export function FinanceTable() {
                 header: "",
                 cell: (row: FinanceListItem) => (
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                                <MoreVertical className="size-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
+                        <DropdownMenuTrigger
+                            render={
+                                <Button variant="ghost" size="icon">
+                                    <MoreVertical className="size-4" />
+                                </Button>
+                            }
+                        />
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                                <Link href={`/finance/${row.membership_id}`}>Edit</Link>
-                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                render={<Link href={`/finance/${row.membership_id}`}>Edit</Link>}
+                            />
                             <DropdownMenuItem
                                 onSelect={() => {
                                     void handleDelete([row.user_id]);

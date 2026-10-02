@@ -102,15 +102,17 @@ export function TeachersTable() {
                 header: "",
                 cell: (row: TeacherListItem) => (
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                                <MoreVertical className="size-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
+                        <DropdownMenuTrigger
+                            render={
+                                <Button variant="ghost" size="icon">
+                                    <MoreVertical className="size-4" />
+                                </Button>
+                            }
+                        />
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                                <Link href={`/teachers/${row.membership_id}`}>Edit</Link>
-                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                render={<Link href={`/teachers/${row.membership_id}`}>Edit</Link>}
+                            />
                             <DropdownMenuItem
                                 onSelect={() => {
                                     void handleDelete([row.user_id]);

@@ -47,7 +47,7 @@ export function CurriculumTable() {
                 header: "Name",
                 cell: (row: SubjectListItem) => (
                     <Link
-                        href={`/curriculum/${row.id}`}
+                        href={`/curriculum/${row.gradeId}/${row.id}`}
                         className="underline underline-offset-4 hover:no-underline"
                     >
                         {row.name}

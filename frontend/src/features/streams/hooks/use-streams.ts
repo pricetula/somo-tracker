@@ -52,7 +52,12 @@ export function useCreateStreams() {
     const { data: me } = useMeSession();
     const queryClient = useQueryClient();
 
-    return useMutation<CreateStreamsResponse, Error, { name: string; color?: string }[]>({
+    return useMutation<
+        CreateStreamsResponse,
+        Error,
+        { name: string; color?: string }[],
+        { previousList: Stream[] | undefined }
+    >({
         mutationKey: streamsKeys.create,
         mutationFn: async (items) => {
             if (!me?.active_school_id) {
@@ -114,7 +119,8 @@ export function useUpdateStream() {
     return useMutation<
         Stream,
         Error,
-        { id: string; data: { name?: string; color?: string | null } }
+        { id: string; data: { name?: string; color?: string | null } },
+        { previousStream: Stream | undefined; previousList: Stream[] | undefined }
     >({
         mutationKey: streamsKeys.create,
         mutationFn: async ({ id, data }) => updateStream(id, data),
@@ -165,7 +171,7 @@ export function useUpdateStream() {
 
 export function useDeleteStreams() {
     const queryClient = useQueryClient();
-    return useMutation<void, Error, string[]>({
+    return useMutation<void, Error, string[], { previousList: Stream[] | undefined }>({
         mutationKey: streamsKeys.multiDelete,
         mutationFn: async (ids) => deleteStreams(ids),
         async onMutate(ids) {

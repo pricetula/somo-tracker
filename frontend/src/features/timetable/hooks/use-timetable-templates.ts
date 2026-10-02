@@ -39,7 +39,12 @@ export function useTimetableTemplates() {
 export function useCreateTimetableTemplate() {
     const queryClient = useQueryClient();
 
-    return useMutation<{ id: string }, Error, CreateTimetableTemplatePayload>({
+    return useMutation<
+        { id: string },
+        Error,
+        CreateTimetableTemplatePayload,
+        { previous: TimetableTemplate[] | undefined }
+    >({
         mutationKey: timetableTemplateKeys.create,
         mutationFn: (payload) => createTimetableTemplate(payload),
         async onMutate(payload) {
@@ -63,7 +68,7 @@ export function useCreateTimetableTemplate() {
             }
             return { previous };
         },
-        onError(err, _variables, context: { previous?: unknown }) {
+        onError(err, _variables, context) {
             if (context?.previous) {
                 queryClient.setQueryData(timetableTemplateKeys.list, context.previous);
             }

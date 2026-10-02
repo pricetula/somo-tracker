@@ -30,7 +30,7 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
     const { mutate: createStreams, isPending } = useCreateStreams();
     const [names, setNames] = React.useState<string[]>([]);
 
-    const grades = gradesData?.grades ?? [];
+    const grades = gradesData ?? [];
     const firstGrade = grades[0];
 
     const preview = useMemo(() => {

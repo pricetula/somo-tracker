@@ -11,6 +11,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countTeachers = `-- name: CountTeachers :one
+SELECT COUNT(*)
+FROM school_memberships sm
+JOIN users u ON u.id = sm.user_id
+WHERE sm.school_id = $1
+  AND sm.role = 'TEACHER'
+  AND ($2::text = '' OR u.email ILIKE '%' || $2 || '%' OR u.full_name ILIKE '%' || $2 || '%')
+  AND (
+    $3::text = '' OR
+    ($3 = 'invited' AND sm.invited_at IS NOT NULL AND sm.accepted_at IS NULL) OR
+    ($3 = 'accepted' AND sm.accepted_at IS NOT NULL)
+  )
+`
+
+type CountTeachersParams struct {
+	SchoolID pgtype.UUID `json:"school_id"`
+	Column2  string      `json:"column_2"`
+	Column3  string      `json:"column_3"`
+}
+
+func (q *Queries) CountTeachers(ctx context.Context, arg CountTeachersParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTeachers, arg.SchoolID, arg.Column2, arg.Column3)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteTeachers = `-- name: DeleteTeachers :exec
+DELETE FROM school_memberships
+WHERE school_id = $1 AND user_id = ANY($2::uuid[]) AND role = 'TEACHER'
+`
+
+type DeleteTeachersParams struct {
+	SchoolID pgtype.UUID   `json:"school_id"`
+	Column2  []pgtype.UUID `json:"column_2"`
+}
+
+func (q *Queries) DeleteTeachers(ctx context.Context, arg DeleteTeachersParams) error {
+	_, err := q.db.Exec(ctx, deleteTeachers, arg.SchoolID, arg.Column2)
+	return err
+}
+
 const getTeacherSummary = `-- name: GetTeacherSummary :one
 SELECT
   COUNT(*) AS total_teachers,
@@ -41,4 +83,74 @@ func (q *Queries) GetTeacherSummary(ctx context.Context, arg GetTeacherSummaryPa
 	var i GetTeacherSummaryRow
 	err := row.Scan(&i.TotalTeachers, &i.TeachersWithoutAssignment)
 	return i, err
+}
+
+const listTeachers = `-- name: ListTeachers :many
+SELECT sm.id, sm.user_id, u.email, u.full_name, sm.invited_at, sm.accepted_at, sm.is_active, sm.created_at
+FROM school_memberships sm
+JOIN users u ON u.id = sm.user_id
+WHERE sm.school_id = $1
+  AND sm.role = 'TEACHER'
+  AND ($2::text = '' OR u.email ILIKE '%' || $2 || '%' OR u.full_name ILIKE '%' || $2 || '%')
+  AND (
+    $3::text = '' OR
+    ($3 = 'invited' AND sm.invited_at IS NOT NULL AND sm.accepted_at IS NULL) OR
+    ($3 = 'accepted' AND sm.accepted_at IS NOT NULL)
+  )
+ORDER BY sm.created_at DESC
+LIMIT $4 OFFSET $5
+`
+
+type ListTeachersParams struct {
+	SchoolID pgtype.UUID `json:"school_id"`
+	Column2  string      `json:"column_2"`
+	Column3  string      `json:"column_3"`
+	Limit    int32       `json:"limit"`
+	Offset   int32       `json:"offset"`
+}
+
+type ListTeachersRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	Email      string             `json:"email"`
+	FullName   string             `json:"full_name"`
+	InvitedAt  pgtype.Timestamptz `json:"invited_at"`
+	AcceptedAt pgtype.Timestamptz `json:"accepted_at"`
+	IsActive   bool               `json:"is_active"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListTeachers(ctx context.Context, arg ListTeachersParams) ([]ListTeachersRow, error) {
+	rows, err := q.db.Query(ctx, listTeachers,
+		arg.SchoolID,
+		arg.Column2,
+		arg.Column3,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTeachersRow
+	for rows.Next() {
+		var i ListTeachersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Email,
+			&i.FullName,
+			&i.InvitedAt,
+			&i.AcceptedAt,
+			&i.IsActive,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

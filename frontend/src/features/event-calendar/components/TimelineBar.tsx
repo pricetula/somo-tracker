@@ -155,16 +155,16 @@ export function TimelineBar({ year }: { year: number }) {
                                                 width: Math.max(width, dayWidth),
                                             }}
                                         >
-                                            <div
+                                            <button
                                                 title={`${ev.title} (${ev.event_type}) • ${ev.start_date} → ${ev.end_date}`}
-                                                className={`mt-2 h-6 rounded-xl border align-middle ${color} cursor-pointer truncate border-2 border-white/5 px-1 text-white hover:border-white/50`}
+                                                className={`mt-2 h-6 w-full rounded-xl border text-left align-middle ${color} cursor-pointer truncate border-2 border-white/5 px-2 text-white hover:border-white/50`}
                                                 onClick={() => {
                                                     setEditingEvent(ev);
                                                     setOpen(true);
                                                 }}
                                             >
                                                 {ev.title}
-                                            </div>
+                                            </button>
                                         </div>
                                     );
                                 })}

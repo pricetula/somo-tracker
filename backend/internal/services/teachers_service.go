@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database/sqlc"
@@ -44,13 +43,12 @@ type TeachersService interface {
 }
 
 type teachersService struct {
-	pool    *pgxpool.Pool
 	queries *sqlc.Queries
 	logger  *zap.Logger
 }
 
-func NewTeachersService(pool *pgxpool.Pool, queries *sqlc.Queries, logger *zap.Logger) TeachersService {
-	return &teachersService{pool: pool, queries: queries, logger: logger.With(zap.String("service", "teachers"))}
+func NewTeachersService(queries *sqlc.Queries, logger *zap.Logger) TeachersService {
+	return &teachersService{queries: queries, logger: logger.With(zap.String("service", "teachers"))}
 }
 
 func (s *teachersService) DeleteTeachers(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error {
@@ -62,9 +60,15 @@ func (s *teachersService) DeleteTeachers(ctx context.Context, schoolID uuid.UUID
 			return fmt.Errorf("bad_request: cannot delete yourself")
 		}
 	}
-	query := `DELETE FROM school_memberships WHERE school_id = $1 AND user_id = ANY($2) AND role = 'TEACHER'`
-	_, err := s.pool.Exec(ctx, query, schoolID, userIDs)
-	if err != nil {
+	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+	userIDsPg := make([]pgtype.UUID, len(userIDs))
+	for i, id := range userIDs {
+		userIDsPg[i] = pgtype.UUID{Bytes: id, Valid: true}
+	}
+	if err := s.queries.DeleteTeachers(ctx, sqlc.DeleteTeachersParams{
+		SchoolID: schoolUUID,
+		Column2:  userIDsPg,
+	}); err != nil {
 		return fmt.Errorf("delete_teachers exec: %w", err)
 	}
 	return nil
@@ -79,85 +83,60 @@ func (s *teachersService) ListTeachers(ctx context.Context, schoolID uuid.UUID, 
 	}
 	offset := (page - 1) * limit
 
-	where := []string{
-		"sm.school_id = $1",
-		"sm.role = 'TEACHER'",
-	}
-	args := []any{schoolID}
-	argIdx := 2
-
-	if strings.TrimSpace(search) != "" {
-		where = append(where, fmt.Sprintf("(u.email ILIKE $%d OR u.full_name ILIKE $%d)", argIdx, argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
-
-	switch strings.ToLower(invitationStatus) {
-	case "invited":
-		where = append(where, "sm.invited_at IS NOT NULL AND sm.accepted_at IS NULL")
-	case "accepted":
-		where = append(where, "sm.accepted_at IS NOT NULL")
-	case "all", "":
-		// no extra filter
-	default:
+	status := strings.ToLower(strings.TrimSpace(invitationStatus))
+	if status != "" && status != "invited" && status != "accepted" && status != "all" {
 		return nil, fmt.Errorf("bad_request: invitation_status must be invited|accepted|all")
 	}
 
-	whereSQL := strings.Join(where, " AND ")
+	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+	searchParam := strings.TrimSpace(search)
 
-	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM school_memberships sm JOIN users u ON u.id = sm.user_id WHERE %s`, whereSQL)
-	var total int
-	if err := s.pool.QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
+	total, err := s.queries.CountTeachers(ctx, sqlc.CountTeachersParams{
+		SchoolID: schoolUUID,
+		Column2:  searchParam,
+		Column3:  status,
+	})
+	if err != nil {
 		return nil, fmt.Errorf("list_teachers count: %w", err)
 	}
 
-	itemsSQL := fmt.Sprintf(`
-		SELECT sm.id, sm.user_id, u.email, u.full_name, sm.invited_at, sm.accepted_at, sm.is_active, sm.created_at
-		FROM school_memberships sm
-		JOIN users u ON u.id = sm.user_id
-		WHERE %s
-		ORDER BY sm.created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereSQL, argIdx, argIdx+1)
-
-	args = append(args, limit, offset)
-
-	rows, err := s.pool.Query(ctx, itemsSQL, args...)
+	rows, err := s.queries.ListTeachers(ctx, sqlc.ListTeachersParams{
+		SchoolID: schoolUUID,
+		Column2:  searchParam,
+		Column3:  status,
+		Limit:    int32(limit),
+		Offset:   int32(offset),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list_teachers query: %w", err)
 	}
-	defer rows.Close()
 
-	items := make([]TeacherListItem, 0, limit)
-	for rows.Next() {
-		var it TeacherListItem
-		var invitedAt, acceptedAt, createdAt *time.Time
-		var isActive bool
-		if err := rows.Scan(&it.MembershipID, &it.UserID, &it.Email, &it.FullName, &invitedAt, &acceptedAt, &isActive, &createdAt); err != nil {
-			return nil, fmt.Errorf("list_teachers scan: %w", err)
+	items := make([]TeacherListItem, 0, len(rows))
+	for _, r := range rows {
+		it := TeacherListItem{
+			MembershipID: uuid.UUID(r.ID.Bytes),
+			UserID:       uuid.UUID(r.UserID.Bytes),
+			Email:        r.Email,
+			FullName:     r.FullName,
+			IsActive:     r.IsActive,
 		}
-		if invitedAt != nil {
-			s := invitedAt.UTC().Format(time.RFC3339)
+		if r.InvitedAt.Valid {
+			s := r.InvitedAt.Time.UTC().Format(time.RFC3339)
 			it.InvitedAt = &s
 		}
-		if acceptedAt != nil {
-			s := acceptedAt.UTC().Format(time.RFC3339)
+		if r.AcceptedAt.Valid {
+			s := r.AcceptedAt.Time.UTC().Format(time.RFC3339)
 			it.AcceptedAt = &s
 		}
-		it.IsActive = isActive
-		if createdAt != nil {
-			s := createdAt.UTC().Format(time.RFC3339)
-			it.CreatedAt = s
+		if r.CreatedAt.Valid {
+			it.CreatedAt = r.CreatedAt.Time.UTC().Format(time.RFC3339)
 		}
 		items = append(items, it)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list_teachers rows err: %w", err)
 	}
 
 	return &TeacherListResponse{
 		Items: items,
-		Total: total,
+		Total: int(total),
 		Page:  page,
 		Limit: limit,
 	}, nil

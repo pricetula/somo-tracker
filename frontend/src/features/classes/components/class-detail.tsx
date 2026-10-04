@@ -55,6 +55,7 @@ export function ClassDetail({ id }: ClassDetailProps) {
                 <DataTable<
                     {
                         id: string;
+                        student_id: string;
                         student_name?: string;
                         admission_number?: string;
                         status?: string;
@@ -75,7 +76,14 @@ export function ClassDetail({ id }: ClassDetailProps) {
                         {
                             id: "student_name",
                             header: "Student",
-                            cell: (row) => row.student_name ?? "—",
+                            cell: (row) => (
+                                <Link
+                                    href={`/students/${row.student_id}`}
+                                    className="underline underline-offset-4 hover:no-underline"
+                                >
+                                    {row.student_name ?? "—"}
+                                </Link>
+                            ),
                             width: "1fr",
                         },
                         {

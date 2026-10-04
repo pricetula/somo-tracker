@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCreateEnrollments } from "../hooks/use-enrollments";
 import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,14 @@ export function EnrollmentsPageContent({ classId }: { classId: string }) {
                         {
                             id: "full_name",
                             header: "Student",
-                            cell: (row) => row.full_name,
+                            cell: (row) => (
+                                <Link
+                                    href={`/students/${row.student_id}`}
+                                    className="underline underline-offset-4 hover:no-underline"
+                                >
+                                    {row.full_name}
+                                </Link>
+                            ),
                             width: "1fr",
                         },
                         {

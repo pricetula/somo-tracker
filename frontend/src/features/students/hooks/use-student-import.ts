@@ -1,6 +1,8 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { getErrorMessage } from "@/lib/errors";
+import { toast } from "sonner";
 import { api } from "@/lib/api/client";
 
 export interface StudentImportRow {
@@ -35,10 +37,21 @@ export async function createStudentImport(
     );
 }
 
+export const studentImportKeys = {
+    import: ["students", "import"] as const,
+};
+
 export function useBulkImportStudents() {
     return useMutation({
+        mutationKey: studentImportKeys.import,
         mutationFn: async ({ students, idempotencyKey }: BulkStudentImportPayload) => {
             return createStudentImport({ students, idempotencyKey });
+        },
+        onSuccess: () => {
+            toast.success("Import started");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
         },
     });
 }

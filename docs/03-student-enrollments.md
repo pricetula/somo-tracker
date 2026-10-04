@@ -18,9 +18,6 @@ INSERT INTO student_class_enrollments (
 ) VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6)
 RETURNING *;
 
--- name: GetEnrollment :one
-SELECT * FROM student_class_enrollments WHERE id = $1;
-
 -- name: ListEnrollments :many
 SELECT sce.*, 
     cr.name as class_name, cr.grade_level_id, gl.local_label as grade,
@@ -81,7 +78,6 @@ type Enrollment struct {
 
 type CreateEnrollmentRequest struct {
     StudentID      uuid.UUID `json:"student_id"`
-    ClassRoomID    uuid.UUID `json:"class_room_id"`
     AcademicYearID uuid.UUID `json:"academic_year_id"`
     AcademicTermID uuid.UUID `json:"academic_term_id"`
     EnrollmentDate string    `json:"enrollment_date"` // YYYY-MM-DD
@@ -104,8 +100,7 @@ type ListEnrollmentsParams struct {
 }
 
 type EnrollmentsService interface {
-    CreateEnrollment(ctx context.Context, schoolID uuid.UUID, req CreateEnrollmentRequest) (*Enrollment, error)
-    GetEnrollment(ctx context.Context, id uuid.UUID) (*Enrollment, error)
+    CreateEnrollments(ctx context.Context, schoolID uuid.UUID, reqs []CreateEnrollmentRequest) ([]*Enrollment, error)
     ListEnrollments(ctx context.Context, params ListEnrollmentsParams) ([]*Enrollment, int, error)
     UpdateEnrollment(ctx context.Context, id uuid.UUID, req UpdateEnrollmentRequest) (*Enrollment, error)
     DeleteEnrollment(ctx context.Context, id uuid.UUID) error
@@ -117,19 +112,15 @@ type EnrollmentsService interface {
 **File:** `backend/internal/api/enrollments_handler.go` (new)
 
 Endpoints:
-- `POST /api/classes/:id/enrollments` — enroll student in class
+- `POST /api/classes/:id/enrollments` — enroll multiple students in class (batch)
 - `GET /api/classes/:id/enrollments` — list enrollments for class
-- `GET /api/enrollments` — list all (with filters)
-- `GET /api/enrollments/:id` — get single
 - `PATCH /api/enrollments/:id` — update (move class, change status)
 - `DELETE /api/enrollments/:id` — unenroll
 
 ### 4. Router Registration
 ```go
-protected.Post("/classes/:id/enrollments", r.Enrollments.CreateEnrollment)
+protected.Post("/classes/:id/enrollments", r.Enrollments.CreateEnrollments)
 protected.Get("/classes/:id/enrollments", r.Enrollments.ListEnrollmentsByClass)
-protected.Get("/enrollments", r.Enrollments.ListEnrollments)
-protected.Get("/enrollments/:id", r.Enrollments.GetEnrollment)
 protected.Patch("/enrollments/:id", r.Enrollments.UpdateEnrollment)
 protected.Delete("/enrollments/:id", r.Enrollments.DeleteEnrollment)
 ```
@@ -165,8 +156,8 @@ src/features/enrollments/
 ---
 
 ## Acceptance Criteria
-- [ ] Enroll single student in class (with date, status)
-- [ ] Bulk enroll multiple students (CSV upload or multi-select)
+- [ ] Enroll multiple students in class via batch POST (with date, status)
+- [ ] Bulk enroll multiple students (CSV upload or multi-select UI)
 - [ ] Transfer student between classes (updates enrollment, preserves history)
 - [ ] Change enrollment status: ACTIVE → PROMOTED/REPEATING/GRADUATED
 - [ ] Prevent duplicate active enrollment per student per academic year

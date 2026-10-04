@@ -53,6 +53,7 @@ type Router struct {
 	Attendance             *AttendanceHandler
 	Events                 *EventsHandler
 	Rooms                  *RoomsHandler
+	Enrollments            *EnrollmentsHandler
 	Curriculum             services.CurriculumService
 	limiter                *redis_rate.Limiter
 	cfg                    *config.Config
@@ -218,6 +219,14 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/school/rooms/:id", r.Rooms.GetRoom)
 	protected.Patch("/school/rooms", r.Rooms.UpdateRoom)
 	protected.Delete("/school/rooms/:id", r.Rooms.DeleteRoom)
+
+	// Enrollments
+	protected.Post("/classes/:id/enrollments", r.Enrollments.CreateEnrollments)
+	protected.Get("/classes/:id/enrollments", r.Enrollments.ListEnrollmentsByClass)
+	protected.Get("/students/unassigned", r.Enrollments.ListUnassignedStudents)
+	protected.Patch("/enrollments/:id", r.Enrollments.UpdateEnrollment)
+	protected.Delete("/enrollments/:id", r.Enrollments.DeleteEnrollment)
+
 	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
 	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
 	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)

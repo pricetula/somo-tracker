@@ -23,9 +23,13 @@ import type { MeResult } from "@/features/auth/lib/types";
  *   return <div>Hello, {me?.user_name}!</div>;
  *   ```
  */
+export const meKeys = {
+    session: ["me"] as const,
+};
+
 export function useMeSession() {
     return useQuery<MeResult, Error>({
-        queryKey: ["me"],
+        queryKey: meKeys.session,
         queryFn: async () => {
             const res = await api.get<MeResult>("/api/me");
             return res;

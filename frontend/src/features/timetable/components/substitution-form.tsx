@@ -29,10 +29,7 @@ const schema = z.object({
     substitutionDate: z.string().min(1, "Date is required"),
     originalTeacherMembershipId: z.string().min(1, "Original teacher is required"),
     substituteTeacherMembershipId: z.string().optional(),
-    status: z
-        .enum(["PENDING", "ASSIGNED", "COMPLETED", "CANCELLED"])
-        .default("PENDING")
-        .nonoptional(),
+    status: z.enum(["PENDING", "ASSIGNED", "COMPLETED", "CANCELLED"]),
     reason: z.string().optional(),
 });
 

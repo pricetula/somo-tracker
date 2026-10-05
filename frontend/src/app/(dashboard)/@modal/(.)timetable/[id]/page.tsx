@@ -17,7 +17,7 @@ export default function TimetableDetailSheet() {
 
     return (
         <Sheet open onOpenChange={handleOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-2xl">
+            <SheetContent side="right" className="w-full data-[side=right]:sm:max-w-2xl">
                 <SheetHeader>
                     <SheetTitle>Timetable</SheetTitle>
                 </SheetHeader>

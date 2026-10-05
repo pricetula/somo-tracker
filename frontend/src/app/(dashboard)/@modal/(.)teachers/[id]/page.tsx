@@ -17,7 +17,7 @@ export default function TeacherDetailSheet() {
 
     return (
         <Sheet open onOpenChange={handleOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-md">
+            <SheetContent side="right" className="w-full data-[side=right]:sm:max-w-2xl">
                 <SheetHeader>
                     <SheetTitle>Teacher</SheetTitle>
                 </SheetHeader>

@@ -17,9 +17,9 @@ export default function ClassDetailModalPage() {
 
     return (
         <Sheet open onOpenChange={handleOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-md">
+            <SheetContent side="right" className="data-[side=right]:data-[side=right]:sm:max-w-2xl">
                 <SheetHeader>
-                    <SheetTitle>Class Details</SheetTitle>
+                    <SheetTitle>Class Detailsss</SheetTitle>
                 </SheetHeader>
                 <ClassDetail id={id} />
             </SheetContent>

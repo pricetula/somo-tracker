@@ -83,7 +83,7 @@ export function StudentSummaryCard() {
                 {unassigned_count > 0 && (
                     <Link
                         href="/students?without_class=true"
-                        className="text-destructive space-x-2"
+                        className="text-destructive block space-x-2"
                     >
                         <TriangleAlert size="12" className="inline" />
                         <span>
@@ -95,7 +95,7 @@ export function StudentSummaryCard() {
                 {unlinked_guardians_count > 0 && (
                     <Link
                         href="/students?without_guardian=true"
-                        className="space-x-2 text-amber-600"
+                        className="block space-x-2 text-amber-600"
                     >
                         <Users size="12" className="inline" />
                         <span>

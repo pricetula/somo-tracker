@@ -17,7 +17,10 @@ export default function EnrollmentsModalPage() {
 
     return (
         <Sheet open onOpenChange={handleOpenChange}>
-            <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+            <SheetContent
+                side="right"
+                className="w-full overflow-y-auto data-[side=right]:sm:max-w-2xl"
+            >
                 <SheetHeader>
                     <SheetTitle>Enroll Students</SheetTitle>
                 </SheetHeader>

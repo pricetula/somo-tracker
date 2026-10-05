@@ -15,7 +15,7 @@ export default function FinanceInviteModalPage() {
 
     return (
         <Dialog open onOpenChange={handleOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto md:max-w-2xl">
+            <DialogContent className="max-h-[85vh] overflow-y-auto data-[side=right]:sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Invite Finances</DialogTitle>
                 </DialogHeader>

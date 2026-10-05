@@ -15,7 +15,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 export function EnrollmentsTable({ classId }: { classId: string }) {
-    const { mutateAsync: deleteEnrollment } = useDeleteEnrollment();
+    const { mutateAsync: deleteEnrollment } = useDeleteEnrollment(classId);
 
     const columns = useMemo(
         () => [
@@ -43,12 +43,7 @@ export function EnrollmentsTable({ classId }: { classId: string }) {
                 cell: (row: Enrollment) => row.status,
                 width: "1fr",
             },
-            {
-                id: "enrolled_at",
-                header: "Enrolled",
-                cell: (row: Enrollment) => row.enrolled_at,
-                width: "1fr",
-            },
+
             {
                 id: "actions",
                 header: "",
@@ -62,14 +57,16 @@ export function EnrollmentsTable({ classId }: { classId: string }) {
                             }
                         />
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem render={<Link href={`#`}>Edit</Link>} />
+                            <DropdownMenuItem>
+                                <Link href={`#`}>Edit</Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem
-                                onSelect={() => {
+                                onClick={() => {
                                     void deleteEnrollment(row.id);
                                 }}
                                 className="text-destructive focus:text-destructive"
                             >
-                                Delete
+                                Unenroll
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

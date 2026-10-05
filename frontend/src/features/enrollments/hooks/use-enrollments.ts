@@ -66,17 +66,60 @@ export function useUpdateEnrollment() {
     });
 }
 
-export function useDeleteEnrollment() {
+export function useDeleteEnrollment(classId: string) {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationKey: ["enrollments", "delete"],
+        mutationKey: [...enrollmentKeys.list(classId), "delete"],
         mutationFn: (id: string) => deleteEnrollment(id),
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: enrollmentKeys.list(classId) });
+            const previousData = queryClient.getQueriesData({
+                queryKey: enrollmentKeys.list(classId),
+            });
+            queryClient.setQueriesData(
+                { queryKey: enrollmentKeys.list(classId) },
+                (old: unknown) => {
+                    if (!old || typeof old !== "object") return old;
+                    const data = old as
+                        | { pages?: { items: { id: string }[]; total?: number }[] }
+                        | { items: { id: string }[]; total?: number };
+                    if ("pages" in data && Array.isArray(data.pages)) {
+                        return {
+                            ...data,
+                            pages: data.pages.map((page) => ({
+                                ...page,
+                                items:
+                                    page.items?.filter((item: { id: string }) => item.id !== id) ??
+                                    [],
+                                total: typeof page.total === "number" ? page.total - 1 : page.total,
+                            })),
+                        };
+                    }
+                    if ("items" in data && Array.isArray(data.items)) {
+                        return {
+                            ...data,
+                            items: data.items.filter((item: { id: string }) => item.id !== id),
+                            total: typeof data.total === "number" ? data.total - 1 : data.total,
+                        };
+                    }
+                    return old;
+                }
+            );
+            return { previousData };
+        },
+        onError: (err, _id, context) => {
+            if (context?.previousData) {
+                context.previousData.forEach(([key, data]) => {
+                    queryClient.setQueryData(key, data);
+                });
+            }
+            toast.error(getErrorMessage(err));
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["enrollments"] });
             toast.success("Enrollment deleted");
         },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: enrollmentKeys.list(classId) });
         },
     });
 }

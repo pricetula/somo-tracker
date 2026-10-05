@@ -1,11 +1,20 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { getClass } from "../services/api";
 import type { ClassDetail } from "../types/class";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { listByClass } from "@/features/enrollments/services/api";
+import { useDeleteEnrollment } from "@/features/enrollments/hooks/use-enrollments";
+import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ClassDetailProps {
     id: string;
@@ -16,6 +25,8 @@ export function ClassDetail({ id }: ClassDetailProps) {
         queryKey: ["class", id],
         queryFn: () => getClass(id),
     });
+
+    const { mutateAsync: deleteEnrollment } = useDeleteEnrollment(id);
 
     if (isLoading) return <div className="p-6">Loading...</div>;
     if (!detail) return null;
@@ -59,7 +70,6 @@ export function ClassDetail({ id }: ClassDetailProps) {
                         student_name?: string;
                         admission_number?: string;
                         status?: string;
-                        enrolled_at?: string;
                     },
                     Record<string, never>,
                     { items: unknown[]; total: number }
@@ -99,13 +109,31 @@ export function ClassDetail({ id }: ClassDetailProps) {
                             width: "120px",
                         },
                         {
-                            id: "enrolled_at",
-                            header: "Enrolled",
-                            cell: (row) =>
-                                row.enrolled_at
-                                    ? new Date(row.enrolled_at).toLocaleDateString()
-                                    : "—",
-                            width: "120px",
+                            id: "actions",
+                            header: "",
+                            cell: (row) => (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger
+                                        render={
+                                            <Button variant="ghost" size="icon">
+                                                <MoreVertical className="size-4" />
+                                            </Button>
+                                        }
+                                    />
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                void deleteEnrollment(row.id);
+                                            }}
+                                            className="text-destructive focus:text-destructive"
+                                        >
+                                            Unenroll
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            ),
+                            width: "50px",
+                            align: "right" as const,
                         },
                     ]}
                     emptyState={

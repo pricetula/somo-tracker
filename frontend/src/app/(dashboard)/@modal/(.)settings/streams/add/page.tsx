@@ -13,7 +13,7 @@ export default function AddStreamModal() {
                 if (!open) router.back();
             }}
         >
-            <DialogContent className="max-h-[85vh] overflow-y-auto data-[side=right]:sm:max-w-2xl">
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Add Stream</DialogTitle>
                 </DialogHeader>

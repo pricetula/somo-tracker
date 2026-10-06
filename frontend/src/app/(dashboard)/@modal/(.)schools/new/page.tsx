@@ -20,7 +20,7 @@ export default function NewSchoolModal() {
 
     return (
         <Dialog open onOpenChange={handleOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto data-[side=right]:sm:max-w-2xl">
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Create School</DialogTitle>
                 </DialogHeader>

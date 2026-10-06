@@ -22,6 +22,10 @@ export default function AssignSlotPage() {
     const dayOfWeek = Number(searchParams.get("day") ?? 1);
     const timeSlotId = searchParams.get("slot") ?? "";
     const classId = searchParams.get("classId");
+    const initialSubjectId = searchParams.get("subjectId") ?? undefined;
+    const initialTeacherId = searchParams.get("teacherId") ?? undefined;
+    const initialRoomId = searchParams.get("roomId") ?? undefined;
+    const assignmentId = searchParams.get("assignmentId") ?? undefined;
 
     const handleContinue = () => {
         let url = "/timetable";
@@ -117,12 +121,18 @@ export default function AssignSlotPage() {
 
     return (
         <div className="mx-auto max-w-2xl space-y-4 p-6">
-            <h1 className="text-2xl font-semibold">Assign Timetable Slot</h1>
+            <h1 className="text-2xl font-semibold">
+                {assignmentId ? "Edit Timetable Slot" : "Assign Timetable Slot"}
+            </h1>
             <AssignSlotForm
                 dayOfWeek={dayOfWeek}
                 timeSlotId={timeSlotId}
                 classId={classId ?? ""}
-                onSuccess={() => router.push(`/timetable/${id}`)}
+                initialSubjectId={initialSubjectId}
+                initialTeacherId={initialTeacherId}
+                initialRoomId={initialRoomId}
+                assignmentId={assignmentId}
+                onSuccess={() => router.push(`/timetable/${id}?classId=${classId}`)}
             />
         </div>
     );

@@ -8,9 +8,11 @@ export const classTimetableSlotKeys = {
 };
 
 export function useClassTimetableSlots(templateId: string, classId: string) {
+    const isValidTemplate =
+        !!templateId && templateId !== "add" && /^[0-9a-fA-F-]{36}$/.test(templateId);
     return useQuery<ClassTimetableSlotWithDetails[], Error>({
         queryKey: classTimetableSlotKeys.byTemplateAndClass(templateId, classId),
         queryFn: () => getClassTimetableSlots(templateId, classId),
-        enabled: !!templateId && !!classId,
+        enabled: isValidTemplate && !!classId,
     });
 }

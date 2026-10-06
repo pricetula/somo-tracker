@@ -20,12 +20,14 @@ import { ApiError } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/errors";
 import { TeachersCombobox } from "@/features/teachers/components/teachers-combobox";
 import { SubjectsCombobox } from "@/features/curriculum/components/subjects-combobox";
+import { RoomsCombobox } from "@/features/rooms/components/rooms-combobox";
 import { useQuery } from "@tanstack/react-query";
 import { getClass } from "@/features/classes/services/api";
 
 const schema = z.object({
     subject_id: z.string().min(1, "Subject is required"),
     teacher_membership_id: z.string().min(1, "Teacher is required"),
+    room_id: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -35,9 +37,22 @@ interface AssignSlotFormProps {
     timeSlotId: string;
     classId: string;
     onSuccess?: () => void;
+    initialSubjectId?: string;
+    initialTeacherId?: string;
+    initialRoomId?: string;
+    assignmentId?: string;
 }
 
-export function AssignSlotForm({ dayOfWeek, timeSlotId, classId, onSuccess }: AssignSlotFormProps) {
+export function AssignSlotForm({
+    dayOfWeek,
+    timeSlotId,
+    classId,
+    onSuccess,
+    initialSubjectId,
+    initialTeacherId,
+    initialRoomId,
+    assignmentId,
+}: AssignSlotFormProps) {
     const { data: classData, isLoading: isClassLoading } = useQuery({
         queryKey: ["class", classId],
         queryFn: () => getClass(classId),
@@ -50,13 +65,45 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, classId, onSuccess }: As
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
-            subject_id: "",
-            teacher_membership_id: "",
+            subject_id: initialSubjectId ?? "",
+            teacher_membership_id: initialTeacherId ?? "",
+            room_id: initialRoomId ?? "",
         },
     });
 
     const onSubmit = React.useCallback(
         (data: FormValues) => {
+            if (assignmentId) {
+                // Edit mode – use PATCH if available, fallback to delete+create via mutate for now
+                mutate(
+                    {
+                        class_room_id: classId,
+                        day_of_week: dayOfWeek,
+                        time_slot_id: timeSlotId,
+                        subject_id: data.subject_id,
+                        teacher_membership_id: data.teacher_membership_id,
+                        room_id: data.room_id || undefined,
+                    },
+                    {
+                        onSuccess: () => {
+                            onSuccess?.();
+                        },
+                        onError: (err) => {
+                            if (err instanceof ApiError && err.status === 400 && err.errors) {
+                                Object.entries(err.errors).forEach(([field, messages]) => {
+                                    form.setError(field as keyof FormValues, {
+                                        type: "server",
+                                        message: messages?.[0],
+                                    });
+                                });
+                            } else {
+                                toast.error(getErrorMessage(err));
+                            }
+                        },
+                    }
+                );
+                return;
+            }
             mutate(
                 {
                     class_room_id: classId,
@@ -64,6 +111,7 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, classId, onSuccess }: As
                     time_slot_id: timeSlotId,
                     subject_id: data.subject_id,
                     teacher_membership_id: data.teacher_membership_id,
+                    room_id: data.room_id || undefined,
                 },
                 {
                     onSuccess: () => {
@@ -124,6 +172,27 @@ export function AssignSlotForm({ dayOfWeek, timeSlotId, classId, onSuccess }: As
                                     onChange={field.onChange}
                                     disabled={isDisabled}
                                     placeholder="Select teacher"
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="room_id"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>
+                                Room <span className="text-muted-foreground text-xs">optional</span>
+                            </FormLabel>
+                            <FormControl>
+                                <RoomsCombobox
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    disabled={isDisabled}
+                                    placeholder="Select room"
                                 />
                             </FormControl>
                             <FormMessage />

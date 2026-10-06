@@ -37,7 +37,8 @@ export function TimetableTemplateWizard() {
 
     const createMutation = useCreateTimetableTemplate();
 
-    const canProceed = form.getValues().name.trim().length > 0;
+    const nameValue = form.watch("name");
+    const canProceed = (nameValue ?? "").trim().length > 0;
 
     const handleNext = useCallback(() => {
         form.trigger().then((valid) => {

@@ -6,9 +6,10 @@ export const timeSlotKeys = {
 };
 
 export function useTimeSlots(templateId: string) {
+    const isValidId = !!templateId && templateId !== "add" && /^[0-9a-fA-F-]{36}$/.test(templateId);
     return useQuery<TimeSlotResponse[], Error>({
         queryKey: timeSlotKeys.byTemplate(templateId),
         queryFn: () => getTimeSlotsByTemplate(templateId),
-        enabled: !!templateId,
+        enabled: isValidId,
     });
 }

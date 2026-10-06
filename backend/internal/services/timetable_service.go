@@ -34,7 +34,7 @@ type TimetableService interface {
 	ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error)
 	ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error)
 	SetupClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, classRoomID, timeSlotID, subjectID, teacherMembershipID string, dayOfWeek int, roomID string) error
-	GetClassTimetableSlotsByTemplate(ctx context.Context, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error)
+	GetClassTimetableSlotsByTemplate(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error)
 	DeleteClassTimetableSlot(ctx context.Context, slotID uuid.UUID) error
 }
 
@@ -211,10 +211,24 @@ func (s *timetableService) CreateTemplate(ctx context.Context, schoolID uuid.UUI
 	return templateID, nil
 }
 
-func (s *timetableService) GetClassTimetableSlotsByTemplate(ctx context.Context, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error) {
+func (s *timetableService) GetClassTimetableSlotsByTemplate(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error) {
+	// Resolve current academic term strictly on backend
+	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, schoolUUID)
+	var termID pgtype.UUID
+	if err != nil {
+		latest, err2 := s.queries.GetLatestAcademicTermBySchool(ctx, schoolUUID)
+		if err2 != nil {
+			return nil, fmt.Errorf("no academic term found for school: %w", err2)
+		}
+		termID = pgtype.UUID{Bytes: latest.ID.Bytes, Valid: true}
+	} else {
+		termID = pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true}
+	}
 	return s.queries.GetClassTimetableSlotsByTemplateWithDetails(ctx, sqlc.GetClassTimetableSlotsByTemplateWithDetailsParams{
 		ClassRoomID:         pgtype.UUID{Bytes: classRoomID, Valid: true},
 		TimetableTemplateID: pgtype.UUID{Bytes: templateID, Valid: true},
+		AcademicTermID:      termID,
 	})
 }
 

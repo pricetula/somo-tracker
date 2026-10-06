@@ -130,8 +130,7 @@ function buildNavItems(): NavItem[] {
                 { title: "General", url: "/settings" },
                 { title: "Streams", url: "/settings/streams" },
                 { title: "Grade Levels", url: "/settings/grade-levels" },
-                { title: "Academic Years", url: "/academic-years" },
-                { title: "Rooms", url: "/school/rooms" },
+                { title: "Rooms", url: "/settings/rooms" },
             ],
         },
     ];

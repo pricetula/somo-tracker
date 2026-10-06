@@ -75,12 +75,14 @@ FROM class_timetable_slots cts
 JOIN time_slots ts ON ts.id = cts.time_slot_id
 WHERE cts.class_room_id = $1
   AND ts.timetable_template_id = $2
+  AND cts.academic_term_id = $3
 ORDER BY cts.day_of_week ASC, ts.sequence_index ASC
 `
 
 type GetClassTimetableSlotsByTemplateParams struct {
 	ClassRoomID         pgtype.UUID `json:"class_room_id"`
 	TimetableTemplateID pgtype.UUID `json:"timetable_template_id"`
+	AcademicTermID      pgtype.UUID `json:"academic_term_id"`
 }
 
 type GetClassTimetableSlotsByTemplateRow struct {
@@ -103,7 +105,7 @@ type GetClassTimetableSlotsByTemplateRow struct {
 }
 
 func (q *Queries) GetClassTimetableSlotsByTemplate(ctx context.Context, arg GetClassTimetableSlotsByTemplateParams) ([]GetClassTimetableSlotsByTemplateRow, error) {
-	rows, err := q.db.Query(ctx, getClassTimetableSlotsByTemplate, arg.ClassRoomID, arg.TimetableTemplateID)
+	rows, err := q.db.Query(ctx, getClassTimetableSlotsByTemplate, arg.ClassRoomID, arg.TimetableTemplateID, arg.AcademicTermID)
 	if err != nil {
 		return nil, err
 	}
@@ -175,12 +177,14 @@ LEFT JOIN users u ON u.id = sm.user_id
 LEFT JOIN rooms r ON r.id = cts.room_id
 WHERE cts.class_room_id = $1
   AND ts.timetable_template_id = $2
+  AND cts.academic_term_id = $3
 ORDER BY cts.day_of_week ASC, ts.sequence_index ASC
 `
 
 type GetClassTimetableSlotsByTemplateWithDetailsParams struct {
 	ClassRoomID         pgtype.UUID `json:"class_room_id"`
 	TimetableTemplateID pgtype.UUID `json:"timetable_template_id"`
+	AcademicTermID      pgtype.UUID `json:"academic_term_id"`
 }
 
 type GetClassTimetableSlotsByTemplateWithDetailsRow struct {
@@ -211,7 +215,7 @@ type GetClassTimetableSlotsByTemplateWithDetailsRow struct {
 }
 
 func (q *Queries) GetClassTimetableSlotsByTemplateWithDetails(ctx context.Context, arg GetClassTimetableSlotsByTemplateWithDetailsParams) ([]GetClassTimetableSlotsByTemplateWithDetailsRow, error) {
-	rows, err := q.db.Query(ctx, getClassTimetableSlotsByTemplateWithDetails, arg.ClassRoomID, arg.TimetableTemplateID)
+	rows, err := q.db.Query(ctx, getClassTimetableSlotsByTemplateWithDetails, arg.ClassRoomID, arg.TimetableTemplateID, arg.AcademicTermID)
 	if err != nil {
 		return nil, err
 	}

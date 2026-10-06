@@ -7,9 +7,10 @@ export const timetableTemplateDetailKeys = {
 };
 
 export function useTimetableTemplate(id: string) {
+    const isValidId = !!id && id !== "add" && /^[0-9a-fA-F-]{36}$/.test(id);
     return useQuery<TimetableTemplate, Error>({
         queryKey: timetableTemplateDetailKeys.byId(id),
         queryFn: () => getTimetableTemplate(id),
-        enabled: !!id,
+        enabled: isValidId,
     });
 }

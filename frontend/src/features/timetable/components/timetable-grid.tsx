@@ -42,7 +42,9 @@ export function TimetableGrid({
         const map = new Map<string, ClassTimetableSlotWithDetails>();
         if (!assignments) return map;
         for (const a of assignments) {
-            const key = `${a.time_slot_id}_${a.day_of_week}`;
+            const timeSlotId = (a.time_slot_id || "").toLowerCase();
+            const day = a.day_of_week === 0 ? 7 : a.day_of_week;
+            const key = `${timeSlotId}_${day}`;
             map.set(key, a);
         }
         return map;
@@ -127,8 +129,9 @@ export function TimetableGrid({
                                                   </td>
                                               );
                                           }
+                                          const timeSlotId = (slot.id || "").toLowerCase();
                                           const assignment = assignmentMap.get(
-                                              `${slot.id}_${dayNumber}`
+                                              `${timeSlotId}_${dayNumber}`
                                           );
                                           if (assignment) {
                                               return (
@@ -169,18 +172,29 @@ export function TimetableGrid({
                                                                       Room: {assignment.room_name}
                                                                   </div>
                                                               )}
-                                                              <Button
-                                                                  variant="destructive"
-                                                                  size="xs"
-                                                                  onClick={() =>
-                                                                      deleteMutation.mutate(
-                                                                          assignment.id
-                                                                      )
-                                                                  }
-                                                              >
-                                                                  <Trash2 className="h-4 w-4" />
-                                                                  <span>Delete</span>
-                                                              </Button>
+                                                              <div className="mt-2 flex gap-2">
+                                                                  <Link
+                                                                      href={`/timetable/${templateId}/assign?classId=${selectedIds?.classId}&day=${dayNumber}&slot=${slot.id}&subjectId=${assignment.subject_id}&teacherId=${assignment.teacher_membership_id}&roomId=${assignment.room_id ?? ""}&assignmentId=${assignment.id}`}
+                                                                      className={buttonVariants({
+                                                                          variant: "outline",
+                                                                          size: "xs",
+                                                                      })}
+                                                                  >
+                                                                      Edit
+                                                                  </Link>
+                                                                  <Button
+                                                                      variant="destructive"
+                                                                      size="xs"
+                                                                      onClick={() =>
+                                                                          deleteMutation.mutate(
+                                                                              assignment.id
+                                                                          )
+                                                                      }
+                                                                  >
+                                                                      <Trash2 className="h-4 w-4" />
+                                                                      <span>Delete</span>
+                                                                  </Button>
+                                                              </div>
                                                           </div>
                                                           <div
                                                               className="h-10 w-1"

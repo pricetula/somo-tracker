@@ -28,6 +28,7 @@ FROM class_timetable_slots cts
 JOIN time_slots ts ON ts.id = cts.time_slot_id
 WHERE cts.class_room_id = $1
   AND ts.timetable_template_id = $2
+  AND cts.academic_term_id = $3
 ORDER BY cts.day_of_week ASC, ts.sequence_index ASC;
 
 -- name: GetClassTimetableSlotsByTemplateWithDetails :many
@@ -66,5 +67,6 @@ LEFT JOIN users u ON u.id = sm.user_id
 LEFT JOIN rooms r ON r.id = cts.room_id
 WHERE cts.class_room_id = $1
   AND ts.timetable_template_id = $2
+  AND cts.academic_term_id = $3
 ORDER BY cts.day_of_week ASC, ts.sequence_index ASC;
 

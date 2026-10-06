@@ -127,6 +127,14 @@ func (h *TimetableHandler) ListTimeSlotsByTemplate(c fiber.Ctx) error {
 }
 
 func (h *TimetableHandler) GetClassSlotsByTemplate(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid school id", "errors": fiber.Map{}})
+	}
 	templateIDStr := c.Params("id")
 	classIDStr := c.Params("classId")
 	templateID, err := uuid.Parse(templateIDStr)
@@ -137,7 +145,7 @@ func (h *TimetableHandler) GetClassSlotsByTemplate(c fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid class id", "errors": fiber.Map{}})
 	}
-	rows, err := h.svc.GetClassTimetableSlotsByTemplate(c.Context(), classID, templateID)
+	rows, err := h.svc.GetClassTimetableSlotsByTemplate(c.Context(), schoolID, classID, templateID)
 	if err != nil {
 		h.logger.Error("get class timetable slots failed", zap.Error(err))
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})

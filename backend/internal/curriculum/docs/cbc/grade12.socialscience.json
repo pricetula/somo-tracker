@@ -1,0 +1,162 @@
+[
+  {
+    "name": "Core Mathematics",
+    "code": "MATH_CORE_G12_SS",
+    "education_level": "Senior_School",
+    "pathway": "Social_Sciences",
+    "strands": [
+      {
+        "name": "Statistical Inference and Time Series",
+        "sub_strands": [
+          {
+            "name": "Sampling, Confidence Intervals, and Trends",
+            "performance_indicators": [
+              "Formulate hypothesis tests and calculate confidence intervals for population means.",
+              "Deconstruct time series data to compute moving averages and isolate seasonal variances.",
+              "Apply bivariate linear regression models to predict socio-economic indicators."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "History and Citizenship",
+    "code": "HIST_G12",
+    "education_level": "Senior_School",
+    "pathway": "Social_Sciences",
+    "strands": [
+      {
+        "name": "World Wars and Global Formations",
+        "sub_strands": [
+          {
+            "name": "World War Conflicts and League/UN Systems",
+            "performance_indicators": [
+              "Analyze the systemic causes, alignments, and geopolitical consequences of World War I and World War II.",
+              "Evaluate the failure of the League of Nations versus the structural peacekeeping mechanisms of the United Nations (UN).",
+              "Assess Africa's diplomatic voice and voting patterns inside the UN Security Council."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Governance and Public Finance",
+        "sub_strands": [
+          {
+            "name": "National Budgeting and Audit Systems",
+            "performance_indicators": [
+              "Deconstruct the formulation cycle of the Kenyan National Budget from sector hearings to allocation bills.",
+              "Evaluate the role of the Auditor General and Controller of Budget in ensuring fiscal accountability."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Geography",
+    "code": "GEOG_G12",
+    "education_level": "Senior_School",
+    "pathway": "Social_Sciences",
+    "strands": [
+      {
+        "name": "Oceanography and Sub-Surface Hydrology",
+        "sub_strands": [
+          {
+            "name": "Ocean Configurations, Currents, and Karst Landscapes",
+            "performance_indicators": [
+              "Map global ocean current loops and analyze their thermal impacts on coastal climates and fishing zones.",
+              "Explain the spatial evolution of subterranean drainage networks and limestone features (stalactites, stalagmites, dolines).",
+              "Design localized watershed protection strategies using remote sensing maps."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Industrial Geography",
+        "sub_strands": [
+          {
+            "name": "Global Manufacturing Hubs and Energy Mixes",
+            "performance_indicators": [
+              "Evaluate factors driving spatial distribution variations across major industrial corridors (e.g., Ruhr Valley, Great Lakes region).",
+              "Analyze transition dynamics of renewable energy configurations within developing economies."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Legal and Business Studies",
+    "code": "LEGAL_BUS_G12",
+    "education_level": "Senior_School",
+    "pathway": "Social_Sciences",
+    "strands": [
+      {
+        "name": "Jurisprudence and Constitutionalism",
+        "sub_strands": [
+          {
+            "name": "Rule of Law, Administrative Law, and Treaties",
+            "performance_indicators": [
+              "Analyze judicial review applications filed against arbitrary administrative decisions by state organs.",
+              "Deconstruct the enforcement hurdles of regional treaties within domestic statutory boundaries.",
+              "Evaluate alternate dispute resolution (ADR) paths including arbitration and judicial mediation configurations."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Strategic Corporate Dynamics",
+        "sub_strands": [
+          {
+            "name": "Fiscal Regulations and Global Trade",
+            "performance_indicators": [
+              "Evaluate the structural impact of regional customs unions and tariffs on cross-border logistics.",
+              "Analyze corporate taxation structures and regulatory compliance workflows for multinational entities."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English",
+    "code": "ENG_G12_SS",
+    "education_level": "Senior_School",
+    "pathway": "Social_Sciences",
+    "strands": [
+      {
+        "name": "Analytical Syntaxes and Logic",
+        "sub_strands": [
+          {
+            "name": "Legal Research and Logical Frameworks",
+            "performance_indicators": [
+              "Draft rigorous policy position papers using objective terminology and logical cross-citations.",
+              "Map and expose structural circular arguments and false equivalencies within complex legal documents."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili",
+    "code": "KISW_G12_SS",
+    "education_level": "Senior_School",
+    "pathway": "Social_Sciences",
+    "strands": [
+      {
+        "name": "Uchambuzi wa Isimu na Insha Rasmi",
+        "sub_strands": [
+          {
+            "name": "Mabadiliko ya Lugha na Insha za Kitaaluma",
+            "performance_indicators": [
+              "Kuchambua athari za utandawazi na teknolojia katika ukuaji na mabadiliko ya msamiati wa Kiswahili.",
+              "Kuandika insha changamano za kiuchambuzi zinazohusu ushirikiano wa kikanda na diplomasia ya Afrika."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

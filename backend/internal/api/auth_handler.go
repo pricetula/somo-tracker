@@ -11,6 +11,28 @@ import (
 	"somotracker/backend/internal/services"
 )
 
+type MagicLinkRequest struct {
+	Email string `json:"email"`
+}
+
+type MagicLinkResponse struct {
+	Code    string                 `json:"code"`
+	Message string                 `json:"message"`
+	Errors  map[string]interface{} `json:"errors"`
+}
+
+type CallbackResponse struct {
+	Code    string                 `json:"code"`
+	Message string                 `json:"message"`
+	Errors  map[string]interface{} `json:"errors"`
+}
+
+type LogoutResponse struct {
+	Code    string                 `json:"code"`
+	Message string                 `json:"message"`
+	Errors  map[string]interface{} `json:"errors"`
+}
+
 // authHandler responds to /api/auth/*.
 type authHandler struct {
 	svc services.AuthService
@@ -27,9 +49,11 @@ func newAuthHandler(svc services.AuthService, cfg *config.Config) *authHandler {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param email formData string true "User email"
+// @Param email formData string false "User email"
+// @Param body body MagicLinkRequest false "JSON body"
 // @Param org_id query string false "Organization ID or slug"
-// @Success 200 {object} map[string]interface{}
+// @Param body body MagicLinkRequest true "Magic link request"
+// @Success 200 {object} MagicLinkResponse
 // @Router /api/auth/magic-link/send [post]
 //
 // Request body (JSON):
@@ -166,7 +190,7 @@ func (h *authHandler) clearCSRFCookie() *fiber.Cookie {
 // @Accept json
 // @Produce json
 // @Param token query string true "Magic-link token"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} CallbackResponse
 // @Router /api/auth/callback [get]
 //
 // Stytch redirects the user's browser to this URL with the magic-link token
@@ -209,13 +233,53 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 	return c.Redirect().Status(fiber.StatusFound).To(redirectURL)
 }
 
+// inviteCallback handles Stytch B2B invitation acceptance redirect.
+//
+// @Summary Accept invitation and create session
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param token query string true "Invitation token"
+// @Success 302 "Redirects to frontend"
+// @Router /api/auth/invite/callback [get]
+func (h *authHandler) inviteCallback(c fiber.Ctx) error {
+	token := strings.TrimSpace(c.Query("token"))
+	if token == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "missing_token",
+			"message": "token is required",
+			"errors":  fiber.Map{"token": []string{"required"}},
+		})
+	}
+
+	sessionResult, err := h.svc.AuthenticateInviteCallback(c.Context(), token)
+	if err != nil {
+		return mapAuthError(c, err)
+	}
+
+	c.Cookie(h.sessionCookie(sessionResult.OpaqueToken, sessionResult.ExpiresAt))
+
+	csrfToken, err := csrf.GenerateCSRFToken()
+	if err == nil {
+		c.Cookie(h.csrfCookie(csrfToken))
+	}
+
+	redirectURL := h.cfg.FrontendURL
+	if redirectURL == "" {
+		redirectURL = "http://localhost:3000/"
+	} else if redirectURL[len(redirectURL)-1:] != "/" {
+		redirectURL += "/"
+	}
+	return c.Redirect().Status(fiber.StatusFound).To(redirectURL)
+}
+
 // logout handles user logout by revoking the session.
 //
 // @Summary Logout and revoke session
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} LogoutResponse
 // @Router /api/auth/logout [post]
 //
 // It requires a valid session cookie and returns a sanitized response.

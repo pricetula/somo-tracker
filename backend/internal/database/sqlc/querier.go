@@ -11,17 +11,110 @@ import (
 )
 
 type Querier interface {
+	CountAdmins(ctx context.Context, arg CountAdminsParams) (int64, error)
+	CountEnrollments(ctx context.Context, arg CountEnrollmentsParams) (int64, error)
+	CountFinance(ctx context.Context, arg CountFinanceParams) (int64, error)
+	CountGuardians(ctx context.Context, arg CountGuardiansParams) (int64, error)
+	CountRoomsBySchool(ctx context.Context, schoolID pgtype.UUID) (int64, error)
+	CountSearchSubjects(ctx context.Context, name string) (int64, error)
+	CountStudents(ctx context.Context, arg CountStudentsParams) (int64, error)
+	CountSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) (int64, error)
+	CountSubjects(ctx context.Context) (int64, error)
+	CountSubstitutionConflicts(ctx context.Context, arg CountSubstitutionConflictsParams) (int64, error)
+	CountTeachers(ctx context.Context, arg CountTeachersParams) (int64, error)
+	CountTimetableSubstitutions(ctx context.Context, arg CountTimetableSubstitutionsParams) (int64, error)
+	CountTopicsBySubject(ctx context.Context, subjectID pgtype.UUID) (int64, error)
+	CountUnassignedStudents(ctx context.Context, arg CountUnassignedStudentsParams) (int64, error)
 	CreateAcademicTerm(ctx context.Context, arg CreateAcademicTermParams) (AcademicTerm, error)
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
+	CreateBulkJob(ctx context.Context, arg CreateBulkJobParams) (pgtype.UUID, error)
+	CreateClassTimetableSlot(ctx context.Context, arg CreateClassTimetableSlotParams) (pgtype.UUID, error)
+	CreateEnrollment(ctx context.Context, arg CreateEnrollmentParams) (StudentClassEnrollment, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
+	CreateRoom(ctx context.Context, arg CreateRoomParams) (Room, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateStream(ctx context.Context, arg CreateStreamParams) (Stream, error)
+	CreateTimeSlot(ctx context.Context, arg CreateTimeSlotParams) (pgtype.UUID, error)
+	CreateTimetableAttendance(ctx context.Context, arg CreateTimetableAttendanceParams) (TimetableAttendance, error)
+	CreateTimetableSubstitution(ctx context.Context, arg CreateTimetableSubstitutionParams) (TimetableSubstitution, error)
+	CreateTimetableTemplate(ctx context.Context, arg CreateTimetableTemplateParams) (pgtype.UUID, error)
+	DeleteAdmins(ctx context.Context, arg DeleteAdminsParams) error
+	DeleteClassTimetableSlot(ctx context.Context, id pgtype.UUID) error
+	DeleteEnrollment(ctx context.Context, id pgtype.UUID) error
+	DeleteFinance(ctx context.Context, arg DeleteFinanceParams) error
+	DeleteGuardians(ctx context.Context, arg DeleteGuardiansParams) error
+	DeleteRoom(ctx context.Context, arg DeleteRoomParams) error
 	DeleteSession(ctx context.Context, token string) error
+	DeleteStudents(ctx context.Context, arg DeleteStudentsParams) error
+	DeleteTeachers(ctx context.Context, arg DeleteTeachersParams) error
+	DeleteTimetableSubstitution(ctx context.Context, id pgtype.UUID) error
+	GetAcademicTermRangeBySchool(ctx context.Context, arg GetAcademicTermRangeBySchoolParams) (GetAcademicTermRangeBySchoolRow, error)
+	GetActiveEnrollmentByStudent(ctx context.Context, arg GetActiveEnrollmentByStudentParams) (StudentClassEnrollment, error)
+	GetActiveSchoolMembershipByUser(ctx context.Context, userID pgtype.UUID) (pgtype.UUID, error)
+	GetAuthTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (pgtype.UUID, error)
+	GetAuthUserByEmail(ctx context.Context, email string) (pgtype.UUID, error)
+	GetBulkJob(ctx context.Context, id pgtype.UUID) (BulkJob, error)
+	GetBulkJobByTenantAndIdempotency(ctx context.Context, arg GetBulkJobByTenantAndIdempotencyParams) (BulkJob, error)
+	GetClassRoom(ctx context.Context, id pgtype.UUID) (GetClassRoomRow, error)
+	GetClassTimetableSlotsByTemplate(ctx context.Context, arg GetClassTimetableSlotsByTemplateParams) ([]GetClassTimetableSlotsByTemplateRow, error)
+	GetClassTimetableSlotsByTemplateWithDetails(ctx context.Context, arg GetClassTimetableSlotsByTemplateWithDetailsParams) ([]GetClassTimetableSlotsByTemplateWithDetailsRow, error)
+	GetCountryByName(ctx context.Context, countryName string) (pgtype.UUID, error)
+	GetCurrentAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (pgtype.UUID, error)
+	GetEducationSystemByCountryAndName(ctx context.Context, arg GetEducationSystemByCountryAndNameParams) (pgtype.UUID, error)
+	GetGradeLevelByID(ctx context.Context, id pgtype.UUID) (GetGradeLevelByIDRow, error)
+	GetGuardianSummary(ctx context.Context, schoolID pgtype.UUID) (GetGuardianSummaryRow, error)
+	GetLatestAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (GetLatestAcademicYearBySchoolRow, error)
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
+	GetRoom(ctx context.Context, arg GetRoomParams) (Room, error)
+	// Gets a school membership by user_id and school_id.
+	GetSchoolMembershipByUserAndSchool(ctx context.Context, arg GetSchoolMembershipByUserAndSchoolParams) (GetSchoolMembershipByUserAndSchoolRow, error)
+	GetSchoolMembershipRole(ctx context.Context, arg GetSchoolMembershipRoleParams) (UserRole, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
+	GetStream(ctx context.Context, id pgtype.UUID) (GetStreamRow, error)
+	GetStudentSummary(ctx context.Context, arg GetStudentSummaryParams) (GetStudentSummaryRow, error)
+	GetSubTopicByID(ctx context.Context, id pgtype.UUID) (GetSubTopicByIDRow, error)
+	GetSubjectByID(ctx context.Context, id pgtype.UUID) (GetSubjectByIDRow, error)
+	GetTeacherSummary(ctx context.Context, arg GetTeacherSummaryParams) (GetTeacherSummaryRow, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
+	GetTenantStytchOrgID(ctx context.Context, id pgtype.UUID) (string, error)
+	GetTimetableAttendanceBySlotAndDate(ctx context.Context, arg GetTimetableAttendanceBySlotAndDateParams) ([]TimetableAttendance, error)
+	GetTimetableAttendanceByStudentAndDate(ctx context.Context, arg GetTimetableAttendanceByStudentAndDateParams) ([]TimetableAttendance, error)
+	GetTimetableSubstitution(ctx context.Context, arg GetTimetableSubstitutionParams) (TimetableSubstitution, error)
+	GetTimetableTemplate(ctx context.Context, id pgtype.UUID) (TimetableTemplate, error)
+	GetTopicByID(ctx context.Context, id pgtype.UUID) (GetTopicByIDRow, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
+	IncrementBulkJobCounts(ctx context.Context, arg IncrementBulkJobCountsParams) error
+	ListAdmins(ctx context.Context, arg ListAdminsParams) ([]ListAdminsRow, error)
+	ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]ListEnrollmentsRow, error)
+	ListFinance(ctx context.Context, arg ListFinanceParams) ([]ListFinanceRow, error)
+	ListGuardians(ctx context.Context, arg ListGuardiansParams) ([]ListGuardiansRow, error)
+	ListRoomsBySchool(ctx context.Context, arg ListRoomsBySchoolParams) ([]Room, error)
+	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
+	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
+	ListSubTopics(ctx context.Context, arg ListSubTopicsParams) ([]ListSubTopicsRow, error)
+	ListSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) ([]ListSubTopicsByTopicRow, error)
+	ListSubjects(ctx context.Context, arg ListSubjectsParams) ([]ListSubjectsRow, error)
+	ListSubjectsBySystem(ctx context.Context, educationSystemID pgtype.UUID) ([]ListSubjectsBySystemRow, error)
+	ListTeachers(ctx context.Context, arg ListTeachersParams) ([]ListTeachersRow, error)
+	ListTimeSlotsByTemplate(ctx context.Context, timetableTemplateID pgtype.UUID) ([]TimeSlot, error)
+	ListTimetableSubstitutions(ctx context.Context, arg ListTimetableSubstitutionsParams) ([]ListTimetableSubstitutionsRow, error)
+	ListTimetableTemplatesBySchool(ctx context.Context, schoolID pgtype.UUID) ([]TimetableTemplate, error)
+	ListTopics(ctx context.Context, arg ListTopicsParams) ([]ListTopicsRow, error)
+	ListTopicsBySubject(ctx context.Context, subjectID pgtype.UUID) ([]ListTopicsBySubjectRow, error)
+	ListUnassignedStudents(ctx context.Context, arg ListUnassignedStudentsParams) ([]ListUnassignedStudentsRow, error)
+	SearchSubjects(ctx context.Context, arg SearchSubjectsParams) ([]SearchSubjectsRow, error)
+	UpdateBulkJobStatus(ctx context.Context, arg UpdateBulkJobStatusParams) error
+	UpdateEnrollment(ctx context.Context, arg UpdateEnrollmentParams) (StudentClassEnrollment, error)
+	// Updates invitation/acceptance timestamps and role for an existing membership.
+	UpdateMembershipInvitationState(ctx context.Context, arg UpdateMembershipInvitationStateParams) error
+	UpdateRoom(ctx context.Context, arg UpdateRoomParams) (Room, error)
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
+	UpdateTimetableSubstitution(ctx context.Context, arg UpdateTimetableSubstitutionParams) error
+	UpdateTimetableTemplate(ctx context.Context, arg UpdateTimetableTemplateParams) error
+	// Upserts (or updates) a school_membership during bulk invitation.
+	// On conflict over the school/user unique constraint, updates invitation state,
+	// role, active flag, and invitation metadata. Returns the full row.
+	UpsertSchoolMembership(ctx context.Context, arg UpsertSchoolMembershipParams) (UpsertSchoolMembershipRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

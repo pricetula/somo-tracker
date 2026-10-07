@@ -30,7 +30,7 @@ src/
 
 - Each feature is self-contained: logic, UI, and state all live within its folder.
 - External code imports a feature only through its `index.ts` — never internal paths.
-- Features must not import from each other. Shared logic belongs in `lib/`.
+- Cross-feature imports are allowed for now. Avoid circular dependencies. Shared logic that is truly generic belongs in `lib/`.
 - Route handlers live in `app/api/…/route.ts` — never in `features/`.
 - Page files (`page.tsx`) render a single feature container. No logic in page files.
 - Do not define multiple components in one `.tsx` file — one component per file.
@@ -188,6 +188,9 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
   upgrading via the shadcn CLI — never by hand.
 - If a shadcn component has a type mismatch with its underlying library (e.g.
   `react-day-picker`), update the library or re-add the component.
+- **Base UI render prop:** Base UI primitives in the current shadcn set (DropdownMenu,
+  SidebarMenuButton, etc.) use a `render` prop for composition, not the legacy `asChild`
+  pattern. Always use `render={<Component />}` instead of `asChild`. Do not use `asChild`.
 
 ---
 
@@ -201,7 +204,7 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
   message "Unexpected error".
 - On any 401, the client forces a redirect to `/logout` unless
   `skipGlobal401Handler: true` is set.
-- Backend contract reference: `internal/middleware/errors.go`.
+- Backend contract reference: `backend/internal/api/errors.go`.
 
 ### `getErrorMessage` (`src/lib/errors.ts`)
 
@@ -320,7 +323,17 @@ code, hooks, optimistic updaters, and utility functions.
 
 ---
 
-## 14. Time Formatting — date-fns only
+## 14. API Base URL — use the client, never hardcode /backend
+
+All frontend HTTP calls must go through `src/lib/api/client.ts` (`api.get/post/…`).
+
+- Call paths are always backend-relative, e.g. `/api/admins`, `/api/me`.
+- `api` resolves the correct base at call time: browser → `NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend"`, server → `API_URL ?? "http://somotracker_api:3030"`.
+- Never hardcode `/backend` or the full backend host in components/hooks. The client handles the proxy prefix automatically.
+- Hardcoding the proxy prefix causes double-prefixing or breaks when the proxy changes. Always call `api.get('/api/...')`.
+- **Do not use `fetch('/api/...')` directly.** Direct fetch bypasses `getApiBase()` and the Next.js rewrite, resulting in 404s against localhost:3000. Always use the `api` client, e.g. `api.get('/api/students')`, which correctly proxies to `/backend/api/students`. See `src/lib/api/students.ts` as the canonical example.
+
+## 15. Time Formatting — date-fns only
 
 All date/time formatting in UI code must use **date-fns** functions (`format`,
 `formatDistanceToNow`, `formatRelative`, etc.).

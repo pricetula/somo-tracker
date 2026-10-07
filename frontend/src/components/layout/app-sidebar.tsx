@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { NavMain } from "@/components/layout/nav-main";
 import { NavUser } from "@/components/layout/nav-user";
+import { SchoolSwitcher } from "@/components/layout/school-switcher";
 import {
     Sidebar,
     SidebarContent,
@@ -16,7 +17,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return (
         <Sidebar collapsible="icon" {...props} className="z-50">
             <SidebarHeader>
-                <div>Switch school</div>
+                <SchoolSwitcher />
             </SidebarHeader>
             <SidebarContent>
                 <NavMain />

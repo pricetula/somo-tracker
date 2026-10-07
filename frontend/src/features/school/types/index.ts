@@ -4,12 +4,6 @@
  * Maps to backend internal/cbcschools/domain.go
  */
 
-import type {
-    CreateSchoolPayload as ApiCreateSchoolPayload,
-    CreateSchoolResponse,
-    ListSchoolsResponse,
-} from "@/lib/api/generated";
-
 // ─── Domain types ─────────────────────────────────────────────────────────
 
 export interface SchoolWithMemberCount {
@@ -17,11 +11,25 @@ export interface SchoolWithMemberCount {
     name: string;
     member_count: number;
 }
-export type { ListSchoolsResponse, CreateSchoolResponse };
+
+export interface ListSchoolsResponse {
+    items: SchoolWithMemberCount[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+export interface CreateSchoolResponse {
+    id: string;
+    name: string;
+    message: string;
+}
 
 // ─── Payload types ────────────────────────────────────────────────────────
 
-export type CreateSchoolPayload = ApiCreateSchoolPayload;
+export interface CreateSchoolPayload {
+    name: string;
+}
 
 export interface UpdateSchoolPayload {
     name?: string;

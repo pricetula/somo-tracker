@@ -12,22 +12,46 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"somotracker/backend/internal/database/sqlc"
 )
 
 // mockStreamsService stubs services.StreamsService for transport-layer tests.
 type mockStreamsService struct {
-	calls  []streamsCall
-	result []string
-	err    error
+	calls      []streamsCall
+	result     []string
+	err        error
+	listResult []sqlc.Stream
+	listErr    error
 }
 
 type streamsCall struct {
 	schoolID string
 	names    []string
+	colors   []string
 }
 
-func (m *mockStreamsService) CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error) {
-	m.calls = append(m.calls, streamsCall{schoolID: schoolID, names: names})
+func (m *mockStreamsService) ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error) {
+	if m.listErr != nil {
+		return nil, m.listErr
+	}
+	return m.listResult, nil
+}
+
+func (m *mockStreamsService) GetStream(ctx context.Context, streamID string) (*sqlc.Stream, error) {
+	return nil, nil
+}
+
+func (m *mockStreamsService) UpdateStream(ctx context.Context, streamID string, name *string, color *string) (*sqlc.Stream, error) {
+	return nil, nil
+}
+
+func (m *mockStreamsService) DeleteStreams(ctx context.Context, ids []string) error {
+	return nil
+}
+
+func (m *mockStreamsService) CreateStreams(ctx context.Context, schoolID string, names []string, colors []string) ([]string, error) {
+	m.calls = append(m.calls, streamsCall{schoolID: schoolID, names: names, colors: colors})
 
 	// Mimic service validation for tests that need it
 	if schoolID == "" {
@@ -79,7 +103,7 @@ func TestCreateStreams_HappyPath_Returns201(t *testing.T) {
 	}
 	app := newStreamsTestApp(mock, "school-42")
 
-	body := []byte(`["Form 1", "Form 2"]`)
+	body := []byte(`[{"name":"Form 1"},{"name":"Form 2"}]`)
 	resp := sendStreamsRequest(t, app, body)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -105,7 +129,7 @@ func TestCreateStreams_MissingSchoolID_Returns401(t *testing.T) {
 	h := NewStreamsHandler(mock)
 	app.Post("/api/school/streams", h.CreateStreams)
 
-	body := []byte(`["Form 1"]`)
+	body := []byte(`[{"name":"Form 1"}]`)
 	resp := sendStreamsRequest(t, app, body)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -144,7 +168,7 @@ func TestCreateStreams_ServiceBadRequest_Returns400(t *testing.T) {
 	mock := &mockStreamsService{err: streamsAssertAnError{msg: "bad_request: school_id is required"}}
 	app := newStreamsTestApp(mock, "school-42")
 
-	body := []byte(`["Form 1"]`)
+	body := []byte(`[{"name":"Form 1"}]`)
 	resp := sendStreamsRequest(t, app, body)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -156,7 +180,7 @@ func TestCreateStreams_ServiceInternalError_Returns500(t *testing.T) {
 	mock := &mockStreamsService{err: streamsAssertAnError{msg: "db connection failed"}}
 	app := newStreamsTestApp(mock, "school-42")
 
-	body := []byte(`["Form 1"]`)
+	body := []byte(`[{"name":"Form 1"}]`)
 	resp := sendStreamsRequest(t, app, body)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -171,7 +195,7 @@ func TestCreateStreams_EmptyNameInArray_Skipped(t *testing.T) {
 	app := newStreamsTestApp(mock, "school-42")
 
 	// One empty name, one valid - service skips empty
-	body := []byte(`["", "Form 1"]`)
+	body := []byte(`[{"name":""},{"name":"Form 1"}]`)
 	resp := sendStreamsRequest(t, app, body)
 	defer func() { _ = resp.Body.Close() }()
 

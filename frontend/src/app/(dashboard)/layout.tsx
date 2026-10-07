@@ -16,10 +16,7 @@ export default function DashboardLayout({
 }) {
     return (
         <DashboardAuthLayout>
-            <AppLayout>
-                {children}
-                {modal}
-            </AppLayout>
+            <AppLayout modal={modal}>{children}</AppLayout>
         </DashboardAuthLayout>
     );
 }

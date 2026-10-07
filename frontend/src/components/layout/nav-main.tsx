@@ -27,6 +27,7 @@ import {
     AlertTriangleIcon,
     HeartPulse,
     DollarSignIcon,
+    CalendarRange,
 } from "lucide-react";
 
 interface NavItem {
@@ -57,7 +58,7 @@ function buildNavItems(): NavItem[] {
                 { title: "Teachers", url: "/teachers" },
                 { title: "Nurses", url: "/nurses" },
                 { title: "Finance", url: "/finance" },
-                { title: "Parents", url: "/parents" },
+                { title: "Guardians", url: "/guardians" },
                 { title: "Students", url: "/students" },
             ],
         },
@@ -80,10 +81,6 @@ function buildNavItems(): NavItem[] {
             title: "Attendance",
             url: "/attendance",
             icon: <CalendarCheck className="size-4" />,
-            items: [
-                { title: "Sessions", url: "/attendance" },
-                { title: "Summaries", url: "/attendance/summaries" },
-            ],
         },
         {
             title: "Assessments",
@@ -94,6 +91,11 @@ function buildNavItems(): NavItem[] {
                 { title: "Grading Scales", url: "/assessments/grading-scales" },
                 { title: "Weight Configs", url: "/assessments/weight-configs" },
             ],
+        },
+        {
+            title: "School Events",
+            url: "/events",
+            icon: <CalendarRange className="size-4" />,
         },
         {
             title: "Reports",
@@ -126,7 +128,9 @@ function buildNavItems(): NavItem[] {
             icon: <Settings2Icon className="size-4" />,
             items: [
                 { title: "General", url: "/settings" },
-                { title: "Academic Years", url: "/academic-years" },
+                { title: "Streams", url: "/settings/streams" },
+                { title: "Grade Levels", url: "/settings/grade-levels" },
+                { title: "Rooms", url: "/settings/rooms" },
             ],
         },
     ];
@@ -158,9 +162,11 @@ export function NavMain() {
                                 <SidebarMenuSub>
                                     {item.items?.map((subItem) => (
                                         <SidebarMenuSubItem key={subItem.title}>
-                                            <SidebarMenuSubButton href={subItem.url}>
-                                                {subItem.title}
-                                            </SidebarMenuSubButton>
+                                            <SidebarMenuSubButton
+                                                render={
+                                                    <Link href={subItem.url}>{subItem.title}</Link>
+                                                }
+                                            />
                                         </SidebarMenuSubItem>
                                     ))}
                                 </SidebarMenuSub>

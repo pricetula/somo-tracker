@@ -1,0 +1,162 @@
+[
+  {
+    "name": "Core Mathematics",
+    "code": "MATH_CORE_G12_ARTS",
+    "education_level": "Senior_School",
+    "pathway": "Arts_Sports",
+    "strands": [
+      {
+        "name": "Algorithmic Design and Optimization",
+        "sub_strands": [
+          {
+            "name": "Graph Theory and Resource Allocation Matrices",
+            "performance_indicators": [
+              "Apply basic graph theory models to chart structural logistics paths for exhibitions or tournaments.",
+              "Solve multi-variable scheduling equations using matrix configurations to optimize workforce output."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Fine Arts and Design",
+    "code": "FINE_ART_G12",
+    "education_level": "Senior_School",
+    "pathway": "Arts_Sports",
+    "strands": [
+      {
+        "name": "Portfolio Production and Curation",
+        "sub_strands": [
+          {
+            "name": "Exhibition Planning, Typography, and Mixed Media",
+            "performance_indicators": [
+              "Compile a professional visual portfolio showcasing advanced technical competence across three selected mediums.",
+              "Curate an art exhibition layout, executing spatial lighting, labeling hierarchies, and security management templates.",
+              "Design responsive digital branding environments incorporating custom advanced layouts and typography systems."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Contemporary Aesthetic Criticism",
+        "sub_strands": [
+          {
+            "name": "Postmodernism and Global Curatorial Standards",
+            "performance_indicators": [
+              "Deconstruct Postmodern art paradigms and evaluate their reflection inside localized installations.",
+              "Appraise the commercial asset valuation metrics used within global fine art auction circuits."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Performing Arts (Music, Theatre & Dance)",
+    "code": "PERF_ARTS_G12",
+    "education_level": "Senior_School",
+    "pathway": "Arts_Sports",
+    "strands": [
+      {
+        "name": "Professional Music Analysis and Production",
+        "sub_strands": [
+          {
+            "name": "Orchestral Scores and Professional DAW Mixing",
+            "performance_indicators": [
+              "Analyze complex formal scores from classical and contemporary traditions, mapping tonal developments.",
+              "Execute a complete professional mix down within a DAW system incorporating dynamic equalizer presets.",
+              "Perform a full technical solo recital displaying mastery over complex ornamentation patterns."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Theatrical Production and Festival Directing",
+        "sub_strands": [
+          {
+            "name": "Full-Length Directing and Choreographic Layouts",
+            "performance_indicators": [
+              "Direct a full-length theatrical act, executing complete creative control over spatial blocking and cast dynamics.",
+              "Formulate a comprehensive theater business plan covering venue management, ticket models, and promotional campaigns.",
+              "Choreograph conceptual multi-tier dance productions that merge abstract dramatic themes with experimental movement mechanics."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Sports Science and Physical Education",
+    "code": "SPORT_SCI_G12",
+    "education_level": "Senior_School",
+    "pathway": "Arts_Sports",
+    "strands": [
+      {
+        "name": "Elite Performance Analysis and Ergogenic Aids",
+        "sub_strands": [
+          {
+            "name": "Biomechanics Software, Ergogenic Aids, and Tapering Protocols",
+            "performance_indicators": [
+              "Utilize motion analysis software outputs to fix minor mechanical inefficiencies in high-velocity performance metrics.",
+              "Evaluate the physiological impacts and anti-doping regulations (WADA codes) concerning pharmacological ergogenic aids.",
+              "Design peak-performance macrocycle tapering models to prepare elite athletes for target seasonal events."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Sports Analytics and Traumatology",
+        "sub_strands": [
+          {
+            "name": "Statistical Performance Profiling and Ligament Rehabilitation",
+            "performance_indicators": [
+              "Construct comprehensive player performance evaluation models using quantitative match data arrays.",
+              "Formulate multi-stage physical rehabilitation progressions for severe ligamentous or muscular sport tears."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English",
+    "code": "ENG_G12_ARTS",
+    "education_level": "Senior_School",
+    "pathway": "Arts_Sports",
+    "strands": [
+      {
+        "name": "Professional Creative Documentation",
+        "sub_strands": [
+          {
+            "name": "Production Portfolios and Critical Theory",
+            "performance_indicators": [
+              "Draft full production bibles and performance scripts matching industry pitch formats.",
+              "Evaluate contemporary media and theater productions using foundational critical and cultural theories."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili",
+    "code": "KISW_G12_ARTS",
+    "education_level": "Senior_School",
+    "pathway": "Arts_Sports",
+    "strands": [
+      {
+        "name": "Uandishi na Uhakiki wa Kazi za Maonyesho",
+        "sub_strands": [
+          {
+            "name": "Miswada ya Kina na Uhakiki wa Usanii",
+            "performance_indicators": [
+              "Kuandika miswada kamili ya filamu au michezo ya jukwaani inayozingatia maelekezo ya kiufundi ya jukwaa.",
+              "Kuhakiki tamasha za kitaifa za sanaa kwa kutumia nadharia za kisasa za uhakiki wa kifasihi."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

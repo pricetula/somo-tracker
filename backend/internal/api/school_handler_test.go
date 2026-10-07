@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockSchoolService stubs SchoolRegistrationService for transport-layer tests.
+// mockSchoolService stubs SchoolService for transport-layer tests.
 func injectUserTenantMW(userID, tenantID string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		c.Locals("user_id", userID)

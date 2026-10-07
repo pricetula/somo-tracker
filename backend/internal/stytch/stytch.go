@@ -26,7 +26,9 @@ import (
 	b2bintermediatesessions "github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/intermediatesessions"
 	b2bdiscoveryorg "github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/organizations"
 	b2bdiscovery "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/discovery"
+	b2bemail "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email"
 	b2bdiscoveryemail "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email/discovery"
+	b2borganizations "github.com/stytchauth/stytch-go/v18/stytch/b2b/organizations"
 	stytchconfig "github.com/stytchauth/stytch-go/v18/stytch/config"
 	"github.com/stytchauth/stytch-go/v18/stytch/stytcherror"
 	"go.uber.org/fx"
@@ -55,12 +57,20 @@ const (
 	retryMaxDelay    = 2 * time.Second
 )
 
+// Inviter defines the interface for Stytch invitation operations needed by workers.
+// This enables test mocking while keeping production code using the concrete Client.
+type Inviter interface {
+	InviteMember(ctx context.Context, email, fullName, role, tenantID string) (*InviteMemberResult, error)
+	ClassifyStytchError(err error) (retry bool, permanent bool, duplicate bool, reason string)
+}
+
 // Client wraps the official Stytch B2B SDK with circuit-breaker protection,
 // idempotent retry logic, secure error mapping, and structured logging.
 type Client struct {
-	api    *b2bstytchapi.API
-	cb     *gobreaker.CircuitBreaker
-	logger *zap.Logger
+	api         *b2bstytchapi.API
+	cb          *gobreaker.CircuitBreaker
+	logger      *zap.Logger
+	redirectURL string
 }
 
 // NewClient initializes the Stytch B2B SDK client from Config and registers
@@ -118,14 +128,16 @@ func NewClient(lc fx.Lifecycle, cfg *config.Config, logger *zap.Logger) (*Client
 	cb := gobreaker.NewCircuitBreaker(cbSettings)
 
 	client := &Client{
-		api:    api,
-		cb:     cb,
-		logger: logger.With(zap.String("service", "stytch")),
+		api:         api,
+		cb:          cb,
+		logger:      logger.With(zap.String("service", "stytch")),
+		redirectURL: cfg.StytchRedirectURL,
 	}
 
 	logger.Info("stytch: B2B client initialized",
 		zap.String("project_id", cfg.StytchProjectID),
 		zap.String("env", cfg.StytchEnv),
+		zap.String("redirect_url", cfg.StytchRedirectURL),
 	)
 
 	return client, nil
@@ -254,9 +266,9 @@ func isRetryable(err error) bool {
 // ReadCall executes the operation through the circuit breaker with safe
 // retry logic (exponential backoff + jitter). Used for idempotent
 // verification/authentication calls ONLY.
-func (c *Client) ReadCall(op func(context.Context) error) error {
+func (c *Client) ReadCall(ctx context.Context, op func(context.Context) error) error {
 	_, err := c.cb.Execute(func() (any, error) {
-		return nil, c.RetryWithBackoff(context.Background(), op)
+		return nil, c.RetryWithBackoff(ctx, op)
 	})
 	if err != nil {
 		return c.SanitizedError(err)
@@ -293,7 +305,7 @@ func (c *Client) Exchange(ctx context.Context, intermediateToken string) (*b2bin
 		return nil, fmt.Errorf("bad_request: intermediate session token is required")
 	}
 	var resp *b2bintermediatesessions.ExchangeResponse
-	err := c.ReadCall(func(ctx context.Context) error {
+	err := c.ReadCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.Discovery.IntermediateSessions.Exchange(ctx, &b2bintermediatesessions.ExchangeParams{
 			IntermediateSessionToken: intermediateToken,
@@ -319,7 +331,7 @@ func (c *Client) AuthenticateDiscovery(ctx context.Context, token string) (*b2bd
 		return nil, fmt.Errorf("bad_request: discovery token is required")
 	}
 	var resp *b2bdiscovery.AuthenticateResponse
-	err := c.ReadCall(func(ctx context.Context) error {
+	err := c.ReadCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.MagicLinks.Discovery.Authenticate(ctx, &b2bdiscovery.AuthenticateParams{
 			DiscoveryMagicLinksToken: token,
@@ -344,7 +356,7 @@ func (c *Client) CreateDiscoveryOrganization(ctx context.Context, ist string, na
 		return nil, fmt.Errorf("bad_request: intermediate session token is required")
 	}
 	var resp *b2bdiscoveryorg.CreateResponse
-	err := c.ReadCall(func(ctx context.Context) error {
+	err := c.ReadCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.Discovery.Organizations.Create(ctx, &b2bdiscoveryorg.CreateParams{
 			IntermediateSessionToken: ist,
@@ -362,6 +374,22 @@ func (c *Client) CreateDiscoveryOrganization(ctx context.Context, ist string, na
 	return resp, nil
 }
 
+func (c *Client) UpdateOrganization(ctx context.Context, orgID, name string) error {
+	if c.api == nil {
+		return fmt.Errorf("stytch.UpdateOrganization: api is nil")
+	}
+	if orgID == "" {
+		return fmt.Errorf("bad_request: organization_id is required")
+	}
+	return c.WriteCall(ctx, func(ctx context.Context) error {
+		_, opErr := c.api.Organizations.Update(ctx, &b2borganizations.UpdateParams{
+			OrganizationID:   orgID,
+			OrganizationName: name,
+		})
+		return opErr
+	})
+}
+
 func (c *Client) ExchangeWithOrg(ctx context.Context, intermediateToken, orgID string) (*b2bintermediatesessions.ExchangeResponse, error) {
 	if c.api == nil {
 		return nil, fmt.Errorf("stytch.ExchangeWithOrg: api is nil")
@@ -370,7 +398,7 @@ func (c *Client) ExchangeWithOrg(ctx context.Context, intermediateToken, orgID s
 		return nil, fmt.Errorf("bad_request: intermediate session token is required")
 	}
 	var resp *b2bintermediatesessions.ExchangeResponse
-	err := c.ReadCall(func(ctx context.Context) error {
+	err := c.ReadCall(ctx, func(ctx context.Context) error {
 		var opErr error
 		resp, opErr = c.api.Discovery.IntermediateSessions.Exchange(ctx, &b2bintermediatesessions.ExchangeParams{
 			IntermediateSessionToken: intermediateToken,
@@ -387,11 +415,111 @@ func (c *Client) ExchangeWithOrg(ctx context.Context, intermediateToken, orgID s
 	return resp, nil
 }
 
+// InviteMemberResult holds the outcome of a Stytch invitation call.
+type InviteMemberResult struct {
+	StytchInviteID string `json:"stytch_invite_id,omitempty"`
+	StytchMemberID string `json:"stytch_member_id,omitempty"`
+}
+
+// ClassifyStytchError maps Stytch errors to bulk-processing categories.
+func (c *Client) ClassifyStytchError(err error) (retry bool, permanent bool, duplicate bool, reason string) {
+	if err == nil {
+		return false, false, false, ""
+	}
+	msg := strings.ToLower(err.Error())
+	var stErr stytcherror.Error
+	matched := false
+	if errors.As(err, &stErr) {
+		matched = true
+	} else if ptr := new(stytcherror.Error); errors.As(err, &ptr) && ptr != nil {
+		stErr = *ptr
+		matched = true
+	}
+	if matched {
+		switch {
+		case stErr.StatusCode == 429 || strings.Contains(msg, "rate_limit") || strings.Contains(msg, "too many"):
+			return true, false, false, "rate_limited"
+		case stErr.StatusCode >= 500 || strings.Contains(msg, "timeout") || strings.Contains(msg, "network") || strings.Contains(msg, "connection"):
+			return true, false, false, "server_error"
+		case strings.Contains(msg, "duplicate_user_email") || stErr.StatusCode == 409 || strings.Contains(string(stErr.ErrorType), "duplicate"):
+			return false, false, true, "duplicate"
+		case stErr.StatusCode == 400 || strings.Contains(msg, "invalid_email") || strings.Contains(msg, "bad_request") || strings.Contains(msg, "invalid"):
+			return false, true, false, "invalid_email"
+		default:
+			return false, true, false, "unknown: " + msg
+		}
+	}
+	if strings.Contains(msg, "timeout") || strings.Contains(msg, "connection") || strings.Contains(msg, "network") || strings.Contains(msg, "refused") {
+		return true, false, false, "network_error"
+	}
+	return false, true, false, "unknown: " + msg
+}
+
+// InviteMember sends an invitation via Stytch B2B (non-idempotent write, breaker, no retries).
+func (c *Client) InviteMember(ctx context.Context, email, fullName, role string, tenantID string) (*InviteMemberResult, error) {
+	if c.api == nil {
+		return nil, fmt.Errorf("stytch.InviteMember: api nil")
+	}
+
+	// Stytch B2B requires organization_id (our tenant_id) and invite_redirect_url
+	// The redirect URL should be configured in the dashboard or passed explicitly
+	c.logger.Info("stytch: inviting member",
+		zap.String("email", email),
+		zap.String("role", role),
+		zap.String("tenant_id", tenantID),
+	)
+
+	inviteParams := &b2bemail.InviteParams{
+		EmailAddress:      email,
+		Name:              fullName,
+		OrganizationID:    tenantID,
+		InviteRedirectURL: c.getInviteRedirectURL(),
+	}
+
+	var resp *b2bemail.InviteResponse
+	err := c.WriteCall(ctx, func(ctx context.Context) error {
+		var opErr error
+		resp, opErr = c.api.MagicLinks.Email.Invite(ctx, inviteParams)
+		return opErr
+	})
+	if err != nil {
+		c.logger.Warn("stytch: invite failed",
+			zap.String("email", email),
+			zap.String("tenant_id", tenantID),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	if resp == nil {
+		c.logger.Error("stytch: empty invite response", zap.String("email", email), zap.String("tenant_id", tenantID))
+		return nil, fmt.Errorf("stytch.InviteMember: empty response")
+	}
+	c.logger.Info("stytch: invite sent",
+		zap.String("email", email),
+		zap.String("tenant_id", tenantID),
+		zap.String("request_id", resp.RequestID),
+		zap.String("member_id", resp.MemberID),
+	)
+	return &InviteMemberResult{
+		StytchInviteID: resp.RequestID,
+		StytchMemberID: resp.MemberID,
+	}, nil
+}
+
+// getInviteRedirectURL returns the configured invite redirect URL.
+// In production, this should come from config. For now, use a placeholder.
+func (c *Client) getInviteRedirectURL() string {
+	if c.redirectURL != "" {
+		return c.redirectURL
+	}
+	return "https://app.somotracker.local/auth/invite/callback"
+}
+
 // WriteCall executes through the circuit breaker WITHOUT retries. Non-
 // idempotent writes must never retry to avoid duplicate state mutations.
-func (c *Client) WriteCall(op func(context.Context) error) error {
+func (c *Client) WriteCall(ctx context.Context, op func(context.Context) error) error {
 	_, err := c.cb.Execute(func() (any, error) {
-		return nil, op(context.Background())
+		return nil, op(ctx)
 	})
 	if err != nil {
 		return c.SanitizedError(err)

@@ -2,29 +2,34 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+	"somotracker/backend/internal/curriculum"
 
 	"somotracker/backend/internal/database"
 )
 
-// SchoolRegistrationService handles the school registration flow:
+// SchoolService handles school domain operations:
 // 1. Update user's full_name
 // 2. Create new school with default country and education system
 // 3. Create school membership with role=ADMIN
-type SchoolRegistrationService struct {
+type SchoolService struct {
 	pool   *pgxpool.Pool
 	logger *zap.Logger
 }
 
-func NewSchoolRegistrationService(pool *pgxpool.Pool, logger *zap.Logger) SchoolRegistrationService {
-	return SchoolRegistrationService{
+func NewSchoolService(pool *pgxpool.Pool, logger *zap.Logger) SchoolService {
+	return SchoolService{
 		pool:   pool,
-		logger: logger.With(zap.String("service", "school_registration")),
+		logger: logger.With(zap.String("service", "school")),
 	}
 }
 
@@ -32,7 +37,7 @@ func NewSchoolRegistrationService(pool *pgxpool.Pool, logger *zap.Logger) School
 // 1. Update user's full_name
 // 2. Create new school with default country and education system
 // 3. Create school membership with role=ADMIN
-func (s *SchoolRegistrationService) RegisterSchool(
+func (s *SchoolService) RegisterSchool(
 	ctx context.Context,
 	userID, tenantID, userName, schoolName string,
 ) (schoolID string, err error) {
@@ -88,4 +93,350 @@ func (s *SchoolRegistrationService) RegisterSchool(
 	}
 
 	return schoolID, nil
+}
+
+// CreateSchoolWithSetup creates a new school with admin check, academic periods, and CBE curriculum.
+func (s *SchoolService) CreateSchoolWithSetup(
+	ctx context.Context,
+	userID, tenantID, schoolName string,
+) (schoolID string, err error) {
+	if userID == "" {
+		return "", errors.New("bad_request: user_id is required")
+	}
+	if tenantID == "" {
+		return "", errors.New("bad_request: tenant_id is required")
+	}
+	if schoolName == "" {
+		return "", errors.New("bad_request: school_name is required")
+	}
+
+	// 1. Verify user is admin (any active ADMIN membership in tenant)
+	var adminCheck int
+	checkErr := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM school_memberships sm JOIN users u ON sm.user_id = u.id WHERE u.tenant_id = $1 AND sm.user_id = $2 AND sm.role = 'ADMIN' AND sm.is_active = true`, tenantID, userID).Scan(&adminCheck)
+	if checkErr != nil {
+		return "", fmt.Errorf("internal_error: admin verification failed: %w", checkErr)
+	}
+	if adminCheck == 0 {
+		return "", errors.New("forbidden: user must be admin to create school")
+	}
+
+	txErr := database.WithTenantTx(ctx, s.pool, s.logger, tenantID, func(ctx context.Context, tx pgx.Tx) error {
+		// Single CTE: get user's active school education system + country, or fall back to Kenyan CBE
+		var countryID, educationSystemID string
+		cteSQL := `
+		WITH active_school AS (
+			SELECT s.id AS sid, s.education_system_id AS esid, s.country_id AS cid
+			FROM school_memberships sm
+			JOIN schools s ON sm.school_id = s.id
+			WHERE sm.user_id = $1 AND sm.is_active = TRUE
+			LIMIT 1
+		),
+		default_cbe AS (
+			SELECT c.id AS cid, es.id AS esid
+			FROM countries c
+			JOIN education_systems es ON es.country_id = c.id
+			WHERE c.country_name = 'Kenya' AND es.system_name ILIKE '%CBE%'
+			LIMIT 1
+		)
+		SELECT COALESCE(a.esid, d.esid) AS education_system_id,
+			   COALESCE(a.cid, d.cid) AS country_id
+		FROM active_school a
+		FULL OUTER JOIN default_cbe d ON TRUE`
+		if err := tx.QueryRow(ctx, cteSQL, userID).Scan(&educationSystemID, &countryID); err != nil {
+			return fmt.Errorf("internal_error: failed to resolve education system/country: %w", err)
+		}
+		if educationSystemID == "" || countryID == "" {
+			return fmt.Errorf("internal_error: education system or country not found")
+		}
+
+		// Insert school
+		insertSQL := `INSERT INTO schools (tenant_id, school_name, country_id, education_system_id) VALUES ($1, $2, $3, $4) RETURNING id`
+		if err := tx.QueryRow(ctx, insertSQL, tenantID, schoolName, countryID, educationSystemID).Scan(&schoolID); err != nil {
+			return fmt.Errorf("internal_error: failed to create school: %w", err)
+		}
+
+		// Deactivate any existing active memberships for this user to satisfy unique active-user constraint
+		if _, err := tx.Exec(ctx, `UPDATE school_memberships SET is_active = FALSE WHERE user_id = $1 AND is_active = TRUE`, userID); err != nil {
+			return fmt.Errorf("internal_error: failed to deactivate previous memberships: %w", err)
+		}
+
+		// Create ADMIN membership
+		if _, err := tx.Exec(ctx, `INSERT INTO school_memberships (school_id, user_id, role, is_active) VALUES ($1, $2, 'ADMIN', TRUE)`, schoolID, userID); err != nil {
+			return fmt.Errorf("internal_error: failed to create school membership: %w", err)
+		}
+
+		// Create academic year + 3 terms for current year
+		yearName := fmt.Sprintf("%d", 2026) // hard-code current year
+		var yearID string
+		if err := tx.QueryRow(ctx, `INSERT INTO academic_years (school_id, name, start_date, end_date) VALUES ($1, $2, $3, $4) RETURNING id`, schoolID, yearName, "2026-01-01", "2026-12-31").Scan(&yearID); err != nil {
+			return fmt.Errorf("internal_error: failed to create academic year: %w", err)
+		}
+
+		// 3 terms — bulk insert
+		_, err = tx.Exec(ctx, `
+			INSERT INTO academic_terms (academic_year_id, name, start_date, end_date) VALUES
+			($1, 'Term 1', '2026-01-05', '2026-05-21'),
+			($1, 'Term 2', '2026-05-25', '2026-09-11'),
+			($1, 'Term 3', '2026-09-15', '2026-12-19')
+		`, yearID)
+		if err != nil {
+			return fmt.Errorf("internal_error: failed to create academic terms bulk: %w", err)
+		}
+
+		// Bulk insert CBE curriculum using Go-generated UUIDs (3 DB round-trips max)
+		type subjRow struct {
+			id           string
+			es           string
+			gradeLevelID string
+			name         string
+			code         string
+		}
+		type topicRow struct {
+			id   string
+			sid  string
+			name string
+			seq  int
+		}
+		type subRow struct {
+			id   string
+			tid  string
+			name string
+			seq  int
+		}
+		subjectsBulk := make([]subjRow, 0)
+		topicsBulk := make([]topicRow, 0)
+		subsBulk := make([]subRow, 0)
+
+		// Load grade levels for this education system to link subjects to grades
+		gradeMap := make(map[string]string)
+		gradeRows, err := tx.Query(ctx, `SELECT id, local_label FROM grade_levels WHERE education_system_id = $1`, educationSystemID)
+		if err == nil {
+			defer gradeRows.Close()
+			for gradeRows.Next() {
+				var gid, label string
+				if err := gradeRows.Scan(&gid, &label); err == nil {
+					gradeMap[label] = gid
+				}
+			}
+		}
+
+		processCBC := func(fileName string, data []byte) {
+			// Derive grade label from filename e.g. grade1.json -> Grade 1
+			nameOnly := strings.TrimSuffix(fileName, ".json")
+			parts := strings.SplitN(nameOnly, ".", 2)
+			stem := parts[0]
+			gradeLabel := ""
+			if strings.HasPrefix(stem, "grade") {
+				num := strings.TrimPrefix(stem, "grade")
+				gradeLabel = "Grade " + num
+			} else if strings.HasPrefix(stem, "pp") {
+				gradeLabel = strings.ToUpper(stem)
+			}
+			gradeID := gradeMap[gradeLabel]
+
+			var subjects []map[string]interface{}
+			if err := json.Unmarshal(data, &subjects); err != nil {
+				s.logger.Error("school service: failed to unmarshal cbc file", zap.String("file", fileName), zap.Error(err))
+				return
+			}
+			for _, sub := range subjects {
+				name, _ := sub["name"].(string)
+				code, _ := sub["code"].(string)
+				if name == "" || code == "" {
+					continue
+				}
+				sid := uuid.New().String()
+				subjectsBulk = append(subjectsBulk, subjRow{id: sid, es: educationSystemID, gradeLevelID: gradeID, name: name, code: code})
+				strands, ok := sub["strands"].([]interface{})
+				if !ok {
+					continue
+				}
+				for idx, s := range strands {
+					strand, ok := s.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					sName, _ := strand["name"].(string)
+					if sName == "" {
+						continue
+					}
+					tid := uuid.New().String()
+					topicsBulk = append(topicsBulk, topicRow{id: tid, sid: sid, name: sName, seq: idx + 1})
+					subStrands, ok := strand["sub_strands"].([]interface{})
+					if !ok {
+						continue
+					}
+					for sIdx, ss := range subStrands {
+						sSub, ok := ss.(map[string]interface{})
+						if !ok {
+							continue
+						}
+						subName, _ := sSub["name"].(string)
+						if subName == "" {
+							continue
+						}
+						ssId := uuid.New().String()
+						subsBulk = append(subsBulk, subRow{id: ssId, tid: tid, name: subName, seq: sIdx + 1})
+					}
+				}
+			}
+		}
+
+		// Load CBC curriculum from embedded FS – no filesystem or network required
+		const embedRoot = "docs/cbc"
+		entries, err := curriculum.CbcFS.ReadDir(embedRoot)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					continue
+				}
+				data, err := curriculum.CbcFS.ReadFile(embedRoot + "/" + entry.Name())
+				if err != nil {
+					s.logger.Error("school service: failed to read embedded cbc file", zap.String("file", entry.Name()), zap.Error(err))
+					continue
+				}
+				processCBC(entry.Name(), data)
+			}
+		} else {
+			s.logger.Error("school service: failed to read embedded cbc docs", zap.Error(err))
+		}
+		if len(subjectsBulk) > 0 {
+			values := make([]string, 0, len(subjectsBulk))
+			args := make([]interface{}, 0, len(subjectsBulk)*5)
+			argIdx := 1
+			for _, r := range subjectsBulk {
+				values = append(values, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,'CORE')", argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4))
+				gradeVal := interface{}(r.gradeLevelID)
+				if r.gradeLevelID == "" {
+					gradeVal = nil
+				}
+				args = append(args, r.id, r.es, gradeVal, r.name, r.code)
+				argIdx += 5
+			}
+			sql := fmt.Sprintf(`INSERT INTO subjects (id, education_system_id, grade_level_id, name, code, type) VALUES %s ON CONFLICT DO NOTHING`, strings.Join(values, ","))
+			if _, err := tx.Exec(ctx, sql, args...); err != nil {
+				return fmt.Errorf("internal_error: bulk insert subjects failed: %w", err)
+			}
+		}
+		if len(topicsBulk) > 0 {
+			values := make([]string, 0, len(topicsBulk))
+			args := make([]interface{}, 0, len(topicsBulk)*4)
+			argIdx := 1
+			for _, r := range topicsBulk {
+				values = append(values, fmt.Sprintf("($%d,$%d,$%d,$%d)", argIdx, argIdx+1, argIdx+2, argIdx+3))
+				args = append(args, r.id, r.sid, r.name, r.seq)
+				argIdx += 4
+			}
+			sql := fmt.Sprintf(`INSERT INTO topics (id, subject_id, name, sequence_index) VALUES %s ON CONFLICT DO NOTHING`, strings.Join(values, ","))
+			if _, err := tx.Exec(ctx, sql, args...); err != nil {
+				return fmt.Errorf("internal_error: bulk insert topics failed: %w", err)
+			}
+		}
+		if len(subsBulk) > 0 {
+			values := make([]string, 0, len(subsBulk))
+			args := make([]interface{}, 0, len(subsBulk)*4)
+			argIdx := 1
+			for _, r := range subsBulk {
+				values = append(values, fmt.Sprintf("($%d,$%d,$%d,$%d)", argIdx, argIdx+1, argIdx+2, argIdx+3))
+				args = append(args, r.id, r.tid, r.name, r.seq)
+				argIdx += 4
+			}
+			sql := fmt.Sprintf(`INSERT INTO sub_topics (id, topic_id, name, sequence_index) VALUES %s ON CONFLICT DO NOTHING`, strings.Join(values, ","))
+			if _, err := tx.Exec(ctx, sql, args...); err != nil {
+				return fmt.Errorf("internal_error: bulk insert sub_topics failed: %w", err)
+			}
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		return "", txErr
+	}
+
+	return schoolID, nil
+}
+
+func (s *SchoolService) SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) (changed bool, err error) {
+	if userID == "" {
+		return false, errors.New("bad_request: user_id is required")
+	}
+	if schoolID == "" {
+		return false, errors.New("bad_request: school_id is required")
+	}
+
+	txErr := database.WithTenantTx(ctx, s.pool, s.logger, tenantID, func(ctx context.Context, tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE school_memberships SET is_active = FALSE WHERE user_id = $1 AND is_active = TRUE`, userID); err != nil {
+			return fmt.Errorf("internal_error: failed to deactivate current school: %w", err)
+		}
+
+		res, err := tx.Exec(ctx, `UPDATE school_memberships SET is_active = TRUE WHERE school_id = $1 AND user_id = $2`, schoolID, userID)
+		if err != nil {
+			return fmt.Errorf("internal_error: failed to activate school: %w", err)
+		}
+		n := res.RowsAffected()
+		if n == 0 {
+			return errors.New("bad_request: school membership not found for user and school")
+		}
+
+		changed = true
+		return nil
+	})
+
+	if txErr != nil {
+		return false, txErr
+	}
+	return changed, nil
+}
+
+// ListSchools returns schools for a user within a tenant.
+func (s *SchoolService) ListSchools(ctx context.Context, userID, tenantID string) ([]struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	CountryName         string `json:"country_name"`
+	EducationSystemName string `json:"education_system_name"`
+	Role                string `json:"role"`
+	IsActive            bool   `json:"is_active"`
+}, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT s.id, s.school_name, c.country_name, es.system_name, sm.role, COALESCE(sm.is_active, false)
+		FROM schools s
+		JOIN countries c ON c.id = s.country_id
+		JOIN education_systems es ON es.id = s.education_system_id
+		LEFT JOIN school_memberships sm ON sm.school_id = s.id AND sm.user_id = $2
+		WHERE s.tenant_id = $1
+		ORDER BY s.school_name
+	`, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("internal_error: list schools failed: %w", err)
+	}
+	defer rows.Close()
+
+	var out []struct {
+		ID                  string `json:"id"`
+		Name                string `json:"name"`
+		CountryName         string `json:"country_name"`
+		EducationSystemName string `json:"education_system_name"`
+		Role                string `json:"role"`
+		IsActive            bool   `json:"is_active"`
+	}
+	for rows.Next() {
+		var id, name, countryName, educationSystemName, role sql.NullString
+		var isActive bool
+		if err := rows.Scan(&id, &name, &countryName, &educationSystemName, &role, &isActive); err != nil {
+			return nil, fmt.Errorf("internal_error: list schools scan failed: %w", err)
+		}
+		out = append(out, struct {
+			ID                  string `json:"id"`
+			Name                string `json:"name"`
+			CountryName         string `json:"country_name"`
+			EducationSystemName string `json:"education_system_name"`
+			Role                string `json:"role"`
+			IsActive            bool   `json:"is_active"`
+		}{ID: id.String, Name: name.String, CountryName: countryName.String, EducationSystemName: educationSystemName.String, Role: role.String, IsActive: isActive})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("internal_error: list schools rows err: %w", err)
+	}
+	return out, nil
 }

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
@@ -38,6 +39,7 @@ import (
 	somoredis "somotracker/backend/internal/redis"
 	"somotracker/backend/internal/services"
 	"somotracker/backend/internal/stytch"
+	"somotracker/backend/internal/worker"
 )
 
 func main() {
@@ -48,18 +50,39 @@ func main() {
 		fx.Provide(newQuerier),
 		fx.Provide(services.NewAuthService),
 		fx.Provide(services.NewMeService),
-		fx.Provide(services.NewSchoolRegistrationService),
+		fx.Provide(services.NewSchoolService),
 		fx.Provide(services.NewAcademicPeriodService),
 		fx.Provide(services.NewStreamsService),
 		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.GradesService {
 			return services.NewGradesService(pool, q, logger)
 		}),
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.ClassesService {
+			return services.NewClassesService(pool, q, logger)
+		}),
+		fx.Provide(services.NewAdminsService),
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries) services.TimetableService {
+			return services.NewTimetableService(pool, q)
+		}),
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.AttendanceService {
+			return services.NewAttendanceService(pool, q)
+		}),
+		fx.Provide(func(q *sqlc.Queries, logger *zap.Logger) services.CurriculumService {
+			return services.NewCurriculumService(q, logger)
+		}),
+		fx.Provide(func(q *sqlc.Queries, logger *zap.Logger) services.RoomsService {
+			return services.NewRoomsService(q, logger)
+		}),
+		fx.Provide(services.NewTeachersService),
+		fx.Provide(services.NewFinanceService),
+		fx.Provide(services.NewGuardiansService),
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),
 		fx.Invoke(observability.MetricsInvoke),
 		fx.Provide(middleware.NewRequestIDHandler),
-		fx.Provide(newFiberApp),
+		fx.Provide(func(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, queries *sqlc.Queries, router *api.Router, curriculumSvc services.CurriculumService, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
+			return newFiberApp(cfg, logger, pool, queries, router, curriculumSvc, reqIDHandler, redisClient, stytchClient)
+		}),
 		fx.Invoke(database.RunMigrations),
 		somoredis.Module,
 		ratelimit.Module,
@@ -107,7 +130,7 @@ func newQuerier(pool *pgxpool.Pool) *sqlc.Queries {
 // newFiberApp creates and configures a Fiber v3 application with health
 // endpoints. The /readyz handler pings the database connection pool so the
 // API only reports ready when PostgreSQL is reachable.
-func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler, redisClient *redis.Client) *fiber.App {
+func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, queries *sqlc.Queries, router *api.Router, curriculumSvc services.CurriculumService, reqIDHandler fiber.Handler, redisClient *redis.Client, stytchClient *stytch.Client) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      "somotracker-api",
 		BodyLimit:    50 * 1024 * 1024, // 50MB
@@ -152,7 +175,72 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	app.Use(compression.Middleware())
 	app.Use(bodylimit.Middleware())
 	app.Use(timeout.Middleware())
-	router.RegisterRoutes(app, redisClient, logger)
+	// Initialize admin invitation dependencies
+	invSvc := services.NewAdminInvitationService(pool, queries, logger)
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB})
+	router.AdminInvitation = api.NewAdminInvitationHandler(invSvc, stytchClient, asynqClient, redisClient, logger)
+
+	// Initialize teacher invitation dependencies
+	teacherInvSvc := services.NewTeacherInvitationService(pool, logger)
+	router.TeacherInvitation = api.NewTeacherInvitationHandler(teacherInvSvc, stytchClient, asynqClient, redisClient, logger)
+
+	// Initialize finance invitation dependencies
+	financeInvSvc := services.NewFinanceInvitationService(pool, logger)
+	router.FinanceInvitation = api.NewFinanceInvitationHandler(financeInvSvc, stytchClient, asynqClient, redisClient, logger)
+
+	// Initialize guardian invitation dependencies
+	guardianInvSvc := services.NewGuardianInvitationService(pool, logger)
+	router.GuardianInvitation = api.NewGuardianInvitationHandler(guardianInvSvc, stytchClient, asynqClient, redisClient, logger)
+
+	// Initialize student import dependencies
+	studentImportSvc := services.NewStudentImportService(pool, logger)
+	router.StudentsImport = api.NewStudentsImportHandler(studentImportSvc, asynqClient, redisClient, logger)
+
+	// Initialize students listing
+	studentsSvc := services.NewStudentsService(queries)
+	router.Students = api.NewStudentsHandler(studentsSvc, logger)
+
+	// Initialize timetable substitutions
+	timetableSubstitutionsSvc := services.NewTimetableSubstitutionsService(queries)
+	router.TimetableSubstitutions = api.NewTimetableSubstitutionsHandler(timetableSubstitutionsSvc, logger)
+
+	// Initialize enrollments
+	enrollmentsSvc := services.NewEnrollmentsService(queries, logger)
+	router.Enrollments = api.NewEnrollmentsHandler(enrollmentsSvc, logger)
+
+	router.RegisterRoutes(app, redisClient, logger, curriculumSvc)
+
+	// Start Asynq worker for admin invitation batches
+	mux := asynq.NewServeMux()
+	processor := worker.NewAdminInvitationProcessor(invSvc, stytchClient, logger, redisClient)
+	mux.HandleFunc("admin:invitation:batch", processor.ProcessTask)
+	mux.HandleFunc("admin:invitation:retry", processor.ProcessRetryTask)
+	// Teacher invitation worker
+	teacherProcessor := worker.NewTeacherInvitationProcessor(teacherInvSvc, stytchClient, logger, redisClient)
+	mux.HandleFunc("teacher:invitation:batch", teacherProcessor.ProcessTask)
+	mux.HandleFunc("teacher:invitation:retry", teacherProcessor.ProcessRetryTask)
+	// Finance invitation worker
+	financeProcessor := worker.NewFinanceInvitationProcessor(financeInvSvc, stytchClient, logger, redisClient)
+	mux.HandleFunc("finance:invitation:batch", financeProcessor.ProcessTask)
+	mux.HandleFunc("finance:invitation:retry", financeProcessor.ProcessRetryTask)
+	// Guardian invitation worker
+	guardianProcessor := worker.NewGuardianInvitationProcessor(guardianInvSvc, stytchClient, logger, redisClient)
+	mux.HandleFunc("guardian:invitation:batch", guardianProcessor.ProcessTask)
+	mux.HandleFunc("guardian:invitation:retry", guardianProcessor.ProcessRetryTask)
+	// Student import worker
+	studentProcessor := worker.NewStudentImportProcessor(studentImportSvc, logger, redisClient)
+	mux.HandleFunc("student:import:batch", studentProcessor.ProcessTask)
+	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB}, asynq.Config{
+		Concurrency: 10,
+		Queues:      map[string]int{"admin_invitation": 1, "teacher_invitation": 1, "finance_invitation": 1, "guardian_invitation": 1, "student_import": 1},
+	})
+	go func() {
+		logger.Info("asynq server starting", zap.Any("queues", map[string]int{"admin_invitation": 1, "teacher_invitation": 1, "finance_invitation": 1, "guardian_invitation": 1, "student_import": 1}), zap.Int("concurrency", 10))
+		if err := asynqServer.Start(mux); err != nil {
+			logger.Warn("asynq server stopped", zap.Error(err))
+		}
+	}()
+
 	return app
 }
 

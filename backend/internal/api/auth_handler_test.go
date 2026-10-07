@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/database/sqlc"
 	"somotracker/backend/internal/services"
 )
 
@@ -46,9 +48,31 @@ func (m *mockAuthService) AuthenticateCallback(_ context.Context, token string, 
 	return m.authenticateResult, m.authenticateErr
 }
 
+func (m *mockAuthService) AuthenticateInviteCallback(_ context.Context, token string) (*services.SessionResult, error) {
+	m.authenticateCalls = append(m.authenticateCalls, token)
+	return m.authenticateResult, m.authenticateErr
+}
+
 func (m *mockAuthService) RevokeSession(_ context.Context, token string, _ string) error {
 	m.revokeCalls = append(m.revokeCalls, token)
 	return m.revokeErr
+}
+
+// mockAttendanceService is a hand-rolled stub of services.AttendanceService for
+// transport-layer tests.
+type mockAttendanceService struct{}
+
+func (m *mockAttendanceService) CreateAttendance(ctx context.Context, schoolID uuid.UUID, userID uuid.UUID, req services.CreateAttendanceRequest) error {
+	return nil
+}
+func (m *mockAttendanceService) GetAttendanceBySlotAndDate(ctx context.Context, slotID uuid.UUID, date time.Time) ([]sqlc.TimetableAttendance, error) {
+	return nil, nil
+}
+func (m *mockAttendanceService) GetAttendanceByStudentAndDate(ctx context.Context, studentID uuid.UUID, date time.Time) ([]sqlc.TimetableAttendance, error) {
+	return nil, nil
+}
+func (m *mockAttendanceService) ListAttendanceSessions(ctx context.Context, params services.ListAttendanceSessionsParams) ([]services.AttendanceSession, int, error) {
+	return nil, 0, nil
 }
 
 // newTestRouter wires a real *Router against a mockAuthService. The rate
@@ -57,9 +81,9 @@ func newTestRouter(mock *mockAuthService) *fiber.App {
 	cfg := &config.Config{
 		CAPTCHAEnabled: false,
 	}
-	router := NewRouter(mock, nil, services.NewSchoolRegistrationService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, cfg)
+	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), &mockAttendanceService{}, nil, nil, nil, cfg, nil, nil)
 	app := fiber.New()
-	router.RegisterRoutes(app, nil, nil)
+	router.RegisterRoutes(app, nil, nil, nil)
 	return app
 }
 
@@ -335,9 +359,9 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{CAPTCHAEnabled: false}
-	router := NewRouter(mock, nil, services.NewSchoolRegistrationService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, cfg) // nil limiter → passes through
+	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), &mockAttendanceService{}, nil, nil, nil, cfg, nil, nil) // nil limiter → passes through
 	app := fiber.New()
-	router.RegisterRoutes(app, nil, nil)
+	router.RegisterRoutes(app, nil, nil, nil)
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=ok", nil))
 	require.NoError(t, err)

@@ -23,10 +23,17 @@ func NewErrorHandler() fiber.ErrorHandler {
 			zap.String("request_id", reqID),
 		)
 
-		return c.Status(status).JSON(fiber.Map{
-			"code":    code,
-			"message": err.Error(),
-			"errors":  fiber.Map{},
+		// Sanitize internal errors for clients
+		message := "Something went wrong"
+		if status != fiber.StatusInternalServerError {
+			message = err.Error()
+		}
+
+		return WriteError(c, APIError{
+			Status:  status,
+			Code:    code,
+			Message: message,
+			Errors:  map[string][]string{},
 		})
 	}
 }

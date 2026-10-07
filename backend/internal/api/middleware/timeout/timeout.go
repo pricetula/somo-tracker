@@ -21,15 +21,17 @@ const maxDuration = 15 * time.Second
 func Middleware() fiber.Handler {
 	onTimeout := func(c fiber.Ctx) error {
 		logger := middleware.GetLogger(c)
+		reqID := middleware.GetRequestID(c)
 		logger.Warn("timeout middleware: request cancelled",
-			zap.String("request_id", middleware.GetRequestID(c)),
+			zap.String("request_id", reqID),
 			zap.Duration("timeout", maxDuration),
 		)
 
 		return c.Status(fiber.StatusGatewayTimeout).JSON(fiber.Map{
-			"code":    "gateway_timeout",
-			"message": "Gateway timeout",
-			"errors":  fiber.Map{},
+			"code":       "gateway_timeout",
+			"message":    "Gateway timeout",
+			"errors":     fiber.Map{},
+			"request_id": reqID,
 		})
 	}
 

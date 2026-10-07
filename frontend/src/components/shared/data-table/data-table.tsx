@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Plus, Trash2 } from "lucide-react";
 
 import { useDebouncedValue } from "./use-debounced-value";
@@ -44,7 +45,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
     isCheckable,
     isRowCheckable,
     deleteFn,
-    deleteParams,
     addHref,
     rowHeight = 40,
     height = 600,
@@ -53,22 +53,88 @@ export function DataTable<TItem, TParams extends object, TResult>({
     noResultsState,
     className,
     renderToolBarComponents,
+    enableUrlSync = false,
+    urlSearchParam = "search",
+    urlFilterParamMap,
 }: DataTableProps<TItem, TParams, TResult>) {
     const queryClient = useQueryClient();
+    const router = useRouter();
+    const searchParams = useSearchParams();
 
     // ── Search state ─────────────────────────────────────────────────
-    const [searchTerm, setSearchTerm] = useState("");
+    const initialSearch = enableUrlSync ? (searchParams.get(urlSearchParam) ?? "") : "";
+    const [searchTerm, setSearchTerm] = useState(initialSearch);
     const debouncedSearch = useDebouncedValue(searchTerm, 300);
 
     // ── Filter state ─────────────────────────────────────────────────
     // Keyed by FilterItem id. button → string, sub_menu_single → string, sub_menu_multi → string[].
-    const [activeFilters, setActiveFilters] = useState<Record<string, string | string[]>>({});
+    const initialFilters = useMemo(() => {
+        if (!enableUrlSync || !filterGroups) return {};
+        const init: Record<string, string | string[]> = {};
+        filterGroups.forEach((group) => {
+            group.items.forEach((item) => {
+                const paramName = urlFilterParamMap?.[item.id] ?? `filter_${item.id}`;
+                const raw = searchParams.get(paramName);
+                if (!raw) return;
+                // Multi-select values are comma separated
+                if (item.type === "sub_menu_multi") {
+                    init[item.id] = raw.split(",").filter(Boolean);
+                } else {
+                    init[item.id] = raw;
+                }
+            });
+        });
+        return init;
+    }, [enableUrlSync, filterGroups, urlFilterParamMap, searchParams]);
+
+    const [activeFilters, setActiveFilters] = useState<Record<string, string | string[]>>(
+        () => initialFilters
+    );
 
     // ── Selection state ──────────────────────────────────────────────
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     // ── Delete confirm open ──────────────────────────────────────────
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+    // ── URL sync ─────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!enableUrlSync) return;
+        const params = new URLSearchParams();
+        if (isSearchable && debouncedSearch) {
+            params.set(urlSearchParam, debouncedSearch);
+        }
+        if (filterGroups) {
+            filterGroups.forEach((group) => {
+                group.items.forEach((item) => {
+                    const val = activeFilters[item.id];
+                    if (!val) return;
+                    const paramName = urlFilterParamMap?.[item.id] ?? `filter_${item.id}`;
+                    if (Array.isArray(val)) {
+                        if (val.length > 0) params.set(paramName, val.join(","));
+                    } else if (typeof val === "string" && val !== "") {
+                        params.set(paramName, val);
+                    }
+                });
+            });
+        }
+        const queryString = params.toString();
+        const currentQuery = searchParams.toString();
+        if (queryString === currentQuery) return;
+        router.replace(queryString ? `?${queryString}` : window.location.pathname, {
+            scroll: false,
+        });
+    }, [
+        enableUrlSync,
+        debouncedSearch,
+        activeFilters,
+        filterGroups,
+        urlFilterParamMap,
+        urlSearchParam,
+        isSearchable,
+        router,
+        searchParams,
+    ]);
 
     // ── Infinite query ───────────────────────────────────────────────
     const listQuery = useInfiniteListQuery<TItem, TParams, TResult>({
@@ -99,17 +165,11 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const isToolbarDisabled = !hasLoadedOnceRef.current && isPending;
 
     // ── Toast on pagination errors (page 2+) ─────────────────────────
-    const prevErrorRef = useRef<typeof error>(null);
-    if (isError && error && error !== prevErrorRef.current && !isPending) {
-        prevErrorRef.current = error;
-        // Defer toast to avoid setState-in-render issues
-        queueMicrotask(() => {
+    useEffect(() => {
+        if (isError && error) {
             toast.error(getErrorMessage(error));
-        });
-    }
-    if (!isError) {
-        prevErrorRef.current = null;
-    }
+        }
+    }, [isError, error]);
 
     // ── Event handlers ───────────────────────────────────────────────
 
@@ -260,10 +320,8 @@ export function DataTable<TItem, TParams extends object, TResult>({
         setSelectedIds(new Set());
 
         try {
-            // Delete sequentially
-            for (const id of idsToDelete) {
-                await deleteFn(id, deleteParams);
-            }
+            // Delete all selected IDs at once
+            await deleteFn(idsToDelete);
             // Invalidate to get fresh data
             queryClient.invalidateQueries({ queryKey });
         } catch (err) {
@@ -275,7 +333,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
         } finally {
             setDeletingIds(new Set());
         }
-    }, [deleteFn, deleteParams, queryClient, queryKey, selectedIds, getRowId]);
+    }, [deleteFn, queryClient, queryKey, selectedIds, getRowId]);
 
     // ── Determine if "Check all" is checked / indeterminate ──────────
     const selectableRows = useMemo(
@@ -316,13 +374,16 @@ export function DataTable<TItem, TParams extends object, TResult>({
 
     const virtualItems = virtualizer.getVirtualItems();
 
-    // Fetch next page when scrolling near the last loaded row
     const lastVirtualIndex =
         virtualItems.length > 0 ? virtualItems[virtualItems.length - 1].index : -1;
 
-    if (lastVirtualIndex >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
-    }
+    // Fetch next page when scrolling near the last loaded row
+    useEffect(() => {
+        if (lastVirtualIndex >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [lastVirtualIndex, rows.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
     // ── State checks ─────────────────────────────────────────────────
 
     const hasData = rows.length > 0;

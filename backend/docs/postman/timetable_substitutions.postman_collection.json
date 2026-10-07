@@ -1,0 +1,8 @@
+{
+  "info": {"name": "Timetable Substitutions", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "item": [
+    {"name": "Create Substitution", "request": {"method": "POST", "body": {"mode": "raw", "raw": "{\"class_timetable_slot_id\": \"<uuid>\",\"substitution_date\": \"2025-09-01\",\"original_teacher_membership_id\": \"<uuid>\",\"substitute_teacher_membership_id\": \"<uuid>\",\"status\": \"PENDING\",\"reason\": \"Medical leave\"}"}, "url": {"raw": "{{base_url}}/api/timetable/substitutions"}}},
+    {"name": "Update Substitution", "request": {"method": "PATCH", "body": {"mode": "raw", "raw": "{\"id\": \"<uuid>\",\"substitute_teacher_membership_id\": \"<uuid>\",\"status\": \"ASSIGNED\",\"reason\": \"Cover assigned\"}"}, "url": {"raw": "{{base_url}}/api/timetable/substitutions"}}},
+    {"name": "Delete Substitution", "request": {"method": "DELETE", "url": {"raw": "{{base_url}}/api/timetable/substitutions/<uuid>"}}}
+  ]
+}

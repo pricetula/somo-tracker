@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="23" failures="0" errors="0" time="26.616636">
+	<testsuite tests="18" failures="0" skipped="1" time="26.612000" name="somotracker/backend/internal/database" timestamp="2026-09-23T02:01:14+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/database" name="TestPoolTracer_EmitsSpan" time="1.260000">
+			<skipped message="=== RUN   TestPoolTracer_EmitsSpan&#xA;2026/09/23 02:01:30 🐳 Creating container for image postgres:16-alpine&#xA;2026/09/23 02:01:30 ✅ Container created: a62357223433&#xA;2026/09/23 02:01:30 🐳 Starting container: a62357223433&#xA;2026/09/23 02:01:30 ✅ Container started: a62357223433&#xA;2026/09/23 02:01:30 ⏳ Waiting for container id a62357223433 image: postgres:16-alpine. Waiting for: all of: [log message &#34;database system is ready to accept connections&#34; (occurrence: 2)]&#xA;2026/09/23 02:01:31 🔔 Container is ready: a62357223433&#xA;    pool_tracer_testcontainers_test.go:49: test database unavailable (skip): database.NewPool: initial ping: pgxpool: too many failed attempts acquiring connection; likely bug in PrepareConn, BeforeAcquire, or ShouldPing hook&#xA;2026/09/23 02:01:31 🐳 Stopping container: a62357223433&#xA;2026/09/23 02:01:31 ✅ Container stopped: a62357223433&#xA;2026/09/23 02:01:31 🐳 Terminating container: a62357223433&#xA;2026/09/23 02:01:31 🚫 Container terminated: a62357223433&#xA;--- SKIP: TestPoolTracer_EmitsSpan (1.26s)&#xA;"></skipped>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AddGradeIdToSubjects" time="1.760000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_ExpandSubjectCode" time="1.490000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SubjectColor" time="1.470000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AddStudentBulkImportSupport" time="1.520000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_StudentImportHardening" time="1.390000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_InvitationTracking" time="1.370000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_BulkJobIngestion" time="1.380000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_BasicIntegration" time="1.370000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_Extensions" time="1.380000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_TenantsAndUsers" time="1.390000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestPoolConfig_HasTracer" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_TimetableScheduling" time="1.440000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AttendanceTracking" time="1.360000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SISSchema" time="1.390000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SubjectHierarchy" time="1.420000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AcademicCalendar" time="1.380000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_ClassRoomsAndEnrollments" time="1.380000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/sqlc" timestamp="2026-09-23T02:01:14+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="5" failures="0" time="9.634000" name="somotracker/backend/internal/testdb" timestamp="2026-09-23T02:01:14+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithTestcontainers" time="2.170000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithCustomConfig" time="1.430000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithMigrator" time="1.380000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleSpecificMigration" time="1.410000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleParallelIsolation" time="1.390000"></testcase>
+	</testsuite>
+</testsuites>

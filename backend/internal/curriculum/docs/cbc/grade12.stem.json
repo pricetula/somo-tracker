@@ -1,0 +1,209 @@
+[
+  {
+    "name": "Core Mathematics",
+    "code": "MATH_CORE_G12",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Advanced Calculus and Differential Equations",
+        "sub_strands": [
+          {
+            "name": "Integration Techniques and Systems",
+            "performance_indicators": [
+              "Evaluate complex integrals using integration by parts, substitution, and partial fractions.",
+              "Formulate and solve first-order ordinary differential equations ($ODEs$) with separable variables for growth models.",
+              "Apply numerical methods, including Simpson's rule, to estimate definite integrals of non-analytical functions."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Linear Algebra and Matrices",
+        "sub_strands": [
+          {
+            "name": "Matrix Transformations and Systems",
+            "performance_indicators": [
+              "Compute the determinant and inverse of a $3 \times 3$ matrix using cofactor matrices.",
+              "Solve simultaneous linear equations in three variables using Cramer's rule and Gaussian elimination.",
+              "Determine eigenvalues and eigenvectors for basic $2 \times 2$ linear transformation matrices."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Chemistry",
+    "code": "CHEM_G12",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Thermodynamics and Coordination Chemistry",
+        "sub_strands": [
+          {
+            "name": "Entropy, Free Energy, and Transition Metals",
+            "performance_indicators": [
+              "Calculate entropy changes and Gibbs free energy changes to predict chemical spontaneity.",
+              "Explain the electronic configurations, variable oxidation states, and catalytic properties of d-block transition elements.",
+              "Deduce shapes and coordinate bonding configurations of transition metal complex ions."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Analytical Chemistry and Spectroscopy",
+        "sub_strands": [
+          {
+            "name": "Structural Elucidation Techniques",
+            "performance_indicators": [
+              "Interpret Infrared (IR) spectra to identify functional groups present in organic structures.",
+              "Analyze mass spectrometry fragmentation patterns to determine the molecular weight of unknown compounds."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Physics",
+    "code": "PHYS_G12",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Wave Optics and Modern Physics",
+        "sub_strands": [
+          {
+            "name": "Interference, Diffraction, and Quantum Models",
+            "performance_indicators": [
+              "Analyze double-slit interference patterns using wave equations.",
+              "Explain the photoelectric effect and calculate work functions using Einstein's photoelectric equation.",
+              "Solve problems involving de Broglie wavelength thresholds and wave-particle duality concepts."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Nuclear and Particle Physics",
+        "sub_strands": [
+          {
+            "name": "Radioactivity, Fission, and Fusion",
+            "performance_indicators": [
+              "Formulate balanced nuclear equations representing alpha, beta, and gamma radioactive decay loops.",
+              "Calculate nuclear binding energy deficits and energy release yields during fission and fusion events.",
+              "Determine radioactive half-life constants using exponential decay functions."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Biology",
+    "code": "BIOL_G12",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Genetics and Molecular Biology",
+        "sub_strands": [
+          {
+            "name": "DNA Replication, Protein Synthesis, and Inheritance",
+            "performance_indicators": [
+              "Explain the molecular mechanisms of semi-conservative DNA replication and transcription.",
+              "Translate mRNA codon sequences into specific amino acid chains using the genetic code matrix.",
+              "Solve genetic problems involving monohybrid, dihybrid, codominance, and sex-linked inheritance patterns."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Evolution and Biotechnology",
+        "sub_strands": [
+          {
+            "name": "Natural Selection and Recombinant DNA",
+            "performance_indicators": [
+              "Evaluate evolutionary evidence from comparative anatomy, embryology, and fossil records.",
+              "Outline the production workflow of genetically modified organisms using restriction enzymes and plasmids."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Computer Science",
+    "code": "COMP_SCI_G12",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Data Structures and Algorithms",
+        "sub_strands": [
+          {
+            "name": "Linear Data Structures and Search/Sort Logics",
+            "performance_indicators": [
+              "Implement stacks, queues, and linked lists, managing memory address tracking efficiently.",
+              "Analyze the time and space complexity of binary search and bubble/quick sort routines.",
+              "Construct recursive functions to solve algorithmic traversal challenges."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Relational Databases",
+        "sub_strands": [
+          {
+            "name": "Normalization and SQL Operations",
+            "performance_indicators": [
+              "Normalize flat data models up to Third Normal Form (3NF) to minimize redundancy.",
+              "Write multi-table SQL queries utilizing inner/outer joins, subqueries, and grouping metrics."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English",
+    "code": "ENG_G12",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Technical Documentation and Synthesis",
+        "sub_strands": [
+          {
+            "name": "Project Proposals and Systematic Reviews",
+            "performance_indicators": [
+              "Draft rigorous project engineering proposals including budget layouts and scope matrices.",
+              "Synthesize cross-domain research papers to write structural literature reviews."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili",
+    "code": "KISW_G12",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Uandishi wa Kitaaluma na Makala ya Kisayansi",
+        "sub_strands": [
+          {
+            "name": "Tathmini na Tasnifu za Kiufundi",
+            "performance_indicators": [
+              "Kuandika tasnifu za kisayansi zilizokamilika na zenye kufuata kanuni za kunukuu vyanzo.",
+              "Kutathmini makala ya kiufundi na kutoa hoja kwa mtindo wa kijadili na kimantiki."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

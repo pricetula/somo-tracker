@@ -1,512 +1,1352 @@
-// Auto-generated API types derived from the Somotracker Go backend.
-// Generated from: backend/internal/*/handler.go, domain.go.
-// Generator: openapi-typescript (planned) -- manually maintained for now.
-// Run `pnpm generate:api` to regenerate from the backend swagger.json.
-
-// ─── Enum-like types (CBC curriculum) ────────────────────────────────────
-// These correspond to fixed string values enforced by the backend.
-
-/** Canonical grade level values used across the CBC curriculum. */
-export type GradeLevel =
-    | "PP1"
-    | "PP2"
-    | "G1"
-    | "G2"
-    | "G3"
-    | "G4"
-    | "G5"
-    | "G6"
-    | "G7"
-    | "G8"
-    | "G9"
-    | "G10"
-    | "G11"
-    | "G12";
-
-/** Canonical education level values used across the CBC curriculum. */
-export type EducationLevel = "Early_Years" | "Upper_Primary" | "Junior_Secondary" | "Senior_School";
-
-// ─── Auth API Payloads ───────────────────────────────────────────────────
-
-export interface MagicLinkRequest {
-    email: string;
-    org_id?: string;
-}
-
-export interface MagicLinkResponse {
-    code: string;
-    message: string;
-    errors: Record<string, string[]>;
-}
-
-export interface CallbackResponse {
-    code: string;
-    message: string;
-    errors: Record<string, string[]>;
-}
-
-export interface LogoutResponse {
-    code: string;
-    message: string;
-    errors: Record<string, string[]>;
-}
-
-export interface CreateTenantPayload {
-    name: string;
-    slug?: string;
-}
-
-export interface Tenant {
-    id: string;
-    name: string;
-    slug: string;
-    created_at: string;
-}
-
-export interface CreateSchoolPayload {
-    name: string;
-}
-
-export interface CreateSchoolResponse {
-    id: string;
-}
-
-export interface UpdateSchoolPayload {
-    name?: string;
-    county?: string;
-    sub_county?: string;
-    ward?: string;
-    knec_school_code?: string;
-    nemis_code?: string;
-    school_type?: string;
-    is_active?: boolean;
-}
-
-export interface SchoolWithMemberCount {
-    id: string;
-    tenant_id: string;
-    name: string;
-    knec_school_code?: string;
-    county: string;
-    sub_county: string;
-    ward?: string;
-    school_type: string;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
-    admins: number;
-    teachers: number;
-    nurses: number;
-    finance: number;
-    parents: number;
-    students: number;
-    is_member_active_school: boolean;
-}
-
-export interface ListSchoolsResponse {
-    items: SchoolWithMemberCount[];
-    total: number;
-}
-
-export interface CreateStreamPayload {
-    name: string;
-}
-
-export interface UpdateStreamPayload {
-    name: string;
-}
-
-export interface Stream {
-    id: string;
-    name: string;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface ListStreamsResponse {
-    items: Stream[];
-}
-
-export interface CreateClassPayload {
-    grade_level: string;
-    academic_year_id: string;
-    academic_term_id: string;
-    stream_id: string;
-    student_ids?: string[];
-}
-
-export interface UpdateClassPayload {
-    grade_level: string;
-    stream_id: string;
-    academic_term_id: string;
-    student_ids?: string[];
-}
-
-export interface BulkDeleteClassesPayload {
-    class_ids: string[];
-}
-
-export interface Class {
-    id: string;
-    grade_level: string;
-    stream_name: string;
-    stream_color: string;
-    display_label: string;
-    stream_id: string;
-    student_count?: number;
-    created_at?: string;
-    updated_at?: string;
-}
-
-export interface ClassListResult {
-    items: Class[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export interface Member {
-    id: string;
-    email: string;
-    full_name: string;
-    role: "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN";
-    is_active: boolean;
-    created_at: string;
-}
-
-export interface ListMembersResponse {
-    items: Member[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export interface TeacherMember {
-    id: string;
-    email: string;
-    full_name: string;
-    tsc_number: string | null;
-    knec_panel_assessor_id: string | null;
-    teacher_role: string | null;
-    is_active: boolean;
-    created_at: string;
-}
-
-export interface ListTeachersResponse {
-    items: TeacherMember[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked" | "invite_failed";
-
-export type InvitationRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";
-
-export interface Invitation {
-    id: string;
-    school_id: string;
-    tenant_id: string;
-    email: string;
-    role: InvitationRole;
-    status: InvitationStatus;
-    full_name?: string;
-    expires_at: string;
-    created_at: string;
-}
-
-export interface ListInvitationsResponse {
-    items: Invitation[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export interface SwitchActiveSchoolPayload {
-    school_id: string;
-}
-
-export interface ActiveSchoolResponse {
-    school_id: string;
-}
-
-export interface ActiveSchoolUpdateResponse {
-    message: string;
-}
-
-export interface AcademicYear {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-    version: number;
-    created_at: string;
-    updated_at: string;
-    terms: AcademicTerm[];
-}
-
-export interface AcademicTerm {
-    id: string;
-    academic_year_id: string;
-    name: string;
-    term_number: number;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-    is_final: boolean;
-    version: number;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface PatchYearBody {
-    name?: string;
-    start_date?: string;
-    end_date?: string;
-    version: number;
-}
-
-export interface PatchYearResponse {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-    version: number;
-    warnings?: string[];
-}
-
-export interface SetCurrentYearResponse {
-    message: string;
-}
-
-export interface CreateTermBody {
-    academic_year_id: string;
-    name: string;
-    term_number: number;
-    start_date: string;
-    end_date: string;
-}
-
-export interface PatchTermBody {
-    name?: string;
-    start_date?: string;
-    end_date?: string;
-    version: number;
-}
-
-export interface PatchTermResponse {
-    id: string;
-    name: string;
-    term_number: number;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-    academic_year_id: string;
-    version: number;
-    warnings?: string[];
-}
-
-export interface ListYearsResponse {
-    items: AcademicYear[];
-}
-
-export interface ListTermsResponse {
-    items: AcademicTerm[];
-}
-
-export type TeacherRole = "PRIMARY_CLASS_TEACHER" | "SUBJECT_TEACHER" | "SUBSTITUTE_TEACHER";
-
-export interface CreateTimetableAllocationInput {
-    class_id: string;
-    teacher_id: string;
-    learning_area_id?: string;
-    room_identifier?: string;
-    day_of_week: number;
-    start_time: string;
-    end_time: string;
-}
-
-export interface BulkCreateTimetableAllocationsInput {
-    academic_year_id: string;
-    academic_term_id: string;
-    slots: CreateTimetableAllocationInput[];
-}
-
-export interface TimetableAllocation {
-    id: string;
-    tenant_id: string;
-    school_id: string;
-    academic_year_id: string;
-    academic_term_id: string;
-    class_id: string;
-    teacher_id: string;
-    learning_area_id?: string;
-    room_identifier?: string;
-    day_of_week: number;
-    start_time: string;
-    end_time: string;
-}
-
-export interface ListTimetableAllocationsResponse {
-    items: TimetableAllocation[];
-}
-
-export interface AssignTeacherPayload {
-    user_id: string;
-    learning_area_id?: string;
-    teacher_role: TeacherRole;
-}
-
-export interface AssignTeacherResponse {
-    code: string;
-    message: string;
-}
-
-export interface RemoveTeacherResponse {
-    code: string;
-    message: string;
-}
-
-export interface BulkCreateSlotsResponse {
-    code: string;
-    message: string;
-}
-
-export interface ImportStaffRecord {
-    temp_id: string;
-    email: string;
-    full_name: string;
-    phone?: string;
-    registration_number?: string;
-}
-
-export interface StartImportRequest {
-    role: "SCHOOL_ADMIN" | "NURSE" | "FINANCE" | "TEACHER";
-    records: ImportStaffRecord[];
-    parent_import_job_id?: string;
-}
-
-export interface StartImportResponse {
-    import_job_id: string;
-    status: string;
-    total: number;
-}
-
-export interface ImportJob {
-    id: string;
-    tenant_id: string;
-    school_id: string;
-    role: string;
-    created_by?: string;
-    status: string;
-    total_records: number;
-    processed_records: number;
-    success_count: number;
-    failed_count: number;
-    parent_import_job_id?: string;
-    created_at: string;
-    started_at?: string;
-    completed_at?: string;
-}
-
-export interface TrackImportResponse {
-    job: ImportJob;
-    failed_records: number;
-}
-
-export interface ImportProgressEvent {
-    type: "connected" | "import_progress" | "import_finished" | "import_error";
-    import_job_id: string;
-    status?: string;
-    processed_records?: number;
-    success_count?: number;
-    failed_count?: number;
-    total_records?: number;
-}
-
-export interface FailedInvitation {
-    id: string;
-    email: string;
-    full_name?: string;
-    phone?: string;
-    error_message?: string;
-}
-
-export interface ListFailedInvitationsResponse {
-    items: FailedInvitation[];
-}
-
-export interface StudentRecord {
-    full_name: string;
-    gender: string;
-    date_of_birth?: string;
-    upi_number?: string;
-    knec_assessment_number?: string;
-    cbc_student_parents_id?: string;
-    class_id?: string;
-}
-
-export interface StartStudentImportRequest {
-    academic_year: string;
-    term: string;
-    students: StudentRecord[];
-}
-
-export interface StartStudentImportResponse {
-    job_id: string;
-    status: string;
-}
-
-export interface ProgressFrame {
-    status: string;
-    processed: number;
-    total: number;
-    success_count: number;
-    failed_count: number;
-}
-
-export interface ParentRecord {
-    id: string;
-    full_name: string;
-    phone?: string;
-    email?: string;
-}
-
-export interface ClassRecord {
-    id: string;
-    name: string;
-    grade_level: string;
-    stream_name: string;
-    display_label: string;
-}
-
-export interface ExistingStudentRecord {
-    full_name: string;
-    date_of_birth?: string;
-    upi_number?: string;
-}
-
-export interface AcademicYearRecord {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-}
-
-export interface AcademicPeriodRecord {
-    id: string;
-    name: string;
-    term_number: number;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-}
-
-export interface ApiErrorBody {
-    code: string;
-    message: string;
-    errors?: Record<string, string[]>;
-}
+/**
+ * This file was auto-generated by openapi-typescript.
+ * Do not make direct changes to the file.
+ */
+
+export interface paths {
+    "/admins": {
+        /**
+         * List school admins with pagination and filters (invited/accepted)
+         * Delete school members by user IDs; returns error if current user is included
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** Page number (default 1) */
+                    page?: number;
+                    /** Page size (default 50) */
+                    limit?: number;
+                    /** Search email or full name */
+                    search?: string;
+                    /** Filter by invitation status: invited|accepted|all (default all) */
+                    invitation_status?: string;
+                };
+                body: {
+                    /** User IDs to delete */
+                    body: definitions["internal_api.deleteAdminsRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /**
+         * List school admins with pagination and filters (invited/accepted)
+         * Delete school members by user IDs; returns error if current user is included
+         */
+        delete: {
+            parameters: {
+                query: {
+                    /** Page number (default 1) */
+                    page?: number;
+                    /** Page size (default 50) */
+                    limit?: number;
+                    /** Search email or full name */
+                    search?: string;
+                    /** Filter by invitation status: invited|accepted|all (default all) */
+                    invitation_status?: string;
+                };
+                body: {
+                    /** User IDs to delete */
+                    body: definitions["internal_api.deleteAdminsRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/admins/invitations": {
+        post: {
+            parameters: {
+                body: {
+                    /** Bulk invitation payload */
+                    body: definitions["internal_api.BulkInvitationRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+                /** Accepted */
+                202: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+            };
+        };
+    };
+    "/api/admins/invitations/jobs/{job_id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationJob"];
+                };
+            };
+        };
+    };
+    "/api/admins/invitations/jobs/{job_id}/events": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/admins/invitations/jobs/{job_id}/retry-failed": {
+        post: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationRetryResponse"];
+                };
+            };
+        };
+    };
+    "/api/attendance": {
+        post: {
+            parameters: {
+                body: {
+                    /** Attendance payload */
+                    body: definitions["internal_api.createAttendanceRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/attendance/sessions": {
+        get: {
+            parameters: {
+                query: {
+                    /** Page number */
+                    page?: number;
+                    /** Page size */
+                    limit?: number;
+                    /** Search class/teacher/subject */
+                    search?: string;
+                    /** Filter: SUBMITTED, IN_PROGRESS, MISSED */
+                    status?: string;
+                    /** YYYY-MM-DD */
+                    date_from?: string;
+                    /** YYYY-MM-DD */
+                    date_to?: string;
+                    /** Comma-separated grade labels */
+                    grades?: string;
+                    /** Comma-separated stream names */
+                    streams?: string;
+                    /** Comma-separated subject names */
+                    subjects?: string;
+                    /** Comma-separated teacher names */
+                    teachers?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/auth/callback": {
+        get: {
+            parameters: {
+                query: {
+                    /** Magic-link token */
+                    token: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.CallbackResponse"];
+                };
+            };
+        };
+    };
+    "/api/auth/invite/callback": {
+        get: {
+            parameters: {
+                query: {
+                    /** Invitation token */
+                    token: string;
+                };
+            };
+            responses: {
+                /** Redirects to frontend */
+                302: never;
+            };
+        };
+    };
+    "/api/auth/logout": {
+        post: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.LogoutResponse"];
+                };
+            };
+        };
+    };
+    "/api/auth/magic-link/send": {
+        post: {
+            parameters: {
+                formData: {
+                    /** User email */
+                    email?: string;
+                };
+                body: {
+                    /** Magic link request */
+                    body: definitions["internal_api.MagicLinkRequest"];
+                };
+                query: {
+                    /** Organization ID or slug */
+                    org_id?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.MagicLinkResponse"];
+                };
+            };
+        };
+    };
+    "/api/finance/invitations": {
+        post: {
+            parameters: {
+                body: {
+                    /** Bulk invitation payload */
+                    body: definitions["internal_api.BulkInvitationRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+                /** Accepted */
+                202: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+            };
+        };
+    };
+    "/api/finance/invitations/jobs/{job_id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationJob"];
+                };
+            };
+        };
+    };
+    "/api/finance/invitations/jobs/{job_id}/events": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/finance/invitations/jobs/{job_id}/retry-failed": {
+        post: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationRetryResponse"];
+                };
+            };
+        };
+    };
+    "/api/guardians/invitations": {
+        post: {
+            parameters: {
+                body: {
+                    /** Bulk invitation payload */
+                    body: definitions["internal_api.BulkInvitationRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+                /** Accepted */
+                202: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+            };
+        };
+    };
+    "/api/guardians/invitations/jobs/{job_id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationJob"];
+                };
+            };
+        };
+    };
+    "/api/guardians/invitations/jobs/{job_id}/events": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/guardians/invitations/jobs/{job_id}/retry-failed": {
+        post: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationRetryResponse"];
+                };
+            };
+        };
+    };
+    "/api/me": {
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/school": {
+        /** Creates a new school. Requester must be admin. Auto-creates 3 terms + loads CBE curriculum. */
+        post: {
+            parameters: {
+                body: {
+                    /** School creation payload */
+                    body: { [key: string]: unknown };
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Forbidden */
+                403: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/school/academic-period": {
+        /** Creates a new academic year with nested terms for the active school. */
+        post: {
+            parameters: {
+                body: {
+                    /** Academic period payload */
+                    body: definitions["somotracker_backend_internal_services.AcademicPeriodRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/teachers/invitations": {
+        post: {
+            parameters: {
+                body: {
+                    /** Bulk invitation payload */
+                    body: definitions["internal_api.BulkInvitationRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+                /** Accepted */
+                202: {
+                    schema: definitions["internal_api.BulkInvitationResponse"];
+                };
+            };
+        };
+    };
+    "/api/teachers/invitations/jobs/{job_id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationJob"];
+                };
+            };
+        };
+    };
+    "/api/teachers/invitations/jobs/{job_id}/events": {
+        get: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/teachers/invitations/jobs/{job_id}/retry-failed": {
+        post: {
+            parameters: {
+                path: {
+                    /** Job ID */
+                    job_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.InvitationRetryResponse"];
+                };
+            };
+        };
+    };
+    "/api/timetable/class-timetable-slots/{id}": {
+        delete: {
+            parameters: {
+                path: {
+                    /** Class timetable slot ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** No Content */
+                204: never;
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/timetable/substitutions": {
+        get: {
+            parameters: {
+                query: {
+                    /** Page number */
+                    page?: number;
+                    /** Page size */
+                    limit?: number;
+                    /** YYYY-MM-DD */
+                    date_from?: string;
+                    /** YYYY-MM-DD */
+                    date_to?: string;
+                    /** Filter: PENDING, ASSIGNED, COMPLETED, CANCELLED */
+                    status?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        post: {
+            parameters: {
+                body: {
+                    /** Substitution payload */
+                    body: definitions["internal_api.createSubstitutionRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        patch: {
+            parameters: {
+                body: {
+                    /** Update payload */
+                    body: definitions["internal_api.updateSubstitutionRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/timetable/substitutions/{id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Substitution ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Not Found */
+                404: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        delete: {
+            parameters: {
+                path: {
+                    /** Substitution ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** No Content */
+                204: never;
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/timetable/templates": {
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown }[];
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        post: {
+            parameters: {
+                body: {
+                    /** Template payload */
+                    body: definitions["internal_api.createTimetableTemplateRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/events": {
+        /** List upcoming school events for active school */
+        get: {
+            parameters: {
+                query: {
+                    /** Start date YYYY-MM-DD */
+                    from?: string;
+                    /** End date YYYY-MM-DD */
+                    to?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.EventItem"][];
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Create a new school event */
+        post: {
+            parameters: {
+                body: {
+                    /** Event data */
+                    body: definitions["internal_api.CreateEventRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: definitions["internal_api.EventItem"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/events/{id}": {
+        /** Delete a school event */
+        delete: {
+            parameters: {
+                path: {
+                    /** Event ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Update a school event */
+        patch: {
+            parameters: {
+                path: {
+                    /** Event ID */
+                    id: string;
+                };
+                body: {
+                    /** Event data */
+                    body: definitions["internal_api.UpdateEventRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_api.EventItem"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/guardians/summary": {
+        /** Get guardian count summary total and without student */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["somotracker_backend_internal_services.GuardianSummary"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/classes": {
+        get: {
+            parameters: {
+                query: {
+                    /** Page number */
+                    page?: number;
+                    /** Page size */
+                    limit?: number;
+                    /** Search by name */
+                    search?: string;
+                    /** Comma separated grade labels */
+                    grade?: string;
+                    /** Comma separated stream names */
+                    stream?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        post: {
+            parameters: {
+                body: {
+                    /** Class payload */
+                    body: definitions["internal_api.createClassRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/classes/{id}": {
+        get: {
+            parameters: {
+                path: {
+                    /** Class ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Not Found */
+                404: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/grades": {
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown }[];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/register": {
+        /** Creates a new school for the authenticated user and assigns them as ADMIN. Updates user's full_name atomically. */
+        post: {
+            parameters: {
+                body: {
+                    /** School registration payload */
+                    body: { [key: string]: unknown };
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/rooms": {
+        /** List all rooms for the active school with pagination */
+        get: {
+            parameters: {
+                query: {
+                    /** Page number */
+                    page?: number;
+                    /** Page size */
+                    limit?: number;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Create a new room for the active school */
+        post: {
+            parameters: {
+                body: {
+                    /** Room details */
+                    body: definitions["internal_api.CreateRoomRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Update room details for the active school */
+        patch: {
+            parameters: {
+                body: {
+                    /** Room update */
+                    body: definitions["internal_api.UpdateRoomRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/rooms/{id}": {
+        /** Get a room by ID for the active school */
+        get: {
+            parameters: {
+                path: {
+                    /** Room ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Delete a room for the active school */
+        delete: {
+            parameters: {
+                path: {
+                    /** Room ID */
+                    id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/set-active": {
+        /** Updates the user's active school in DB and session. */
+        post: {
+            parameters: {
+                body: {
+                    /** Active school payload */
+                    body: { [key: string]: unknown };
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/school/streams": {
+        /** Lists all streams for the active school. */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Creates one or more streams for the active school. */
+        post: {
+            parameters: {
+                body: {
+                    /** Stream names */
+                    body: string[];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/students": {
+        /** List students with pagination and search */
+        get: {
+            parameters: {
+                query: {
+                    /** Page number default 1 */
+                    page?: number;
+                    /** Page size default 50 */
+                    limit?: number;
+                    /** Search full name or admission number */
+                    search?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["somotracker_backend_internal_services.StudentListResponse"];
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+        /** Delete students by student IDs */
+        delete: {
+            parameters: {
+                body: {
+                    /** Student IDs to delete */
+                    body: definitions["internal_api.deleteStudentsRequest"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/students/summary": {
+        /** Get student count summary by gender and enrollment/guardian status */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["somotracker_backend_internal_services.StudentSummary"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/teachers/summary": {
+        /** Get teacher count summary total and without timetable assignment */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["somotracker_backend_internal_services.TeacherSummary"];
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+}
+
+export interface definitions {
+    "internal_api.BulkInvitationRequest": {
+        invitations?: definitions["internal_api.InvitationRow"][];
+    };
+    "internal_api.BulkInvitationResponse": {
+        job_id?: string;
+        message?: string;
+        status?: string;
+        total_records?: number;
+    };
+    "internal_api.CallbackResponse": {
+        code?: string;
+        errors?: { [key: string]: unknown };
+        message?: string;
+    };
+    "internal_api.CreateEventRequest": {
+        end_date?: string;
+        event_type?: string;
+        requires_attendance?: boolean;
+        start_date?: string;
+        title?: string;
+    };
+    "internal_api.CreateRoomRequest": {
+        capacity?: number;
+        name?: string;
+        room_type?: string;
+    };
+    "internal_api.EventItem": {
+        end_date?: string;
+        event_type?: string;
+        id?: string;
+        requires_attendance?: boolean;
+        start_date?: string;
+        title?: string;
+    };
+    "internal_api.InvitationJob": {
+        job_id?: string;
+        status?: string;
+        total_records?: number;
+    };
+    "internal_api.InvitationRetryResponse": {
+        job_id?: string;
+        message?: string;
+        status?: string;
+    };
+    "internal_api.InvitationRow": {
+        email?: string;
+        full_name?: string;
+    };
+    "internal_api.LogoutResponse": {
+        code?: string;
+        errors?: { [key: string]: unknown };
+        message?: string;
+    };
+    "internal_api.MagicLinkRequest": {
+        email?: string;
+    };
+    "internal_api.MagicLinkResponse": {
+        code?: string;
+        errors?: { [key: string]: unknown };
+        message?: string;
+    };
+    "internal_api.UpdateEventRequest": {
+        end_date?: string;
+        event_type?: string;
+        requires_attendance?: boolean;
+        start_date?: string;
+        title?: string;
+    };
+    "internal_api.UpdateRoomRequest": {
+        capacity?: number;
+        id?: string;
+        name?: string;
+        room_type?: string;
+    };
+    "internal_api.createAttendanceRequest": {
+        attendance_date?: string;
+        class_timetable_slot_id?: string;
+        records?: {
+            remarks?: string;
+            status?: string;
+            student_id?: string;
+        }[];
+    };
+    "internal_api.createClassRequest": {
+        gradeId?: string;
+        name?: string;
+        streamId?: string;
+    };
+    "internal_api.createSubstitutionRequest": {
+        class_timetable_slot_id?: string;
+        original_teacher_membership_id?: string;
+        reason?: string;
+        status?: string;
+        substitute_teacher_membership_id?: string;
+        substitution_date?: string;
+    };
+    "internal_api.createTimetableTemplateRequest": {
+        description?: string;
+        name?: string;
+        time_slots?: {
+            end_time?: string;
+            is_instructional?: boolean;
+            name?: string;
+            start_time?: string;
+        }[];
+    };
+    "internal_api.deleteAdminsRequest": {
+        user_ids?: string[];
+    };
+    "internal_api.deleteStudentsRequest": {
+        student_ids?: string[];
+    };
+    "internal_api.updateSubstitutionRequest": {
+        id?: string;
+        reason?: string;
+        status?: string;
+        substitute_teacher_membership_id?: string;
+    };
+    "somotracker_backend_internal_services.AcademicPeriodRequest": {
+        terms?: definitions["somotracker_backend_internal_services.TermInput"][];
+        year?: number;
+    };
+    "somotracker_backend_internal_services.AdminListItem": {
+        accepted_at?: string;
+        created_at?: string;
+        email?: string;
+        full_name?: string;
+        invited_at?: string;
+        is_active?: boolean;
+        membership_id?: string;
+        user_id?: string;
+    };
+    "somotracker_backend_internal_services.AdminListResponse": {
+        items?: definitions["somotracker_backend_internal_services.AdminListItem"][];
+        limit?: number;
+        page?: number;
+        total?: number;
+    };
+    "somotracker_backend_internal_services.GuardianSummary": {
+        guardians_without_student?: number;
+        total_guardians?: number;
+    };
+    "somotracker_backend_internal_services.StudentListItem": {
+        admission_number?: string;
+        class_id?: string;
+        class_name?: string;
+        date_of_birth?: string;
+        full_name?: string;
+        gender?: string;
+        student_id?: string;
+    };
+    "somotracker_backend_internal_services.StudentListResponse": {
+        items?: definitions["somotracker_backend_internal_services.StudentListItem"][];
+        total?: number;
+    };
+    "somotracker_backend_internal_services.StudentSummary": {
+        female_count?: number;
+        male_count?: number;
+        total_students?: number;
+        unassigned_count?: number;
+        unlinked_guardians_count?: number;
+    };
+    "somotracker_backend_internal_services.TeacherSummary": {
+        teachers_without_assignment?: number;
+        total_teachers?: number;
+    };
+    "somotracker_backend_internal_services.TermInput": {
+        end_date?: string;
+        name?: string;
+        /** @description "2026-01-15" */
+        start_date?: string;
+    };
+}
+
+export interface operations {}
+
+export interface external {}

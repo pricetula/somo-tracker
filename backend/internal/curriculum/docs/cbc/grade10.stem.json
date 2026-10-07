@@ -1,0 +1,244 @@
+[
+  {
+    "name": "Core Mathematics",
+    "code": "MATH_CORE_G10",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Algebra and Functions",
+        "sub_strands": [
+          {
+            "name": "Quadratic Equations and Functions",
+            "performance_indicators": [
+              "Solve quadratic equations using the quadratic formula and the method of completing the square.",
+              "Graph quadratic functions and determine their vertex, axis of symmetry, and intercepts.",
+              "Formulate and solve real-world optimization problems using quadratic models."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Trigonometry and Geometry",
+        "sub_strands": [
+          {
+            "name": "Trigonometric Functions and Sine/Cosine Laws",
+            "performance_indicators": [
+              "Extend trigonometric ratios to angles of any magnitude using the unit circle.",
+              "Apply the Law of Sines and the Law of Cosines to solve non-right-angled triangles.",
+              "Prove basic trigonometric identities involving sine, cosine, and tangent."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Calculus Foundations",
+        "sub_strands": [
+          {
+            "name": "Limits and Rates of Change",
+            "performance_indicators": [
+              "Understand the concept of a limit numerically, graphically, and algebraically.",
+              "Calculate the average and instantaneous rates of change for polynomial functions."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Chemistry",
+    "code": "CHEM_G10",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Atomic Structure and Stoichiometry",
+        "sub_strands": [
+          {
+            "name": "The Mole Concept and Chemical Equations",
+            "performance_indicators": [
+              "Define the mole as a unit of measurement and calculate molar mass for various compounds.",
+              "Perform stoichiometric calculations involving mass-mass and mass-volume relationships in reactions.",
+              "Determine empirical and molecular formulas from percentage composition data."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Structure and Bonding",
+        "sub_strands": [
+          {
+            "name": "Intermolecular Forces and Metallic Bonding",
+            "performance_indicators": [
+              "Differentiate between giant ionic, giant covalent, molecular, and metallic structures.",
+              "Relate the physical properties of substances (melting point, conductivity) to their bonding types."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Physics",
+    "code": "PHYS_G10",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Newtonian Mechanics",
+        "sub_strands": [
+          {
+            "name": "Linear Motion and Newton's Laws",
+            "performance_indicators": [
+              "Derive and apply the equations of uniformly accelerated linear motion.",
+              "Investigate Newton's three laws of motion through practical experiments.",
+              "Solve problems involving momentum, impulse, and the conservation of linear momentum during collisions."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Thermodynamics and Waves",
+        "sub_strands": [
+          {
+            "name": "Gas Laws and Wave Mechanics",
+            "performance_indicators": [
+              "Verify Boyle's Law, Charles's Law, and the Pressure Law using laboratory apparatus.",
+              "Analyze wave parameters (wavelength, frequency, amplitude, speed) using the general wave equation."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Biology",
+    "code": "BIOL_G10",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Cytology and Physiology",
+        "sub_strands": [
+          {
+            "name": "Cell Organelles and Membrane Transport",
+            "performance_indicators": [
+              "Identify the ultrastructure of plant and animal cells using electron micrographs.",
+              "Investigate factors affecting the processes of diffusion, osmosis, and active transport across membranes.",
+              "Explain the role of enzymes as biological catalysts and test their sensitivity to temperature and pH changes."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Gaseous Exchange and Transport Systems",
+        "sub_strands": [
+          {
+            "name": "Human and Plant Transport Mechanisms",
+            "performance_indicators": [
+              "Describe the structure and mechanism of gaseous exchange in alveoli and stomata.",
+              "Examine the composition of blood and trace the structural pathway of systemic and pulmonary circulation."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Computer Science",
+    "code": "COMP_SCI_G10",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Software Development",
+        "sub_strands": [
+          {
+            "name": "Data Structures and Procedural Programming",
+            "performance_indicators": [
+              "Implement arrays, lists, and basic dictionaries within a high-level programming language.",
+              "Write modular scripts utilizing custom functions, parameters, and variable scopes to solve logic problems.",
+              "Trace and debug execution errors using manual dry runs and conditional breakpoints."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Data Systems and Databases",
+        "sub_strands": [
+          {
+            "name": "Relational Database Design and Basic SQL",
+            "performance_indicators": [
+              "Design relational schemas by identifying entities, attributes, and primary/foreign key pairs.",
+              "Write basic SQL queries utilizing SELECT, WHERE, JOIN, and ORDER BY clauses to extract dataset subsets."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English",
+    "code": "ENG_G10",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Language Proficiency and Communication",
+        "sub_strands": [
+          {
+            "name": "Technical Writing and Professional Register",
+            "performance_indicators": [
+              "Draft analytical summaries, project proposals, and clear lab reports using an objective, formal register.",
+              "Apply precise syntax transformations including relative clauses and complex conditional structures."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Critical Reading and Literature",
+        "sub_strands": [
+          {
+            "name": "Textual Critique and Stylistic Analysis",
+            "performance_indicators": [
+              "Deconstruct literary themes, character development, and socio-cultural commentary within complex plays and novels.",
+              "Evaluate informational media articles to flag confirmation bias, logical fallacies, and underlying intents."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili",
+    "code": "KISW_G10",
+    "education_level": "Senior_School",
+    "pathway": "STEM",
+    "strands": [
+      {
+        "name": "Mawasiliano na Sarufi ya Kina",
+        "sub_strands": [
+          {
+            "name": "Uandishi wa Kitaaluma na Uchambuzi wa Lugha",
+            "performance_indicators": [
+              "Kuandika ripoti za kiufundi, makala ya kitaaluma, na insha za hoja kwa kufuata misingi ya lugha sanifu.",
+              "Kutumia miundo ya sentensi changamano na vishazi kwa usahihi wa kisarufi katika uwasilishaji."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Uchambuzi wa Fasihi",
+        "sub_strands": [
+          {
+            "name": "Uhakiki wa Kazi za Fasihi",
+            "performance_indicators": [
+              "Kutathmini dhamira, maudhui, na mitindo ya kisanii katika riwaya na tamthilia teule za Kiswahili.",
+              "Kuchambua mashairi ya arudhi na mashairi huru kwa kubainisha ujumbe na matumizi ya lugha ya picha."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

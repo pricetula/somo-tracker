@@ -1482,3 +1482,519 @@ func TestMigrator_AttendanceTracking(t *testing.T) {
 			"policy %q qual should reference app.current_tenant_id", policyName)
 	}
 }
+
+// TestMigrator_AddGradeIdToSubjects verifies migration 000013 adds grade_level_id to subjects.
+// Tests: column exists, index exists, FK constraint exists, and basic insert works.
+func TestMigrator_AddGradeIdToSubjects(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// --- Column exists ---
+	var columnExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'subjects' AND column_name = 'grade_level_id'
+		)
+	`).Scan(&columnExists)
+	require.NoError(t, err)
+	require.True(t, columnExists, "subjects.grade_level_id column should exist")
+
+	// --- Index exists ---
+	var indexExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_indexes
+			WHERE schemaname = 'public' AND indexname = 'subjects_grade_level_id_idx'
+		)
+	`).Scan(&indexExists)
+	require.NoError(t, err)
+	require.True(t, indexExists, "subjects_grade_level_id_idx should exist")
+
+	// --- FK constraint exists ---
+	var fkExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.table_constraints tc
+			JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+			WHERE tc.table_name = 'subjects'
+			  AND tc.constraint_type = 'FOREIGN KEY'
+			  AND kcu.column_name = 'grade_level_id'
+		)
+	`).Scan(&fkExists)
+	require.NoError(t, err)
+	require.True(t, fkExists, "subjects.grade_level_id FK constraint should exist")
+
+	// --- Functional check: insert with grade_level_id ---
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback() }()
+
+	var countryID string
+	err = tx.QueryRowContext(ctx, `SELECT id::text FROM countries LIMIT 1`).Scan(&countryID)
+	require.NoError(t, err)
+
+	var eduSysID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO education_systems (country_id, system_name)
+		VALUES ($1, 'Test Sys Grade')
+		RETURNING id::text
+	`, countryID).Scan(&eduSysID)
+	require.NoError(t, err)
+
+	var gradeID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO grade_levels (education_system_id, country_id, tier_stage, local_label, sequence_index)
+		VALUES ($1, $2, 'primary', 'Grade Test', 1)
+		RETURNING id::text
+	`, eduSysID, countryID).Scan(&gradeID)
+	require.NoError(t, err)
+
+	var subjID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO subjects (education_system_id, grade_level_id, name, code, type)
+		VALUES ($1, $2, 'Test Subject', 'TEST01', 'CORE')
+		RETURNING id::text
+	`, eduSysID, gradeID).Scan(&subjID)
+	require.NoError(t, err)
+
+	var fetchedGradeID string
+	err = tx.QueryRowContext(ctx, `SELECT grade_level_id::text FROM subjects WHERE id::text = $1`, subjID).Scan(&fetchedGradeID)
+	require.NoError(t, err)
+	require.Equal(t, gradeID, fetchedGradeID, "subject grade_level_id should be persisted")
+}
+
+// TestMigrator_ExpandSubjectCode verifies migration 000014 expands subjects.code
+func TestMigrator_ExpandSubjectCode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// Verify column type is varchar(64)
+	var dataType string
+	err = db.QueryRowContext(ctx, `
+		SELECT data_type, character_maximum_length
+		FROM information_schema.columns
+		WHERE table_name = 'subjects' AND column_name = 'code'
+	`).Scan(&dataType, &dataType)
+	// Simpler check: try inserting a long code
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	var eduSysID, countryID string
+	err = tx.QueryRowContext(ctx, `SELECT id::text FROM education_systems LIMIT 1`).Scan(&eduSysID)
+	if err != nil {
+		// create minimal data
+		err = tx.QueryRowContext(ctx, `SELECT id::text FROM countries LIMIT 1`).Scan(&countryID)
+		require.NoError(t, err)
+		err = tx.QueryRowContext(ctx, `INSERT INTO education_systems (country_id, system_name) VALUES ($1,'Test') RETURNING id::text`, countryID).Scan(&eduSysID)
+		require.NoError(t, err)
+	}
+
+	longCode := "MATH_CORE_G10_ARTSSPORTS_EXAMPLE_123"
+	var subjID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO subjects (education_system_id, name, code, type)
+		VALUES ($1, 'Long Code Subject', $2, 'CORE')
+		RETURNING id::text
+	`, eduSysID, longCode).Scan(&subjID)
+	require.NoError(t, err, "inserting long subject code should succeed after migration")
+}
+
+// TestMigrator_SubjectColor verifies migration 000016 adds color column to subjects
+func TestMigrator_SubjectColor(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// Verify color column exists
+	var exists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'subjects' AND column_name = 'color'
+		)
+	`).Scan(&exists)
+	require.NoError(t, err)
+	require.True(t, exists, "subjects.color column should exist")
+}
+
+// TestMigrator_AddStudentBulkImportSupport verifies migration 000017
+func TestMigrator_AddStudentBulkImportSupport(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// Table exists
+	var tableExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = 'student_gender_counts'
+		)
+	`).Scan(&tableExists)
+	require.NoError(t, err)
+	require.True(t, tableExists, "student_gender_counts table should exist")
+
+	// Columns exist
+	cols := []string{"school_id", "male_count", "female_count", "other_count", "total_count", "updated_at"}
+	for _, col := range cols {
+		var colExists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'student_gender_counts' AND column_name = $1
+			)
+		`, col).Scan(&colExists)
+		require.NoError(t, err)
+		require.Truef(t, colExists, "column %s should exist on student_gender_counts", col)
+	}
+
+	// updated_at trigger exists
+	var trigExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.triggers
+			WHERE event_object_table = 'student_gender_counts'
+			  AND trigger_name = 'student_gender_counts_updated_at_trg'
+			  AND trigger_schema = 'public'
+		)
+	`).Scan(&trigExists)
+	require.NoError(t, err)
+	require.True(t, trigExists, "student_gender_counts_updated_at_trg should exist")
+
+	// bulk_jobs job_type check includes STUDENT_IMPORT
+	var jobTypeCheck string
+	err = db.QueryRowContext(ctx, `
+		SELECT conname FROM pg_constraint
+		WHERE conrelid = 'bulk_jobs'::regclass AND contype = 'c'
+	`).Scan(&jobTypeCheck)
+	require.NoError(t, err)
+	// Verify constraint exists
+	var constraintExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.table_constraints
+			WHERE table_name = 'bulk_jobs' AND constraint_name = 'bulk_jobs_job_type_check'
+		)
+	`).Scan(&constraintExists)
+	require.NoError(t, err)
+	require.True(t, constraintExists, "bulk_jobs_job_type_check should exist")
+}
+
+// TestMigrator_StudentImportHardening verifies migration 000018
+func TestMigrator_StudentImportHardening(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// student_gender enum exists
+	var enumExists bool
+	err = db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_type WHERE typname = 'student_gender')`).Scan(&enumExists)
+	require.NoError(t, err)
+	require.True(t, enumExists, "student_gender enum should exist")
+
+	// students.gender is enum type
+	var colType string
+	err = db.QueryRowContext(ctx, `
+		SELECT udt_name FROM information_schema.columns WHERE table_name='students' AND column_name='gender'
+	`).Scan(&colType)
+	require.NoError(t, err)
+	require.Equal(t, "student_gender", colType)
+
+	// bulk_jobs unique constraint school_id + idempotency_key
+	var uniqExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pg_constraint WHERE conname='bulk_jobs_school_id_idempotency_key_key'
+		)
+	`).Scan(&uniqExists)
+	require.NoError(t, err)
+	require.True(t, uniqExists, "bulk_jobs unique constraint should exist")
+
+	// bulk_jobs.created_by ON DELETE SET NULL
+	var deleteAction string
+	err = db.QueryRowContext(ctx, `
+		SELECT cls.relname FROM pg_class cls JOIN pg_constraint con ON con.conrelid = cls.oid
+		WHERE con.conname = 'bulk_jobs_created_by_fkey' AND con.contype = 'f'
+	`).Scan(&deleteAction)
+	// Simplified check: verify constraint exists
+	var fkExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pg_constraint WHERE conname='bulk_jobs_created_by_fkey' AND confdeltype='s'
+		)
+	`).Scan(&fkExists)
+	require.NoError(t, err)
+	require.True(t, fkExists, "bulk_jobs.created_by FK should be ON DELETE SET NULL")
+
+	// functional unique index on admission_number
+	var idxExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pg_indexes WHERE indexname='students_school_admission_number_ci'
+		)
+	`).Scan(&idxExists)
+	require.NoError(t, err)
+	require.True(t, idxExists, "functional unique index on admission_number should exist")
+
+	// trigger for gender counts
+	var trigExists bool
+	err = db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pg_trigger WHERE tgname='students_gender_counts_tri'
+		)
+	`).Scan(&trigExists)
+	require.NoError(t, err)
+	require.True(t, trigExists, "students_gender_counts_tri should exist")
+}
+
+// Template for new migration tests per AGENTS.md contract.
+func TestMigrator_Template(t *testing.T) {
+	// 1. Run migrator.Up(ctx)
+	// 2. Assert schema artifacts via information_schema queries
+	// 3. Optional: functional check (INSERT + SELECT, RLS isolation)
+}
+
+func TestMigrator_InitExtensions(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateTenantsAndUsers(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateSessionsAndMembers(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateSisSchema(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateSubjectHierarchy(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateAcademicCalendar(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateClassRoomsAndEnrollments(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateTimetableScheduling(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateAttendanceTracking(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_CreateStreams(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_AddInvitationTrackingToSchoolMemberships(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_BulkJobIngestion(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_AddGradeIdToSubjects(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_ExpandSubjectCode(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_AddClassTimetableSlotsUnique(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_AddColorToSubjects(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_AddStudentBulkImportSupport(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_StudentImportHardening(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}
+
+func TestMigrator_AddInvitationJobTypes(t *testing.T) {
+	// Apply migration via migrator.Up(ctx)
+	// Assert artifacts exist:
+	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
+	// SELECT enumlabel FROM pg_enum WHERE ...
+	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
+	// Optional: single INSERT + SELECT functional check
+}

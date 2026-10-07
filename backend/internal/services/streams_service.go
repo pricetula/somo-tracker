@@ -13,7 +13,11 @@ import (
 )
 
 type StreamsService interface {
-	CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error)
+	ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error)
+	CreateStreams(ctx context.Context, schoolID string, names []string, colors []string) ([]string, error)
+	GetStream(ctx context.Context, streamID string) (*sqlc.Stream, error)
+	UpdateStream(ctx context.Context, streamID string, name *string, color *string) (*sqlc.Stream, error)
+	DeleteStreams(ctx context.Context, ids []string) error
 }
 
 type streamsService struct {
@@ -30,7 +34,22 @@ func NewStreamsService(pool *pgxpool.Pool, queries *sqlc.Queries, logger *zap.Lo
 	}
 }
 
-func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, names []string) ([]string, error) {
+func (s *streamsService) ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error) {
+	if schoolID == "" {
+		return nil, fmt.Errorf("bad_request: school_id is required")
+	}
+	schoolUUID, err := uuid.Parse(schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("bad_request: invalid school_id")
+	}
+	rows, err := s.queries.ListStreamsBySchool(ctx, pgtype.UUID{Bytes: schoolUUID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("internal_error: failed to list streams: %w", err)
+	}
+	return rows, nil
+}
+
+func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, names []string, colors []string) ([]string, error) {
 	if schoolID == "" {
 		return nil, fmt.Errorf("bad_request: school_id is required")
 	}
@@ -44,20 +63,29 @@ func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, nam
 	}
 
 	created := make([]string, 0, len(names))
-	for _, name := range names {
+	for i, name := range names {
 		if name == "" {
 			continue
 		}
-		streamRow, err := s.queries.CreateStream(ctx, sqlc.CreateStreamParams{
+		colorVal := ""
+		if i < len(colors) && colors[i] != "" {
+			colorVal = colors[i]
+		}
+		params := sqlc.CreateStreamParams{
 			SchoolID: pgtype.UUID{Bytes: schoolUUID, Valid: true},
 			Name:     name,
-		})
+		}
+		if colorVal != "" {
+			params.Color = pgtype.Text{String: colorVal, Valid: true}
+		} else {
+			params.Color = pgtype.Text{Valid: false}
+		}
+		streamRow, err := s.queries.CreateStream(ctx, params)
 		if err != nil {
 			s.logger.Warn("streams: create stream skipped or failed",
 				zap.String("stream_name", name),
 				zap.Error(err),
 			)
-			// If conflict (already exists), skip; otherwise return error
 			continue
 		}
 		created = append(created, streamRow.ID.String())
@@ -67,4 +95,45 @@ func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, nam
 		return nil, fmt.Errorf("internal_error: no streams created")
 	}
 	return created, nil
+}
+
+func (s *streamsService) GetStream(ctx context.Context, streamID string) (*sqlc.Stream, error) {
+	streamUUID, err := uuid.Parse(streamID)
+	if err != nil {
+		return nil, fmt.Errorf("bad_request: invalid stream_id")
+	}
+	var stream sqlc.Stream
+	err = s.pool.QueryRow(ctx, `SELECT id, school_id, name, color, created_at, updated_at FROM streams WHERE id = $1`, streamUUID).Scan(
+		&stream.ID, &stream.SchoolID, &stream.Name, &stream.Color, &stream.CreatedAt, &stream.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("internal_error: failed to get stream: %w", err)
+	}
+	return &stream, nil
+}
+
+func (s *streamsService) UpdateStream(ctx context.Context, streamID string, name *string, color *string) (*sqlc.Stream, error) {
+	streamUUID, err := uuid.Parse(streamID)
+	if err != nil {
+		return nil, fmt.Errorf("bad_request: invalid stream_id")
+	}
+	var stream sqlc.Stream
+	err = s.pool.QueryRow(ctx, `UPDATE streams SET name = COALESCE($2, name), color = COALESCE($3, color), updated_at = NOW() WHERE id = $1 RETURNING id, school_id, name, color, created_at, updated_at`, streamUUID, name, color).Scan(
+		&stream.ID, &stream.SchoolID, &stream.Name, &stream.Color, &stream.CreatedAt, &stream.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("internal_error: failed to update stream: %w", err)
+	}
+	return &stream, nil
+}
+
+func (s *streamsService) DeleteStreams(ctx context.Context, ids []string) error {
+	for _, idStr := range ids {
+		uuidVal, err := uuid.Parse(idStr)
+		if err != nil {
+			continue
+		}
+		_, _ = s.pool.Exec(ctx, `DELETE FROM streams WHERE id = $1`, uuidVal)
+	}
+	return nil
 }

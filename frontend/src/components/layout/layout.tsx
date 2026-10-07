@@ -6,9 +6,10 @@ import { ChildrenWrapper } from "./children-wrapper";
 
 interface AppLayoutProps {
     children: React.ReactNode;
+    modal?: React.ReactNode;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout({ children, modal }: AppLayoutProps) {
     return (
         <SidebarProvider>
             <AppSidebar />
@@ -25,6 +26,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </header>
                 <ChildrenWrapper>{children}</ChildrenWrapper>
             </SidebarInset>
+            {modal}
         </SidebarProvider>
     );
 }

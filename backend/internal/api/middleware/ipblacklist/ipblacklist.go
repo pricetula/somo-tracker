@@ -172,17 +172,19 @@ func (m *ipBlacklistMiddleware) handle(c fiber.Ctx) error {
 	}
 
 	if blacklisted {
+		reqID := c.Get("X-Request-ID")
 		m.logger.Warn("ipblacklist: blocked blacklisted IP",
 			zap.String("ip", clientIP),
-			zap.String("request_id", c.Get("X-Request-ID")),
+			zap.String("request_id", reqID),
 			zap.String("method", c.Method()),
 			zap.String("path", c.Path()),
 		)
 
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code":    "access_denied",
-			"message": "Access denied",
-			"errors":  fiber.Map{},
+			"code":       "access_denied",
+			"message":    "Access denied",
+			"errors":     fiber.Map{},
+			"request_id": reqID,
 		})
 	}
 

@@ -24,8 +24,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 
 	"github.com/gofiber/fiber/v3"
+	"go.uber.org/zap"
 )
 
 const (
@@ -57,6 +59,15 @@ func NewCSRFMiddleware() fiber.Handler {
 
 		// Exempt safe methods from CSRF validation
 		if isSafeMethod(method) {
+			// Lazy issuance: ensure CSRF cookie is present for subsequent mutations
+			if c.Cookies(CSRFCookieName) == "" {
+				token, err := GenerateCSRFToken()
+				if err != nil {
+					zap.L().Warn("csrf: failed to generate token", zap.Error(err))
+				} else {
+					setCSRFCookie(c, token)
+				}
+			}
 			return c.Next()
 		}
 
@@ -99,7 +110,7 @@ func EnsureCSRFTokenCookie() fiber.Handler {
 			token, err := GenerateCSRFToken()
 			if err != nil {
 				// Log but don't fail the request - validation will catch missing token
-				_ = err
+				zap.L().Warn("csrf: failed to generate token", zap.Error(err))
 			} else {
 				setCSRFCookie(c, token)
 			}
@@ -110,15 +121,19 @@ func EnsureCSRFTokenCookie() fiber.Handler {
 
 // setCSRFCookie sets the CSRF token cookie with secure attributes.
 func setCSRFCookie(c fiber.Ctx, token string) {
-	c.Cookie(&fiber.Cookie{
+	cookie := &fiber.Cookie{
 		Name:     CSRFCookieName,
 		Value:    token,
 		Path:     "/",
 		MaxAge:   CSRFCookieMaxAge,
-		Secure:   true,
+		Secure:   c.Secure(),
 		HTTPOnly: false, // Must be readable by JavaScript for double-submit pattern
 		SameSite: fiber.CookieSameSiteLaxMode,
-	})
+	}
+	if domain := os.Getenv("COOKIE_DOMAIN"); domain != "" {
+		cookie.Domain = domain
+	}
+	c.Cookie(cookie)
 }
 
 // GenerateCSRFToken generates a cryptographically random token.
@@ -155,9 +170,11 @@ func constantTimeEqual(a, b string) bool {
 
 // csrfFailure returns a standardized CSRF validation failure response.
 func csrfFailure(c fiber.Ctx, code, message string) error {
+	reqID := c.Get("X-Request-ID")
 	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-		"code":    code,
-		"message": message,
-		"errors":  fiber.Map{},
+		"code":       code,
+		"message":    message,
+		"errors":     fiber.Map{},
+		"request_id": reqID,
 	})
 }

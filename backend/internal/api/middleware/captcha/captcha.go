@@ -122,15 +122,17 @@ func NewCaptchaMiddleware(cfg Config, logger *zap.Logger) fiber.Handler {
 
 		token := VerifyRequest(c)
 		if token == "" {
+			reqID := c.Get("X-Request-ID")
 			mwLogger.Warn("captcha: missing token",
 				zap.String("path", c.Path()),
 				zap.String("ip", c.IP()),
-				zap.String("request_id", c.Get("X-Request-ID")),
+				zap.String("request_id", reqID),
 			)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "captcha_required",
-				"message": "CAPTCHA verification required",
-				"errors":  fiber.Map{"captcha": []string{"required"}},
+				"code":       "captcha_required",
+				"message":    "CAPTCHA verification required",
+				"errors":     fiber.Map{"captcha": []string{"required"}},
+				"request_id": reqID,
 			})
 		}
 
@@ -138,16 +140,18 @@ func NewCaptchaMiddleware(cfg Config, logger *zap.Logger) fiber.Handler {
 		clientIP := c.IP()
 
 		if err := provider.Verify(ctx, token, clientIP); err != nil {
+			reqID := c.Get("X-Request-ID")
 			mwLogger.Warn("captcha: verification failed",
 				zap.String("path", c.Path()),
 				zap.String("ip", clientIP),
-				zap.String("request_id", c.Get("X-Request-ID")),
+				zap.String("request_id", reqID),
 				zap.Error(err),
 			)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "captcha_invalid",
-				"message": "CAPTCHA verification failed",
-				"errors":  fiber.Map{"captcha": []string{"invalid or expired"}},
+				"code":       "captcha_invalid",
+				"message":    "CAPTCHA verification failed",
+				"errors":     fiber.Map{"captcha": []string{"invalid or expired"}},
+				"request_id": reqID,
 			})
 		}
 

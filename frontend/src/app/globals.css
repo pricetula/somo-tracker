@@ -165,15 +165,13 @@
     /* ── Teal focus ring for CBC surfaces ────────────────────────────── */
     .bg-row-disabled {
         background: repeating-linear-gradient(
-            45deg,
+            39.96deg,
             var(--background),
             var(--background) 10px,
-            var(--accent) 10px,
-            var(--accent) 20px
+            var(--accent) 4px,
+            var(--accent) 12px
         );
-        cursor: not-allowed !important;
         opacity: 0.6;
-        pointer-events: none;
     }
 
     .focus-ring-cbc:focus-visible {

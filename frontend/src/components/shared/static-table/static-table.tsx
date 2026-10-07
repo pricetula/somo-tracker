@@ -4,7 +4,11 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { SkeletonRows } from "@/components/shared/data-table/skeleton-rows";
 import { Checkbox } from "@/components/ui/checkbox";
+import { buttonVariants } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 // ─── Props ────────────────────────────────────────────────────────────────
@@ -39,6 +43,10 @@ export interface StaticTableProps<TItem> {
     // ─── States ──────────────────────────────────────────────────────
     /** Shown when data is empty. */
     emptyState?: ReactNode;
+    /** Link for the "Add" button shown above the table. */
+    addHref?: string;
+    /** When true, renders skeleton loading rows instead of data or empty state. */
+    isLoading?: boolean;
 
     className?: string;
 }
@@ -56,6 +64,8 @@ export function StaticTable<TItem>({
     rowHeight = 40,
     height = 600,
     emptyState,
+    addHref,
+    isLoading,
     className,
 }: StaticTableProps<TItem>) {
     // ── Selection state (controlled vs uncontrolled) ─────────────────
@@ -116,9 +126,13 @@ export function StaticTable<TItem>({
 
     // ── Determine if "Select all" is checked / indeterminate ─────────
     const allSelected =
-        data.length > 0 && data.every((row, i) => selectedIds.has(String(getRowId(row, i))));
+        data?.length &&
+        data.length > 0 &&
+        data.every((row, i) => selectedIds.has(String(getRowId(row, i))));
     const someSelected =
-        data.some((row, i) => selectedIds.has(String(getRowId(row, i)))) && !allSelected;
+        data?.some &&
+        data.some((row, i) => selectedIds.has(String(getRowId(row, i)))) &&
+        !allSelected;
 
     // ── Scroll ref for auto-scrolling ────────────────────────────────
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -127,8 +141,22 @@ export function StaticTable<TItem>({
 
     return (
         <div className={cn("flex flex-col", className)}>
-            {/* overflow-x-auto enables horizontal scroll on small screens;
-                min-w-max prevents the grid from shrinking below its content width */}
+            {addHref && (
+                <div className="mb-2 flex justify-end">
+                    <Link
+                        href={addHref}
+                        className={cn(
+                            buttonVariants({
+                                variant: "outline",
+                                size: "sm",
+                            }),
+                            "border"
+                        )}
+                    >
+                        <Plus className="size-3.5" />
+                    </Link>
+                </div>
+            )}
             <div className="overflow-x-auto rounded-md border">
                 <div className="min-w-max">
                     {/* ── Table header ──────────────────────────── */}
@@ -139,7 +167,7 @@ export function StaticTable<TItem>({
                         {isCheckable && (
                             <div className="flex items-center justify-center">
                                 <Checkbox
-                                    checked={allSelected}
+                                    checked={Boolean(allSelected)}
                                     indeterminate={someSelected && !allSelected}
                                     onCheckedChange={handleSelectAll}
                                 />
@@ -163,7 +191,14 @@ export function StaticTable<TItem>({
                         })}
                     </div>
 
-                    {data.length === 0 ? (
+                    {isLoading ? (
+                        /* ── Skeleton loading state ──────────────── */
+                        <SkeletonRows
+                            rowHeight={rowHeight}
+                            gridTemplateColumns={gridTemplateColumns}
+                            isCheckable={!!isCheckable}
+                        />
+                    ) : !data?.length ? (
                         /* ── Empty state ────────────────────── */
                         <div
                             className="text-muted-foreground flex items-center justify-center text-xs"
@@ -174,7 +209,7 @@ export function StaticTable<TItem>({
                     ) : (
                         /* ── Scrollable rows (vertical) ─────── */
                         <div ref={scrollRef} style={{ height, overflow: "auto" }}>
-                            {data.map((row, index) => {
+                            {(data || []).map((row, index) => {
                                 const rowId = String(getRowId(row, index));
                                 const isChecked = selectedIds.has(rowId);
 

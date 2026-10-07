@@ -75,7 +75,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                         <p className="font-semibold">
                             {isApiError ? this.state.error.message : "Something went wrong"}
                         </p>
-                        <p className="text-muted-foreground mt-1 text-sm">
+                        <p className="text-muted-foreground mt-1">
                             {isApiError
                                 ? "The server returned an error. Please try again."
                                 : "An unexpected error occurred in this section."}

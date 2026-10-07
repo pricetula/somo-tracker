@@ -28,6 +28,7 @@ import (
 	b2bdiscovery "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/discovery"
 	b2bemail "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email"
 	b2bdiscoveryemail "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email/discovery"
+	b2borganizations "github.com/stytchauth/stytch-go/v18/stytch/b2b/organizations"
 	stytchconfig "github.com/stytchauth/stytch-go/v18/stytch/config"
 	"github.com/stytchauth/stytch-go/v18/stytch/stytcherror"
 	"go.uber.org/fx"
@@ -371,6 +372,22 @@ func (c *Client) CreateDiscoveryOrganization(ctx context.Context, ist string, na
 		return nil, fmt.Errorf("internal_error: empty organization create response")
 	}
 	return resp, nil
+}
+
+func (c *Client) UpdateOrganization(ctx context.Context, orgID, name string) error {
+	if c.api == nil {
+		return fmt.Errorf("stytch.UpdateOrganization: api is nil")
+	}
+	if orgID == "" {
+		return fmt.Errorf("bad_request: organization_id is required")
+	}
+	return c.WriteCall(ctx, func(ctx context.Context) error {
+		_, opErr := c.api.Organizations.Update(ctx, &b2borganizations.UpdateParams{
+			OrganizationID:   orgID,
+			OrganizationName: name,
+		})
+		return opErr
+	})
 }
 
 func (c *Client) ExchangeWithOrg(ctx context.Context, intermediateToken, orgID string) (*b2bintermediatesessions.ExchangeResponse, error) {

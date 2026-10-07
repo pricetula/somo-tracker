@@ -194,7 +194,7 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 		if idx := strings.Index(discResp.EmailAddress, "@"); idx > 0 {
 			slug = discResp.EmailAddress[idx+1:]
 		}
-		name := slug
+		name := discResp.EmailAddress
 		createResp, createErr := s.client.CreateDiscoveryOrganization(ctx, ist, name, slug)
 		if createErr != nil {
 			return nil, createErr
@@ -379,7 +379,7 @@ func (s *authService) AuthenticateInviteCallback(ctx context.Context, token stri
 		if idx := strings.Index(discResp.EmailAddress, "@"); idx > 0 {
 			slug = discResp.EmailAddress[idx+1:]
 		}
-		name := slug
+		name := discResp.EmailAddress
 		createResp, createErr := s.client.CreateDiscoveryOrganization(ctx, ist, name, slug)
 		if createErr != nil {
 			return nil, createErr

@@ -3,8 +3,10 @@ package api
 import (
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"somotracker/backend/internal/services"
 	"somotracker/backend/internal/session"
+	"somotracker/backend/internal/stytch"
 
 	"github.com/gofiber/fiber/v3"
 	go_uber_zap "go.uber.org/zap"
@@ -12,12 +14,14 @@ import (
 
 // SchoolHandler handles the school registration endpoint.
 type SchoolHandler struct {
-	service *services.SchoolService
-	session *session.Store
+	service   *services.SchoolService
+	session   *session.Store
+	stytchCli *stytch.Client
+	pool      *pgxpool.Pool
 }
 
-func NewSchoolHandler(svc *services.SchoolService) *SchoolHandler {
-	return &SchoolHandler{service: svc}
+func NewSchoolHandler(svc *services.SchoolService, cli *stytch.Client, pool *pgxpool.Pool) *SchoolHandler {
+	return &SchoolHandler{service: svc, stytchCli: cli, pool: pool}
 }
 
 // RegisterSchool creates a new school for the authenticated user and assigns them as ADMIN.
@@ -78,6 +82,20 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, code)
 		}
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	// Update Stytch organization name with the new school name.
+	if h.stytchCli != nil && h.pool != nil {
+		var orgID string
+		if queryErr := h.pool.QueryRow(c.Context(), `SELECT stytch_org_id FROM tenants WHERE id = $1`, tenantID).Scan(&orgID); queryErr == nil && orgID != "" {
+			if updateErr := h.stytchCli.UpdateOrganization(c.Context(), orgID, schoolName); updateErr != nil {
+				go_uber_zap.L().Warn("school_handler: failed to update stytch org name",
+					go_uber_zap.String("org_id", orgID),
+					go_uber_zap.String("school_name", schoolName),
+					go_uber_zap.Error(updateErr),
+				)
+			}
+		}
 	}
 
 	// Update active school in Redis session cache so authorized clients

@@ -17,10 +17,7 @@ export function TeacherSummaryCard() {
     if (isLoading)
         return (
             <div className="h-30 w-40 space-y-2">
-                <div className="mb-6 space-y-2">
-                    <Skeleton className="h-6 w-40" />
-                    <Skeleton className="h-4 w-40" />
-                </div>
+                <Skeleton className="mb-7 h-8 w-40" />
                 <Skeleton className="h-4 w-40" />
             </div>
         );
@@ -33,7 +30,7 @@ export function TeacherSummaryCard() {
         : 0;
 
     return (
-        <article className="flex min-h-30 flex-col">
+        <article className="flex flex-col">
             <header className="mb-8 space-y-2">
                 <h2 className="text-xl font-bold">
                     <Link href="/teachers">{totalTeachers} Teachers</Link>
@@ -54,13 +51,6 @@ export function TeacherSummaryCard() {
                             <b>{teachersWithoutAssignment}</b> Teachers without assignment
                         </span>
                         <Help>Number of teachers not assigned to a timetable slot</Help>
-                    </Link>
-                )}
-                {total_teachers > 0 && teachers_without_assignment === 0 && (
-                    <Link href="/teachers" className="text-muted-foreground space-x-2">
-                        <Users size="12" className="inline" />
-                        <span>All teachers assigned</span>
-                        <Help>All teachers are assigned to at least one timetable slot</Help>
                     </Link>
                 )}
             </div>

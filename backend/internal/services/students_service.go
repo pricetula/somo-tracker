@@ -18,6 +18,7 @@ type StudentListItem struct {
 	Gender          string `json:"gender"`
 	ClassID         string `json:"class_id"`
 	ClassName       string `json:"class_name"`
+	GradeLevel      string `json:"grade_level"`
 }
 
 type StudentListResponse struct {
@@ -100,6 +101,10 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 			className = r.ClassName.String
 		}
 		genderStr := fmt.Sprintf("%v", r.Gender)
+		gradeLevel := ""
+		if r.GradeLevel.Valid {
+			gradeLevel = r.GradeLevel.String
+		}
 		items = append(items, StudentListItem{
 			StudentID:       r.StudentID.String(),
 			AdmissionNumber: r.AdmissionNumber,
@@ -108,6 +113,7 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 			Gender:          genderStr,
 			ClassID:         classID,
 			ClassName:       className,
+			GradeLevel:      gradeLevel,
 		})
 	}
 

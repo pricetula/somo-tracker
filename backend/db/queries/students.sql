@@ -10,7 +10,8 @@ SELECT
     s.created_at,
     s.updated_at,
     c.id AS class_id,
-    c.name AS class_name
+    c.name AS class_name,
+    gl.local_label AS grade_level
 FROM students s
 LEFT JOIN LATERAL (
     SELECT sce.class_room_id
@@ -21,6 +22,7 @@ LEFT JOIN LATERAL (
     LIMIT 1
 ) e ON true
 LEFT JOIN class_rooms c ON c.id = e.class_room_id
+LEFT JOIN grade_levels gl ON gl.id = c.grade_level_id
 WHERE s.school_id = $1
   AND (
     $2::text = '' OR

@@ -17,10 +17,7 @@ export function ParentSummaryCard() {
     if (isLoading)
         return (
             <div className="h-30 w-40 space-y-2">
-                <div className="mb-6 space-y-2">
-                    <Skeleton className="h-6 w-40" />
-                    <Skeleton className="h-4 w-40" />
-                </div>
+                <Skeleton className="mb-7 h-8 w-40" />
                 <Skeleton className="h-4 w-40" />
             </div>
         );
@@ -33,7 +30,7 @@ export function ParentSummaryCard() {
         : 0;
 
     return (
-        <article className="flex min-h-30 flex-col">
+        <article className="flex flex-col">
             <header className="mb-8 space-y-2">
                 <h2 className="text-xl font-bold">
                     <Link href="/guardians">{totalGuardians} Guardians</Link>

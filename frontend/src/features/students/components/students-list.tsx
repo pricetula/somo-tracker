@@ -12,6 +12,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { studentFilterGroups, mapStudentFiltersToParams } from "./students-filters";
+import { useClasses } from "@/features/classes/hooks/use-classes";
 
 function listStudentsWithFilters(params: {
     page?: number;
@@ -32,8 +33,31 @@ function listStudentsWithFilters(params: {
 
 export function StudentsTable() {
     const { mutateAsync: deleteStudents } = useDeleteStudents();
+    const { data: classesResponse } = useClasses({ page: 1, limit: 100 });
 
-    const filterGroups = useMemo(() => studentFilterGroups, []);
+    const filterGroups = useMemo(
+        () => [
+            {
+                id: "class",
+                label: "Class",
+                items: [
+                    {
+                        id: "class",
+                        label: "Class",
+                        type: "sub_menu_single" as const,
+                        submenu:
+                            classesResponse?.items?.map((c) => ({
+                                id: c.id,
+                                label: c.name,
+                                value: c.id,
+                            })) ?? [],
+                    },
+                ],
+            },
+            ...studentFilterGroups.filter((g) => g.id !== "class"),
+        ],
+        [classesResponse]
+    );
     const columns = useMemo(
         () => [
             {
@@ -58,13 +82,34 @@ export function StudentsTable() {
             {
                 id: "class",
                 header: "Class",
-                cell: (row: StudentListItem) => row.class_name || "—",
+                cell: (row: StudentListItem) =>
+                    row.class_id ? (
+                        <Link
+                            href={`/classes/${row.class_id}`}
+                            className="underline underline-offset-4 hover:no-underline"
+                        >
+                            {row.class_name || "—"}
+                        </Link>
+                    ) : (
+                        row.class_name || "—"
+                    ),
+                width: "1fr",
+            },
+            {
+                id: "grade_level",
+                header: "Grade Level",
+                cell: (row: StudentListItem) => row.grade_level || "—",
                 width: "1fr",
             },
             {
                 id: "gender",
                 header: "Gender",
-                cell: (row: StudentListItem) => row.gender,
+                cell: (row: StudentListItem) =>
+                    row.gender === "F" || row.gender === "f"
+                        ? "Female"
+                        : row.gender === "M" || row.gender === "m"
+                          ? "Male"
+                          : row.gender || "—",
                 width: "1fr",
             },
             {

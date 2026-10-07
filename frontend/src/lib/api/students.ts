@@ -8,6 +8,7 @@ export type StudentListItem = {
     gender: string;
     class_id?: string;
     class_name?: string;
+    grade_level?: string;
 };
 
 export type StudentListResponse = {

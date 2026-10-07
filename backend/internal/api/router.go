@@ -55,6 +55,7 @@ type Router struct {
 	Events                 *EventsHandler
 	Rooms                  *RoomsHandler
 	Enrollments            *EnrollmentsHandler
+	UserCounts             *UserCountsHandler
 	Curriculum             services.CurriculumService
 	limiter                *redis_rate.Limiter
 	cfg                    *config.Config
@@ -102,6 +103,7 @@ func NewRouter(
 		Attendance:         NewAttendanceHandler(attendanceSvc, zap.L()),
 		Events:             NewEventsHandler(services.NewEventsService(pool), zap.L()),
 		Rooms:              NewRoomsHandler(roomsSvc),
+		UserCounts:         NewUserCountsHandler(services.NewUserCountsService(pool, zap.L())),
 		Curriculum:         curriculumSvc,
 		AdminInvitation:    nil,
 		TeacherInvitation:  nil,
@@ -177,6 +179,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/me", r.Me.getMe)
 	protected.Post("/school/register", r.School.RegisterSchool)
 	protected.Get("/schools", r.School.ListSchools)
+	protected.Get("/schools/:schoolId/users/count", r.UserCounts.GetUserCounts)
 	protected.Post("/school", r.SchoolCreate.CreateSchool)
 	protected.Post("/school/set-active", r.School.SetActiveSchool)
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)

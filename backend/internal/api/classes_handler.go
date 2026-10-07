@@ -41,11 +41,11 @@ type createClassRequest struct {
 func (h *ClassesHandler) ListClasses(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, err := uuid.Parse(schoolIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid school id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
@@ -75,7 +75,7 @@ func (h *ClassesHandler) ListClasses(c fiber.Ctx) error {
 	items, total, err := h.svc.ListClasses(c.Context(), schoolID, page, limit, search, grades, streams)
 	if err != nil {
 		h.logger.Error("list classes failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to list classes", "errors": fiber.Map{}})
+		return WriteError(c, ErrInternal("failed to list classes"))
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"items": items,
@@ -95,17 +95,17 @@ func (h *ClassesHandler) ListClasses(c fiber.Ctx) error {
 func (h *ClassesHandler) GetClass(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, _ := uuid.Parse(schoolIDStr)
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid id", nil))
 	}
 	detail, err := h.svc.GetClass(c.Context(), schoolID, id)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "class not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrNotFound("class not found"))
 	}
 	return c.Status(fiber.StatusOK).JSON(detail)
 }
@@ -123,19 +123,19 @@ func (h *ClassesHandler) GetClass(c fiber.Ctx) error {
 func (h *ClassesHandler) CreateClass(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, _ := uuid.Parse(schoolIDStr)
 	var req createClassRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid body", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid body", nil))
 	}
 	item, err := h.svc.CreateClass(c.Context(), schoolID, services.CreateClassRequest{
 		Name: req.Name, GradeID: req.GradeID, StreamID: req.StreamID,
 	})
 	if err != nil {
 		h.logger.Error("create class failed", zap.Error(err))
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest(err.Error(), nil))
 	}
 	return c.Status(fiber.StatusCreated).JSON(item)
 }

@@ -238,7 +238,7 @@ func (h *AdminInvitationHandler) GetJob(c fiber.Ctx) error {
 	jobIDStr := c.Params("job_id")
 	jobID, err := uuid.Parse(jobIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid job_id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid job_id", nil))
 	}
 	// Load session context for ownership check
 	schoolIDStr := c.Locals("active_school_id")
@@ -246,14 +246,14 @@ func (h *AdminInvitationHandler) GetJob(c fiber.Ctx) error {
 	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
 	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
 	if err1 != nil || err2 != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "missing session context", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("missing session context"))
 	}
 	job, err := h.svc.GetJob(c.Context(), jobID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "job not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrNotFound("job not found"))
 	}
 	if job.TenantID != tenantID || job.SchoolID != schoolID {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "job not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrNotFound("job not found"))
 	}
 	return c.Status(fiber.StatusOK).JSON(job)
 }
@@ -268,7 +268,7 @@ func (h *AdminInvitationHandler) RetryFailed(c fiber.Ctx) error {
 	jobIDStr := c.Params("job_id")
 	jobID, err := uuid.Parse(jobIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid job_id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid job_id", nil))
 	}
 	// Ownership check
 	schoolIDStr := c.Locals("active_school_id")
@@ -276,15 +276,15 @@ func (h *AdminInvitationHandler) RetryFailed(c fiber.Ctx) error {
 	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
 	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
 	if err1 != nil || err2 != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "missing session context", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("missing session context"))
 	}
 	job, err := h.svc.GetJob(c.Context(), jobID)
 	if err != nil || job == nil || job.TenantID != tenantID || job.SchoolID != schoolID {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "job not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrNotFound("job not found"))
 	}
 	items, err := h.svc.GetFailedOrDeferredItems(c.Context(), jobID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to load retry items", "errors": fiber.Map{}})
+		return WriteError(c, ErrInternal("failed to load retry items"))
 	}
 	if len(items) == 0 {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "no failed or deferred items to retry", "count": 0})
@@ -298,7 +298,7 @@ func (h *AdminInvitationHandler) RetryFailed(c fiber.Ctx) error {
 		payload, _ := json.Marshal(map[string]interface{}{"job_id": jobID.String(), "item_ids": itemIDs, "retry": true})
 		_, enqueueErr := h.asynq.EnqueueContext(c.Context(), asynq.NewTask("admin:invitation:retry", payload), asynq.Queue("admin_invitation"))
 		if enqueueErr != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "retry enqueue failed", "errors": fiber.Map{}})
+			return WriteError(c, ErrInternal("retry enqueue failed"))
 		}
 	}
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{"job_id": jobID.String(), "message": "retry queued", "count": len(items)})

@@ -44,44 +44,44 @@ type createAttendanceRequest struct {
 func (h *AttendanceHandler) CreateAttendance(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, err := uuid.Parse(schoolIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid school id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
 
 	userIDStr, ok := c.Locals("user_id").(string)
 	if !ok || userIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "user not authenticated", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("user not authenticated"))
 	}
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid user id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid user id", nil))
 	}
 
 	var req createAttendanceRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid body", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid body", nil))
 	}
 
 	if req.ClassTimetableSlotID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "validation_error", "message": "class_timetable_slot_id is required", "errors": fiber.Map{"class_timetable_slot_id": []string{"required"}}})
+		return WriteError(c, ErrBadRequest("class_timetable_slot_id is required", map[string][]string{"class_timetable_slot_id": {"required"}}))
 	}
 	if req.AttendanceDate == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "validation_error", "message": "attendance_date is required", "errors": fiber.Map{"attendance_date": []string{"required"}}})
+		return WriteError(c, ErrBadRequest("attendance_date is required", map[string][]string{"attendance_date": {"required"}}))
 	}
 	if len(req.Records) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "validation_error", "message": "at least one attendance record is required", "errors": fiber.Map{"records": []string{"at least one record required"}}})
+		return WriteError(c, ErrBadRequest("at least one attendance record is required", map[string][]string{"records": {"at least one record required"}}))
 	}
 
 	records := make([]services.AttendanceStudentRecord, 0, len(req.Records))
 	for i, r := range req.Records {
 		if r.StudentID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "validation_error", "message": fmt.Sprintf("student_id is required for record %d", i), "errors": fiber.Map{"records": []string{fmt.Sprintf("record %d: student_id required", i)}}})
+			return WriteError(c, ErrBadRequest(fmt.Sprintf("student_id is required for record %d", i), map[string][]string{"records": {fmt.Sprintf("record %d: student_id required", i)}}))
 		}
 		if r.Status == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "validation_error", "message": fmt.Sprintf("status is required for record %d", i), "errors": fiber.Map{"records": []string{fmt.Sprintf("record %d: status required", i)}}})
+			return WriteError(c, ErrBadRequest(fmt.Sprintf("status is required for record %d", i), map[string][]string{"records": {fmt.Sprintf("record %d: status required", i)}}))
 		}
 		records = append(records, services.AttendanceStudentRecord{
 			StudentID: r.StudentID,
@@ -97,10 +97,10 @@ func (h *AttendanceHandler) CreateAttendance(c fiber.Ctx) error {
 	})
 	if err != nil {
 		h.logger.Error("create attendance failed", zap.Error(err))
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest(err.Error(), nil))
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"code": "created", "message": "attendance recorded"})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "attendance recorded"})
 }
 
 // @Summary List attendance sessions for admin dashboard
@@ -122,11 +122,11 @@ func (h *AttendanceHandler) CreateAttendance(c fiber.Ctx) error {
 func (h *AttendanceHandler) ListAttendanceSessions(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, err := uuid.Parse(schoolIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid school id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
@@ -183,7 +183,7 @@ func (h *AttendanceHandler) ListAttendanceSessions(c fiber.Ctx) error {
 	sessions, total, err := h.svc.ListAttendanceSessions(c.Context(), params)
 	if err != nil {
 		h.logger.Error("list attendance sessions failed", zap.Error(err))
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest(err.Error(), nil))
 	}
 
 	items := make([]fiber.Map, 0, len(sessions))

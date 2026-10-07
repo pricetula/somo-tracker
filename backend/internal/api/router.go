@@ -97,7 +97,7 @@ func NewRouter(
 		Guardians:          NewGuardiansHandler(guardiansSvc, zap.L()),
 		Timetable:          NewTimetableHandler(timetableSvc, zap.L()),
 		Attendance:         NewAttendanceHandler(attendanceSvc, zap.L()),
-		Events:             NewEventsHandler(pool, zap.L()),
+		Events:             NewEventsHandler(services.NewEventsService(pool), zap.L()),
 		Rooms:              NewRoomsHandler(roomsSvc),
 		Curriculum:         curriculumSvc,
 		AdminInvitation:    nil,
@@ -157,6 +157,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// ─── Protected routes (session + CSRF) ─────────────────────────────
 	// All routes under /api except the public auth endpoints above.
 	protected := app.Group("/api",
+		ratelimit.NewRateLimitMiddleware(r.limiter, redis_rate.PerMinute(120), "api:protected:default"),
 		session.NewSessionMiddleware(redisClient, logger, r.cfg),
 		csrf.NewCSRFMiddleware(),
 	)

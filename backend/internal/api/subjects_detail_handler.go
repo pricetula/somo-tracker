@@ -13,18 +13,18 @@ func subjectsDetailHandler(curriculumSvc services.CurriculumService) fiber.Handl
 		ctx := c.Context()
 		id := c.Params("id")
 		if id == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "id required", "errors": fiber.Map{}})
+			return WriteError(c, ErrBadRequest("id required", nil))
 		}
 
 		detail, err := curriculumSvc.GetSubjectDetail(ctx, id)
 		if err != nil {
 			if strings.Contains(err.Error(), "bad_request:") {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+				return WriteError(c, ErrBadRequest(err.Error(), nil))
 			}
 			if strings.Contains(err.Error(), "not_found") || strings.Contains(err.Error(), "internal_error") {
-				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"code": "not_found", "message": "subject not found", "errors": fiber.Map{}})
+				return WriteError(c, ErrNotFound("subject not found"))
 			}
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": err.Error(), "errors": fiber.Map{}})
+			return WriteError(c, ErrInternal(err.Error()))
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{

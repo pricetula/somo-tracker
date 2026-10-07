@@ -40,20 +40,20 @@ type createEnrollmentItem struct {
 func (h *EnrollmentsHandler) CreateEnrollments(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, err := uuid.Parse(schoolIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid school id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
 	classIDStr := c.Params("id")
 	classID, err := uuid.Parse(classIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid class id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid class id", nil))
 	}
 	var items []createEnrollmentItem
 	if err := c.Bind().Body(&items); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid request body", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid request body", nil))
 	}
 	reqs := make([]services.CreateEnrollmentRequest, 0, len(items))
 	for _, it := range items {
@@ -67,7 +67,7 @@ func (h *EnrollmentsHandler) CreateEnrollments(c fiber.Ctx) error {
 	created, err := h.svc.CreateEnrollments(c.Context(), schoolID, classID, reqs)
 	if err != nil {
 		h.logger.Error("create enrollments failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to create enrollments", "errors": fiber.Map{}})
+		return WriteError(c, ErrInternal("failed to create enrollments"))
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"items": created})
 }
@@ -83,7 +83,7 @@ func (h *EnrollmentsHandler) CreateEnrollments(c fiber.Ctx) error {
 func (h *EnrollmentsHandler) ListUnassignedStudents(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, _ := uuid.Parse(schoolIDStr)
 	page, _ := strconv.Atoi(c.Query("page", "1"))
@@ -92,7 +92,7 @@ func (h *EnrollmentsHandler) ListUnassignedStudents(c fiber.Ctx) error {
 	items, total, err := h.svc.ListUnassignedStudentsCurrentYear(c.Context(), schoolID, page, limit)
 	if err != nil {
 		h.logger.Error("list unassigned students failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to list unassigned students", "errors": fiber.Map{}})
+		return WriteError(c, ErrInternal("failed to list unassigned students"))
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"items": items, "total": total})
 }
@@ -109,13 +109,13 @@ func (h *EnrollmentsHandler) ListUnassignedStudents(c fiber.Ctx) error {
 func (h *EnrollmentsHandler) ListEnrollmentsByClass(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, _ := uuid.Parse(schoolIDStr)
 	classIDStr := c.Params("id")
 	classID, err := uuid.Parse(classIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid class id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid class id", nil))
 	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
@@ -129,7 +129,7 @@ func (h *EnrollmentsHandler) ListEnrollmentsByClass(c fiber.Ctx) error {
 	items, total, err := h.svc.ListEnrollments(c.Context(), params)
 	if err != nil {
 		h.logger.Error("list enrollments failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to list enrollments", "errors": fiber.Map{}})
+		return WriteError(c, ErrInternal("failed to list enrollments"))
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"items": items, "total": total})
 }
@@ -146,16 +146,16 @@ func (h *EnrollmentsHandler) UpdateEnrollment(c fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid enrollment id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid enrollment id", nil))
 	}
 	var req services.UpdateEnrollmentRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid request body", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid request body", nil))
 	}
 	updated, err := h.svc.UpdateEnrollment(c.Context(), id, req)
 	if err != nil {
 		h.logger.Error("update enrollment failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to update enrollment", "errors": fiber.Map{}})
+		return WriteError(c, ErrInternal("failed to update enrollment"))
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"item": updated})
 }
@@ -170,11 +170,11 @@ func (h *EnrollmentsHandler) DeleteEnrollment(c fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid enrollment id", "errors": fiber.Map{}})
+		return WriteError(c, ErrBadRequest("invalid enrollment id", nil))
 	}
 	if err := h.svc.DeleteEnrollment(c.Context(), id); err != nil {
 		h.logger.Error("delete enrollment failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to delete enrollment", "errors": fiber.Map{}})
+		return WriteError(c, ErrInternal("failed to delete enrollment"))
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

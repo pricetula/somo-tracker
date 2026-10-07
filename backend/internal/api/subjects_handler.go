@@ -26,9 +26,9 @@ func subjectsListHandler(curriculumSvc services.CurriculumService) fiber.Handler
 		items, total, err := curriculumSvc.ListSubjects(ctx, page, limit, search, grade)
 		if err != nil {
 			if strings.Contains(err.Error(), "bad_request:") {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": err.Error(), "errors": fiber.Map{}})
+				return WriteError(c, ErrBadRequest(err.Error(), nil))
 			}
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": err.Error(), "errors": fiber.Map{}})
+			return WriteError(c, ErrInternal(err.Error()))
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{

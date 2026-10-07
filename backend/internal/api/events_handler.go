@@ -5,42 +5,42 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+
+	"somotracker/backend/internal/services"
 )
 
 type EventsHandler struct {
-	pool   *pgxpool.Pool
+	svc    services.EventsService
 	logger *zap.Logger
 }
 
-func NewEventsHandler(pool *pgxpool.Pool, logger *zap.Logger) *EventsHandler {
-	return &EventsHandler{pool: pool, logger: logger.With(zap.String("handler", "events"))}
+func NewEventsHandler(svc services.EventsService, logger *zap.Logger) *EventsHandler {
+	return &EventsHandler{svc: svc, logger: logger.With(zap.String("handler", "events"))}
 }
 
 type EventItem struct {
 	ID                 string `json:"id"`
-	Title              string `json:"title"`
-	EventType          string `json:"event_type"`
-	StartDate          string `json:"start_date"`
-	EndDate            string `json:"end_date"`
+	Title              string `json:"title" validate:"required"`
+	EventType          string `json:"event_type" validate:"required"`
+	StartDate          string `json:"start_date" validate:"required"`
+	EndDate            string `json:"end_date" validate:"required"`
 	RequiresAttendance bool   `json:"requires_attendance"`
 }
 
 type CreateEventRequest struct {
-	Title              string `json:"title"`
-	EventType          string `json:"event_type"`
-	StartDate          string `json:"start_date"`
-	EndDate            string `json:"end_date"`
+	Title              string `json:"title" validate:"required"`
+	EventType          string `json:"event_type" validate:"required"`
+	StartDate          string `json:"start_date" validate:"required"`
+	EndDate            string `json:"end_date" validate:"required"`
 	RequiresAttendance bool   `json:"requires_attendance"`
 }
 
 type UpdateEventRequest struct {
-	Title              string `json:"title"`
-	EventType          string `json:"event_type"`
-	StartDate          string `json:"start_date"`
-	EndDate            string `json:"end_date"`
+	Title              string `json:"title" validate:"required"`
+	EventType          string `json:"event_type" validate:"required"`
+	StartDate          string `json:"start_date" validate:"required"`
+	EndDate            string `json:"end_date" validate:"required"`
 	RequiresAttendance bool   `json:"requires_attendance"`
 }
 
@@ -83,48 +83,10 @@ func (h *EventsHandler) ListEvents(c fiber.Ctx) error {
 		toStr = toDate.Format("2006-01-02")
 	}
 
-	rows, err := h.pool.Query(c.Context(), `
-		SELECT id, title, event_type, start_date, end_date, requires_attendance
-		FROM school_events
-		WHERE school_id = $1 AND start_date >= $2 AND start_date <= $3
-		ORDER BY start_date ASC, start_date DESC
-	`, schoolID, fromStr, toStr)
+	items, err := h.svc.ListEvents(c.Context(), schoolID, fromStr, toStr)
 	if err != nil {
 		h.logger.Error("list events failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to list events",
-			"errors":  fiber.Map{},
-		})
-	}
-	defer rows.Close()
-
-	var items []EventItem
-	for rows.Next() {
-		var id uuid.UUID
-		var title, eventType string
-		var startDate, endDate time.Time
-		var requiresAttendance bool
-		if err := rows.Scan(&id, &title, &eventType, &startDate, &endDate, &requiresAttendance); err != nil {
-			h.logger.Error("scan event row failed", zap.Error(err))
-			continue
-		}
-		items = append(items, EventItem{
-			ID:                 id.String(),
-			Title:              title,
-			EventType:          eventType,
-			StartDate:          startDate.Format("2006-01-02"),
-			EndDate:            endDate.Format("2006-01-02"),
-			RequiresAttendance: requiresAttendance,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		h.logger.Error("rows error", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to list events",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to list events"))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(items)
@@ -191,18 +153,16 @@ func (h *EventsHandler) CreateEvent(c fiber.Ctx) error {
 	}
 
 	var id uuid.UUID
-	err = h.pool.QueryRow(c.Context(), `
-		INSERT INTO school_events (school_id, title, event_type, start_date, end_date, requires_attendance)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id
-	`, schoolID, req.Title, req.EventType, req.StartDate, req.EndDate, req.RequiresAttendance).Scan(&id)
+	id, err = h.svc.CreateEvent(c.Context(), schoolID, services.CreateEventRequest{
+		Title:              req.Title,
+		EventType:          req.EventType,
+		StartDate:          req.StartDate,
+		EndDate:            req.EndDate,
+		RequiresAttendance: req.RequiresAttendance,
+	})
 	if err != nil {
 		h.logger.Error("create event failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to create event",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to create event"))
 	}
 
 	item := EventItem{
@@ -287,43 +247,20 @@ func (h *EventsHandler) UpdateEvent(c fiber.Ctx) error {
 		})
 	}
 
-	var id uuid.UUID
-	var title, eventType string
-	var startDate, endDate time.Time
-	var requiresAttendance bool
-	err = h.pool.QueryRow(c.Context(), `
-		UPDATE school_events
-		SET title = $2, event_type = $3, start_date = $4, end_date = $5, requires_attendance = $6
-		WHERE id = $7 AND school_id = $1
-		RETURNING id, title, event_type, start_date, end_date, requires_attendance
-	`, schoolID, req.Title, req.EventType, req.StartDate, req.EndDate, req.RequiresAttendance, eventID).Scan(
-		&id, &title, &eventType, &startDate, &endDate, &requiresAttendance,
-	)
+	updated, err := h.svc.UpdateEvent(c.Context(), schoolID, eventID, services.UpdateEventRequest{
+		Title:              req.Title,
+		EventType:          req.EventType,
+		StartDate:          req.StartDate,
+		EndDate:            req.EndDate,
+		RequiresAttendance: req.RequiresAttendance,
+	})
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"code":    "not_found",
-				"message": "event not found",
-				"errors":  fiber.Map{},
-			})
+		if err.Error() == "not_found" {
+			return WriteError(c, ErrNotFound("event not found"))
 		}
 		h.logger.Error("update event failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to update event",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to update event"))
 	}
-
-	updated := EventItem{
-		ID:                 id.String(),
-		Title:              title,
-		EventType:          eventType,
-		StartDate:          startDate.Format("2006-01-02"),
-		EndDate:            endDate.Format("2006-01-02"),
-		RequiresAttendance: requiresAttendance,
-	}
-
 	return c.Status(fiber.StatusOK).JSON(updated)
 }
 
@@ -365,19 +302,10 @@ func (h *EventsHandler) DeleteEvent(c fiber.Ctx) error {
 		})
 	}
 
-	_, err = h.pool.Exec(c.Context(), "DELETE FROM school_events WHERE id = $1 AND school_id = $2", eventID, schoolID)
-	if err != nil {
+	if err := h.svc.DeleteEvent(c.Context(), schoolID, eventID); err != nil {
 		h.logger.Error("delete event failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to delete event",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to delete event"))
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"code":    "event_deleted",
-		"message": "Event deleted successfully",
-		"errors":  fiber.Map{},
-	})
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Event deleted successfully"})
 }

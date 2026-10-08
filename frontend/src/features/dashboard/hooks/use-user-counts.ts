@@ -4,14 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import type { UserCounts } from "../types/user-counts";
 
-export function useUserCounts(schoolId?: string) {
+export function useUserCounts() {
     return useQuery<UserCounts>({
-        queryKey: ["userCounts", schoolId],
+        queryKey: ["userCounts"],
         queryFn: async () => {
-            if (!schoolId) throw new Error("schoolId is required");
-            return api.get<UserCounts>(`/api/schools/${schoolId}/users/count`);
+            return api.get<UserCounts>(`/api/school/users/count`);
         },
-        enabled: !!schoolId,
         staleTime: 60_000,
     });
 }

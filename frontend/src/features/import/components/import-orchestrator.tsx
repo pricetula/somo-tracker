@@ -131,9 +131,12 @@ export function ImportOrchestrator({
                             variant="secondary"
                             onClick={() => {
                                 setProgress(null);
+                                if (onReset) {
+                                    onReset();
+                                }
                             }}
                         >
-                            Hide progress
+                            Close
                         </Button>
                     </div>
                 )}

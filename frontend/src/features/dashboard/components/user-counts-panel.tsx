@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { CircleQuestionMark, Plus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { numberCompactor } from "@/lib/number-compactor";
 import { useUserCounts } from "../hooks/use-user-counts";
 import type { UserCounts } from "../types/user-counts";
 import Link from "next/link";
@@ -30,7 +31,10 @@ export function UserCountsPanel() {
                 count: students,
                 tip: (
                     <>
-                        <span>Total number of students at the school</span>
+                        <span>
+                            This shows the total number of students at the school currently{" "}
+                            {students}
+                        </span>
                         <br />
                         <span className="flex items-center gap-4">
                             <span>
@@ -50,7 +54,7 @@ export function UserCountsPanel() {
             {
                 label: `Teacher${teachers !== 1 ? "s" : ""}`,
                 count: teachers,
-                tip: "",
+                tip: `This shows the total number of teachers at the school currently ${teachers}`,
                 addHref: "/teachers/invite",
                 viewHref: "/teachers",
                 addLabel: "Invite Teachers",
@@ -58,7 +62,7 @@ export function UserCountsPanel() {
             {
                 label: `Guardian${guardians !== 1 ? "s" : ""}`,
                 count: guardians,
-                tip: "",
+                tip: `This shows the total number of guardians at the school currently ${guardians}`,
                 addHref: "/guardians/invite",
                 viewHref: "/guardians",
                 addLabel: "Invite Guardians",
@@ -66,7 +70,7 @@ export function UserCountsPanel() {
             {
                 label: "Finance",
                 count: finance,
-                tip: "",
+                tip: `This shows the total number of finance at the school currently ${finance}`,
                 addHref: "/finance/invite",
                 viewHref: "/finance",
                 addLabel: "Invite Finance",
@@ -74,7 +78,7 @@ export function UserCountsPanel() {
             {
                 label: `Admin${admins !== 1 ? "s" : ""}`,
                 count: admins,
-                tip: "",
+                tip: `This shows the total number of admins at the school currently ${admins}`,
                 addHref: "/admins/invite",
                 viewHref: "/admins",
                 addLabel: "Invite Admins",
@@ -95,16 +99,23 @@ export function UserCountsPanel() {
     }
 
     return (
-        <section className="mb-4 flex justify-between border-b border-dashed pb-4">
+        <section className="mb-4 grid grid-cols-2 gap-4 border-b border-dashed pb-4 md:grid-cols-3 lg:grid-cols-5">
             {rows.map((row) => (
                 <div key={row.label} className="flex flex-col gap-2">
                     <div className="flex items-center gap-1">
                         <Link href={row.viewHref} className="space-x-1 text-lg">
-                            <span>{row.count}</span>
-                            <span>{row.label}</span>
+                            <span>{numberCompactor(row.count)}</span>
+                            <span className="text-muted-foreground">{row.label}</span>
                         </Link>
                         <Tooltip>
-                            <TooltipTrigger render={<CircleQuestionMark size={14} />} />
+                            <TooltipTrigger
+                                render={
+                                    <CircleQuestionMark
+                                        size={14}
+                                        className="text-muted-foreground"
+                                    />
+                                }
+                            />
                             <TooltipContent>
                                 <p>{row.tip}</p>
                             </TooltipContent>

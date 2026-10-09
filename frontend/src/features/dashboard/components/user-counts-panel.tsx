@@ -96,7 +96,7 @@ export function UserCountsPanel() {
     return (
         <section
             aria-label="People at your school"
-            className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
+            className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
         >
             {/* Students: featured card with gender breakdown */}
             <Card className="justify-between gap-2 p-3">
@@ -126,7 +126,7 @@ export function UserCountsPanel() {
                             aria-label={`${male} male, ${female} female`}
                         >
                             <div className="bg-primary" style={{ width: `${malePct}%` }} />
-                            <div className="bg-teal-500" style={{ width: `${femalePct}%` }} />
+                            <div className="bg-purple-500" style={{ width: `${femalePct}%` }} />
                         </div>
                         <dl className="text-muted-foreground flex justify-between text-[10px]">
                             <div className="flex items-center gap-1">
@@ -134,19 +134,19 @@ export function UserCountsPanel() {
                                     className="bg-primary size-1 rounded-full"
                                     aria-hidden="true"
                                 />
-                                <dt className="font-medium">Male</dt>
+                                <dt className="font-medium">Boys</dt>
                                 <dd className="text-foreground font-medium tabular-nums">
-                                    {male} ({malePct.toFixed(1)}%)
+                                    ({malePct.toFixed(1)}%)
                                 </dd>
                             </div>
                             <div className="flex items-center gap-1">
                                 <span
-                                    className="size-1 rounded-full bg-teal-500"
+                                    className="size-1 rounded-full bg-purple-500"
                                     aria-hidden="true"
                                 />
-                                <dt className="font-medium">Female</dt>
+                                <dt className="font-medium">Girls</dt>
                                 <dd className="text-foreground font-medium tabular-nums">
-                                    {female} ({femalePct.toFixed(1)}%)
+                                    ({femalePct.toFixed(1)}%)
                                 </dd>
                             </div>
                         </dl>
@@ -163,7 +163,7 @@ export function UserCountsPanel() {
             </Card>
 
             {/* Other roles: compact cards */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {ROLES.map(({ key, label, href, addHref, addLabel, icon: Icon }) => {
                     const value = counts[key] || 0;
 

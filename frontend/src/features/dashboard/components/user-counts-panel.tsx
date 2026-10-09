@@ -154,7 +154,7 @@ export function UserCountsPanel() {
 
                     <Link
                         href="/students/add"
-                        className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 text-[11px] transition-colors"
+                        className="text-muted-foreground hover:text-primary mt-2 inline-flex items-center gap-1 text-[11px] transition-colors"
                     >
                         <Plus size={10} aria-hidden="true" />
                         Add students

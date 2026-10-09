@@ -96,42 +96,42 @@ export function UserCountsPanel() {
     return (
         <section
             aria-label="People at your school"
-            className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
+            className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
         >
             {/* Students: featured card with gender breakdown */}
-            <Card className="justify-between gap-6">
-                <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                        <span className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded">
-                            <Users className="size-4" aria-hidden="true" />
+            <Card className="justify-between gap-2 p-3">
+                <CardHeader className="pb-1">
+                    <CardTitle className="flex items-center gap-1.5 text-xs">
+                        <span className="bg-primary/10 text-primary flex size-6 items-center justify-center rounded">
+                            <Users className="size-3.5" aria-hidden="true" />
                         </span>
                         Students
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 pt-0">
+                <CardContent className="space-y-1.5 pt-0">
                     <Link
                         href="/students"
                         aria-label={`View all ${students} students`}
-                        className="text-3xl"
+                        className="hover:text-primary text-3xl font-semibold tracking-tight tabular-nums transition-colors"
                     >
                         {numberCompactor(students)}
                     </Link>
-                    <p className="text-muted-foreground text-xs">Enrolled this term</p>
+                    <p className="text-muted-foreground text-[11px]">enrolled this term</p>
 
                     {/* Gender split */}
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                         <div
-                            className="bg-muted flex h-1.5 overflow-hidden rounded-full"
+                            className="bg-muted flex h-1 overflow-hidden rounded-full"
                             role="img"
                             aria-label={`${male} male, ${female} female`}
                         >
                             <div className="bg-primary" style={{ width: `${malePct}%` }} />
-                            <div className="bg-teal-500" style={{ width: `${femalePct}%` }} />
+                            <div className="bg-primary/40" style={{ width: `${femalePct}%` }} />
                         </div>
-                        <dl className="text-muted-foreground flex justify-between text-[11px]">
+                        <dl className="text-muted-foreground flex justify-between text-[10px]">
                             <div className="flex items-center gap-1">
                                 <span
-                                    className="bg-primary size-1.5 rounded-full"
+                                    className="bg-primary size-1 rounded-full"
                                     aria-hidden="true"
                                 />
                                 <dt className="font-medium">Male</dt>
@@ -141,7 +141,7 @@ export function UserCountsPanel() {
                             </div>
                             <div className="flex items-center gap-1">
                                 <span
-                                    className="size-1.5 rounded-full bg-teal-500"
+                                    className="bg-primary/40 size-1 rounded-full"
                                     aria-hidden="true"
                                 />
                                 <dt className="font-medium">Female</dt>
@@ -154,44 +154,43 @@ export function UserCountsPanel() {
 
                     <Link
                         href="/students/add"
-                        className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+                        className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 text-[11px] transition-colors"
                     >
-                        <Plus size={12} aria-hidden="true" />
+                        <Plus size={10} aria-hidden="true" />
                         Add students
                     </Link>
                 </CardContent>
             </Card>
 
             {/* Other roles: compact cards */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {ROLES.map(({ key, label, href, addHref, addLabel, icon: Icon }) => {
                     const value = counts[key] || 0;
 
                     return (
-                        <Card key={key} className="justify-between gap-4">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-xs">
-                                    <span className="bg-primary/10 text-primary flex size-7 items-center justify-center rounded">
-                                        <Icon className="size-3.5" aria-hidden="true" />
+                        <Card key={key} className="justify-between gap-1.5 p-2.5">
+                            <CardHeader className="pb-1">
+                                <CardTitle className="flex items-center gap-1.5 text-[11px]">
+                                    <span className="bg-primary/10 text-primary flex size-5 items-center justify-center rounded">
+                                        <Icon className="size-3" aria-hidden="true" />
                                     </span>
                                     {label}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="flex items-start justify-between space-y-2 pt-0">
+                            <CardContent className="flex items-start justify-between space-y-1 pt-0">
                                 <Link
                                     href={href}
                                     aria-label={`View all ${value} ${label.toLowerCase()}`}
-                                    className="text-xl"
+                                    className="hover:text-primary text-2xl font-semibold tracking-tight tabular-nums transition-colors"
                                 >
                                     {numberCompactor(value)}
                                 </Link>
-
                                 <Link
                                     href={addHref}
                                     aria-label={`${addLabel} ${label.toLowerCase()}`}
-                                    className="flex items-center"
+                                    className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 text-[11px] transition-colors"
                                 >
-                                    <Plus size={12} aria-hidden="true" />
+                                    <Plus size={10} aria-hidden="true" />
                                     {addLabel}
                                 </Link>
                             </CardContent>

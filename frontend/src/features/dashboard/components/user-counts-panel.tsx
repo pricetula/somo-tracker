@@ -126,7 +126,7 @@ export function UserCountsPanel() {
                             aria-label={`${male} male, ${female} female`}
                         >
                             <div className="bg-primary" style={{ width: `${malePct}%` }} />
-                            <div className="bg-primary/40" style={{ width: `${femalePct}%` }} />
+                            <div className="bg-teal-500" style={{ width: `${femalePct}%` }} />
                         </div>
                         <dl className="text-muted-foreground flex justify-between text-[10px]">
                             <div className="flex items-center gap-1">
@@ -141,7 +141,7 @@ export function UserCountsPanel() {
                             </div>
                             <div className="flex items-center gap-1">
                                 <span
-                                    className="bg-primary/40 size-1 rounded-full"
+                                    className="size-1 rounded-full bg-teal-500"
                                     aria-hidden="true"
                                 />
                                 <dt className="font-medium">Female</dt>

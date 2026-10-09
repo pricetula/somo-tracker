@@ -1,132 +1,211 @@
 "use client";
 
-// import Link from "next/link";
-import { useMemo } from "react";
-import { CircleQuestionMark, Plus } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import Link from "next/link";
+import { Briefcase, Plus, Shield, UserCheck, UserPlus, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { numberCompactor } from "@/lib/number-compactor";
 import { useUserCounts } from "../hooks/use-user-counts";
 import type { UserCounts } from "../types/user-counts";
-import Link from "next/link";
+
+interface Role {
+    key: keyof Pick<UserCounts, "teachers" | "guardians" | "finance" | "admins">;
+    label: string;
+    description: string;
+    href: string;
+    addHref: string;
+    addLabel: string;
+    icon: LucideIcon;
+}
+
+const ROLES: Role[] = [
+    {
+        key: "teachers",
+        label: "Teachers",
+        description: "On staff",
+        href: "/teachers",
+        addHref: "/teachers/invite",
+        addLabel: "Invite",
+        icon: UserCheck,
+    },
+    {
+        key: "guardians",
+        label: "Guardians",
+        description: "Registered",
+        href: "/guardians",
+        addHref: "/guardians/invite",
+        addLabel: "Invite",
+        icon: UserPlus,
+    },
+    {
+        key: "finance",
+        label: "Finance",
+        description: "Staff",
+        href: "/finance",
+        addHref: "/finance/invite",
+        addLabel: "Invite",
+        icon: Briefcase,
+    },
+    {
+        key: "admins",
+        label: "Admins",
+        description: "With full access",
+        href: "/admins",
+        addHref: "/admins/invite",
+        addLabel: "Invite",
+        icon: Shield,
+    },
+];
+
+const pct = (part: number, total: number) => (total > 0 ? (part / total) * 100 : 0);
 
 export function UserCountsPanel() {
     const { data, isLoading, isError } = useUserCounts();
-
     const counts = data as UserCounts | undefined;
 
-    const rows = useMemo(() => {
-        const students = counts?.students || 0;
-        const smale = counts?.students_male || 0;
-        const sfemale = counts?.students_female || 0;
-        const smalePercentage = students > 0 ? ((smale / students) * 100).toFixed(2) : 0;
-        const sfemalePercentage = students > 0 ? ((sfemale / students) * 100).toFixed(2) : 0;
-        const guardians = counts?.guardians || 0;
-        const teachers = counts?.teachers || 0;
-        const finance = counts?.finance || 0;
-        const admins = counts?.admins || 0;
-        return [
-            {
-                label: `Student${students !== 1 ? "s" : ""}`,
-                count: students,
-                tip: (
-                    <>
-                        <span>
-                            This shows the total number of students at the school currently{" "}
-                            {students}
-                        </span>
-                        <br />
-                        <span className="flex items-center gap-4">
-                            <span>
-                                Male <b>{smalePercentage}%</b>
-                            </span>
-
-                            <span>
-                                Female <b>{sfemalePercentage}%</b>
-                            </span>
-                        </span>
-                    </>
-                ),
-                addHref: "/students/add",
-                viewHref: "/students",
-                addLabel: "Add Students",
-            },
-            {
-                label: `Teacher${teachers !== 1 ? "s" : ""}`,
-                count: teachers,
-                tip: `This shows the total number of teachers at the school currently ${teachers}`,
-                addHref: "/teachers/invite",
-                viewHref: "/teachers",
-                addLabel: "Invite Teachers",
-            },
-            {
-                label: `Guardian${guardians !== 1 ? "s" : ""}`,
-                count: guardians,
-                tip: `This shows the total number of guardians at the school currently ${guardians}`,
-                addHref: "/guardians/invite",
-                viewHref: "/guardians",
-                addLabel: "Invite Guardians",
-            },
-            {
-                label: "Finance",
-                count: finance,
-                tip: `This shows the total number of finance at the school currently ${finance}`,
-                addHref: "/finance/invite",
-                viewHref: "/finance",
-                addLabel: "Invite Finance",
-            },
-            {
-                label: `Admin${admins !== 1 ? "s" : ""}`,
-                count: admins,
-                tip: `This shows the total number of admins at the school currently ${admins}`,
-                addHref: "/admins/invite",
-                viewHref: "/admins",
-                addLabel: "Invite Admins",
-            },
-        ];
-    }, [counts]);
-
     if (isLoading) {
-        return <div className="space-y-4">Loading user counts…</div>;
+        return (
+            <section
+                aria-label="People at your school"
+                className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
+                aria-busy="true"
+            >
+                <Card className="h-64 animate-pulse" />
+                <div className="grid grid-cols-2 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i} className="h-30 animate-pulse" />
+                    ))}
+                </div>
+            </section>
+        );
     }
 
     if (isError || !counts) {
         return (
             <Alert variant="destructive">
-                <AlertDescription>Failed to load user counts.</AlertDescription>
+                <AlertDescription>
+                    Couldn&apos;t load user counts. Refresh the page to try again.
+                </AlertDescription>
             </Alert>
         );
     }
 
+    const students = counts.students || 0;
+    const male = counts.students_male || 0;
+    const female = counts.students_female || 0;
+    const malePct = pct(male, students);
+    const femalePct = pct(female, students);
+
     return (
-        <section className="mb-4 grid grid-cols-2 gap-4 border-b border-dashed pb-4 md:grid-cols-3 lg:grid-cols-5">
-            {rows.map((row) => (
-                <div key={row.label} className="flex flex-col gap-2">
-                    <div className="flex items-center gap-1">
-                        <Link href={row.viewHref} className="space-x-1 text-lg">
-                            <span>{numberCompactor(row.count)}</span>
-                            <span className="text-muted-foreground">{row.label}</span>
-                        </Link>
-                        <Tooltip>
-                            <TooltipTrigger
-                                render={
-                                    <CircleQuestionMark
-                                        size={14}
-                                        className="text-muted-foreground"
-                                    />
-                                }
-                            />
-                            <TooltipContent>
-                                <p>{row.tip}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </div>
-                    <Link href={row.addHref} className="text-muted-foreground flex gap-1">
-                        <Plus size={14} />
-                        <span>{row.addLabel}</span>
+        <section
+            aria-label="People at your school"
+            className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
+        >
+            {/* Students: featured card with gender breakdown */}
+            <Card className="justify-between gap-6">
+                <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2">
+                        <span className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded">
+                            <Users className="size-4" aria-hidden="true" />
+                        </span>
+                        Students
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-0">
+                    <Link
+                        href="/students"
+                        aria-label={`View all ${students} students`}
+                        className="text-3xl"
+                    >
+                        {numberCompactor(students)}
                     </Link>
-                </div>
-            ))}
+                    <p className="text-muted-foreground text-xs">enrolled this term</p>
+
+                    {/* Gender split */}
+                    <div className="space-y-2">
+                        <div
+                            className="bg-muted flex h-1.5 overflow-hidden rounded-full"
+                            role="img"
+                            aria-label={`${male} male, ${female} female`}
+                        >
+                            <div className="bg-primary" style={{ width: `${malePct}%` }} />
+                            <div className="bg-teal-500" style={{ width: `${femalePct}%` }} />
+                        </div>
+                        <dl className="text-muted-foreground flex justify-between text-[11px]">
+                            <div className="flex items-center gap-1">
+                                <span
+                                    className="bg-primary size-1.5 rounded-full"
+                                    aria-hidden="true"
+                                />
+                                <dt className="font-medium">Male</dt>
+                                <dd className="text-foreground font-medium tabular-nums">
+                                    {male} ({malePct.toFixed(1)}%)
+                                </dd>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span
+                                    className="size-1.5 rounded-full bg-teal-500"
+                                    aria-hidden="true"
+                                />
+                                <dt className="font-medium">Female</dt>
+                                <dd className="text-foreground font-medium tabular-nums">
+                                    {female} ({femalePct.toFixed(1)}%)
+                                </dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <Link
+                        href="/students/add"
+                        className="text-muted-foreground inline-flex items-center gap-1 text-xs transition-colors"
+                    >
+                        <Plus size={12} aria-hidden="true" />
+                        Add students
+                    </Link>
+                </CardContent>
+            </Card>
+
+            {/* Other roles: compact cards */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {ROLES.map(({ key, label, description, href, addHref, addLabel, icon: Icon }) => {
+                    const value = counts[key] || 0;
+
+                    return (
+                        <Card key={key} className="justify-between gap-4">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-xs">
+                                    <span className="bg-primary/10 text-primary flex size-7 items-center justify-center rounded">
+                                        <Icon className="size-3.5" aria-hidden="true" />
+                                    </span>
+                                    {label}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex items-start justify-between space-y-2 pt-0">
+                                <div>
+                                    <Link
+                                        href={href}
+                                        aria-label={`View all ${value} ${label.toLowerCase()}`}
+                                        className="text-xl"
+                                    >
+                                        {numberCompactor(value)}
+                                    </Link>
+                                    <p className="text-muted-foreground text-xs">{description}</p>
+                                </div>
+                                <Link
+                                    href={addHref}
+                                    aria-label={`${addLabel} ${label.toLowerCase()}`}
+                                    className="flex items-center"
+                                >
+                                    <Plus size={12} aria-hidden="true" />
+                                    {addLabel}
+                                </Link>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
         </section>
     );
 }

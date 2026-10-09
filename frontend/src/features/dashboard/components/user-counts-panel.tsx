@@ -13,7 +13,6 @@ import type { UserCounts } from "../types/user-counts";
 interface Role {
     key: keyof Pick<UserCounts, "teachers" | "guardians" | "finance" | "admins">;
     label: string;
-    description: string;
     href: string;
     addHref: string;
     addLabel: string;
@@ -24,7 +23,6 @@ const ROLES: Role[] = [
     {
         key: "teachers",
         label: "Teachers",
-        description: "On staff",
         href: "/teachers",
         addHref: "/teachers/invite",
         addLabel: "Invite",
@@ -33,7 +31,6 @@ const ROLES: Role[] = [
     {
         key: "guardians",
         label: "Guardians",
-        description: "Registered",
         href: "/guardians",
         addHref: "/guardians/invite",
         addLabel: "Invite",
@@ -42,7 +39,6 @@ const ROLES: Role[] = [
     {
         key: "finance",
         label: "Finance",
-        description: "Staff",
         href: "/finance",
         addHref: "/finance/invite",
         addLabel: "Invite",
@@ -51,7 +47,6 @@ const ROLES: Role[] = [
     {
         key: "admins",
         label: "Admins",
-        description: "With full access",
         href: "/admins",
         addHref: "/admins/invite",
         addLabel: "Invite",
@@ -121,7 +116,7 @@ export function UserCountsPanel() {
                     >
                         {numberCompactor(students)}
                     </Link>
-                    <p className="text-muted-foreground text-xs">enrolled this term</p>
+                    <p className="text-muted-foreground text-xs">Enrolled this term</p>
 
                     {/* Gender split */}
                     <div className="space-y-2">
@@ -159,7 +154,7 @@ export function UserCountsPanel() {
 
                     <Link
                         href="/students/add"
-                        className="text-muted-foreground inline-flex items-center gap-1 text-xs transition-colors"
+                        className="text-muted-foreground inline-flex items-center gap-1 text-xs"
                     >
                         <Plus size={12} aria-hidden="true" />
                         Add students
@@ -169,7 +164,7 @@ export function UserCountsPanel() {
 
             {/* Other roles: compact cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {ROLES.map(({ key, label, description, href, addHref, addLabel, icon: Icon }) => {
+                {ROLES.map(({ key, label, href, addHref, addLabel, icon: Icon }) => {
                     const value = counts[key] || 0;
 
                     return (
@@ -183,16 +178,14 @@ export function UserCountsPanel() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="flex items-start justify-between space-y-2 pt-0">
-                                <div>
-                                    <Link
-                                        href={href}
-                                        aria-label={`View all ${value} ${label.toLowerCase()}`}
-                                        className="text-xl"
-                                    >
-                                        {numberCompactor(value)}
-                                    </Link>
-                                    <p className="text-muted-foreground text-xs">{description}</p>
-                                </div>
+                                <Link
+                                    href={href}
+                                    aria-label={`View all ${value} ${label.toLowerCase()}`}
+                                    className="text-xl"
+                                >
+                                    {numberCompactor(value)}
+                                </Link>
+
                                 <Link
                                     href={addHref}
                                     aria-label={`${addLabel} ${label.toLowerCase()}`}

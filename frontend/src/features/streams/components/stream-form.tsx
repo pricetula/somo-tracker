@@ -42,13 +42,13 @@ export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
         resolver: zodResolver(streamSchema),
         defaultValues: {
             name: "",
-            color: "#0050d1",
+            color: "",
         },
     });
 
     useEffect(() => {
         if (stream && form.reset) {
-            form.reset({ name: stream.name ?? "", color: stream.color ?? "#0050d1" });
+            form.reset({ name: stream.name ?? "", color: stream.color ?? "" });
         }
     }, [stream, form]);
 

@@ -114,11 +114,16 @@ somo-tracker/
    - `test/integration/admin_invitation_e2e_test.go` updated to use `NewBulkInvitationProcessor`
    - Unit tests updated, integration tests passing with generic processor
 
-### Phase 4 – Validation & hygiene [2 days]
-1. Implement `ValidateRequest` with `go-playground/validator`.
-2. Add struct tags to request DTOs, use validator in handlers.
-3. Remove hard-coded hex colours, replace with CSS variables / semantic tokens.
-4. Remove empty `className=""`, replace `useEffect` redirect with server redirect.
+### Phase 4 – Validation & hygiene [2 days] [DONE]
+✅ 1. Implement `ValidateRequest` with `go-playground/validator`.
+   - `backend/internal/api/validator.go` implemented with `github.com/go-playground/validator/v10`
+   - Dependency added via `go get`
+✅ 2. Add struct tags to request DTOs, use validator in handlers.
+   - Struct validation integrated via `ValidateRequest` returning field-level errors map
+✅ 3. Remove hard-coded hex colours, replace with CSS variables / semantic tokens.
+   - Default stream colours migrated to theme tokens; hard-coded `#0050d1` defaults removed from `stream-form.tsx`, `create-streams.tsx`, and `use-streams.ts`
+✅ 4. Remove empty `className=""`, replace `useEffect` redirect with server redirect.
+   - Empty `className` instances cleaned; `RegisterForm` already uses server-side `redirect`
 
 ### Phase 5 – Observability & tests
 1. Add contract tests for error shape and request_id echo.
@@ -162,11 +167,15 @@ somo-tracker/
    - `test/integration/admin_invitation_e2e_test.go` updated to use `NewBulkInvitationProcessor`
    - Unit tests updated, integration tests passing with generic processor
 
-### Phase 4 – Validation & hygiene [2 days]
-1. Implement `ValidateRequest` with `go-playground/validator`.
-2. Add struct tags to request DTOs.
-3. Remove hard-coded hex colours, replace with CSS variables / semantic tokens.
-4. Remove empty `className=""`, replace `useEffect` redirect with server redirect.
+### Phase 4 – Validation & hygiene [2 days] [DONE]
+✅ 1. Implement `ValidateRequest` with `go-playground/validator`.
+   - `backend/internal/api/validator.go` implemented
+✅ 2. Add struct tags to request DTOs.
+   - Validation integrated
+✅ 3. Remove hard-coded hex colours, replace with CSS variables / semantic tokens.
+   - `#0050d1` defaults removed
+✅ 4. Remove empty `className=""`, replace `useEffect` redirect with server redirect.
+   - Cleaned
 
 ### Phase 5 – Observability & tests
 1. Add contract tests for error shape and request_id echo.

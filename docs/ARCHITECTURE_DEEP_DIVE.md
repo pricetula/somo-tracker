@@ -128,10 +128,13 @@ somo-tracker/
 ✅ 4. Remove empty `className=""`, replace `useEffect` redirect with server redirect.
    - Empty `className` instances cleaned; `RegisterForm` already uses server-side `redirect`
 
-### Phase 5 – Observability & tests
-1. Add contract tests for error shape and request_id echo.
-2. Add migration tests for new generic bulk job schema changes.
-3. Add Playwright test for proxy auth guard.
+### Phase 5 – Observability & tests [DONE]
+✅ 1. Add contract tests for error shape and request_id echo.
+   - Contract tests validate canonical `{code, message, errors}` shape and request_id echo in body & `X-Request-ID` header
+✅ 2. Add migration tests for generic bulk job schema changes.
+   - Migration test added for generic bulk job schema changes with table/index/constraint verification
+✅ 3. Add Playwright test for proxy auth guard.
+   - Playwright e2e test confirms Next.js proxy redirects unauthenticated requests
 
 ## Definition of Done
 
@@ -146,48 +149,6 @@ somo-tracker/
 
 * Refactoring error handling touches many handlers – coordinate with frontend to avoid breaking `ApiError` parsing.
 * Generic invitation refactor must preserve existing job IDs and Redis progress channels.
-
-## Next Steps
-
-### Phase 2 – Handler thinness [2-3 days] [DONE]
-✅ 1. Remove `*pgxpool.Pool` from `SchoolHandler`. Move Stytch org update and session `UpdateActiveSchool` into `SchoolService`.
-   - `SchoolCreateHandler` no longer holds session store or mutates session; session update moved to `SchoolService.CreateSchoolWithSetup`
-   - Stytch org update remains service-side
-✅ 2. Refactor all handlers: no imports of `pgxpool`, `sqlc`. Add lint rule.
-   - Handlers `internal/api/*` import no `pgxpool`/`sqlc`
-✅ 3. Confirm session mutation is service-side only.
-   - Session `UpdateActiveSchool` now performed in service layer
-
-### Phase 3 – Deduplicate invitation code [4-6 days] [DONE]
-✅ 1. Create generic `BulkInvitationProcessor` with job type param.
-   - `backend/internal/worker/bulk_invitation_processor.go` created
-   - `cmd/api/main.go` updated to use `NewBulkInvitationProcessor` for admin/teacher/finance/guardian
-✅ 2. Consolidate `AdminInvitationService` into `GenericInvitationService` wrapper
-   - `backend/internal/services/admin_invitation_service.go` now embeds `*GenericInvitationService` with jobType `ADMIN_INVITATION` / role `ADMIN`
-   - Teacher/Finance/Guardian services already embed `GenericInvitationService`
-✅ 3. Update Asynq mux registration to use generic processor.
-   - `cmd/api/main.go` registers all four invitation queues with `NewBulkInvitationProcessor`
-✅ 4. Remove duplicate worker implementations
-   - Deleted `admin_invitation_worker.go`, `teacher_invitation_worker.go`, `finance_invitation_worker.go`, `guardian_invitation_worker.go`
-   - Shared types `RedisPublisher`, `InvitationBatchPayload`, `InvitationRetryPayload`, `InvitationPayload` moved to `bulk_invitation_processor.go`
-✅ 5. Migrate tests – completed
-   - `test/integration/admin_invitation_e2e_test.go` updated to use `NewBulkInvitationProcessor`
-   - Unit tests updated, integration tests passing with generic processor
-
-### Phase 4 – Validation & hygiene [2 days] [DONE]
-✅ 1. Implement `ValidateRequest` with `go-playground/validator`.
-   - `backend/internal/api/validator.go` implemented
-✅ 2. Add struct tags to request DTOs.
-   - Validation integrated
-✅ 3. Remove hard-coded hex colours, replace with CSS variables / semantic tokens.
-   - `#0050d1` defaults removed
-✅ 4. Remove empty `className=""`, replace `useEffect` redirect with server redirect.
-   - Cleaned
-
-### Phase 5 – Observability & tests
-1. Add contract tests for error shape and request_id echo.
-2. Add migration tests for generic bulk job schema changes.
-3. Add Playwright test for proxy auth guard.
 
 ---
 **References:** `AGENTS.md`, `backend/AGENTS.md`, `frontend/AGENTS.md`, `backend/internal/api/errors.go`, `frontend/src/lib/api/client.ts`, `backend/internal/api/router.go`.

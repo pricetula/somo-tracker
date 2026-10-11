@@ -13,7 +13,7 @@ import (
 func TestSchoolRegistration_ValidationErrors(t *testing.T) {
 	svc := NewSchoolService(nil, zap.NewNop())
 
-	_, err := svc.RegisterSchool(context.Background(), "", "t1", "Alice", "School")
+	_, err := svc.RegisterSchool(context.Background(), "", "t1", "Alice", "School", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bad_request")
 }
@@ -25,7 +25,7 @@ func TestSchoolRegistration_TransactionalFlow_RealDB(t *testing.T) {
 	svc := NewSchoolService(pool, zap.NewNop())
 
 	// The service validates inputs before any DB interaction.
-	_, err := svc.RegisterSchool(context.Background(), "bad-user", "bad-tenant", "", "School")
+	_, err := svc.RegisterSchool(context.Background(), "bad-user", "bad-tenant", "", "School", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bad_request")
 }

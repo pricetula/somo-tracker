@@ -214,13 +214,22 @@ func (s *adminInvitationService) GetFailedOrDeferredItems(ctx context.Context, j
 }
 
 func (s *adminInvitationService) UpdateItem(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_job_items SET status=$1, result=$2, last_error=$3, attempt_count=$4, updated_at=NOW() WHERE id=$5`, status, result, lastError, attempts, itemID)
-	return err
+	return s.queries.UpdateBulkJobItem(ctx, sqlc.UpdateBulkJobItemParams{
+		ID:           pgtype.UUID{Bytes: itemID, Valid: true},
+		Status:       status,
+		Result:       []byte(result),
+		LastError:    pgtype.Text{String: lastError, Valid: lastError != ""},
+		AttemptCount: int32(attempts),
+	})
 }
 
 func (s *adminInvitationService) UpdateItemResultOnly(ctx context.Context, itemID uuid.UUID, result json.RawMessage, status string, lastError string) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_job_items SET result=$1, status=$2, last_error=$3, updated_at=NOW() WHERE id=$4`, result, status, lastError, itemID)
-	return err
+	return s.queries.UpdateBulkJobItemResultStatus(ctx, sqlc.UpdateBulkJobItemResultStatusParams{
+		ID:        pgtype.UUID{Bytes: itemID, Valid: true},
+		Result:    []byte(result),
+		Status:    status,
+		LastError: pgtype.Text{String: lastError, Valid: lastError != ""},
+	})
 }
 
 func (s *adminInvitationService) UpdateJobStatus(ctx context.Context, jobID uuid.UUID, status string) error {

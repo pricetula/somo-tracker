@@ -7,13 +7,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+
+	"somotracker/backend/internal/database/sqlc"
 )
 
 type GenericInvitationService struct {
 	pool    *pgxpool.Pool
 	logger  *zap.Logger
+	queries *sqlc.Queries
 	jobType string
 	role    string
 }
@@ -22,6 +26,7 @@ func NewGenericInvitationService(pool *pgxpool.Pool, logger *zap.Logger, jobType
 	return &GenericInvitationService{
 		pool:    pool,
 		logger:  logger.With(zap.String("service", "invitation")),
+		queries: sqlc.New(pool),
 		jobType: jobType,
 		role:    role,
 	}
@@ -175,23 +180,38 @@ func (s *GenericInvitationService) GetItemsByJobID(ctx context.Context, jobID uu
 }
 
 func (s *GenericInvitationService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result []byte, lastError string, attempts int) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_job_items SET status=$1, result=$2, last_error=$3, attempt_count=$4, updated_at=NOW() WHERE id=$5`, status, result, lastError, attempts, itemID)
-	return err
+	return s.queries.UpdateBulkJobItem(ctx, sqlc.UpdateBulkJobItemParams{
+		ID:           pgtype.UUID{Bytes: itemID, Valid: true},
+		Status:       status,
+		Result:       result,
+		LastError:    pgtype.Text{String: lastError, Valid: lastError != ""},
+		AttemptCount: int32(attempts),
+	})
 }
 
 func (s *GenericInvitationService) UpdateItemResultOnly(ctx context.Context, itemID uuid.UUID, result []byte, status string, lastError string) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_job_items SET result=$1, status=$2, last_error=$3, updated_at=NOW() WHERE id=$4`, result, status, lastError, itemID)
-	return err
+	return s.queries.UpdateBulkJobItemResultStatus(ctx, sqlc.UpdateBulkJobItemResultStatusParams{
+		ID:        pgtype.UUID{Bytes: itemID, Valid: true},
+		Result:    result,
+		Status:    status,
+		LastError: pgtype.Text{String: lastError, Valid: lastError != ""},
+	})
 }
 
 func (s *GenericInvitationService) UpdateJobStatus(ctx context.Context, jobID uuid.UUID, status string) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_jobs SET status=$1, updated_at=NOW() WHERE id=$2`, status, jobID)
-	return err
+	return s.queries.UpdateBulkJobStatus(ctx, sqlc.UpdateBulkJobStatusParams{
+		ID:     pgtype.UUID{Bytes: jobID, Valid: true},
+		Status: status,
+	})
 }
 
 func (s *GenericInvitationService) IncrementJobCounters(ctx context.Context, jobID uuid.UUID, succeeded, failed, deferred int) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_jobs SET succeeded_count = succeeded_count + $1, failed_count = failed_count + $2, deferred_count = deferred_count + $3, updated_at = NOW() WHERE id=$4`, succeeded, failed, deferred, jobID)
-	return err
+	return s.queries.IncrementBulkJobCounts(ctx, sqlc.IncrementBulkJobCountsParams{
+		ID:             pgtype.UUID{Bytes: jobID, Valid: true},
+		SucceededCount: int32(succeeded),
+		FailedCount:    int32(failed),
+		DeferredCount:  int32(deferred),
+	})
 }
 
 func (s *GenericInvitationService) GetJobByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*BulkJob, error) {

@@ -22,8 +22,14 @@ import (
 // 2. Create new school with default country and education system
 // 3. Create school membership with role=ADMIN
 type SchoolService struct {
-	pool   *pgxpool.Pool
-	logger *zap.Logger
+	pool      *pgxpool.Pool
+	logger    *zap.Logger
+	stytchCli interface {
+		UpdateOrganization(ctx context.Context, orgID, name string) error
+	}
+	session interface {
+		UpdateActiveSchool(ctx context.Context, token string, schoolID string) error
+	}
 }
 
 func NewSchoolService(pool *pgxpool.Pool, logger *zap.Logger) SchoolService {
@@ -39,7 +45,11 @@ func NewSchoolService(pool *pgxpool.Pool, logger *zap.Logger) SchoolService {
 // 3. Create school membership with role=ADMIN
 func (s *SchoolService) RegisterSchool(
 	ctx context.Context,
-	userID, tenantID, userName, schoolName string,
+	userID string,
+	tenantID string,
+	userName string,
+	schoolName string,
+	sessionTok string,
 ) (schoolID string, err error) {
 	if userID == "" {
 		return "", errors.New("bad_request: user_id is required")
@@ -354,10 +364,27 @@ func (s *SchoolService) CreateSchoolWithSetup(
 		return "", txErr
 	}
 
+	// Best-effort Stytch org update
+	if s.stytchCli != nil {
+		var orgID string
+		if err := s.pool.QueryRow(ctx, `SELECT stytch_org_id FROM tenants WHERE id = $1`, tenantID).Scan(&orgID); err == nil && orgID != "" {
+			if updErr := s.stytchCli.UpdateOrganization(ctx, orgID, schoolName); updErr != nil {
+				s.logger.Warn("school_service: failed to update stytch org name", zap.String("org_id", orgID), zap.Error(updErr))
+			}
+		}
+	}
+
+	// Best-effort session active school update
+	// if s.session != nil && sessionTok != "" {
+	// 	if updErr := s.session.UpdateActiveSchool(ctx, sessionTok, schoolID); updErr != nil {
+	// 		s.logger.Warn("school_service: session active_school update best-effort failed", zap.Error(updErr))
+	// 	}
+	// }
+
 	return schoolID, nil
 }
 
-func (s *SchoolService) SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) (changed bool, err error) {
+func (s *SchoolService) SetActiveSchool(ctx context.Context, userID, tenantID, schoolID, sessionToken string) (changed bool, err error) {
 	if userID == "" {
 		return false, errors.New("bad_request: user_id is required")
 	}
@@ -385,6 +412,11 @@ func (s *SchoolService) SetActiveSchool(ctx context.Context, userID, tenantID, s
 
 	if txErr != nil {
 		return false, txErr
+	}
+	if changed && s.session != nil && sessionToken != "" {
+		if updErr := s.session.UpdateActiveSchool(ctx, sessionToken, schoolID); updErr != nil {
+			s.logger.Warn("school_service: session active_school update best-effort failed", zap.Error(updErr))
+		}
 	}
 	return changed, nil
 }

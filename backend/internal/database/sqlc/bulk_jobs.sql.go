@@ -147,6 +147,50 @@ func (q *Queries) IncrementBulkJobCounts(ctx context.Context, arg IncrementBulkJ
 	return err
 }
 
+const updateBulkJobItem = `-- name: UpdateBulkJobItem :exec
+UPDATE bulk_job_items SET status=$1, result=$2, last_error=$3, attempt_count=$4, updated_at=NOW() WHERE id=$5
+`
+
+type UpdateBulkJobItemParams struct {
+	Status       string      `json:"status"`
+	Result       []byte      `json:"result"`
+	LastError    pgtype.Text `json:"last_error"`
+	AttemptCount int32       `json:"attempt_count"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateBulkJobItem(ctx context.Context, arg UpdateBulkJobItemParams) error {
+	_, err := q.db.Exec(ctx, updateBulkJobItem,
+		arg.Status,
+		arg.Result,
+		arg.LastError,
+		arg.AttemptCount,
+		arg.ID,
+	)
+	return err
+}
+
+const updateBulkJobItemResultStatus = `-- name: UpdateBulkJobItemResultStatus :exec
+UPDATE bulk_job_items SET result=$1, status=$2, last_error=$3, updated_at=NOW() WHERE id=$4
+`
+
+type UpdateBulkJobItemResultStatusParams struct {
+	Result    []byte      `json:"result"`
+	Status    string      `json:"status"`
+	LastError pgtype.Text `json:"last_error"`
+	ID        pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateBulkJobItemResultStatus(ctx context.Context, arg UpdateBulkJobItemResultStatusParams) error {
+	_, err := q.db.Exec(ctx, updateBulkJobItemResultStatus,
+		arg.Result,
+		arg.Status,
+		arg.LastError,
+		arg.ID,
+	)
+	return err
+}
+
 const updateBulkJobStatus = `-- name: UpdateBulkJobStatus :exec
 UPDATE bulk_jobs SET status=$1, updated_at=NOW() WHERE id=$2
 `

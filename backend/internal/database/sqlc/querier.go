@@ -108,6 +108,8 @@ type Querier interface {
 	ListTopicsBySubject(ctx context.Context, subjectID pgtype.UUID) ([]ListTopicsBySubjectRow, error)
 	ListUnassignedStudents(ctx context.Context, arg ListUnassignedStudentsParams) ([]ListUnassignedStudentsRow, error)
 	SearchSubjects(ctx context.Context, arg SearchSubjectsParams) ([]SearchSubjectsRow, error)
+	UpdateBulkJobItem(ctx context.Context, arg UpdateBulkJobItemParams) error
+	UpdateBulkJobItemResultStatus(ctx context.Context, arg UpdateBulkJobItemResultStatusParams) error
 	UpdateBulkJobStatus(ctx context.Context, arg UpdateBulkJobStatusParams) error
 	UpdateEnrollment(ctx context.Context, arg UpdateEnrollmentParams) (StudentClassEnrollment, error)
 	// Updates invitation/acceptance timestamps and role for an existing membership.

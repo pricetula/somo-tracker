@@ -14,7 +14,6 @@ import (
 	"somotracker/backend/internal/api/middleware/session"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/services"
-	sessionpkg "somotracker/backend/internal/session"
 	"somotracker/backend/internal/stytch"
 )
 
@@ -89,7 +88,7 @@ func NewRouter(
 	return &Router{
 		Auth:               newAuthHandler(authSvc, cfg),
 		Me:                 newMeHandler(meSvc),
-		School:             NewSchoolHandler(&schoolSvc, stytchClient, pool),
+		School:             NewSchoolHandler(&schoolSvc),
 		SchoolCreate:       NewSchoolCreateHandler(&schoolSvc),
 		AcademicPeriod:     NewAcademicPeriodHandler(academicSvc),
 		Streams:            NewStreamsHandler(streamsSvc),
@@ -170,8 +169,6 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// Protected resources — session middleware validates session cookie,
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
 	// CSRF middleware validates double-submit token on mutating requests.
-	r.School.session = sessionpkg.NewStore(redisClient)
-	r.SchoolCreate.session = sessionpkg.NewStore(redisClient)
 
 	// Initialize the admin invitation handler.
 	// Handler is pre-configured in newFiberApp with service/stytch/asynq dependencies.

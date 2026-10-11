@@ -1,10 +1,7 @@
 package api
 
 import (
-	"github.com/jackc/pgx/v5/pgxpool"
 	"somotracker/backend/internal/services"
-	"somotracker/backend/internal/session"
-	"somotracker/backend/internal/stytch"
 
 	"github.com/gofiber/fiber/v3"
 	go_uber_zap "go.uber.org/zap"
@@ -12,14 +9,11 @@ import (
 
 // SchoolHandler handles the school registration endpoint.
 type SchoolHandler struct {
-	service   *services.SchoolService
-	session   *session.Store
-	stytchCli *stytch.Client
-	pool      *pgxpool.Pool
+	service *services.SchoolService
 }
 
-func NewSchoolHandler(svc *services.SchoolService, cli *stytch.Client, pool *pgxpool.Pool) *SchoolHandler {
-	return &SchoolHandler{service: svc, stytchCli: cli, pool: pool}
+func NewSchoolHandler(svc *services.SchoolService) *SchoolHandler {
+	return &SchoolHandler{service: svc}
 }
 
 // RegisterSchool creates a new school for the authenticated user and assigns them as ADMIN.
@@ -65,13 +59,15 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 		return WriteError(c, ErrBadRequest("user_name is required", nil))
 	}
 
-	// Perform the atomic transaction
+	// Perform the atomic transaction with best-effort side effects handled in service
+	cookieToken := c.Cookies("session_token")
 	schoolID, err := h.service.RegisterSchool(
 		c.Context(),
 		userID,
 		tenantID,
 		userName,
 		schoolName,
+		cookieToken,
 	)
 
 	if err != nil {
@@ -81,31 +77,6 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 		}
 		go_uber_zap.L().Error("school_register: failed", go_uber_zap.Error(err))
 		return WriteError(c, ErrInternal("failed to register school"))
-	}
-
-	// Update Stytch organization name with the new school name.
-	if h.stytchCli != nil && h.pool != nil {
-		var orgID string
-		if queryErr := h.pool.QueryRow(c.Context(), `SELECT stytch_org_id FROM tenants WHERE id = $1`, tenantID).Scan(&orgID); queryErr == nil && orgID != "" {
-			if updateErr := h.stytchCli.UpdateOrganization(c.Context(), orgID, schoolName); updateErr != nil {
-				go_uber_zap.L().Warn("school_handler: failed to update stytch org name",
-					go_uber_zap.String("org_id", orgID),
-					go_uber_zap.String("school_name", schoolName),
-					go_uber_zap.Error(updateErr),
-				)
-			}
-		}
-	}
-
-	// Update active school in Redis session cache so authorized clients
-	// can read tenant + active_school_id without PostgreSQL round-trips.
-	cookieToken := c.Cookies("session_token")
-	if cookieToken != "" && h.session != nil {
-		if updateErr := h.session.UpdateActiveSchool(c.Context(), cookieToken, schoolID); updateErr != nil {
-			go_uber_zap.L().Warn("school_handler: session active_school update best-effort failed",
-				go_uber_zap.String("error", updateErr.Error()),
-			)
-		}
 	}
 
 	// Return the newly created school details
@@ -163,7 +134,8 @@ func (h *SchoolHandler) SetActiveSchool(c fiber.Ctx) error {
 		})
 	}
 
-	changed, err := h.service.SetActiveSchool(c.Context(), userID, tenantID, body.SchoolID)
+	cookieToken := c.Cookies("session_token")
+	changed, err := h.service.SetActiveSchool(c.Context(), userID, tenantID, body.SchoolID, cookieToken)
 	if err != nil {
 		msg := err.Error()
 		if len(msg) > 11 && msg[:11] == "bad_request:" {
@@ -171,17 +143,6 @@ func (h *SchoolHandler) SetActiveSchool(c fiber.Ctx) error {
 		}
 		go_uber_zap.L().Error("school_set_active: failed", go_uber_zap.Error(err))
 		return WriteError(c, ErrInternal("failed to set active school"))
-	}
-
-	if changed {
-		cookieToken := c.Cookies("session_token")
-		if cookieToken != "" && h.session != nil {
-			if updateErr := h.session.UpdateActiveSchool(c.Context(), cookieToken, body.SchoolID); updateErr != nil {
-				go_uber_zap.L().Warn("school_handler: session active_school update best-effort failed",
-					go_uber_zap.String("error", updateErr.Error()),
-				)
-			}
-		}
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{

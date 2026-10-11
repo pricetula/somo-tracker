@@ -105,16 +105,15 @@ func (s *timetableService) SetupClassTimetableSlot(ctx context.Context, schoolID
 		roomUUID = pgtype.UUID{Bytes: r, Valid: true}
 	}
 
-	// Resolve current academic term: active term preferred, fallback to latest
-	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
 	if err != nil {
-		s.logger.Warn("current term not found, falling back to latest", zap.Error(err))
-		latest, err2 := s.queries.GetLatestAcademicTermBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
-		if err2 != nil {
-			return fmt.Errorf("no academic term found for school: %w", err2)
-		}
-		termRow.ID = latest.ID
+		return fmt.Errorf("failed to resolve academic period: %w", err)
 	}
+	if !res.IsWriteAllowed || res.WriteTermID == uuid.Nil {
+		return fmt.Errorf("no_next_academic_term: cannot schedule timetable slot for current period")
+	}
+	termID := res.WriteTermID
 
 	// Use transaction for atomicity
 	tx, err := s.pool.Begin(ctx)
@@ -133,7 +132,7 @@ func (s *timetableService) SetupClassTimetableSlot(ctx context.Context, schoolID
 	_, err = qtx.CreateClassTimetableSlot(ctx, sqlc.CreateClassTimetableSlotParams{
 		SchoolID:            pgtype.UUID{Bytes: schoolID, Valid: true},
 		ClassRoomID:         pgtype.UUID{Bytes: classRoomUUID, Valid: true},
-		AcademicTermID:      pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true},
+		AcademicTermID:      pgtype.UUID{Bytes: termID, Valid: true},
 		DayOfWeek:           int32(dayOfWeek),
 		TimeSlotID:          pgtype.UUID{Bytes: timeSlotUUID, Valid: true},
 		SubjectID:           pgtype.UUID{Bytes: subjectUUID, Valid: true},
@@ -213,18 +212,15 @@ func (s *timetableService) CreateTemplate(ctx context.Context, schoolID uuid.UUI
 
 func (s *timetableService) GetClassTimetableSlotsByTemplate(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error) {
 	// Resolve current academic term strictly on backend
-	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
-	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, schoolUUID)
-	var termID pgtype.UUID
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
 	if err != nil {
-		latest, err2 := s.queries.GetLatestAcademicTermBySchool(ctx, schoolUUID)
-		if err2 != nil {
-			return nil, fmt.Errorf("no academic term found for school: %w", err2)
-		}
-		termID = pgtype.UUID{Bytes: latest.ID.Bytes, Valid: true}
-	} else {
-		termID = pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true}
+		return nil, fmt.Errorf("failed to resolve academic period: %w", err)
 	}
+	if res.ReadTermID == uuid.Nil {
+		return nil, fmt.Errorf("no academic term found for school")
+	}
+	termID := pgtype.UUID{Bytes: res.ReadTermID, Valid: true}
 	return s.queries.GetClassTimetableSlotsByTemplateWithDetails(ctx, sqlc.GetClassTimetableSlotsByTemplateWithDetailsParams{
 		ClassRoomID:         pgtype.UUID{Bytes: classRoomID, Valid: true},
 		TimetableTemplateID: pgtype.UUID{Bytes: templateID, Valid: true},

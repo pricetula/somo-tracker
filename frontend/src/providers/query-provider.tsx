@@ -10,6 +10,11 @@ function makeQueryClient() {
                 retry: 1,
                 refetchOnWindowFocus: false,
             },
+            mutations: {
+                onError: (error: unknown) => {
+                    // central period error handling placeholder
+                },
+            },
         },
     });
 }

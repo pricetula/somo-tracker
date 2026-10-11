@@ -94,6 +94,15 @@ func (s *attendanceService) CreateAttendance(ctx context.Context, schoolID uuid.
 	if len(req.Records) == 0 {
 		return fmt.Errorf("at least one attendance record is required")
 	}
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
+	if err != nil {
+		s.logger.Error("academic period resolve failed", zap.Error(err))
+		return fmt.Errorf("failed to resolve academic period: %w", err)
+	}
+	if !res.IsAttendanceAllowed {
+		return fmt.Errorf("bad_request: attendance is only allowed during active academic term")
+	}
 
 	slotUUID, err := uuid.Parse(req.ClassTimetableSlotID)
 	if err != nil {

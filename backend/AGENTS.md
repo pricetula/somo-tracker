@@ -67,11 +67,33 @@ etc.) refer to the **root** `AGENTS.md` at the project root.
 
 ## Academic Term / Year Resolution — Strict Backend Resolution
 
-Any endpoint that needs the current academic term or year must resolve it **strictly inside the backend handler/service** using the school's active data (e.g., `GetCurrentAcademicTermBySchool` / `GetLatestAcademicTermBySchool`).
+Any endpoint that needs the current academic term or year must resolve it **strictly inside the backend handler/service** using the shared academic period resolver.
 
 - **Never** expose `term_id` or `academic_year_id` as query/body parameters to clients.
 - **Never** pass term/year IDs from the frontend; resolution belongs to the API layer.
-- If a service/module needs a term, it queries the database for the school's current term and falls back to the latest if none is active.
+- The year is always derived from the resolved term. Creating a future year must never change what is "current".
+- Term start and end dates are inclusive. Never silently fall back to another term; the resolver returns an explicit status.
+
+### Shared resolver contract
+
+Use `internal/services.AacademicPeriodResolver` (e.g. `NewAcademicPeriodResolver`) for all implicit "current" resolution.
+
+Period status values:
+- `active` — today is inside a term.
+- `break` — today is outside any term but a later term exists. Reads use the most recent started term; writes target the next term.
+- `expired` — today is after the last term and no later term exists. Reads use the last term; period-bound writes are rejected.
+- `none` — school has no terms. Reads are empty; period-bound writes are rejected.
+
+Period-aware endpoints may accept an optional `period` parameter with only two values: `current` (default) and `upcoming`. Any other value returns 400. `upcoming` targets the next term and its year during an active period for planning ahead. No arbitrary year/term IDs are accepted.
+
+Attendance is allowed only in `active` status and is rejected in `break`/`expired`.
+
+Period-bound writes (enrollments, class creation, timetable slots) are:
+- `active`: write into current term.
+- `break`: write into next term automatically; response must state which term was used.
+- `expired` / `none`: reject with typed error `no_next_academic_term`, no partial rows.
+
+Writes not tied to a period (students, teachers, guardians, staff, academic years/terms creation) are always allowed.
 
 ---
 

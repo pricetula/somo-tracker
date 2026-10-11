@@ -24,7 +24,7 @@ func NewStreamsHandler(svc services.StreamsService) *StreamsHandler {
 // @Produce json
 // @Success 200 {object} object
 // @Failure 401 {object} object
-// @Router /school/streams [get]
+// @Router /streams [get]
 func (h *StreamsHandler) ListStreams(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
@@ -56,7 +56,7 @@ func (h *StreamsHandler) ListStreams(c fiber.Ctx) error {
 // @Success 201 {object} object
 // @Failure 400 {object} object
 // @Failure 401 {object} object
-// @Router /school/streams [post]
+// @Router /streams [post]
 func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {

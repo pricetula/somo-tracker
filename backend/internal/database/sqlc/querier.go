@@ -48,7 +48,9 @@ type Querier interface {
 	DeleteStudents(ctx context.Context, arg DeleteStudentsParams) error
 	DeleteTeachers(ctx context.Context, arg DeleteTeachersParams) error
 	DeleteTimetableSubstitution(ctx context.Context, id pgtype.UUID) error
+	GetAcademicTermByID(ctx context.Context, id pgtype.UUID) (GetAcademicTermByIDRow, error)
 	GetAcademicTermRangeBySchool(ctx context.Context, arg GetAcademicTermRangeBySchoolParams) (GetAcademicTermRangeBySchoolRow, error)
+	GetAcademicYearByID(ctx context.Context, id pgtype.UUID) (GetAcademicYearByIDRow, error)
 	GetActiveEnrollmentByStudent(ctx context.Context, arg GetActiveEnrollmentByStudentParams) (StudentClassEnrollment, error)
 	GetActiveSchoolMembershipByUser(ctx context.Context, userID pgtype.UUID) (pgtype.UUID, error)
 	GetAuthTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (pgtype.UUID, error)
@@ -59,10 +61,12 @@ type Querier interface {
 	GetClassTimetableSlotsByTemplate(ctx context.Context, arg GetClassTimetableSlotsByTemplateParams) ([]GetClassTimetableSlotsByTemplateRow, error)
 	GetClassTimetableSlotsByTemplateWithDetails(ctx context.Context, arg GetClassTimetableSlotsByTemplateWithDetailsParams) ([]GetClassTimetableSlotsByTemplateWithDetailsRow, error)
 	GetCountryByName(ctx context.Context, countryName string) (pgtype.UUID, error)
+	GetCurrentAcademicTermBySchool(ctx context.Context, schoolID pgtype.UUID) (GetCurrentAcademicTermBySchoolRow, error)
 	GetCurrentAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (pgtype.UUID, error)
 	GetEducationSystemByCountryAndName(ctx context.Context, arg GetEducationSystemByCountryAndNameParams) (pgtype.UUID, error)
 	GetGradeLevelByID(ctx context.Context, id pgtype.UUID) (GetGradeLevelByIDRow, error)
 	GetGuardianSummary(ctx context.Context, schoolID pgtype.UUID) (GetGuardianSummaryRow, error)
+	GetLatestAcademicTermBySchool(ctx context.Context, schoolID pgtype.UUID) (pgtype.UUID, error)
 	GetLatestAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (GetLatestAcademicYearBySchoolRow, error)
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
 	GetRoom(ctx context.Context, arg GetRoomParams) (Room, error)
@@ -84,6 +88,7 @@ type Querier interface {
 	GetTopicByID(ctx context.Context, id pgtype.UUID) (GetTopicByIDRow, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	IncrementBulkJobCounts(ctx context.Context, arg IncrementBulkJobCountsParams) error
+	ListAcademicTermsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]ListAcademicTermsBySchoolRow, error)
 	ListAdmins(ctx context.Context, arg ListAdminsParams) ([]ListAdminsRow, error)
 	ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]ListEnrollmentsRow, error)
 	ListFinance(ctx context.Context, arg ListFinanceParams) ([]ListFinanceRow, error)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -36,9 +37,10 @@ type ClassDetail struct {
 }
 
 type CreateClassRequest struct {
-	Name     string `json:"name"`
-	GradeID  string `json:"gradeId"`
-	StreamID string `json:"streamId"`
+	Name                  string `json:"name"`
+	GradeID               string `json:"gradeId"`
+	StreamID              string `json:"streamId"`
+	BypassFutureTermModal bool   `json:"bypassFutureTermModal,omitempty"`
 }
 
 type ClassesService interface {
@@ -66,14 +68,17 @@ func (s *classesService) ListClasses(ctx context.Context, schoolID uuid.UUID, pa
 	}
 	offset := (page - 1) * limit
 
-	// Resolve current academic year for the school
-	var academicYearID pgtype.UUID
-	ayRow, err := s.queries.GetCurrentAcademicYearBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
-	if err == nil && ayRow.Valid {
-		academicYearID = ayRow
-	} else {
+	// Resolve current academic period for reads
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
+	if err != nil {
+		s.logger.Error("academic period resolve failed", zap.Error(err))
+		return []ClassListItem{}, 0, fmt.Errorf("internal_error: failed to resolve academic period")
+	}
+	if res.ReadYearID == uuid.Nil {
 		return []ClassListItem{}, 0, nil
 	}
+	academicYearID := pgtype.UUID{Bytes: res.ReadYearID, Valid: true}
 
 	args := []interface{}{schoolID, academicYearID}
 	query := `
@@ -142,20 +147,26 @@ func (s *classesService) ListClasses(ctx context.Context, schoolID uuid.UUID, pa
 }
 
 func (s *classesService) GetClass(ctx context.Context, schoolID uuid.UUID, id uuid.UUID) (*ClassDetail, error) {
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
+	if err != nil {
+		s.logger.Error("academic period resolve failed", zap.Error(err))
+		return nil, fmt.Errorf("internal_error: failed to resolve academic period")
+	}
+	if res.ReadYearID == uuid.Nil {
+		return nil, fmt.Errorf("not_found: class not found")
+	}
 	query := `
-		WITH current_year AS (
-			SELECT id FROM academic_years WHERE school_id = $1 ORDER BY start_date DESC LIMIT 1
-		)
 		SELECT cr.id, cr.name, gl.id, gl.local_label, COALESCE(cr.stream, ''), ay.name, ''
 		FROM class_rooms cr
 		JOIN grade_levels gl ON gl.id = cr.grade_level_id
 		JOIN academic_years ay ON ay.id = cr.academic_year_id
-		WHERE cr.school_id = $1 AND cr.id = $2 AND cr.academic_year_id = (SELECT id FROM current_year)
+		WHERE cr.school_id = $1 AND cr.id = $2 AND cr.academic_year_id = $3
 	`
 	var d ClassDetail
 	var teacher string
 	var gradeID uuid.UUID
-	err := s.pool.QueryRow(ctx, query, schoolID, id).Scan(&d.ID, &d.Name, &gradeID, &d.Grade, &d.Stream, &d.AcademicYear, &teacher)
+	err = s.pool.QueryRow(ctx, query, schoolID, id, res.ReadYearID).Scan(&d.ID, &d.Name, &gradeID, &d.Grade, &d.Stream, &d.AcademicYear, &teacher)
 	if err != nil {
 		return nil, fmt.Errorf("not_found: class not found")
 	}
@@ -199,13 +210,20 @@ func (s *classesService) CreateClass(ctx context.Context, schoolID uuid.UUID, re
 		return nil, fmt.Errorf("bad_request: stream not found")
 	}
 	streamName = streamRow.Name
-	// Resolve current academic year for the school
-	var ayID uuid.UUID
-	ayRow2, err := s.queries.GetCurrentAcademicYearBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
-	if err != nil || !ayRow2.Valid {
-		return nil, fmt.Errorf("bad_request: no academic year found for school")
+	// Resolve current academic period for writes
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
+	if err != nil {
+		s.logger.Error("academic period resolve failed", zap.Error(err))
+		return nil, fmt.Errorf("internal_error: failed to resolve academic period")
 	}
-	ayID = uuid.UUID(ayRow2.Bytes)
+	if res.Status == PeriodStatusBreak && !req.BypassFutureTermModal {
+		return nil, fmt.Errorf("no_active_term_future_exists: cannot create class for current period, future term exists")
+	}
+	if !res.IsWriteAllowed || res.WriteYearID == uuid.Nil {
+		return nil, fmt.Errorf("no_next_academic_term: cannot create class for current period")
+	}
+	ayID := res.WriteYearID
 	newID := uuid.New()
 	_, err = s.pool.Exec(ctx, `INSERT INTO class_rooms (id, school_id, academic_year_id, grade_level_id, name, stream, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6, now(), now())`,
 		newID, schoolID, ayID, gradeUUID, req.Name, streamName)

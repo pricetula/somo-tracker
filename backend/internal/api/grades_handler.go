@@ -24,7 +24,7 @@ func NewGradesHandler(svc services.GradesService) *GradesHandler {
 // @Success 200 {array} object
 // @Failure 400 {object} object
 // @Failure 401 {object} object
-// @Router /school/grades [get]
+// @Router /grades [get]
 func (h *GradesHandler) GetGrades(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {

@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database/sqlc"
 )
@@ -147,11 +149,15 @@ func (s *studentsService) GetStudentSummary(ctx context.Context, schoolID uuid.U
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
 
 	// Resolve current academic term strictly on backend; never pass from client
-	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, schoolUUID)
+	resolver := NewAcademicPeriodResolver(s.queries, zap.NewNop())
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
 	if err != nil {
-		return nil, fmt.Errorf("no academic term found for school: %w", err)
+		return nil, fmt.Errorf("failed to resolve academic period: %w", err)
 	}
-	termUUID := pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true}
+	if res.ReadTermID == uuid.Nil {
+		return nil, fmt.Errorf("no academic term found for school")
+	}
+	termUUID := pgtype.UUID{Bytes: res.ReadTermID, Valid: true}
 
 	row, err := s.queries.GetStudentSummary(ctx, sqlc.GetStudentSummaryParams{
 		SchoolID:       schoolUUID,

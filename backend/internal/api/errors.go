@@ -83,3 +83,12 @@ func ErrInternal(message string) APIError {
 		Errors:  map[string][]string{},
 	}
 }
+
+func ErrNoActiveTermFutureExists(message string) APIError {
+	return APIError{
+		Status:  fiber.StatusBadRequest,
+		Code:    "no_active_term_future_exists",
+		Message: message,
+		Errors:  map[string][]string{},
+	}
+}

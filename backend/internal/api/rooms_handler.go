@@ -38,7 +38,7 @@ type UpdateRoomRequest struct {
 // @Produce json
 // @Param body body CreateRoomRequest true "Room details"
 // @Success 201 {object} object
-// @Router /school/rooms [post]
+// @Router /rooms [post]
 func (h *RoomsHandler) CreateRoom(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
@@ -87,7 +87,7 @@ func (h *RoomsHandler) CreateRoom(c fiber.Ctx) error {
 // @Param page query int false "Page number"
 // @Param limit query int false "Page size"
 // @Success 200 {object} object
-// @Router /school/rooms [get]
+// @Router /rooms [get]
 func (h *RoomsHandler) ListRooms(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
@@ -136,7 +136,7 @@ func (h *RoomsHandler) ListRooms(c fiber.Ctx) error {
 // @Produce json
 // @Param id path string true "Room ID"
 // @Success 200 {object} object
-// @Router /school/rooms/{id} [get]
+// @Router /rooms/{id} [get]
 func (h *RoomsHandler) GetRoom(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
@@ -179,7 +179,7 @@ func (h *RoomsHandler) GetRoom(c fiber.Ctx) error {
 // @Produce json
 // @Param body body UpdateRoomRequest true "Room update"
 // @Success 200 {object} object
-// @Router /school/rooms [patch]
+// @Router /rooms [patch]
 func (h *RoomsHandler) UpdateRoom(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
@@ -226,7 +226,7 @@ func (h *RoomsHandler) UpdateRoom(c fiber.Ctx) error {
 // @Produce json
 // @Param id path string true "Room ID"
 // @Success 200 {object} object
-// @Router /school/rooms/{id} [delete]
+// @Router /rooms/{id} [delete]
 func (h *RoomsHandler) DeleteRoom(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {

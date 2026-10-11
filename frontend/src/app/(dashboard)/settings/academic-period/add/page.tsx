@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 
 export default function AcademicPeriodAddPage() {
-    const router = useRouter();
+    const _router = useRouter();
     const [step, setStep] = useState(1);
     const [year, setYear] = useState("");
     const [terms, setTerms] = useState([{ name: "", startDate: "", endDate: "" }]);

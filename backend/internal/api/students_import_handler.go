@@ -136,7 +136,9 @@ func (h *StudentsImportHandler) HandleImport(c fiber.Ctx) error {
 
 	// Publish initial progress
 	if h.redis != nil {
-		_ = h.redis.Publish(c.Context(), "bulk_progress_"+jobID.String(), fmt.Sprintf(`{"status":"QUEUED","total":%d}`, len(items))).Err()
+		if err := h.redis.Publish(c.Context(), "bulk_progress_"+jobID.String(), fmt.Sprintf(`{"status":"QUEUED","total":%d}`, len(items))).Err(); err != nil {
+			h.logger.Warn("failed to publish initial progress", zap.Error(err), zap.String("job_id", jobID.String()))
+		}
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
@@ -220,7 +222,11 @@ func (h *StudentsImportHandler) Events(c fiber.Ctx) error {
 
 		channel := "bulk_progress_" + jobIDStr
 		sub := h.redis.Subscribe(c.Context(), channel)
-		defer func() { _ = sub.Close() }()
+		defer func() {
+			if err := sub.Close(); err != nil {
+				h.logger.Warn("redis sub close failed", zap.Error(err), zap.String("job_id", jobID.String()))
+			}
+		}()
 
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()

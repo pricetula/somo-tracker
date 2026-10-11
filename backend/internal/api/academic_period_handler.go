@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strings"
-
 	"somotracker/backend/internal/services"
 
 	"github.com/gofiber/fiber/v3"
@@ -32,21 +30,29 @@ func NewAcademicPeriodHandler(svc services.AcademicPeriodService) *AcademicPerio
 func (h *AcademicPeriodHandler) CreateAcademicPeriod(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
+		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
 	}
 
 	var body services.AcademicPeriodRequest
 	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON body")
+		return WriteError(c, ErrBadRequest("invalid JSON body", nil))
 	}
 
 	yearID, err := h.service.CreateAcademicPeriod(c.Context(), schoolID, body)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		if se, ok := err.(*services.ServiceError); ok {
+			switch se.Code {
+			case "bad_request":
+				return WriteError(c, ErrBadRequest(se.Message, nil))
+			case "forbidden":
+				return WriteError(c, ErrForbidden(se.Code, se.Message))
+			default:
+				go_uber_zap.L().Error("academic_period: create failed", go_uber_zap.Error(err))
+				return WriteError(c, ErrInternal("failed to create academic period"))
+			}
 		}
 		go_uber_zap.L().Error("academic_period: create failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to create academic period")
+		return WriteError(c, ErrInternal("failed to create academic period"))
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{

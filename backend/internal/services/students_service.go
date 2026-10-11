@@ -127,7 +127,7 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 
 func (s *studentsService) DeleteStudents(ctx context.Context, schoolID uuid.UUID, studentIDs []uuid.UUID) error {
 	if len(studentIDs) == 0 {
-		return fmt.Errorf("bad_request: student_ids must be provided and non-empty")
+		return BadRequest("student_ids must be provided and non-empty")
 	}
 
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}

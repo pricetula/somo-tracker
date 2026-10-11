@@ -53,11 +53,11 @@ func NewGuardiansService(queries *sqlc.Queries, logger *zap.Logger) GuardiansSer
 
 func (s *guardiansService) DeleteGuardians(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error {
 	if len(userIDs) == 0 {
-		return fmt.Errorf("bad_request: user_ids must be provided and non-empty")
+		return BadRequest("user_ids must be provided and non-empty")
 	}
 	for _, id := range userIDs {
 		if id == currentUserID {
-			return fmt.Errorf("bad_request: cannot delete yourself")
+			return BadRequest("cannot delete yourself")
 		}
 	}
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
@@ -85,7 +85,7 @@ func (s *guardiansService) ListGuardians(ctx context.Context, schoolID uuid.UUID
 
 	status := strings.ToLower(strings.TrimSpace(invitationStatus))
 	if status != "" && status != "invited" && status != "accepted" && status != "all" {
-		return nil, fmt.Errorf("bad_request: invitation_status must be invited|accepted|all")
+		return nil, BadRequest("invitation_status must be invited|accepted|all")
 	}
 
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}

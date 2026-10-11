@@ -11,7 +11,7 @@ function makeQueryClient() {
                 refetchOnWindowFocus: false,
             },
             mutations: {
-                onError: (error: unknown) => {
+                onError: (_error: unknown) => {
                     // central period error handling placeholder
                 },
             },

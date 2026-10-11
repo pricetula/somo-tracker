@@ -3,8 +3,7 @@ import { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
 import { listSubstitutions } from "../services/substitutions-api";
-import { useSubstitutions } from "../hooks/use-substitutions";
-import { SubstitutionForm } from "./substitution-form";
+
 import type { TimetableSubstitution, ListSubstitutionsParams } from "../types/substitution";
 import { useDeleteSubstitution } from "../hooks/use-substitutions";
 import { MoreVertical } from "lucide-react";

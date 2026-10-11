@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strings"
-
 	"github.com/gofiber/fiber/v3"
 	go_uber_zap "go.uber.org/zap"
 	"somotracker/backend/internal/services"
@@ -28,16 +26,16 @@ func NewGradesHandler(svc services.GradesService) *GradesHandler {
 func (h *GradesHandler) GetGrades(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
+		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
 	}
 
 	grades, err := h.service.GetGradeLevels(c.Context(), schoolID)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		if se, ok := err.(*services.ServiceError); ok && se.Code == "bad_request" {
+			return WriteError(c, ErrBadRequest(se.Message, nil))
 		}
 		go_uber_zap.L().Error("grades: get failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to get grades")
+		return WriteError(c, ErrInternal("failed to get grades"))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{

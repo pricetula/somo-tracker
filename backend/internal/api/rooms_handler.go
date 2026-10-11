@@ -2,7 +2,6 @@ package api
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	go_uber_zap "go.uber.org/zap"
@@ -42,12 +41,12 @@ type UpdateRoomRequest struct {
 func (h *RoomsHandler) CreateRoom(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized: active school not found")
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 
 	var req CreateRoomRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON")
+		return WriteError(c, ErrBadRequest("invalid JSON", nil))
 	}
 	roomType := req.RoomType
 	if roomType == "" {
@@ -56,11 +55,16 @@ func (h *RoomsHandler) CreateRoom(c fiber.Ctx) error {
 
 	room, err := h.service.CreateRoom(c.Context(), schoolID, req.Name, req.Capacity, roomType)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		if se, ok := err.(*services.ServiceError); ok {
+			switch se.Code {
+			case "bad_request":
+				return WriteError(c, ErrBadRequest(se.Message, nil))
+			case "forbidden":
+				return WriteError(c, ErrForbidden(se.Code, se.Message))
+			}
 		}
 		go_uber_zap.L().Error("rooms: create failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to create room")
+		return WriteError(c, ErrInternal("failed to create room"))
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -91,7 +95,7 @@ func (h *RoomsHandler) CreateRoom(c fiber.Ctx) error {
 func (h *RoomsHandler) ListRooms(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized: active school not found")
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
@@ -99,11 +103,12 @@ func (h *RoomsHandler) ListRooms(c fiber.Ctx) error {
 
 	rooms, total, err := h.service.ListRooms(c.Context(), schoolID, page, limit)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		msg := err.Error()
+		if len(msg) > 11 && msg[:11] == "bad_request:" {
+			return WriteError(c, ErrBadRequest(msg[11:], nil))
 		}
 		go_uber_zap.L().Error("rooms: list failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to list rooms")
+		return WriteError(c, ErrInternal("failed to list rooms"))
 	}
 
 	items := make([]fiber.Map, 0, len(rooms))
@@ -140,20 +145,21 @@ func (h *RoomsHandler) ListRooms(c fiber.Ctx) error {
 func (h *RoomsHandler) GetRoom(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized: active school not found")
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	roomID := c.Params("id")
 	if roomID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: room id required")
+		return WriteError(c, ErrBadRequest("room id required", nil))
 	}
 
 	room, err := h.service.GetRoom(c.Context(), schoolID, roomID)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		msg := err.Error()
+		if len(msg) > 11 && msg[:11] == "bad_request:" {
+			return WriteError(c, ErrBadRequest(msg[11:], nil))
 		}
 		go_uber_zap.L().Error("rooms: get failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to get room")
+		return WriteError(c, ErrInternal("failed to get room"))
 	}
 
 	return c.JSON(fiber.Map{
@@ -183,24 +189,25 @@ func (h *RoomsHandler) GetRoom(c fiber.Ctx) error {
 func (h *RoomsHandler) UpdateRoom(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized: active school not found")
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 
 	var req UpdateRoomRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON")
+		return WriteError(c, ErrBadRequest("invalid JSON", nil))
 	}
 	if req.ID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: id is required")
+		return WriteError(c, ErrBadRequest("id is required", nil))
 	}
 
 	room, err := h.service.UpdateRoom(c.Context(), schoolID, req.ID, req.Name, req.Capacity, req.RoomType)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		msg := err.Error()
+		if len(msg) > 11 && msg[:11] == "bad_request:" {
+			return WriteError(c, ErrBadRequest(msg[11:], nil))
 		}
 		go_uber_zap.L().Error("rooms: update failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to update room")
+		return WriteError(c, ErrInternal("failed to update room"))
 	}
 
 	return c.JSON(fiber.Map{
@@ -230,19 +237,20 @@ func (h *RoomsHandler) UpdateRoom(c fiber.Ctx) error {
 func (h *RoomsHandler) DeleteRoom(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized: active school not found")
+		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	roomID := c.Params("id")
 	if roomID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: room id required")
+		return WriteError(c, ErrBadRequest("room id required", nil))
 	}
 
 	if err := h.service.DeleteRoom(c.Context(), schoolID, roomID); err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		msg := err.Error()
+		if len(msg) > 11 && msg[:11] == "bad_request:" {
+			return WriteError(c, ErrBadRequest(msg[11:], nil))
 		}
 		go_uber_zap.L().Error("rooms: delete failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to delete room")
+		return WriteError(c, ErrInternal("failed to delete room"))
 	}
 
 	return c.JSON(fiber.Map{

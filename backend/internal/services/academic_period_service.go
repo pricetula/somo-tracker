@@ -53,13 +53,13 @@ func NewAcademicPeriodService(pool *pgxpool.Pool, queries *sqlc.Queries, logger 
 
 func (s *academicPeriodService) CreateAcademicPeriod(ctx context.Context, schoolID string, req AcademicPeriodRequest) (string, error) {
 	if schoolID == "" {
-		return "", fmt.Errorf("bad_request: school_id is required")
+		return "", BadRequest("school_id is required")
 	}
 	if req.Year == 0 {
-		return "", fmt.Errorf("bad_request: year is required")
+		return "", BadRequest("year is required")
 	}
 	if len(req.Terms) == 0 {
-		return "", fmt.Errorf("bad_request: at least one term is required")
+		return "", BadRequest("at least one term is required")
 	}
 
 	// Validate and parse term dates; derive year boundaries from sorted terms.
@@ -85,18 +85,18 @@ func (s *academicPeriodService) CreateAcademicPeriod(ctx context.Context, school
 
 	schoolUUID, err := uuid.Parse(schoolID)
 	if err != nil {
-		return "", fmt.Errorf("bad_request: invalid school_id")
+		return "", BadRequest("invalid school_id")
 	}
 
 	yearName := fmt.Sprintf("%d", req.Year)
 
 	minStartDate, minErr := parseDate(minStart)
 	if minErr != nil {
-		return "", fmt.Errorf("bad_request: invalid term start_date %s: %w", minStart, minErr)
+		return "", BadRequest(fmt.Sprintf("invalid term start_date %s: %v", minStart, minErr))
 	}
 	maxEndDate, maxErr := parseDate(maxEnd)
 	if maxErr != nil {
-		return "", fmt.Errorf("bad_request: invalid term end_date %s: %w", maxEnd, maxErr)
+		return "", BadRequest(fmt.Sprintf("invalid term end_date %s: %v", maxEnd, maxErr))
 	}
 
 	yearRow, err := s.queries.CreateAcademicYear(ctx, sqlc.CreateAcademicYearParams{
@@ -113,11 +113,11 @@ func (s *academicPeriodService) CreateAcademicPeriod(ctx context.Context, school
 	for _, t := range sorted {
 		sd, sErr := parseDate(t.StartDate)
 		if sErr != nil {
-			return "", fmt.Errorf("bad_request: invalid term start_date %s: %w", t.StartDate, sErr)
+			return "", BadRequest(fmt.Sprintf("invalid term start_date %s: %v", t.StartDate, sErr))
 		}
 		ed, eErr := parseDate(t.EndDate)
 		if eErr != nil {
-			return "", fmt.Errorf("bad_request: invalid term end_date %s: %w", t.EndDate, eErr)
+			return "", BadRequest(fmt.Sprintf("invalid term end_date %s: %v", t.EndDate, eErr))
 		}
 		_, termErr := s.queries.CreateAcademicTerm(ctx, sqlc.CreateAcademicTermParams{
 			AcademicYearID: pgtype.UUID{Bytes: yearRow.ID.Bytes, Valid: true},

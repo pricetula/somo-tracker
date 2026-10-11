@@ -76,7 +76,9 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 	}
 
 	// Mark job as PROCESSING if still QUEUED
-	_ = p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING")
+	if err := p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING"); err != nil {
+		p.logger.Warn("failed to update job status to PROCESSING", zap.String("job_id", jobID.String()), zap.Error(err))
+	}
 
 	// Process items with limited concurrency to avoid overwhelming Stytch.
 	// workerConcurrency = 10: max 10 concurrent Stytch API calls at once.
@@ -130,7 +132,9 @@ func (p *AdminInvitationProcessor) ProcessRetryTask(ctx context.Context, task *a
 	)
 
 	// Mark job as PROCESSING
-	_ = p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING")
+	if err := p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING"); err != nil {
+		p.logger.Warn("failed to update job status to PROCESSING for retry", zap.String("job_id", jobID.String()), zap.Error(err))
+	}
 
 	const workerConcurrency = 10
 	sem := make(chan struct{}, workerConcurrency)
@@ -302,7 +306,9 @@ func (p *AdminInvitationProcessor) deriveJobStatus(ctx context.Context, jobID uu
 		}
 	}
 
-	_ = p.svc.UpdateJobStatus(ctx, jobID, newStatus)
+	if err := p.svc.UpdateJobStatus(ctx, jobID, newStatus); err != nil {
+		p.logger.Warn("failed to update job status", zap.String("job_id", jobID.String()), zap.String("status", newStatus), zap.Error(err))
+	}
 	p.logger.Info("job status derived", zap.String("job_id", jobID.String()), zap.String("status", newStatus), zap.Int("pending", pending), zap.Int("processing", processing), zap.Int("deferred", deferred))
 	p.publishProgress(ctx, jobID)
 }

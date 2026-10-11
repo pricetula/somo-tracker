@@ -178,11 +178,11 @@ func (s *classesService) GetClass(ctx context.Context, schoolID uuid.UUID, id uu
 
 func (s *classesService) CreateClass(ctx context.Context, schoolID uuid.UUID, req CreateClassRequest) (*ClassListItem, error) {
 	if strings.TrimSpace(req.Name) == "" {
-		return nil, fmt.Errorf("bad_request: name is required")
+		return nil, BadRequest("name is required")
 	}
 	gradeUUID, err := uuid.Parse(req.GradeID)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid gradeId")
+		return nil, BadRequest("invalid gradeId")
 	}
 	// Resolve grade label
 	var gradeLabel string
@@ -190,24 +190,24 @@ func (s *classesService) CreateClass(ctx context.Context, schoolID uuid.UUID, re
 	if gradeErr == nil && gradeRow.LocalLabel != "" {
 		gradeLabel = gradeRow.LocalLabel
 	} else if gradeErr != nil {
-		return nil, fmt.Errorf("bad_request: grade not found")
+		return nil, BadRequest("grade not found")
 	}
 	// Resolve stream name - required
 	if strings.TrimSpace(req.StreamID) == "" {
-		return nil, fmt.Errorf("bad_request: streamId is required")
+		return nil, BadRequest("streamId is required")
 	}
 	streamUUID, err := uuid.Parse(req.StreamID)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid streamId")
+		return nil, BadRequest("invalid streamId")
 	}
 	var streamName string
 	streamRow, err := s.queries.GetStream(ctx, pgtype.UUID{Bytes: streamUUID, Valid: true})
 	if err != nil || !streamRow.ID.Valid {
-		return nil, fmt.Errorf("bad_request: stream not found")
+		return nil, BadRequest("stream not found")
 	}
 	expectedSchool := pgtype.UUID{Bytes: schoolID, Valid: true}
 	if streamRow.SchoolID != expectedSchool {
-		return nil, fmt.Errorf("bad_request: stream not found")
+		return nil, BadRequest("stream not found")
 	}
 	streamName = streamRow.Name
 	// Resolve current academic period for writes
@@ -232,7 +232,9 @@ func (s *classesService) CreateClass(ctx context.Context, schoolID uuid.UUID, re
 		return nil, fmt.Errorf("internal_error: failed to create class")
 	}
 	var ayName string
-	_ = s.pool.QueryRow(ctx, `SELECT name FROM academic_years WHERE id = $1`, ayID).Scan(&ayName)
+	if err := s.pool.QueryRow(ctx, `SELECT name FROM academic_years WHERE id = $1`, ayID).Scan(&ayName); err != nil {
+		s.logger.Warn("failed to fetch academic year name", zap.Error(err), zap.String("academic_year_id", ayID.String()))
+	}
 	return &ClassListItem{
 		ID:           newID.String(),
 		Name:         req.Name,

@@ -5,7 +5,7 @@ import { Briefcase, Plus, Shield, UserCheck, UserPlus, Users } from "lucide-reac
 import type { LucideIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+
 import { numberCompactor } from "@/lib/number-compactor";
 import { useUserCounts } from "../hooks/use-user-counts";
 import type { UserCounts } from "../types/user-counts";

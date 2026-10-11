@@ -101,7 +101,7 @@ func (s *attendanceService) CreateAttendance(ctx context.Context, schoolID uuid.
 		return fmt.Errorf("failed to resolve academic period: %w", err)
 	}
 	if !res.IsAttendanceAllowed {
-		return fmt.Errorf("bad_request: attendance is only allowed during active academic term")
+		return BadRequest("attendance is only allowed during active academic term")
 	}
 
 	slotUUID, err := uuid.Parse(req.ClassTimetableSlotID)

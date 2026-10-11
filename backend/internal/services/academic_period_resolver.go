@@ -48,7 +48,7 @@ func NewAcademicPeriodResolver(queries *sqlc.Queries, logger *zap.Logger) Academ
 
 func (r *academicPeriodResolver) Resolve(ctx context.Context, schoolID uuid.UUID, now time.Time, periodMode string) (*PeriodResolution, error) {
 	if periodMode != "" && periodMode != "current" && periodMode != "upcoming" {
-		return nil, fmt.Errorf("bad_request: period must be current or upcoming")
+		return nil, BadRequest("period must be current or upcoming")
 	}
 
 	loc, err := time.LoadLocation("Africa/Nairobi")

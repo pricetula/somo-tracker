@@ -33,14 +33,14 @@ func NewRoomsService(queries *sqlc.Queries, logger *zap.Logger) RoomsService {
 
 func (s *roomsService) CreateRoom(ctx context.Context, schoolID string, name string, capacity *int, roomType string) (*sqlc.Room, error) {
 	if schoolID == "" {
-		return nil, fmt.Errorf("bad_request: school_id is required")
+		return nil, BadRequest("school_id is required")
 	}
 	if name == "" {
-		return nil, fmt.Errorf("bad_request: name is required")
+		return nil, BadRequest("name is required")
 	}
 	schoolUUID, err := uuid.Parse(schoolID)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid school_id")
+		return nil, BadRequest("invalid school_id")
 	}
 	params := sqlc.CreateRoomParams{
 		SchoolID: pgtype.UUID{Bytes: schoolUUID, Valid: true},
@@ -61,18 +61,18 @@ func (s *roomsService) CreateRoom(ctx context.Context, schoolID string, name str
 
 func (s *roomsService) UpdateRoom(ctx context.Context, schoolID string, id string, name *string, capacity *int, roomType *string) (*sqlc.Room, error) {
 	if schoolID == "" {
-		return nil, fmt.Errorf("bad_request: school_id is required")
+		return nil, BadRequest("school_id is required")
 	}
 	if id == "" {
-		return nil, fmt.Errorf("bad_request: id is required")
+		return nil, BadRequest("id is required")
 	}
 	schoolUUID, err := uuid.Parse(schoolID)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid school_id")
+		return nil, BadRequest("invalid school_id")
 	}
 	roomUUID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid room id")
+		return nil, BadRequest("invalid room id")
 	}
 
 	nameVal := ""
@@ -105,18 +105,18 @@ func (s *roomsService) UpdateRoom(ctx context.Context, schoolID string, id strin
 
 func (s *roomsService) GetRoom(ctx context.Context, schoolID string, id string) (*sqlc.Room, error) {
 	if schoolID == "" {
-		return nil, fmt.Errorf("bad_request: school_id is required")
+		return nil, BadRequest("school_id is required")
 	}
 	if id == "" {
-		return nil, fmt.Errorf("bad_request: id is required")
+		return nil, BadRequest("id is required")
 	}
 	schoolUUID, err := uuid.Parse(schoolID)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid school_id")
+		return nil, BadRequest("invalid school_id")
 	}
 	roomUUID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid room id")
+		return nil, BadRequest("invalid room id")
 	}
 	room, err := s.queries.GetRoom(ctx, sqlc.GetRoomParams{
 		ID:       pgtype.UUID{Bytes: roomUUID, Valid: true},
@@ -130,7 +130,7 @@ func (s *roomsService) GetRoom(ctx context.Context, schoolID string, id string) 
 
 func (s *roomsService) ListRooms(ctx context.Context, schoolID string, page, limit int) ([]*sqlc.Room, int, error) {
 	if schoolID == "" {
-		return nil, 0, fmt.Errorf("bad_request: school_id is required")
+		return nil, 0, BadRequest("school_id is required")
 	}
 	if page < 1 {
 		page = 1
@@ -140,7 +140,7 @@ func (s *roomsService) ListRooms(ctx context.Context, schoolID string, page, lim
 	}
 	schoolUUID, err := uuid.Parse(schoolID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("bad_request: invalid school_id")
+		return nil, 0, BadRequest("invalid school_id")
 	}
 
 	total, err := s.queries.CountRoomsBySchool(ctx, pgtype.UUID{Bytes: schoolUUID, Valid: true})
@@ -166,18 +166,18 @@ func (s *roomsService) ListRooms(ctx context.Context, schoolID string, page, lim
 
 func (s *roomsService) DeleteRoom(ctx context.Context, schoolID string, id string) error {
 	if schoolID == "" {
-		return fmt.Errorf("bad_request: school_id is required")
+		return BadRequest("school_id is required")
 	}
 	if id == "" {
-		return fmt.Errorf("bad_request: id is required")
+		return BadRequest("id is required")
 	}
 	schoolUUID, err := uuid.Parse(schoolID)
 	if err != nil {
-		return fmt.Errorf("bad_request: invalid school_id")
+		return BadRequest("invalid school_id")
 	}
 	roomUUID, err := uuid.Parse(id)
 	if err != nil {
-		return fmt.Errorf("bad_request: invalid room id")
+		return BadRequest("invalid room id")
 	}
 	params := sqlc.DeleteRoomParams{
 		ID:       pgtype.UUID{Bytes: roomUUID, Valid: true},

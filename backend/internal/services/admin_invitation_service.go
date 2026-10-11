@@ -110,7 +110,9 @@ func (s *adminInvitationService) CreateBulkJobWithItems(ctx context.Context, sch
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+				s.logger.Error("CreateBulkJobWithItems rollback failed", zap.Error(rbErr))
+			}
 		}
 	}()
 
@@ -304,7 +306,11 @@ func (s *adminInvitationService) ProvisionInvitee(ctx context.Context, tenantID,
 	if err != nil {
 		return fmt.Errorf("provision_invitee begin tx: %w", err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			s.logger.Error("provision_invitee rollback failed", zap.Error(rbErr))
+		}
+	}()
 	var userID uuid.UUID
 	err = tx.QueryRow(ctx, `INSERT INTO users (email, full_name, external_auth_id, tenant_id) VALUES ($1,$2,$3,$4) ON CONFLICT (tenant_id, email) DO UPDATE SET external_auth_id = COALESCE(users.external_auth_id,$3), full_name = COALESCE(users.full_name,$2) RETURNING id`, email, fullName, stytchMemberID, tenantID).Scan(&userID)
 	if err != nil {

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strings"
-
 	"github.com/jackc/pgx/v5/pgxpool"
 	"somotracker/backend/internal/services"
 	"somotracker/backend/internal/session"
@@ -42,12 +40,12 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 	// Get user ID and tenant ID from session locals
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "user_id not found in session")
+		return WriteError(c, ErrUnauthorized("user_id not found in session"))
 	}
 
 	tenantID, ok := c.Locals("tenant_id").(string)
 	if !ok || tenantID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "tenant_id not found in session")
+		return WriteError(c, ErrUnauthorized("tenant_id not found in session"))
 	}
 
 	// Parse JSON request body for school_name and user_name
@@ -56,15 +54,15 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 		UserName   string `json:"user_name"`
 	}
 	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON body")
+		return WriteError(c, ErrBadRequest("invalid JSON body", nil))
 	}
 	schoolName := body.SchoolName
 	userName := body.UserName
 	if schoolName == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: school_name is required")
+		return WriteError(c, ErrBadRequest("school_name is required", nil))
 	}
 	if userName == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: user_name is required")
+		return WriteError(c, ErrBadRequest("user_name is required", nil))
 	}
 
 	// Perform the atomic transaction
@@ -77,11 +75,12 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 	)
 
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			code := err.Error()[len("bad_request:"):]
-			return fiber.NewError(fiber.StatusBadRequest, code)
+		msg := err.Error()
+		if len(msg) > 11 && msg[:11] == "bad_request:" {
+			return WriteError(c, ErrBadRequest(msg[11:], nil))
 		}
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		go_uber_zap.L().Error("school_register: failed", go_uber_zap.Error(err))
+		return WriteError(c, ErrInternal("failed to register school"))
 	}
 
 	// Update Stytch organization name with the new school name.
@@ -133,21 +132,21 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 func (h *SchoolHandler) SetActiveSchool(c fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "user_id not found in session")
+		return WriteError(c, ErrUnauthorized("user_id not found in session"))
 	}
 	tenantID, ok := c.Locals("tenant_id").(string)
 	if !ok || tenantID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "tenant_id not found in session")
+		return WriteError(c, ErrUnauthorized("tenant_id not found in session"))
 	}
 
 	var body struct {
 		SchoolID string `json:"school_id"`
 	}
 	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON body")
+		return WriteError(c, ErrBadRequest("invalid JSON body", nil))
 	}
 	if body.SchoolID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: school_id is required")
+		return WriteError(c, ErrBadRequest("school_id is required", nil))
 	}
 
 	currentActive := ""
@@ -166,11 +165,12 @@ func (h *SchoolHandler) SetActiveSchool(c fiber.Ctx) error {
 
 	changed, err := h.service.SetActiveSchool(c.Context(), userID, tenantID, body.SchoolID)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			code := err.Error()[len("bad_request:"):]
-			return fiber.NewError(fiber.StatusBadRequest, code)
+		msg := err.Error()
+		if len(msg) > 11 && msg[:11] == "bad_request:" {
+			return WriteError(c, ErrBadRequest(msg[11:], nil))
 		}
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		go_uber_zap.L().Error("school_set_active: failed", go_uber_zap.Error(err))
+		return WriteError(c, ErrInternal("failed to set active school"))
 	}
 
 	if changed {

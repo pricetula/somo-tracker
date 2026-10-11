@@ -29,7 +29,7 @@
  */
 
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { NextRequest, NextFetchEvent } from "next/server";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants — must match frontend/src/lib/auth.ts and backend session middleware
@@ -96,7 +96,7 @@ export const config = {
  *      to /login.
  *   3. Otherwise → allow (cookie exists or path is not explicitly protected).
  */
-export function proxy(request: NextRequest) {
+export default function proxy(request: NextRequest, _event?: NextFetchEvent) {
     const { pathname } = request.nextUrl;
 
     // ── Step 1: Always allow public routes ──────────────────────────────

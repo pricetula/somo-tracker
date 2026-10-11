@@ -111,7 +111,7 @@ func (s *enrollmentsService) CreateEnrollments(ctx context.Context, schoolID uui
 	classYearID := pgToUUID(classRow.AcademicYearID)
 	if classYearID != writeYearID {
 		// Class year must match resolved write year
-		return nil, fmt.Errorf("bad_request: class academic year does not match current period")
+		return nil, BadRequest("class academic year does not match current period")
 	}
 	academicYearID := writeYearID
 	academicTermID := pgtype.UUID{Bytes: writeTermID, Valid: true}

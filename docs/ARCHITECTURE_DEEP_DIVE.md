@@ -93,10 +93,13 @@ somo-tracker/
 ✅ All 9 flagged handlers now return canonical `{code, message, errors}` shape
 ✅ Curriculum pagination implemented, removing unused param discards
 
-### Phase 2 – Handler thinness [2-3 days]
-1. Remove `*pgxpool.Pool` from `SchoolHandler`. Move Stytch org update and session `UpdateActiveSchool` into `SchoolService`.
-2. Refactor all handlers: no imports of `pgxpool`, `sqlc`. Lint rule.
-3. Confirm session mutation is service-side only.
+### Phase 2 – Handler thinness [2-3 days] [DONE]
+✅ 1. Remove `*pgxpool.Pool` from `SchoolHandler`. Move Stytch org update and session `UpdateActiveSchool` into `SchoolService`.
+   - `SchoolCreateHandler` stripped of session store; session update moved to service
+✅ 2. Refactor all handlers: no imports of `pgxpool`, `sqlc`. Lint rule.
+   - Handlers clean, lint rule enforced
+✅ 3. Confirm session mutation is service-side only.
+   - Session mutation now in `SchoolService`
 
 ### Phase 3 – Deduplicate invitation code [4-6 days] [DONE]
 ✅ 1. Create generic `BulkInvitationProcessor` with job type param.
@@ -146,10 +149,14 @@ somo-tracker/
 
 ## Next Steps
 
-### Phase 2 – Handler thinness [2-3 days]
-1. Remove `*pgxpool.Pool` from `SchoolHandler`. Move Stytch org update and session `UpdateActiveSchool` into `SchoolService`.
-2. Refactor all handlers: no imports of `pgxpool`, `sqlc`. Add lint rule.
-3. Confirm session mutation is service-side only.
+### Phase 2 – Handler thinness [2-3 days] [DONE]
+✅ 1. Remove `*pgxpool.Pool` from `SchoolHandler`. Move Stytch org update and session `UpdateActiveSchool` into `SchoolService`.
+   - `SchoolCreateHandler` no longer holds session store or mutates session; session update moved to `SchoolService.CreateSchoolWithSetup`
+   - Stytch org update remains service-side
+✅ 2. Refactor all handlers: no imports of `pgxpool`, `sqlc`. Add lint rule.
+   - Handlers `internal/api/*` import no `pgxpool`/`sqlc`
+✅ 3. Confirm session mutation is service-side only.
+   - Session `UpdateActiveSchool` now performed in service layer
 
 ### Phase 3 – Deduplicate invitation code [4-6 days] [DONE]
 ✅ 1. Create generic `BulkInvitationProcessor` with job type param.

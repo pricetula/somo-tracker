@@ -109,6 +109,7 @@ func (s *SchoolService) RegisterSchool(
 func (s *SchoolService) CreateSchoolWithSetup(
 	ctx context.Context,
 	userID, tenantID, schoolName string,
+	sessionToken string,
 ) (schoolID string, err error) {
 	if userID == "" {
 		return "", errors.New("bad_request: user_id is required")
@@ -375,11 +376,11 @@ func (s *SchoolService) CreateSchoolWithSetup(
 	}
 
 	// Best-effort session active school update
-	// if s.session != nil && sessionTok != "" {
-	// 	if updErr := s.session.UpdateActiveSchool(ctx, sessionTok, schoolID); updErr != nil {
-	// 		s.logger.Warn("school_service: session active_school update best-effort failed", zap.Error(updErr))
-	// 	}
-	// }
+	if s.session != nil && sessionToken != "" {
+		if updErr := s.session.UpdateActiveSchool(ctx, sessionToken, schoolID); updErr != nil {
+			s.logger.Warn("school_service: session active_school update best-effort failed", zap.Error(updErr))
+		}
+	}
 
 	return schoolID, nil
 }

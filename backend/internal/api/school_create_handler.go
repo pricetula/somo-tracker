@@ -4,7 +4,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 	go_uber_zap "go.uber.org/zap"
 	"somotracker/backend/internal/services"
-	"somotracker/backend/internal/session"
 )
 
 // SchoolCreateHandler handles POST /api/school (new endpoint, separate from /school/register).
@@ -17,7 +16,6 @@ import (
 
 type SchoolCreateHandler struct {
 	service *services.SchoolService
-	session *session.Store
 }
 
 func NewSchoolCreateHandler(svc *services.SchoolService) *SchoolCreateHandler {
@@ -56,11 +54,14 @@ func (h *SchoolCreateHandler) CreateSchool(c fiber.Ctx) error {
 		return WriteError(c, ErrBadRequest("school_name is required", nil))
 	}
 
+	cookieToken := c.Cookies("session_token")
+
 	schoolID, err := h.service.CreateSchoolWithSetup(
 		c.Context(),
 		userID,
 		tenantID,
 		body.SchoolName,
+		cookieToken,
 	)
 	if err != nil {
 		msg := err.Error()
@@ -72,15 +73,6 @@ func (h *SchoolCreateHandler) CreateSchool(c fiber.Ctx) error {
 		}
 		go_uber_zap.L().Error("school_create: create failed", go_uber_zap.Error(err))
 		return WriteError(c, ErrInternal("failed to create school"))
-	}
-
-	cookieToken := c.Cookies("session_token")
-	if cookieToken != "" && h.session != nil {
-		if updateErr := h.session.UpdateActiveSchool(c.Context(), cookieToken, schoolID); updateErr != nil {
-			go_uber_zap.L().Warn("school_create_handler: session active_school update best-effort failed",
-				go_uber_zap.String("error", updateErr.Error()),
-			)
-		}
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{

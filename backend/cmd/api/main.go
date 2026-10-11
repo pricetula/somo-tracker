@@ -212,19 +212,19 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, que
 
 	// Start Asynq worker for admin invitation batches
 	mux := asynq.NewServeMux()
-	processor := worker.NewAdminInvitationProcessor(invSvc, stytchClient, logger, redisClient)
-	mux.HandleFunc("admin:invitation:batch", processor.ProcessTask)
-	mux.HandleFunc("admin:invitation:retry", processor.ProcessRetryTask)
+	adminProcessor := worker.NewBulkInvitationProcessor(invSvc, stytchClient, logger, redisClient)
+	mux.HandleFunc("admin:invitation:batch", adminProcessor.ProcessTask)
+	mux.HandleFunc("admin:invitation:retry", adminProcessor.ProcessRetryTask)
 	// Teacher invitation worker
-	teacherProcessor := worker.NewTeacherInvitationProcessor(teacherInvSvc, stytchClient, logger, redisClient)
+	teacherProcessor := worker.NewBulkInvitationProcessor(teacherInvSvc, stytchClient, logger, redisClient)
 	mux.HandleFunc("teacher:invitation:batch", teacherProcessor.ProcessTask)
 	mux.HandleFunc("teacher:invitation:retry", teacherProcessor.ProcessRetryTask)
 	// Finance invitation worker
-	financeProcessor := worker.NewFinanceInvitationProcessor(financeInvSvc, stytchClient, logger, redisClient)
+	financeProcessor := worker.NewBulkInvitationProcessor(financeInvSvc, stytchClient, logger, redisClient)
 	mux.HandleFunc("finance:invitation:batch", financeProcessor.ProcessTask)
 	mux.HandleFunc("finance:invitation:retry", financeProcessor.ProcessRetryTask)
 	// Guardian invitation worker
-	guardianProcessor := worker.NewGuardianInvitationProcessor(guardianInvSvc, stytchClient, logger, redisClient)
+	guardianProcessor := worker.NewBulkInvitationProcessor(guardianInvSvc, stytchClient, logger, redisClient)
 	mux.HandleFunc("guardian:invitation:batch", guardianProcessor.ProcessTask)
 	mux.HandleFunc("guardian:invitation:retry", guardianProcessor.ProcessRetryTask)
 	// Student import worker

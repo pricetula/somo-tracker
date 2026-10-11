@@ -98,11 +98,21 @@ somo-tracker/
 2. Refactor all handlers: no imports of `pgxpool`, `sqlc`. Lint rule.
 3. Confirm session mutation is service-side only.
 
-### Phase 3 – Deduplicate invitation code [4-6 days]
-1. Create generic `BulkInvitationProcessor` with job type param.
-2. Consolidate `AdminInvitationService`, `TeacherInvitationService`, etc. into generic service with role config.
-3. Update Asynq mux registration to use generic processor.
-4. Migrate tests.
+### Phase 3 – Deduplicate invitation code [4-6 days] [DONE]
+✅ 1. Create generic `BulkInvitationProcessor` with job type param.
+   - `backend/internal/worker/bulk_invitation_processor.go` created
+   - `cmd/api/main.go` updated to use `NewBulkInvitationProcessor` for admin/teacher/finance/guardian
+✅ 2. Consolidate `AdminInvitationService` into `GenericInvitationService` wrapper
+   - `backend/internal/services/admin_invitation_service.go` now embeds `*GenericInvitationService` with jobType `ADMIN_INVITATION` / role `ADMIN`
+   - Teacher/Finance/Guardian services already embed `GenericInvitationService`
+✅ 3. Update Asynq mux registration to use generic processor.
+   - `cmd/api/main.go` registers all four invitation queues with `NewBulkInvitationProcessor`
+✅ 4. Remove duplicate worker implementations
+   - Deleted `admin_invitation_worker.go`, `teacher_invitation_worker.go`, `finance_invitation_worker.go`, `guardian_invitation_worker.go`
+   - Shared types `RedisPublisher`, `InvitationBatchPayload`, `InvitationRetryPayload`, `InvitationPayload` moved to `bulk_invitation_processor.go`
+✅ 5. Migrate tests – completed
+   - `test/integration/admin_invitation_e2e_test.go` updated to use `NewBulkInvitationProcessor`
+   - Unit tests updated, integration tests passing with generic processor
 
 ### Phase 4 – Validation & hygiene [2 days]
 1. Implement `ValidateRequest` with `go-playground/validator`.
@@ -136,11 +146,21 @@ somo-tracker/
 2. Refactor all handlers: no imports of `pgxpool`, `sqlc`. Add lint rule.
 3. Confirm session mutation is service-side only.
 
-### Phase 3 – Deduplicate invitation code [4-6 days]
-1. Create generic `BulkInvitationProcessor` with job type param.
-2. Consolidate role-specific invitation services into generic service with role config.
-3. Update Asynq mux registration to use generic processor.
-4. Migrate tests.
+### Phase 3 – Deduplicate invitation code [4-6 days] [DONE]
+✅ 1. Create generic `BulkInvitationProcessor` with job type param.
+   - `backend/internal/worker/bulk_invitation_processor.go` created
+   - `cmd/api/main.go` updated to use `NewBulkInvitationProcessor` for admin/teacher/finance/guardian
+✅ 2. Consolidate `AdminInvitationService` into `GenericInvitationService` wrapper
+   - `backend/internal/services/admin_invitation_service.go` now embeds `*GenericInvitationService` with jobType `ADMIN_INVITATION` / role `ADMIN`
+   - Teacher/Finance/Guardian services already embed `GenericInvitationService`
+✅ 3. Update Asynq mux registration to use generic processor.
+   - `cmd/api/main.go` registers all four invitation queues with `NewBulkInvitationProcessor`
+✅ 4. Remove duplicate worker implementations
+   - Deleted `admin_invitation_worker.go`, `teacher_invitation_worker.go`, `finance_invitation_worker.go`, `guardian_invitation_worker.go`
+   - Shared types `RedisPublisher`, `InvitationBatchPayload`, `InvitationRetryPayload`, `InvitationPayload` moved to `bulk_invitation_processor.go`
+✅ 5. Migrate tests – completed
+   - `test/integration/admin_invitation_e2e_test.go` updated to use `NewBulkInvitationProcessor`
+   - Unit tests updated, integration tests passing with generic processor
 
 ### Phase 4 – Validation & hygiene [2 days]
 1. Implement `ValidateRequest` with `go-playground/validator`.

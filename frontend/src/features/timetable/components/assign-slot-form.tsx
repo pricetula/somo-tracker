@@ -132,7 +132,7 @@ export function AssignSlotForm({
                 }
             );
         },
-        [mutate, dayOfWeek, timeSlotId, onSuccess, form, classId]
+        [mutate, dayOfWeek, timeSlotId, onSuccess, form, classId, assignmentId]
     );
 
     const isDisabled = isPending || !classId || isClassLoading;

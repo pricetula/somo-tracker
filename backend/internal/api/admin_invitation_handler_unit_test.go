@@ -223,7 +223,7 @@ func (m *mockAdminInvitationService) GetFailedOrDeferredItems(ctx context.Contex
 func (m *mockAdminInvitationService) UpdateItem(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error {
 	return nil
 }
-func (m *mockAdminInvitationService) UpdateItemResultOnly(ctx context.Context, itemID uuid.UUID, result json.RawMessage, status string, lastError string) error {
+func (m *mockAdminInvitationService) UpdateItemResultOnly(ctx context.Context, itemID uuid.UUID, result []byte, status string, lastError string) error {
 	return nil
 }
 func (m *mockAdminInvitationService) UpdateJobStatus(ctx context.Context, jobID uuid.UUID, status string) error {
@@ -241,7 +241,7 @@ func (m *mockAdminInvitationService) GetItemByID(ctx context.Context, itemID uui
 func (m *mockAdminInvitationService) GetItemsByJobID(ctx context.Context, jobID uuid.UUID) ([]services.BulkJobItem, error) {
 	return nil, nil
 }
-func (m *mockAdminInvitationService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error {
+func (m *mockAdminInvitationService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result []byte, lastError string, attempts int) error {
 	return nil
 }
 func (m *mockAdminInvitationService) UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error) {

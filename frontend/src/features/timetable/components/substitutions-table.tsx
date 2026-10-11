@@ -163,7 +163,7 @@ export function SubstitutionsTable() {
                 align: "right" as const,
             },
         ],
-        []
+        [handleDelete]
     );
 
     return (

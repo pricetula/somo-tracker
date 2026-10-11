@@ -98,7 +98,7 @@ export function ImportOrchestrator({
         const progressContent = progress ? (
             <div className="bg-muted rounded border p-4">
                 <div className="mb-2 font-medium">Job {jobId}</div>
-                <div className="">Status: {progress.status}</div>
+                <div>Status: {progress.status}</div>
                 <div className="mt-1">
                     {progress.succeeded} / {progress.total} succeeded
                     {progress.failed > 0 && `, ${progress.failed} failed`}

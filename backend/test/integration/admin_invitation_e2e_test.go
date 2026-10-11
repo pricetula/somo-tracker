@@ -156,7 +156,7 @@ func TestAdminInvitationE2E_Success(t *testing.T) {
 	}
 
 	// Start real worker with mocked Stytch
-	processor := worker.NewAdminInvitationProcessor(svc, mockStytch, logger, redisClient)
+	processor := worker.NewBulkInvitationProcessor(svc, mockStytch, logger, redisClient)
 	server := asynq.NewServer(asynq.RedisClientOpt{Addr: rc.Addr()}, asynq.Config{
 		Concurrency: 2,
 		Queues: map[string]int{
@@ -333,7 +333,7 @@ func TestAdminInvitationE2E_StytchErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start worker
-	processor := worker.NewAdminInvitationProcessor(svc, mockStytch, logger, redisClient)
+	processor := worker.NewBulkInvitationProcessor(svc, mockStytch, logger, redisClient)
 	server := asynq.NewServer(asynq.RedisClientOpt{Addr: rc.Addr()}, asynq.Config{
 		Concurrency: 2,
 		Queues: map[string]int{
@@ -495,7 +495,7 @@ func TestAdminInvitationE2E_RetryFailed(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start worker (first attempt fails)
-	processor := worker.NewAdminInvitationProcessor(svc, mockStytch, logger, redisClient)
+	processor := worker.NewBulkInvitationProcessor(svc, mockStytch, logger, redisClient)
 	server := asynq.NewServer(asynq.RedisClientOpt{Addr: rc.Addr()}, asynq.Config{
 		Concurrency: 2,
 		Queues: map[string]int{

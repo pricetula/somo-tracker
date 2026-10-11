@@ -14,7 +14,6 @@ import (
 	"somotracker/backend/internal/api/middleware/session"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/services"
-	"somotracker/backend/internal/stytch"
 )
 
 // Rate limit tiers for auth endpoints.
@@ -58,7 +57,6 @@ type Router struct {
 	Curriculum             services.CurriculumService
 	limiter                *redis_rate.Limiter
 	cfg                    *config.Config
-	stytchClient           *stytch.Client
 }
 
 // NewRouter creates a Router from the injected services and the Redis
@@ -83,7 +81,6 @@ func NewRouter(
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 	pool *pgxpool.Pool,
-	stytchClient *stytch.Client,
 ) *Router {
 	return &Router{
 		Auth:               newAuthHandler(authSvc, cfg),

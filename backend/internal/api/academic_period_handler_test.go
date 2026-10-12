@@ -45,6 +45,10 @@ func (m *mockAcademicPeriodService) CreateAcademicPeriod(ctx context.Context, sc
 	return m.result, m.err
 }
 
+func (m *mockAcademicPeriodService) ListAcademicPeriods(ctx context.Context, schoolID string) ([]services.ListAcademicPeriodResponse, error) {
+	return nil, nil
+}
+
 // injectAcademicPeriodSchoolMW injects active_school_id into locals for authenticated routes.
 func injectAcademicPeriodSchoolMW(schoolID string) fiber.Handler {
 	return func(c fiber.Ctx) error {

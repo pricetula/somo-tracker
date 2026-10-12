@@ -48,6 +48,7 @@ export default function RootLayout({
                     defaultTheme="system"
                     enableSystem
                     disableTransitionOnChange
+                    scriptProps={{ suppressHydrationWarning: true }}
                 >
                     <QueryProvider>
                         <TooltipProvider>{children}</TooltipProvider>

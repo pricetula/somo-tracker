@@ -67,10 +67,10 @@ export function UserCountsPanel() {
                 className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
                 aria-busy="true"
             >
-                <Card className="h-64 animate-pulse" />
+                <Card className="h-47 animate-pulse" />
                 <div className="grid grid-cols-2 gap-4">
                     {[...Array(4)].map((_, i) => (
-                        <Card key={i} className="h-30 animate-pulse" />
+                        <Card key={i} className="h-21.5 animate-pulse" />
                     ))}
                 </div>
             </section>

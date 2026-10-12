@@ -112,7 +112,7 @@ export function UserCountsPanel() {
                     <Link
                         href="/students"
                         aria-label={`View all ${students} students`}
-                        className="hover:text-primary text-3xl font-semibold tracking-tight tabular-nums transition-colors"
+                        className="hover:text-primary pl-1 text-3xl font-semibold tracking-tight tabular-nums transition-colors"
                     >
                         {numberCompactor(students)}
                     </Link>
@@ -126,7 +126,7 @@ export function UserCountsPanel() {
                             aria-label={`${male} male, ${female} female`}
                         >
                             <div className="bg-primary" style={{ width: `${malePct}%` }} />
-                            <div className="bg-purple-500" style={{ width: `${femalePct}%` }} />
+                            <div className="bg-indigo-300" style={{ width: `${femalePct}%` }} />
                         </div>
                         <dl className="text-muted-foreground flex justify-between text-[10px]">
                             <div className="flex items-center gap-1">
@@ -141,7 +141,7 @@ export function UserCountsPanel() {
                             </div>
                             <div className="flex items-center gap-1">
                                 <span
-                                    className="size-1 rounded-full bg-purple-500"
+                                    className="size-1 rounded-full bg-indigo-300"
                                     aria-hidden="true"
                                 />
                                 <dt className="font-medium">Girls</dt>
@@ -181,7 +181,7 @@ export function UserCountsPanel() {
                                 <Link
                                     href={href}
                                     aria-label={`View all ${value} ${label.toLowerCase()}`}
-                                    className="hover:text-primary text-2xl font-semibold tracking-tight tabular-nums transition-colors"
+                                    className="hover:text-primary pl-1 text-2xl font-semibold tracking-tight tabular-nums transition-colors"
                                 >
                                     {numberCompactor(value)}
                                 </Link>

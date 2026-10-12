@@ -139,7 +139,7 @@ export function AcademicPeriodAddForm() {
                             {fields.map((field, index) => (
                                 <div
                                     key={field.id}
-                                    className="grid grid-cols-4 items-end gap-3 rounded-lg border p-3"
+                                    className="flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-end md:justify-between"
                                 >
                                     <FormField
                                         control={form.control}
@@ -165,7 +165,7 @@ export function AcademicPeriodAddForm() {
                                                         value={field.value}
                                                         onChange={field.onChange}
                                                         placeholder="Pick start"
-                                                        className="w-full"
+                                                        className="w-40"
                                                         disabled={!enableDatePickers}
                                                     />
                                                 </FormControl>
@@ -185,7 +185,7 @@ export function AcademicPeriodAddForm() {
                                                         value={field.value}
                                                         onChange={field.onChange}
                                                         placeholder="Pick end"
-                                                        className="w-full"
+                                                        className="w-40"
                                                         disabled={!enableDatePickers}
                                                     />
                                                 </FormControl>
@@ -200,7 +200,7 @@ export function AcademicPeriodAddForm() {
                                         size="icon"
                                         onClick={() => remove(index)}
                                         aria-label="Remove term"
-                                        className="ml-auto"
+                                        className="col-span-1 ml-auto"
                                         disabled={fields.length === 1}
                                     >
                                         <Trash2 className="text-muted-foreground h-4 w-4" />

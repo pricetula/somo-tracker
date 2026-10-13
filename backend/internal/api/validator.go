@@ -18,10 +18,6 @@ func ValidateRequest(req interface{}) (map[string][]string, error) {
 	errMap := make(map[string][]string, len(validationErrors))
 	for _, fe := range validationErrors {
 		field := fe.Field()
-		// Use JSON tag name if present
-		if jsonTag := fe.StructField(); jsonTag != "" {
-			// fallback to field name
-		}
 		msg := fe.Tag()
 		errMap[field] = append(errMap[field], msg)
 	}

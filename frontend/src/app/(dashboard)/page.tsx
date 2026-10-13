@@ -1,5 +1,5 @@
-import { AdminDashboard } from "@/features/dashboard";
+import { DashboardContainer } from "@/features/dashboard";
 
 export default async function Home() {
-    return <AdminDashboard />;
+    return <DashboardContainer />;
 }

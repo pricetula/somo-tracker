@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
@@ -78,7 +77,7 @@ export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
         },
     });
 
-    const { fields, append, remove, insert } = useFieldArray({
+    const { fields, remove, insert } = useFieldArray({
         control: createForm.control,
         name: "streams",
     });
@@ -202,7 +201,7 @@ export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
                                             placeholder="e.g., Arts"
                                             {...field}
                                             disabled={createForm.formState.isSubmitting}
-                                            className="w-full bg-red-300"
+                                            className="w-full"
                                         />
                                     </FormControl>
                                     <FormMessage />

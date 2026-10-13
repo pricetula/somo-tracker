@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { endOfYear, startOfYear } from "date-fns";
+// import { endOfYear, startOfYear } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -86,7 +86,7 @@ export function AcademicPeriodAddForm() {
             },
             {
                 onSuccess: () => {
-                    router.push("/settings/academic-period");
+                    router.back();
                 },
             }
         );

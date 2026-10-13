@@ -13,6 +13,7 @@ import (
 	"somotracker/backend/internal/api/middleware/ratelimit"
 	"somotracker/backend/internal/api/middleware/session"
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/database/sqlc"
 	"somotracker/backend/internal/services"
 )
 
@@ -54,9 +55,11 @@ type Router struct {
 	Rooms                  *RoomsHandler
 	Enrollments            *EnrollmentsHandler
 	UserCounts             *UserCountsHandler
+	DashboardSetup         *DashboardSetupHandler
 	Curriculum             services.CurriculumService
 	limiter                *redis_rate.Limiter
 	cfg                    *config.Config
+	pool                   *pgxpool.Pool
 }
 
 // NewRouter creates a Router from the injected services and the Redis
@@ -107,6 +110,7 @@ func NewRouter(
 		GuardianInvitation: nil,
 		limiter:            limiter,
 		cfg:                cfg,
+		pool:               pool,
 	}
 }
 
@@ -162,6 +166,13 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 		session.NewSessionMiddleware(redisClient, logger, r.cfg),
 		csrf.NewCSRFMiddleware(),
 	)
+
+	// Lazy init DashboardSetup handler with sqlc queries
+	if r.DashboardSetup == nil && r.pool != nil {
+		queries := sqlc.New(r.pool)
+		svc := services.NewSetupSummaryService(queries, logger)
+		r.DashboardSetup = NewDashboardSetupHandler(svc, logger)
+	}
 
 	// Protected resources — session middleware validates session cookie,
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
@@ -228,6 +239,9 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/students/unassigned", r.Enrollments.ListUnassignedStudents)
 	protected.Patch("/enrollments/:id", r.Enrollments.UpdateEnrollment)
 	protected.Delete("/enrollments/:id", r.Enrollments.DeleteEnrollment)
+
+	// Dashboard Setup Summary
+	protected.Get("/dashboard/setup-summary", r.DashboardSetup.GetSetupSummary)
 
 	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
 	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)

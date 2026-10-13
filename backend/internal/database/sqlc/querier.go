@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	CountAdmins(ctx context.Context, arg CountAdminsParams) (int64, error)
+	CountClassRoomsBySchoolAndYear(ctx context.Context, arg CountClassRoomsBySchoolAndYearParams) (int64, error)
 	CountEnrollments(ctx context.Context, arg CountEnrollmentsParams) (int64, error)
 	CountFinance(ctx context.Context, arg CountFinanceParams) (int64, error)
 	CountGuardians(ctx context.Context, arg CountGuardiansParams) (int64, error)
@@ -68,6 +69,7 @@ type Querier interface {
 	GetGuardianSummary(ctx context.Context, schoolID pgtype.UUID) (GetGuardianSummaryRow, error)
 	GetLatestAcademicTermBySchool(ctx context.Context, schoolID pgtype.UUID) (pgtype.UUID, error)
 	GetLatestAcademicYearBySchool(ctx context.Context, schoolID pgtype.UUID) (GetLatestAcademicYearBySchoolRow, error)
+	GetLatestTermBySchool(ctx context.Context, schoolID pgtype.UUID) (GetLatestTermBySchoolRow, error)
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
 	GetRoom(ctx context.Context, arg GetRoomParams) (Room, error)
 	// Gets a school membership by user_id and school_id.
@@ -90,6 +92,8 @@ type Querier interface {
 	IncrementBulkJobCounts(ctx context.Context, arg IncrementBulkJobCountsParams) error
 	ListAcademicTermsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]ListAcademicTermsBySchoolRow, error)
 	ListAdmins(ctx context.Context, arg ListAdminsParams) ([]ListAdminsRow, error)
+	ListClassEnrollmentsSummaryBySchoolAndYear(ctx context.Context, arg ListClassEnrollmentsSummaryBySchoolAndYearParams) ([]ListClassEnrollmentsSummaryBySchoolAndYearRow, error)
+	ListClassRoomsBySchoolAndYear(ctx context.Context, arg ListClassRoomsBySchoolAndYearParams) ([]ListClassRoomsBySchoolAndYearRow, error)
 	ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]ListEnrollmentsRow, error)
 	ListFinance(ctx context.Context, arg ListFinanceParams) ([]ListFinanceRow, error)
 	ListGuardians(ctx context.Context, arg ListGuardiansParams) ([]ListGuardiansRow, error)

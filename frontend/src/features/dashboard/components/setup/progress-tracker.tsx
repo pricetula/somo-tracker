@@ -69,12 +69,6 @@ export function ProgressTracker({ steps }: { steps: Step[] }) {
                     </div>
                 </PopoverContent>
             </Popover>
-            <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                <span>{completed}</span>
-                <span>/</span>
-                <span>{total}</span>
-                <span>completed</span>
-            </div>
         </div>
     );
 }

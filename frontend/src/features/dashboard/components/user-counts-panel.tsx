@@ -64,7 +64,7 @@ export function UserCountsPanel() {
         return (
             <section
                 aria-label="People at your school"
-                className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
+                className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
                 aria-busy="true"
             >
                 <Card className="h-47 animate-pulse" />
@@ -96,7 +96,7 @@ export function UserCountsPanel() {
     return (
         <section
             aria-label="People at your school"
-            className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
+            className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]"
         >
             {/* Students: featured card with gender breakdown */}
             <Card className="justify-between gap-2 p-3">

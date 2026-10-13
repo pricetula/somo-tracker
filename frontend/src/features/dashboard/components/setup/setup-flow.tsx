@@ -34,8 +34,11 @@ export function SetupFlow() {
     ];
 
     return (
-        <div className="space-y-6">
-            <ProgressTracker steps={steps} />
+        <section className="space-y-6">
+            <header className="flex justify-between">
+                <h2>Classes & Streams</h2>
+                <ProgressTracker steps={steps} />
+            </header>
             <div className="grid gap-6 md:grid-cols-3">
                 <AcademicPeriodColumn
                     exists={timelineLocked}
@@ -51,6 +54,6 @@ export function SetupFlow() {
                 />
                 <EnrollmentsColumn locked={!classroomsBuilt} items={data.enrollments?.items} />
             </div>
-        </div>
+        </section>
     );
 }

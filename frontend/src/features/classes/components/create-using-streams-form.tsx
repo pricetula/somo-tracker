@@ -121,7 +121,6 @@ export function CreateUsingStreamsForm() {
                             <span
                                 key={s.id}
                                 className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
-                                style={{ borderColor: s.color || "#e5e7eb" }}
                             >
                                 <span
                                     className="h-2.5 w-2.5 rounded-full"
@@ -140,9 +139,9 @@ export function CreateUsingStreamsForm() {
                         {streams.length} stream(s). Edit names before creating.
                     </p>
 
-                    <div className="rounded-md border">
+                    <div className="max-h-60 overflow-y-auto rounded-md border">
                         <table className="w-full text-sm">
-                            <thead className="bg-muted/50 text-muted-foreground text-xs tracking-wide uppercase">
+                            <thead className="bg-muted text-muted-foreground sticky top-0 z-10 text-xs tracking-wide uppercase">
                                 <tr>
                                     <th className="px-3 py-2 text-left font-medium">
                                         Grade · Stream

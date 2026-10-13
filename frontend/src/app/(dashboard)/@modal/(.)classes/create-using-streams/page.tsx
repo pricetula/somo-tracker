@@ -15,7 +15,7 @@ export default function CreateUsingStreamsModalPage() {
 
     return (
         <Dialog open onOpenChange={handleOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl md:max-w-5xl">
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Auto populate Classrooms</DialogTitle>
                 </DialogHeader>

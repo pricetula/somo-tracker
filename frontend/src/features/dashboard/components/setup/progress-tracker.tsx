@@ -25,10 +25,10 @@ export function ProgressTracker({ steps }: { steps: Step[] }) {
     const offset = circumference - (pct / 100) * circumference;
 
     return (
-        <div className="space-y-3">
+        <div className="h-6 shrink-0 space-y-3 overflow-hidden">
             <Popover>
                 <PopoverTrigger
-                    className="focus-visible:ring-ring/30 relative flex size-6 items-center justify-center rounded-full p-0 shadow-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-offset-0"
+                    className="focus-visible:ring-ring/30 relative flex size-6 items-center justify-center overflow-hidden rounded-full p-0 shadow-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-offset-0"
                     aria-label="Setup progress"
                 >
                     <svg

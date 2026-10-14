@@ -1,29 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const stats = [
-    { label: "Nurse visits today", value: "3", sub: "2 ailments · 1 first-aid" },
-    { label: "Behaviour flags", value: "4", sub: "2 positive · 2 follow-up" },
-    { label: "Vaccination overdue", value: "12", sub: "Grade 1–3 · due Mon" },
+    { label: "Nurse visits today", value: "3", sub: "2 AILMENT · 1 FIRST_AID" },
+    { label: "Behaviour flags", value: "4", sub: "2 POSITIVE · 2 OPEN" },
+    { label: "Vaccination overdue", value: "12", sub: "MMR / Polio · OVERDUE" },
 ];
 
 const notes = [
     {
         time: "09:15",
         student: "Amara Kimani",
-        type: "Health",
-        detail: "Fever — sent to nurse, parent called",
+        type: "AILMENT",
+        detail: "Fever — ACTIVE / parent notified",
+        status: "ACTIVE",
+        recorded_by: "Nurse J. Otieno",
     },
     {
         time: "10:40",
         student: "David Ochieng",
-        type: "Behaviour",
-        detail: "Positive leadership — class assembly",
+        type: "CHECKUP",
+        detail: "Routine vision — RESOLVED",
+        status: "RESOLVED",
+        recorded_by: "Nurse J. Otieno",
     },
     {
         time: "11:05",
         student: "Grace Wanjiru",
-        type: "Health",
-        detail: "Allergy — medication given, form signed",
+        type: "FIRST_AID",
+        detail: "Allergy — medication given · ACTIVE",
+        status: "ACTIVE",
+        recorded_by: "Nurse J. Otieno",
     },
 ];
 
@@ -51,11 +57,23 @@ export function HealthBehaviourPanel() {
                                 <span className="text-muted-foreground shrink-0">{n.time}</span>
                                 <span className="font-medium">{n.student}</span>
                                 <span
-                                    className={`rounded px-1 text-[10px] ${n.type === "Health" ? "bg-sky-100 text-sky-700" : "bg-violet-100 text-violet-700"}`}
+                                    className={`rounded px-1 text-[10px] font-medium ${
+                                        n.type === "AILMENT"
+                                            ? "bg-rose-100 text-rose-700"
+                                            : n.type === "FIRST_AID"
+                                              ? "bg-sky-100 text-sky-700"
+                                              : n.type === "CHECKUP"
+                                                ? "bg-violet-100 text-violet-700"
+                                                : "bg-muted text-muted-foreground"
+                                    }`}
                                 >
                                     {n.type}
                                 </span>
                                 <span className="text-muted-foreground truncate">{n.detail}</span>
+                                <span className="text-muted-foreground ml-auto shrink-0 text-[10px]">
+                                    {(n as { status: string; recorded_by: string }).status} ·{" "}
+                                    {(n as { status: string; recorded_by: string }).recorded_by}
+                                </span>
                             </li>
                         ))}
                     </ul>

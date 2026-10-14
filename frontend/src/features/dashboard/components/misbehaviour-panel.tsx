@@ -1,38 +1,47 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const counts = [
-    { label: "Noise / disruption", value: 6, tag: "today" },
-    { label: "Fighting / aggression", value: 2, tag: "this week" },
-    { label: "Repeated flags", value: 3, tag: "3 students" },
+    { label: "Noise / disruption", value: 6, tag: "LOW · 2 OPEN" },
+    { label: "Fighting / aggression", value: 2, tag: "HIGH · 1 RESOLVED" },
+    { label: "Repeated flags", value: 3, tag: "MEDIUM · 3 STUDENTS" },
 ];
 
 const incidents = [
     {
         time: "Today 08:40",
         student: "Kevin Mwangi",
-        type: "Noise",
+        type: "NOISE",
+        severity: "LOW",
         detail: "Classroom disruption — loud outbursts",
-        status: "Parent notified",
+        status: "PARENT_NOTIFIED",
+        action_taken: "Warning issued; parent contacted",
+        witness_count: 1,
     },
     {
         time: "Yesterday 14:15",
         student: "Amina Hassan",
-        type: "Fighting",
+        type: "FIGHTING",
+        severity: "HIGH",
         detail: "Push/shove during recess — minor scrape",
-        status: "Meeting set Fri",
+        status: "MEETING_SCHEDULED",
+        action_taken: "Nurse check; meeting set Fri",
+        witness_count: 3,
     },
     {
         time: "Yesterday 11:30",
         student: "Peter Otieno",
-        type: "Disruption",
-        detail: "Refused to follow instructions — repeated",
-        status: "Follow-up",
+        type: "DISRUPTION",
+        severity: "MEDIUM",
+        detail: "Refused to follow instructions — repeated flag",
+        status: "OPEN",
+        action_taken: "Behaviour plan updated",
+        witness_count: 0,
     },
 ];
 
 function tagClass(t: string) {
-    if (t === "Noise") return "bg-rose-100 text-rose-700";
-    if (t === "Fighting") return "bg-amber-100 text-amber-700";
+    if (t === "NOISE") return "bg-rose-100 text-rose-700";
+    if (t === "FIGHTING") return "bg-amber-100 text-amber-700";
     return "bg-violet-100 text-violet-700";
 }
 
@@ -64,8 +73,15 @@ export function MisbehaviourPanel() {
                                 >
                                     {i.type}
                                 </span>
+                                <span
+                                    className={`rounded px-1 text-[10px] font-medium ${i.severity === "HIGH" ? "bg-red-100 text-red-700" : i.severity === "MEDIUM" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
+                                >
+                                    {i.severity}
+                                </span>
                                 <span className="text-muted-foreground truncate">{i.detail}</span>
-                                <span className="text-primary ml-auto shrink-0">{i.status}</span>
+                                <span className="text-primary ml-auto shrink-0 text-[10px]">
+                                    {i.status}
+                                </span>
                             </li>
                         ))}
                     </ul>

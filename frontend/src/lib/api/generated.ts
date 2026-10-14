@@ -188,7 +188,7 @@ export interface paths {
                     date_to?: string;
                     /** Comma-separated grade labels */
                     grades?: string;
-                    /** Comma-separated stream names */
+                    /** Comma-separated stream ids */
                     streams?: string;
                     /** Comma-separated subject names */
                     subjects?: string;
@@ -843,7 +843,7 @@ export interface paths {
                     search?: string;
                     /** Comma separated grade labels */
                     grade?: string;
-                    /** Comma separated stream names */
+                    /** Comma separated stream ids */
                     stream?: string;
                 };
             };
@@ -1064,7 +1064,7 @@ export interface paths {
         post: {
             parameters: {
                 body: {
-                    /** Stream names */
+                    /** Stream ids */
                     body: string[];
                 };
             };

@@ -32,7 +32,7 @@ export function AttendanceTable() {
         [grades]
     );
     const streamOptions = useMemo<FilterOption[]>(
-        () => streams?.map((s) => ({ id: s.id, label: s.name, value: s.name })) ?? [],
+        () => streams?.map((s) => ({ id: s.id, label: s.name, value: s.id })) ?? [],
         [streams]
     );
     const subjectOptions = useMemo<FilterOption[]>(

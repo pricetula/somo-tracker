@@ -155,7 +155,7 @@ SELECT
   cts.created_at,
   cts.updated_at,
   cr.name AS class_name,
-  cr.stream AS class_stream,
+  strm.name AS class_stream,
   gl.local_label AS grade_name,
   ts.name AS time_slot_name,
   ts.start_time,
@@ -170,6 +170,7 @@ SELECT
 FROM class_timetable_slots cts
 JOIN time_slots ts ON ts.id = cts.time_slot_id
 JOIN class_rooms cr ON cr.id = cts.class_room_id
+LEFT JOIN streams strm ON strm.id = cr.stream_id
 LEFT JOIN grade_levels gl ON gl.id = cr.grade_level_id
 LEFT JOIN subjects s ON s.id = cts.subject_id
 LEFT JOIN school_memberships sm ON sm.id = cts.teacher_membership_id

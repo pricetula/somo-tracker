@@ -27,7 +27,7 @@ export function ClassesTable() {
     );
 
     const streamOptions = useMemo(
-        () => streams.map((s) => ({ label: s.name, value: s.name, id: s.id })),
+        () => streams.map((s) => ({ label: s.name, value: s.id, id: s.id })),
         [streams]
     );
 

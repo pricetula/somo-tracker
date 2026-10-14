@@ -50,7 +50,7 @@ export function FeeKpi() {
     return (
         <div className="flex items-center justify-between border p-3">
             <div>
-                <div className="text-muted-foreground text-sm">Fees collected</div>
+                <div className="text-muted-foreground mb-4 text-sm">Fees collected</div>
                 <div className="text-2xl">{value}%</div>
                 <div className="text-muted-foreground text-xs">38 students outstanding</div>
             </div>

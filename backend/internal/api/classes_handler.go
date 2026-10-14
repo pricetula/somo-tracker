@@ -35,7 +35,7 @@ type createClassRequest struct {
 // @Param limit query int false "Page size" default(50)
 // @Param search query string false "Search by name"
 // @Param grade query string false "Comma separated grade labels"
-// @Param stream query string false "Comma separated stream names"
+// @Param stream query string false "Comma separated stream ids"
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
 // @Router /classes [get]

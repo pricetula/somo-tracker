@@ -384,12 +384,12 @@ type ClassRoom struct {
 	GradeLevelID pgtype.UUID `json:"grade_level_id"`
 	// Human-readable class_room name (e.g., "Class 1 Blue", "Grade 3 Yellow").
 	Name string `json:"name"`
-	// Optional stream identifier within the grade (e.g., "Blue", "Yellow", "A", "B"). NULL if no streams.
-	Stream pgtype.Text `json:"stream"`
 	// UTC timestamp of row creation.
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	// FK to streams(id). Optional stream for this classroom.
+	StreamID pgtype.UUID `json:"stream_id"`
 }
 
 // Maps a classroom to an academic term, assigning subjects, teachers, and rooms to a template time slots for a specific day.

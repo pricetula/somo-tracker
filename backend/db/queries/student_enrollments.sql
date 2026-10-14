@@ -8,10 +8,11 @@ RETURNING *;
 -- name: ListEnrollments :many
 SELECT sce.*,
     cr.name as class_name, cr.grade_level_id, gl.local_label as grade,
-    cr.stream, s.admission_number, s.full_name as student_name
+    strm.name as stream, s.admission_number, s.full_name as student_name
 FROM student_class_enrollments sce
 JOIN class_rooms cr ON cr.id = sce.class_room_id
 JOIN grade_levels gl ON gl.id = cr.grade_level_id
+LEFT JOIN streams strm ON strm.id = cr.stream_id
 JOIN students s ON s.student_id = sce.student_id
 WHERE sce.school_id = $1
   AND ($2::uuid IS NULL OR sce.class_room_id = $2)

@@ -82,10 +82,11 @@ func (s *classesService) ListClasses(ctx context.Context, schoolID uuid.UUID, pa
 
 	args := []interface{}{schoolID, academicYearID}
 	query := `
-		SELECT cr.id, cr.name, gl.id, gl.local_label, COALESCE(cr.stream, ''), ay.name, ''
+		SELECT cr.id, cr.name, gl.id, gl.local_label, COALESCE(strm.name, ''), ay.name, ''
 		FROM class_rooms cr
 		JOIN grade_levels gl ON gl.id = cr.grade_level_id
 		JOIN academic_years ay ON ay.id = cr.academic_year_id
+		LEFT JOIN streams strm ON strm.id = cr.stream_id
 		WHERE cr.school_id = $1 AND cr.academic_year_id = $2
 	`
 	paramIdx := 3
@@ -109,7 +110,7 @@ func (s *classesService) ListClasses(ctx context.Context, schoolID uuid.UUID, pa
 			placeholders[i] = fmt.Sprintf("$%d", paramIdx+i)
 			args = append(args, streams[i])
 		}
-		query += fmt.Sprintf(" AND COALESCE(cr.stream, '') IN (%s)", strings.Join(placeholders, ","))
+		query += fmt.Sprintf(" AND cr.stream_id IN (%s)", strings.Join(placeholders, ","))
 		paramIdx += len(streams)
 	}
 
@@ -157,10 +158,11 @@ func (s *classesService) GetClass(ctx context.Context, schoolID uuid.UUID, id uu
 		return nil, fmt.Errorf("not_found: class not found")
 	}
 	query := `
-		SELECT cr.id, cr.name, gl.id, gl.local_label, COALESCE(cr.stream, ''), ay.name, ''
+		SELECT cr.id, cr.name, gl.id, gl.local_label, COALESCE(strm.name, ''), ay.name, ''
 		FROM class_rooms cr
 		JOIN grade_levels gl ON gl.id = cr.grade_level_id
 		JOIN academic_years ay ON ay.id = cr.academic_year_id
+		LEFT JOIN streams strm ON strm.id = cr.stream_id
 		WHERE cr.school_id = $1 AND cr.id = $2 AND cr.academic_year_id = $3
 	`
 	var d ClassDetail
@@ -225,8 +227,8 @@ func (s *classesService) CreateClass(ctx context.Context, schoolID uuid.UUID, re
 	}
 	ayID := res.WriteYearID
 	newID := uuid.New()
-	_, err = s.pool.Exec(ctx, `INSERT INTO class_rooms (id, school_id, academic_year_id, grade_level_id, name, stream, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6, now(), now())`,
-		newID, schoolID, ayID, gradeUUID, req.Name, streamName)
+	_, err = s.pool.Exec(ctx, `INSERT INTO class_rooms (id, school_id, academic_year_id, grade_level_id, name, stream_id, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6, now(), now())`,
+		newID, schoolID, ayID, gradeUUID, req.Name, streamUUID)
 	if err != nil {
 		s.logger.Error("create class failed", zap.Error(err))
 		return nil, fmt.Errorf("internal_error: failed to create class")

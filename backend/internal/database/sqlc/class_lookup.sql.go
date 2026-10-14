@@ -43,16 +43,17 @@ SELECT
   cr.id as class_id,
   cr.name as class_name,
   gl.local_label as grade,
-  COALESCE(cr.stream,'') as stream,
+  s.name as stream,
   COUNT(sce.id) FILTER (WHERE sce.status = 'ACTIVE') as student_count
 FROM class_rooms cr
 JOIN grade_levels gl ON gl.id = cr.grade_level_id
+LEFT JOIN streams s ON s.id = cr.stream_id
 LEFT JOIN student_class_enrollments sce 
   ON sce.class_room_id = cr.id 
   AND sce.academic_year_id = $2 
   AND sce.status = 'ACTIVE'
 WHERE cr.school_id = $1 AND cr.academic_year_id = $2
-GROUP BY cr.id, cr.name, gl.local_label, cr.stream
+GROUP BY cr.id, cr.name, gl.local_label, s.name
 `
 
 type ListClassEnrollmentsSummaryBySchoolAndYearParams struct {
@@ -64,7 +65,7 @@ type ListClassEnrollmentsSummaryBySchoolAndYearRow struct {
 	ClassID      pgtype.UUID `json:"class_id"`
 	ClassName    string      `json:"class_name"`
 	Grade        string      `json:"grade"`
-	Stream       string      `json:"stream"`
+	Stream       pgtype.Text `json:"stream"`
 	StudentCount int64       `json:"student_count"`
 }
 
@@ -95,9 +96,10 @@ func (q *Queries) ListClassEnrollmentsSummaryBySchoolAndYear(ctx context.Context
 }
 
 const listClassRoomsBySchoolAndYear = `-- name: ListClassRoomsBySchoolAndYear :many
-SELECT cr.id, cr.name, gl.local_label as grade, COALESCE(cr.stream,'') as stream
+SELECT cr.id, cr.name, gl.local_label as grade, s.name as stream
 FROM class_rooms cr
 JOIN grade_levels gl ON gl.id = cr.grade_level_id
+LEFT JOIN streams s ON s.id = cr.stream_id
 WHERE cr.school_id = $1 AND cr.academic_year_id = $2
 `
 
@@ -110,7 +112,7 @@ type ListClassRoomsBySchoolAndYearRow struct {
 	ID     pgtype.UUID `json:"id"`
 	Name   string      `json:"name"`
 	Grade  string      `json:"grade"`
-	Stream string      `json:"stream"`
+	Stream pgtype.Text `json:"stream"`
 }
 
 func (q *Queries) ListClassRoomsBySchoolAndYear(ctx context.Context, arg ListClassRoomsBySchoolAndYearParams) ([]ListClassRoomsBySchoolAndYearRow, error) {

@@ -271,7 +271,7 @@ func (s *attendanceService) ListAttendanceSessions(ctx context.Context, params L
 				cr.name AS class_name,
 				cr.id AS class_id,
 				gl.local_label AS grade,
-				COALESCE(cr.stream, '') AS stream,
+				COALESCE(strm.name, '') AS stream,
 				s.name AS subject_name,
 				u.full_name AS teacher_name,
 				sm.user_id AS teacher_user_id,
@@ -281,6 +281,7 @@ func (s *attendanceService) ListAttendanceSessions(ctx context.Context, params L
 			FROM class_timetable_slots cts
 			JOIN class_rooms cr ON cr.id = cts.class_room_id
 			JOIN grade_levels gl ON gl.id = cr.grade_level_id
+			LEFT JOIN streams strm ON strm.id = cr.stream_id
 			JOIN subjects s ON s.id = cts.subject_id
 			JOIN school_memberships sm ON sm.id = cts.teacher_membership_id
 			JOIN users u ON u.id = sm.user_id

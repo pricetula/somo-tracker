@@ -7,6 +7,8 @@ import { FeeKpi } from "./fee-kpi";
 import { UpcomingEvents } from "./upcoming-events";
 import { ClassesTable } from "./classes-table";
 import { TimetableHealth } from "./timetable-health";
+import { HealthBehaviourPanel } from "./health-behaviour-panel";
+import { MisbehaviourPanel } from "./misbehaviour-panel";
 
 // Mock counts for state check
 const mockStudents = 412;
@@ -84,6 +86,14 @@ export function DashboardContainer() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <TimetableHealth />
                 <UpcomingEvents />
+            </div>
+
+            <div className="mt-6">
+                <HealthBehaviourPanel />
+            </div>
+
+            <div className="mt-6">
+                <MisbehaviourPanel />
             </div>
         </div>
     );

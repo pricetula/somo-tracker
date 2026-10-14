@@ -40,7 +40,13 @@ vi.mock("@/features/streams/hooks/use-streams", () => ({
 
 // Mock DataTable
 vi.mock("@/components/shared/data-table", () => ({
-    DataTable: ({ filterGroups, isSearchable }: unknown) => (
+    DataTable: ({
+        filterGroups,
+        isSearchable,
+    }: {
+        filterGroups?: unknown;
+        isSearchable?: boolean;
+    }) => (
         <div data-testid="data-table">
             <div data-testid="filter-groups">{JSON.stringify(filterGroups)}</div>
             <div data-testid="is-searchable">{String(isSearchable)}</div>
@@ -67,17 +73,19 @@ describe("ClassesTable", () => {
             expect(screen.getByTestId("data-table")).toBeInTheDocument();
         });
 
-        const filterGroups = JSON.parse(screen.getByTestId("filter-groups").textContent || "[]");
-        expect(filterGroups).toHaveLength(2);
+        const filterGroups = JSON.parse(
+            screen.getByTestId("filter-groups").textContent || "[]"
+        ) as { id: string; items: { submenu: { label: string; value: string }[] }[] }[];
 
-        const gradeGroup = filterGroups.find((g: unknown) => g.id === "grade");
-        expect(gradeGroup).toBeDefined();
+        const gradeGroup = filterGroups.find((g: { id: string }) => g.id === "grade");
+        const streamGroup = filterGroups.find((g: { id: string }) => g.id === "stream");
+
+        if (!gradeGroup || !streamGroup) {
+            throw new Error("Filter groups not found");
+        }
         expect(gradeGroup.items[0].submenu).toHaveLength(2);
         expect(gradeGroup.items[0].submenu[0].label).toBe("Grade 1");
         expect(gradeGroup.items[0].submenu[0].value).toBe("Grade 1");
-
-        const streamGroup = filterGroups.find((g: unknown) => g.id === "stream");
-        expect(streamGroup).toBeDefined();
         expect(streamGroup.items[0].submenu).toHaveLength(2);
         expect(streamGroup.items[0].submenu[0].label).toBe("Science");
         expect(streamGroup.items[0].submenu[0].value).toBe("Science");

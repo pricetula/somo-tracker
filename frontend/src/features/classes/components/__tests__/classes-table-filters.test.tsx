@@ -64,14 +64,17 @@ describe("ClassesTable Filters", () => {
         renderWithClient(<ClassesTable />);
         await waitFor(() => expect(screen.getByTestId("data-table")).toBeInTheDocument());
 
-        expect(capturedProps.filterGroups).toHaveLength(2);
+        expect(capturedProps?.filterGroups).toHaveLength(2);
 
-        const gradeItem = capturedProps.filterGroups[0].items[0];
+        const gradeItem = ((capturedProps?.filterGroups as unknown[])?.[0] as { items?: unknown[] })
+            ?.items?.[0];
         expect(gradeItem.id).toBe("grade-filter");
         expect(gradeItem.submenu[0].value).toBe("Grade 1");
         expect(gradeItem.submenu[0].label).toBe("Grade 1");
 
-        const streamItem = capturedProps.filterGroups[1].items[0];
+        const streamItem = (
+            (capturedProps?.filterGroups as unknown[])?.[1] as { items?: unknown[] }
+        )?.items?.[0];
         expect(streamItem.id).toBe("stream-filter");
         expect(streamItem.submenu[0].value).toBe("Science");
         expect(streamItem.submenu[0].label).toBe("Science");

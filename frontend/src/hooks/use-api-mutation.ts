@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, UseMutationOptions } from "@tanstack/react-query";
+import { useMutation, UseMutationOptions, MutationFunctionContext } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/client";
 import { usePeriodError } from "@/components/providers/period-error-provider";
 
@@ -39,7 +39,12 @@ export function useApiMutation<TData, TError = ApiError, TVariables = unknown, T
                 );
                 return;
             }
-            options?.onError?.(error, variables, context);
+            options?.onError?.(
+                error,
+                variables,
+                undefined,
+                context as unknown as MutationFunctionContext
+            );
         },
         ...options,
     });

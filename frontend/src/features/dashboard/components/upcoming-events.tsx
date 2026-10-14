@@ -1,87 +1,85 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
-type UpcomingEvent = {
+type EventRow = {
+    date: string; // "Mon 19"
     title: string;
-    event_type: string;
-    start_date: string;
-    end_date: string;
-    requires_attendance: boolean;
+    typeTag: string; // Exam, Sports, Meeting, Admission, Holiday
+    isPast?: boolean;
+    requiresAttendance?: boolean;
+    hasMarkedAttendance?: boolean; // if false and requiresAttendance and past => pin with Mark
 };
 
-const events: UpcomingEvent[] = [
+const events: EventRow[] = [
+    // Pinned past event with unmarked attendance
     {
-        title: "Mid-term exams",
-        event_type: "EXAM",
-        start_date: "2026-10-20",
-        end_date: "2026-10-24",
-        requires_attendance: true,
+        date: "Fri 9",
+        title: "Career day",
+        typeTag: "Meeting",
+        isPast: true,
+        requiresAttendance: true,
+        hasMarkedAttendance: false,
     },
-    {
-        title: "Inter-House Sports Day",
-        event_type: "SPORTS",
-        start_date: "2026-10-18",
-        end_date: "2026-10-18",
-        requires_attendance: false,
-    },
-    {
-        title: "Parent Teacher Meeting",
-        event_type: "MEETING",
-        start_date: "2026-10-25",
-        end_date: "2026-10-25",
-        requires_attendance: false,
-    },
-    {
-        title: "Admission Open Day",
-        event_type: "ADMISSION",
-        start_date: "2026-11-02",
-        end_date: "2026-11-02",
-        requires_attendance: false,
-    },
-    {
-        title: "Science Fair",
-        event_type: "SPORTS",
-        start_date: "2026-11-10",
-        end_date: "2026-11-11",
-        requires_attendance: true,
-    },
+    // Upcoming / current
+    { date: "Mon 19", title: "Mid-term exams", typeTag: "Exam", requiresAttendance: true },
+    { date: "Tue 20", title: "Mashujaa Day", typeTag: "Holiday" },
+    { date: "Fri 23", title: "Parents' meeting", typeTag: "Meeting" },
+    { date: "Sat 31", title: "Sports day", typeTag: "Sports" },
 ];
 
-function formatDate(iso: string) {
-    const [y, m, d] = iso.split("-");
-    const date = new Date(`${y}-${m}-${d}T00:00:00`);
-    return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+function tagColor(tag: string) {
+    if (tag === "Holiday") return "bg-muted text-muted-foreground";
+    if (tag === "Exam") return "bg-rose-100 text-rose-700";
+    if (tag === "Sports") return "bg-sky-100 text-sky-700";
+    if (tag === "Meeting") return "bg-violet-100 text-violet-700";
+    if (tag === "Admission") return "bg-amber-100 text-amber-700";
+    return "bg-muted text-muted-foreground";
 }
 
 export function UpcomingEvents() {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-sm">UPCOMING EVENTS · Next 14 days</CardTitle>
+        <Card className="h-full">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Events · Next 30 days</CardTitle>
             </CardHeader>
             <CardContent>
                 <ul className="space-y-3 text-sm">
-                    {events.map((e) => {
-                        const start = formatDate(e.start_date);
-                        const end =
-                            e.end_date !== e.start_date ? ` - ${formatDate(e.end_date)}` : "";
-                        return (
-                            <li key={e.title} className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="truncate font-medium">{e.title}</span>
-                                        <span className="bg-muted rounded px-1.5 py-0.5 text-[10px] tracking-wide uppercase">
-                                            {e.event_type}
-                                        </span>
-                                    </div>
-                                    <div className="text-muted-foreground text-xs">
-                                        {start}
-                                        {end} {e.requires_attendance && "· ⚑ attendance"}
-                                    </div>
+                    {events.map((e) => (
+                        <li
+                            key={e.title + e.date}
+                            className="flex items-start justify-between gap-3"
+                        >
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span
+                                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase ${tagColor(e.typeTag)}`}
+                                    >
+                                        {e.typeTag}
+                                    </span>
+                                    <span
+                                        className={`truncate font-medium ${e.typeTag === "Holiday" ? "text-muted-foreground" : "text-foreground"}`}
+                                    >
+                                        {e.title}
+                                    </span>
                                 </div>
-                            </li>
-                        );
-                    })}
+                                <div className="text-muted-foreground mt-0.5 text-xs">{e.date}</div>
+                            </div>
+                            {e.isPast && e.requiresAttendance && !e.hasMarkedAttendance && (
+                                <a
+                                    href="#"
+                                    className="text-primary mt-0.5 shrink-0 text-xs font-medium underline underline-offset-2"
+                                >
+                                    [Mark]
+                                </a>
+                            )}
+                        </li>
+                    ))}
                 </ul>
+                <div className="text-muted-foreground mt-4 text-xs">
+                    <Link href="/events" className="underline">
+                        View all events →
+                    </Link>
+                </div>
             </CardContent>
         </Card>
     );

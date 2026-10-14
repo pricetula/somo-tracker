@@ -4,15 +4,21 @@ const todayItems = [
     "Event: Mid-term exams [Mon]",
 ];
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 export function TodayPanel() {
     return (
-        <div className="bg-background rounded-sm border p-4">
-            <h2 className="text-foreground mb-3 text-sm font-medium">TODAY · Tue 13 Oct</h2>
-            <ul className="text-foreground space-y-2 text-sm">
-                {todayItems.map((t) => (
-                    <li key={t}>{t}</li>
-                ))}
-            </ul>
-        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-sm">TODAY · Tue 13 Oct</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ul className="text-foreground space-y-2 text-sm">
+                    {todayItems.map((t) => (
+                        <li key={t}>{t}</li>
+                    ))}
+                </ul>
+            </CardContent>
+        </Card>
     );
 }

@@ -1,88 +1,88 @@
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+"use client";
 
-const classes = [
-    { class: "PP1", stream: "Simba", students: 18, teacher: "Mary Achieng", attendance: "17 / 18" },
+import { DataTable } from "@/components/shared/data-table";
+
+type ClassRow = {
+    id: string;
+    className: string;
+    subjectTeacher: string;
+    attendance: "marked" | "not marked" | "upcoming";
+};
+
+const mockClasses: ClassRow[] = [
+    { id: "1", className: "PP1 Simba", subjectTeacher: "Mary Achieng", attendance: "marked" },
+    { id: "2", className: "PP1 Red house", subjectTeacher: "Joseph Kamau", attendance: "marked" },
     {
-        class: "PP1",
-        stream: "Red house",
-        students: 17,
-        teacher: "Joseph Kamau",
-        attendance: "17 / 17",
+        id: "3",
+        className: "PP2 Red house",
+        subjectTeacher: "Grace Wanjiru",
+        attendance: "not marked",
+    },
+    { id: "4", className: "Grade 1 Simba", subjectTeacher: "Unassigned", attendance: "not marked" },
+    { id: "5", className: "Grade 2 Simba", subjectTeacher: "Peter Otieno", attendance: "marked" },
+    { id: "6", className: "Grade 2 Red house", subjectTeacher: "Lucy Njeri", attendance: "marked" },
+    {
+        id: "7",
+        className: "Grade 3 Simba",
+        subjectTeacher: "Achieng Otieno",
+        attendance: "upcoming",
     },
     {
-        class: "PP2",
-        stream: "Red house",
-        students: 20,
-        teacher: "Grace Wanjiru",
-        attendance: "Not marked (Amber)",
-    },
-    {
-        class: "Grade 1",
-        stream: "Simba",
-        students: 22,
-        teacher: "Unassigned",
-        attendance: "Not marked (Amber)",
-    },
-    {
-        class: "Grade 2",
-        stream: "Simba",
-        students: 19,
-        teacher: "Peter Otieno",
-        attendance: "18 / 19",
-    },
-    {
-        class: "Grade 2",
-        stream: "Red house",
-        students: 21,
-        teacher: "Lucy Njeri",
-        attendance: "21 / 21",
+        id: "8",
+        className: "Grade 4 Red house",
+        subjectTeacher: "Wanjiru Kimani",
+        attendance: "marked",
     },
 ];
 
+const mockQueryFn = async () => {
+    return { items: mockClasses, total: mockClasses.length };
+};
+
 export function ClassesTable() {
+    const columns = [
+        {
+            id: "className",
+            header: "Class name",
+            cell: (row: ClassRow) => row.className,
+            width: "2fr",
+        },
+        {
+            id: "subjectTeacher",
+            header: "Subject teacher",
+            cell: (row: ClassRow) => row.subjectTeacher,
+            width: "2fr",
+        },
+        {
+            id: "attendance",
+            header: "Attendance today",
+            cell: (row: ClassRow) => {
+                const label = row.attendance;
+                const color =
+                    label === "marked"
+                        ? "text-emerald-600"
+                        : label === "not marked"
+                          ? "text-amber-600"
+                          : "text-muted-foreground";
+                return <span className={color}>{label}</span>;
+            },
+            width: "1.5fr",
+        },
+    ];
+
     return (
         <div className="space-y-3">
-            <div className="flex items-center justify-between">
-                <h2 className="text-foreground text-sm font-medium">CLASSES</h2>
-                <div className="text-muted-foreground flex items-center gap-3 text-xs">
-                    <span>All levels ▾</span>
-                    <span>🔍</span>
-                </div>
-            </div>
-            <div className="overflow-x-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="text-muted-foreground">Class</TableHead>
-                            <TableHead className="text-muted-foreground">Stream</TableHead>
-                            <TableHead className="text-muted-foreground">Students</TableHead>
-                            <TableHead className="text-muted-foreground">Class teacher</TableHead>
-                            <TableHead className="text-muted-foreground">
-                                Attendance today
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {classes.map((c, idx) => (
-                            <TableRow key={idx}>
-                                <TableCell>{c.class}</TableCell>
-                                <TableCell>{c.stream}</TableCell>
-                                <TableCell>{c.students}</TableCell>
-                                <TableCell>{c.teacher}</TableCell>
-                                <TableCell>{c.attendance}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
-            <p className="text-muted-foreground text-xs">Showing 6 of 28 View all classes -&gt;</p>
+            <h2 className="text-foreground text-sm font-medium">CLASSES</h2>
+            <DataTable<ClassRow, Record<string, never>, { items: ClassRow[]; total: number }>
+                queryKey={["dashboard-classes-mock"]}
+                queryFn={mockQueryFn}
+                columns={columns}
+                getRowId={(row) => row.id}
+                pageSize={10}
+                height={360}
+                isSearchable
+                searchPlaceholder="Search class…"
+            />
         </div>
     );
 }

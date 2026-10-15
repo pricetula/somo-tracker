@@ -15,6 +15,9 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Student Detail Page is Placeholder | frontend | High | Open | ... |
 | Student Schema Missing Structured Fields | backend | High | Open | ... |
 | Student List Missing Fields for Enhanced Listing | backend | High | Open | ... |
+| Timetable Class Assignment UI Missing | frontend | Critical | Open | ... |
+| Timetable Conflict Detection Missing | backend | High | Open | ... |
+| Student Timetable View Missing | frontend | High | Open | ... |
 | ... | ... | ... | Open | ... |
 
 ## Deferred / Won't Do
@@ -22,6 +25,9 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Gap | Reason |
 |-----|--------|
 | ... | ... |
+
+## References
+- `docs/student-module-roadmap.md` - Consolidated student module gaps and roadmap
 
 ## Process Notes
 - Severity guidance:

@@ -23,4 +23,5 @@ This index lists all documented features for Somotracker. Each feature lives und
 
 ## References
 - `docs/backend_schema.md` - Current database schema summary
+- `docs/student-module-roadmap.md` - Student module consolidated roadmap
 - Monorepo structure: backend/, frontend/, public/, docs/

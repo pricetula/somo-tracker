@@ -1,0 +1,13 @@
+---
+const { title = "Stay updated" } = Astro.props;
+---
+<section class="mx-auto max-w-6xl px-6 py-16">
+  <div class="rounded-2xl border p-8 text-center">
+    <h3 class="text-2xl font-semibold">{title}</h3>
+    <p class="mt-2 text-slate-600">Get product updates without leaving the page.</p>
+    <form id="newsletter" class="mt-6 flex justify-center gap-3" onsubmit="event.preventDefault(); alert('Thanks for subscribing!')">
+      <input type="email" required placeholder="you@example.com" class="w-64 rounded-md border px-4 py-2 text-sm" />
+      <button type="submit" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white">Subscribe</button>
+    </form>
+  </div>
+</section>

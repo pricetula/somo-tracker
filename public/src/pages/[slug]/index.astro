@@ -1,0 +1,22 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Navbar from '../../components/marketing/Navbar.astro';
+import Footer from '../../components/marketing/Footer.astro';
+
+export async function getStaticPaths() {
+  // Example static slugs. In production, pull from CMS or config.
+  const slugs = ['features', 'contact'];
+  return slugs.map(slug => ({ params: { slug } }));
+}
+
+const { slug } = Astro.params;
+export const prerender = true;
+---
+<BaseLayout title={slug ? `${slug} — Somotracker` : 'Somotracker'}>
+  <Navbar />
+  <main class="mx-auto max-w-4xl px-6 py-24">
+    <h1 class="text-4xl font-bold tracking-tight capitalize">{slug}</h1>
+    <p class="mt-4 text-slate-600">Dynamic marketing page for <code>{slug}</code>.</p>
+  </main>
+  <Footer />
+</BaseLayout>

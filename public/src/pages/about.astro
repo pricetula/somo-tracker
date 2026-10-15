@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Navbar from '../components/marketing/Navbar.astro';
+import Footer from '../components/marketing/Footer.astro';
+export const prerender = true;
+---
+<BaseLayout title="About — Somotracker">
+  <Navbar />
+  <main class="mx-auto max-w-4xl px-6 py-24">
+    <h1 class="text-4xl font-bold tracking-tight">About Somotracker</h1>
+    <p class="mt-4 text-lg text-slate-600">We build fast, accessible tools for educators and teams to track progress.</p>
+    <p class="mt-6 text-slate-700">Our marketing site is statically generated with Astro for optimal performance and Core Web Vitals.</p>
+  </main>
+  <Footer />
+</BaseLayout>

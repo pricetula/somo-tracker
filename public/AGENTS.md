@@ -1,14 +1,14 @@
 # Somotracker Public Site — Agent Architecture Contract
 
-SvelteKit + shadcn-svelte — marketing website.
+Astro — marketing website.
 
 ---
 
 ## 1. Stack
 
-- **Framework:** SvelteKit (latest)
-- **UI components:** shadcn-svelte
-- **Styling:** Tailwind CSS (`tailwind.config.ts`)
+- **Framework:** Astro (latest)
+- **UI components:** Astro components + Tailwind CSS
+- **Styling:** Tailwind CSS (`tailwind.config.mjs`)
 
 ---
 
@@ -16,20 +16,18 @@ SvelteKit + shadcn-svelte — marketing website.
 
 ```
 src/
-├── routes/                     # SvelteKit file-based routing
-│   ├── +layout.svelte
-│   ├── +page.svelte            # Home / landing page
+├── layouts/                    # BaseLayout.astro, etc.
+├── pages/                      # File-based routing, e.g. index.astro, pricing.astro
 │   └── [slug]/
-│       └── +page.svelte        # Dynamic marketing pages (/pricing, /about, …)
-│
-├── lib/
-│   ├── components/
-│   │   ├── ui/                 # shadcn-svelte primitives (do not hand-edit)
-│   │   └── marketing/          # Site-specific components (Hero, Navbar, Footer, CTA)
-│   ├── utils.ts                # cn() helper and global utilities
-│   └── types.ts                # Shared TypeScript types
-│
-└── app.css                     # Tailwind base + shadcn CSS variable definitions
+│       └── index.astro         # Dynamic marketing pages
+├── components/                 # Reusable Astro components
+│   └── marketing/              # Site-specific components (Hero, Navbar, Footer, CTA)
+├── styles/
+│   └── global.css              # Tailwind base + global styles
+└── lib/
+    └── utils.ts                # cn() helper and global utilities
+
+public/                         # Static assets, copied as-is to dist/
 ```
 
 ---
@@ -48,22 +46,24 @@ Use **pnpm** exclusively — never `npm` or `yarn`.
 
 ## 3. Component Rules
 
-- Add shadcn-svelte components with `pnpm dlx shadcn-svelte@latest add <component>`. Never hand-edit files in `src/lib/components/ui/`.
-- Marketing components in `src/lib/components/marketing/` wrap or compose shadcn primitives.
-- Keep `+page.svelte` files lean — they compose components, no inline logic or styles.
+- Use `.astro` files for pages and components. Prefer zero-JS output.
+- Use Islands architecture for interactive parts only.
+- Marketing components in `src/components/marketing/` are Astro components.
+- Keep `pages/*.astro` files lean — compose components, no inline business logic.
 
 ---
 
 ## 4. Rendering Strategy
 
-- Prefer static prerendering (`export const prerender = true`) on all marketing pages.
-- Use `+page.server.ts` only when server-side data fetching is required (CMS, feature flags).
-- Avoid client-side data fetching on marketing pages — it hurts Core Web Vitals.
+- All marketing pages are prerendered statically by default.
+- Use `export const prerender = true` explicitly where needed.
+- Avoid client-side data fetching; fetch at build time via `getStaticPaths` when dynamic routes are required.
+- Islands are opt-in for interactivity only.
 
 ---
 
 ## 5. Styling
 
-- Tailwind utility classes only. No custom CSS outside of `app.css`.
-- shadcn-svelte theming is controlled via CSS variables in `app.css` — modify variables, not component files.
+- Tailwind utility classes only. No custom CSS outside of `src/styles/global.css`.
+- Theming is controlled via CSS variables in `global.css`.
 - Use `cn()` from `$lib/utils` for conditional class merging.

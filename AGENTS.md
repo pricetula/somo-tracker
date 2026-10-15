@@ -20,7 +20,7 @@ The AI agent must **never** run `git add`, `git commit`, or `git push`. All chan
 │   ├── adr/         # architecture decision records
 │   └── seed/        # seeding / authoring data
 ├── frontend/     # Next.js (App Router) — multi-tenant educational dashboard
-└── public/       # SvelteKit + shadcn-svelte — marketing website
+└── public/       # Astro + shadcn-svelte — marketing website
 ```
 
 **Strictly isolate all changes to their respective top-level directory.** Read that directory's `AGENTS.md` for rules before making any changes.

@@ -18,6 +18,7 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Timetable Class Assignment UI Missing | frontend | Critical | Open | ... |
 | Timetable Conflict Detection Missing | backend | High | Open | ... |
 | Student Timetable View Missing | frontend | High | Open | ... |
+| Assessment and Report Card Management | backend | frontend | High | Open | ... |
 | ... | ... | ... | Open | ... |
 
 ## Deferred / Won't Do

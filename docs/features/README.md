@@ -13,6 +13,27 @@ This index lists all documented features for Somotracker. Each feature lives und
 | Bulk Operations Framework | bulk-jobs | Done | Platform | backend |
 | Enhanced Student Profile | enhanced-student-profile | Proposed | Product / Platform | backend, frontend |
 | Enhanced Student Listing | enhanced-student-listing | Proposed | Product / Platform | backend, frontend |
+| Timetable Conflict Detection | timetable-conflict-detection | Proposed | Platform | backend, frontend |
+| Student Timetable View | student-timetable-view | Proposed | Product / Platform | backend, frontend |
+| Student Schema Enhancement | student-schema-enhancement | Proposed | Platform | backend |
+| Timetable Class Assignment UI Polish | timetable-class-assignment-ui | Proposed | Product / Platform | frontend, backend |
+| Teacher Timetable View | teacher-timetable-view | Proposed | Product / Platform | backend, frontend |
+| Class Timetable View | class-timetable-view | Proposed | Product / Platform | backend, frontend |
+| Guardian Linking | guardian-linking | Proposed | Product / Platform | backend, frontend |
+| Guardian Profile Enhancement | guardian-profile-enhancement | Proposed | Product / Platform | backend, frontend |
+| Guardian Summary Stats | guardian-summary-stats | Proposed | Product / Platform | backend, frontend |
+| Teacher Profile Enhancement | teacher-profile-enhancement | Proposed | Product / Platform | backend, frontend |
+| Teacher Class/Subject Linking | teacher-class-subject-linking | Proposed | Product / Platform | backend, frontend |
+| Teacher Summary Stats | teacher-summary-stats | Proposed | Product / Platform | backend, frontend |
+| Classes Enrollment Polish | classes-enrollment-polish | Proposed | Product / Platform | backend, frontend |
+| Class Profile Enhancement | class-profile-enhancement | Proposed | Product / Platform | backend, frontend |
+| Class Summary Stats | class-summary-stats | Proposed | Product / Platform | backend, frontend |
+| Attendance Marking Integration | attendance-marking-integration | Proposed | Product / Platform | backend, frontend |
+| Attendance Summary Stats | attendance-summary-stats | Proposed | Product / Platform | backend, frontend |
+| Attendance Reporting | attendance-reporting | Proposed | Product / Platform | backend, frontend |
+| Events Management Enhancement | events-management-enhancement | Proposed | Product / Platform | backend, frontend |
+| Rooms Management Enhancement | rooms-management-enhancement | Proposed | Product / Platform | backend, frontend |
+| Curriculum Enhancement | curriculum-enhancement | Proposed | Product / Platform | backend, frontend |
 | ... | ... | ... | ... | ... |
 
 ## How to add a feature

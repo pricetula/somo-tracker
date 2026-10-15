@@ -29,4 +29,4 @@ Extend weekly matrix UI to support assignment mode. Add assign slot form with va
 
 ## Links
 - Analysis: `docs/timetable-gap-analysis.md`
-- Feature: `FEATURE-timetable-class-assignment.md` to be created
+- Feature: `docs/features/FEATURE-timetable-class-assignment-ui.md`

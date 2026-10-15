@@ -10,6 +10,11 @@
 ## Summary
 Enhance the student list view with richer columns, inline KPIs, bulk actions, and improved filtering to support faster triage in school management.
 
+## Current State
+**Backend:** `ListStudents` service returns `student_id, admission_number, full_name, gender, class_id, class_name, grade_level`. No `date_of_birth`, `guardian_linked`, or `attendance_rate`.
+**Frontend:** `StudentsTable` renders columns Name, Admission No., Class, Grade Level, Gender, Actions. Type `StudentListItem` includes `date_of_birth` in TypeScript but backend does not populate it consistently.
+**Docs:** Gap documented in `docs/gaps/GAP-student-list-missing-fields.md`
+
 ## Problem Statement
 Current `StudentsTable` shows Name, Admission No., Class, Grade Level, Gender, Actions. No DOB/age, no guardian status indicator, no attendance hint, no bulk export. Admins need to open detail page for basic context.
 
@@ -105,7 +110,7 @@ Performance considerations:
 - Document management
 
 ## Design Notes
-Attendance % computation = present / (present + absent + late) for current term. Compute on read initially, cache later.
+Attendance % computation uses summary table `student_term_attendance_stats` updated by background workers per ADR-2026-10-15-stats-architecture. `guardian_linked` sourced from `guardian_link_stats`. No on-the-fly aggregation.
 
 ## Open Gaps / Risks
 - Attendance computation per row may be expensive

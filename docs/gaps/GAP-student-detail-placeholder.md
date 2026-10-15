@@ -31,7 +31,12 @@ Admins cannot view or edit student details in UI. Forces use of lists only.
 
 ## Proposed Solutions
 - Implement Enhanced Student Profile feature spec
-- Reuse existing ListStudents API + add GET /students/:id enriched endpoint
+- Reuse existing ListStudents API + wire existing `GET /students/:id` and `PATCH /students/:id` handlers currently defined in `backend/internal/api/students_handler.go` but not registered in router
+- Frontend fetch with TanStack Query, replace placeholder component
+
+## Current Findings
+- Backend handlers `GetStudent` and `UpdateStudent` exist in code but not routed in `backend/internal/api/router.go`
+- Frontend component has scaffolded tabs and TODO comments for data fetching
 
 ## Acceptance Criteria
 - [ ] Page loads student data

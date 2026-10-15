@@ -20,3 +20,8 @@ Add validation in `SetupClassTimetableSlot` service:
 ## Acceptance Criteria
 - [ ] API returns error with code `timetable_conflict` on double booking
 - [ ] Error details indicate conflicting resource
+
+## Links
+- Feature: `docs/features/FEATURE-timetable-conflict-detection.md`
+- Service: `backend/internal/services/timetable_service.go` → `SetupClassTimetableSlot`
+- Frontend: `frontend/src/features/timetable/components/assign-slot-form.tsx`

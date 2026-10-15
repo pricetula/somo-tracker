@@ -24,3 +24,4 @@ Add structured columns to `students` table for core profile fields + create norm
 ## Links
 - Analysis: `docs/student-detail-gap-analysis.md`
 - Feature: `docs/features/FEATURE-enhanced-student-profile.md`
+- Feature: `docs/features/FEATURE-student-schema-enhancement.md`

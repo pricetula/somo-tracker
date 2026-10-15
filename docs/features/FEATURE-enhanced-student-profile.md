@@ -10,6 +10,11 @@
 ## Summary
 Expand the current student detail view from a placeholder to a comprehensive profile with editable personal info, guardian links, and student stats/KPIs for attendance, academic progress and engagement.
 
+## Current State
+**Backend:** `StudentsHandler.GetStudent` and `StudentsHandler.UpdateStudent` exist in `backend/internal/api/students_handler.go` with Swagger annotations for `GET /students/{id}` and `PATCH /students/{id}`. Handlers call `StudentsService.GetStudentByID` / `UpdateStudent`. Routes are **not wired** in `backend/internal/api/router.go` — only `GET /students`, `GET /students/summary`, `DELETE /students` are registered.
+**Frontend:** `frontend/src/features/students/components/student-detail.tsx` renders placeholder UI with `profile` state initialized to null and TODO comments for `GET /students/:id` and `PATCH /students/:id`. Tabs are scaffolded but empty. List page works.
+**Schema:** `students` table has basic fields + `metadata JSONB`. Structured fields for address/phone/email/nationality/emergency contact missing.
+
 ## Problem Statement
 Today student detail at `/students/[id]` is a placeholder:
 ```tsx
@@ -95,12 +100,12 @@ Components: shadcn Card, Tabs, Select, Badge, Table, Chart via Recharts
 - Document and photo uploads – deferred
 
 ## Design Notes
-Current `students` schema has limited columns. Use `metadata JSONB` for flexible extension now, migrate to columns later if needed. Keep compatibility with existing `ListStudents`.
+Current `students` schema has limited columns. Use `metadata JSONB` for flexible extension now, migrate to columns later if needed. Keep compatibility with existing `ListStudents`. Stats & KPIs read from summary tables per ADR-2026-10-15-stats-architecture.
 
 ## Open Gaps / Risks
 - GAP: Guardian contact API not exposed in profile payload
 - GAP: No academic results tables yet for grade KPIs
-- GAP: Stats are computed on read – consider materialized view for performance
+- Stats use summary tables updated by background workers per ADR-2026-10-15-stats-architecture
 
 ## Test Plan
 - API contract tests for GET/PATCH

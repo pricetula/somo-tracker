@@ -115,4 +115,4 @@ Current `students` schema has limited columns. Use `metadata JSONB` for flexible
 - Current placeholder: `frontend/src/features/students/components/student-detail.tsx`
 - Current list: `frontend/src/features/students/components/students-list.tsx`
 - Service: `backend/internal/services/students_service.go`
-- Schema: `docs/backend_schema.md` → `students`
+- Schema: `docs/reference/backend_schema.md` → `students`

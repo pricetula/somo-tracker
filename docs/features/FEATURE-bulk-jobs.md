@@ -47,7 +47,7 @@ Two core tables `bulk_jobs` and `bulk_job_items` plus worker processors. Jobs ar
 - Cross-tenant bulk operations
 
 ## Design Notes
-See `docs/backend_schema.md` sections `bulk_jobs` and `bulk_job_items`. Worker example: `backend/internal/worker/bulk_invitation_processor.go`. Triggers maintain `updated_at`.
+See `docs/reference/backend_schema.md` sections `bulk_jobs` and `bulk_job_items`. Worker example: `backend/internal/worker/bulk_invitation_processor.go`. Triggers maintain `updated_at`.
 
 ## Open Gaps / Risks
 - Gap: No frontend UI for bulk upload / monitoring. See `docs/gaps/GAP-bulk-ui.md` when created.
@@ -63,5 +63,5 @@ See `docs/backend_schema.md` sections `bulk_jobs` and `bulk_job_items`. Worker e
 - Migration applied via database migrator
 
 ## References
-- `docs/backend_schema.md` - Backend Schema Summary
+- `docs/reference/backend_schema.md` - Backend Schema Summary
 - `backend/internal/database/sqlc/bulk_jobs.sql.go`

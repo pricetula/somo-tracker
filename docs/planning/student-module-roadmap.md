@@ -75,7 +75,7 @@ Attendance data → Stats & KPIs tab + Listing attendance %
 ## References
 * `docs/features/FEATURE-enhanced-student-profile.md`
 * `docs/features/FEATURE-enhanced-student-listing.md`
-* `docs/student-detail-gap-analysis.md`
+* `docs/planning/student-detail-gap-analysis.md`
 * `docs/gaps/GAP-student-schema-missing-fields.md`
 * `docs/gaps/GAP-student-list-missing-fields.md`
 * `docs/gaps/GAP-student-detail-placeholder.md`

@@ -176,6 +176,6 @@ Accept partial update of editable fields with validation.
 - Compute stats on read vs materialized view for performance?
 
 ## References
-- `docs/backend_schema.md` → students section
+- `docs/reference/backend_schema.md` → students section
 - `backend/internal/services/students_service.go`
 - `frontend/src/features/students/components/student-detail.tsx`

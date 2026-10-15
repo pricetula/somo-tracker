@@ -27,7 +27,7 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | ... | ... |
 
 ## References
-- `docs/student-module-roadmap.md` - Consolidated student module gaps and roadmap
+- `docs/planning/student-module-roadmap.md` - Consolidated student module gaps and roadmap
 
 ## Process Notes
 - Severity guidance:

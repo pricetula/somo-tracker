@@ -1,6 +1,6 @@
 # Student Module Implementation Checklist
 
-Derived from `docs/student-module-roadmap.md`. For implementation starting next week.
+Derived from `docs/planning/student-module-roadmap.md`. For implementation starting next week.
 
 ## Phase 1 – Core Profile & Schema
 - [ ] Migration: Add structured columns to `students`
@@ -54,6 +54,6 @@ Derived from `docs/student-module-roadmap.md`. For implementation starting next 
 - Docs updated
 
 ## References
-- `docs/student-module-roadmap.md`
+- `docs/planning/student-module-roadmap.md`
 - `docs/features/FEATURE-enhanced-student-profile.md`
 - `docs/features/FEATURE-enhanced-student-listing.md`

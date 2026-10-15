@@ -94,4 +94,4 @@ Backend `SetupClassTimetableSlot` exists and frontend `AssignSlotForm` works, bu
 ## References
 * `frontend/src/features/timetable/SPEC.md`
 * `backend/internal/api/timetable_handler.go`
-* `docs/backend_schema.md` – class_timetable_slots, timetable_substitutions, timetable_attendance
+* `docs/reference/backend_schema.md` – class_timetable_slots, timetable_substitutions, timetable_attendance

@@ -1,0 +1,181 @@
+# Student Detail Component
+
+## Overview
+
+The **Student Detail** component is the primary view for displaying a student's profile in the Somotracker dashboard. It consolidates biographical information, academic data, guardian relationships, and key performance indicators (KPIs) into a single, interactive page.
+
+## Location
+
+- **Source:** `frontend/src/features/students/components/student-detail.tsx`
+- **Documentation:** `frontend/src/features/students/components/student-detail.mdx`
+
+## Purpose
+
+Provide a comprehensive, editable profile page that replaces the current placeholder UI. The page enables:
+- Viewing core student data (name, admission number, DOB, gender, address, contact info)
+- Accessing academic history and enrollment records
+- Managing personal details via inline forms
+- Viewing real-time KPIs (attendance, punctuality, engagement)
+- Editing student metadata directly from the UI
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Profile Overview** | Summary card showing name, admission number, date of birth, gender, and contact details |
+| **Academics Tab** | Current class, enrollment history, and academic progress |
+| **Guardians Tab** | Linked guardian profiles with contact information |
+| **Stats & KPIs Tab** | Attendance rate, tardiness, present/absent counts, trend charts |
+| **Notes Tab** | Internal comments and free-text notes |
+| **Edit Mode** | Inline form for updating personal details (address, phone, email, nationality) |
+| **Responsive Design** | Works on tablet and mobile devices |
+
+## Component Structure
+
+```
+StudentDetail
+├── Header
+│   ├── Student Name
+│   ├── Admission Number
+│   └── Action Button (Edit)
+├── Tabs
+│   ├── Overview
+│   ├── Academics
+│   ├── Guardians
+│   ├── Stats & KPIs
+│   └── Notes
+└── Footer
+    └── Export / Print
+```
+
+### Sub-components
+
+- **`Header`**: Displays student summary and edit button
+- **`OverviewTable`**: Shows core biographical fields
+- **`AcademicsTab`**: Renders class info, enrollment timeline, grades
+- **`GuardiansTab`**: Lists linked guardians with contact details
+- **`StatsKpisTab`**: Displays KPI cards (attendance %, tardiness, present days) plus mini-chart
+- **`EditForm`**: Controlled form for updating personal fields (uses Zod validation)
+
+## Data Flow
+
+1. **Fetch** – `StudentDetail` receives a `studentId` via props and calls `GET /students/{id}` (backend) or uses the SWAGGER annotation (`/students/{id}`).
+2. **Display** – Response data populates the header and tabs.
+3. **Interaction** – Clicking **Edit** triggers a `PATCH /students/{id}` call; changes are validated via Zod and persisted.
+4. **Error Handling** – Errors follow the canonical error contract (`backend/internal/api/errors.go`).
+
+## Usage Example
+
+```tsx
+import { StudentDetail } from "@features/students/components/student-detail.tsx";
+
+<StudentDetail studentId="abc-123" />;
+```
+
+## Component Props
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `studentId` | `string` | Yes | Student identifier |
+| `onStudentUpdated?` | `(student: Student) => void` | No | Callback when student profile updates |
+
+## Accessibility
+
+- Uses Semantic HTML5 elements with ARIA labels
+- Implements keyboard navigation for all interactive elements
+- Includes screen reader support for all status information
+
+## Theme and Styling
+
+- Uses Shadcn UI components exclusively
+- No custom Tailwind classes (following "pure-shadcn" approach)
+- Follows design system tokens from `./lib/design-tokens`
+
+## Implementation Notes
+
+### State Management
+The component uses `React Query` for data fetching:
+- `useQuery(['student', studentId], fetchStudent)`
+- `useMutation(updateStudent)` for editing
+
+### Form Handling
+- Uses `React Hook Form` with `Zod` schema validation
+- Controlled form with real-time validation messages
+- Auto-saves when form fields are blurred
+
+### Performance Optimizations
+- Uses `React.memo` to prevent re-renders
+- Implements infinite scrolling for related data where applicable
+- Lazy loads heavy components like charts
+
+### Error Handling
+- Display errors at the component level, not as toasts
+- Provides clear error messages and recovery actions
+- Fallback content displayed during loading states
+
+## Common Patterns
+
+### Editing Different Sections
+```tsx
+const editOverview = () => {
+  setIsEditingOverview(true);
+};
+```
+
+### Debounced Searches
+```tsx
+const debouncedSearch = useCallback(
+  debounce((value) => {
+    // handle search
+  }, 300),
+  []
+);
+```
+
+## References
+
+- Feature specification: `docs/features/FEATURE-enhanced-student-profile.md`
+- ADR: `docs/adr/001-architecture-decision.md`
+- Backend error contract: `backend/internal/api/errors.go`
+- Frontend API client: `frontend/src/lib/api/client.ts`
+
+## Related Components
+
+- **`StudentForm`** – Shared form component used by this and other student CRUD features
+- **`StudentProfileHeader`** – Standalone profile header component (can be extracted from this)
+- **`StudentKpiCard`** – Individual KPI display component used in the Stats & KPIs tab
+
+## Implementation Checklist
+
+- [ ] API endpoints for `GET /students/{id}` and `PATCH /students/{id}` are registered in `backend/internal/api/router.go`
+- [ ] Backend handlers (`StudentsHandler.GetStudent`/`UpdateStudent`) implement the error contract
+- [ ] Frontend types (`frontend/src/lib/api/generated.ts`) include Student interface
+- [ ] Component implements error boundaries
+- [ ] Component follows "pure-shadcn" guidelines (no custom Tailwind, no nested divs)
+- [ ] Component includes comprehensive accessibility tests
+- [ ] Component documents all props in JSDoc format
+- [ ] Component includes usage examples and playground
+
+## Current Status
+
+**Planned** – Currently a placeholder implementation as described in the feature specification. See `frontend/src/features/students/components/student-detail.tsx` for current state.
+
+## Development Notes
+
+### Local Development
+1. Implement backend handlers first (follow docs-first pattern)
+2. Generate TypeScript types using `pnpm generate:api`
+3. Implement component with controlled forms and proper error handling
+4. Run `pnpm run docs:build` and ensure docs build passes
+
+### Testing Strategy
+1. Unit tests for all component logic
+2. Integration tests for CRUD operations
+3. E2E tests for edit flow using Playwright
+4. Accessibility tests using axe-core
+
+### Future Enhancements
+- Integrate with background workers for real-time KPI updates
+- Add student document upload
+- Implement photo upload for student profiles
+- Add family relationship management features

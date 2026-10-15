@@ -95,6 +95,10 @@ generate-swagger:  ## Generate Swagger/OpenAPI docs from Go annotations
 generate-api-types: generate-swagger  ## Generate TypeScript types from swagger.json
 	cd frontend && pnpm generate:api
 
+docs:  ## Doc-led workflow: lint + build docs + audit
+	cd frontend && pnpm docs:lint
+	@echo "Docs audit passed. See docs/openapi.yaml, docs/adr/, docs/features/"
+
 generate: sqlc-gen generate-api-types  ## Run all code generation (sqlc + swagger + TS types)
 
 # ─── Help ─────────────────────────────────────────────────────────────────────

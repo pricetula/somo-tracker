@@ -11,7 +11,14 @@ The AI agent must **never** run `git add`, `git commit`, or `git push`. All chan
 ```
 ├── .github/      # CI/CD workflows
 ├── backend/      # Go (Fiber) REST API
-├── docs/         # Markdown templates and feature specs
+├── docs/         # Document-led workflow. See docs/CONTRIBUTING.md
+│   ├── reference/   # immutable reference info
+│   ├── planning/    # pre-spec analysis, roadmaps, checklists
+│   ├── features/    # formal feature specs
+│   ├── gaps/        # known missing / broken work
+│   ├── templates/   # gap, feature-spec, adr templates
+│   ├── adr/         # architecture decision records
+│   └── seed/        # seeding / authoring data
 ├── frontend/     # Next.js (App Router) — multi-tenant educational dashboard
 └── public/       # SvelteKit + shadcn-svelte — marketing website
 ```

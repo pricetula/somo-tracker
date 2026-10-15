@@ -103,6 +103,7 @@ This document provides a comprehensive overview of the Somotracker backend datab
   - `school_name` – human‑readable name
   - `country_id` – FK to `countries`
   - `education_system_id` – FK to `education_systems`
+  - `nemis_school_code` – Kenya NEMIS school code, nullable, unique when present
   - `created_at` / `updated_at`
 - **Relationships**: Many‑to‑one with `tenants`; many‑to‑one with `schools` (via `student_class_enrollments`, `guardian_student_links`, etc.), `class_rooms`, `school_memberships`, `streams`.
 
@@ -250,6 +251,7 @@ This document provides a comprehensive overview of the Somotracker backend datab
   - `user_id` - FK to `users`
   - `role` - `user_role` enum
   - `is_active` - boolean (enforced by partial unique index)
+  - `tsc_number` - Kenya TSC registration number for TEACHER memberships, nullable, unique when present, role check enforced
   - `invited_at`, `invited_by`, `accepted_at` - invitation tracking
   - `created_at` / `updated_at` - timestamps
 - **Relationships**: Many-to-one with `schools`, `users`; referenced by `guardian_student_links`, `class_timetable_slots`, `timetable_substitutions`, `timetable_attendance` (recorded_by).
@@ -260,6 +262,7 @@ This document provides a comprehensive overview of the Somotracker backend datab
   - `student_id` (UUID) - primary key
   - `school_id` - FK to `schools`
   - `admission_number` - school-scoped identifier
+  - `nemis_upn` - Kenya NEMIS Unique Pupil Number / Learner ID, nullable, unique when present
   - `full_name`, `date_of_birth`, `gender` (`student_gender` enum: `M`, `F`, `OTHER`)
   - `metadata` - JSONB for external IDs (NEMIS, KICD, etc.)
   - `created_at` / `updated_at`

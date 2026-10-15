@@ -100,6 +100,93 @@ func (ns NullEventAttendanceStatus) Value() (driver.Value, error) {
 	return string(ns.EventAttendanceStatus), nil
 }
 
+type IncidentSeverity string
+
+const (
+	IncidentSeverityLOW    IncidentSeverity = "LOW"
+	IncidentSeverityMEDIUM IncidentSeverity = "MEDIUM"
+	IncidentSeverityHIGH   IncidentSeverity = "HIGH"
+)
+
+func (e *IncidentSeverity) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = IncidentSeverity(s)
+	case string:
+		*e = IncidentSeverity(s)
+	default:
+		return fmt.Errorf("unsupported scan type for IncidentSeverity: %T", src)
+	}
+	return nil
+}
+
+type NullIncidentSeverity struct {
+	IncidentSeverity IncidentSeverity `json:"incident_severity"`
+	Valid            bool             `json:"valid"` // Valid is true if IncidentSeverity is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullIncidentSeverity) Scan(value interface{}) error {
+	if value == nil {
+		ns.IncidentSeverity, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.IncidentSeverity.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullIncidentSeverity) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.IncidentSeverity), nil
+}
+
+type IncidentStatus string
+
+const (
+	IncidentStatusOPEN             IncidentStatus = "OPEN"
+	IncidentStatusPARENTNOTIFIED   IncidentStatus = "PARENT_NOTIFIED"
+	IncidentStatusMEETINGSCHEDULED IncidentStatus = "MEETING_SCHEDULED"
+	IncidentStatusRESOLVED         IncidentStatus = "RESOLVED"
+)
+
+func (e *IncidentStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = IncidentStatus(s)
+	case string:
+		*e = IncidentStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for IncidentStatus: %T", src)
+	}
+	return nil
+}
+
+type NullIncidentStatus struct {
+	IncidentStatus IncidentStatus `json:"incident_status"`
+	Valid          bool           `json:"valid"` // Valid is true if IncidentStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullIncidentStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.IncidentStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.IncidentStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullIncidentStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.IncidentStatus), nil
+}
+
 // Category of room: STANDARD (regular classroom), SCIENCE_LAB, COMPUTER_LAB, GYM.
 type RoomType string
 
@@ -188,6 +275,49 @@ func (ns NullSubstitutionStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.SubstitutionStatus), nil
+}
+
+type ThreadStatus string
+
+const (
+	ThreadStatusACTIVE   ThreadStatus = "ACTIVE"
+	ThreadStatusRESOLVED ThreadStatus = "RESOLVED"
+	ThreadStatusARCHIVED ThreadStatus = "ARCHIVED"
+)
+
+func (e *ThreadStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ThreadStatus(s)
+	case string:
+		*e = ThreadStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ThreadStatus: %T", src)
+	}
+	return nil
+}
+
+type NullThreadStatus struct {
+	ThreadStatus ThreadStatus `json:"thread_status"`
+	Valid        bool         `json:"valid"` // Valid is true if ThreadStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullThreadStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ThreadStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ThreadStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullThreadStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ThreadStatus), nil
 }
 
 // Attendance state for timetable-linked lessons: PRESENT, ABSENT, LATE, or EXCUSED.
@@ -316,6 +446,23 @@ type AcademicYear struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Main incident log for tracking positive and disciplinary student behavior events.
+type BehaviourIncident struct {
+	ID                     pgtype.UUID        `json:"id"`
+	SchoolID               pgtype.UUID        `json:"school_id"`
+	StudentID              pgtype.UUID        `json:"student_id"`
+	IncidentTypeID         pgtype.UUID        `json:"incident_type_id"`
+	Severity               IncidentSeverity   `json:"severity"`
+	Status                 IncidentStatus     `json:"status"`
+	Description            string             `json:"description"`
+	ActionTaken            pgtype.Text        `json:"action_taken"`
+	WitnessCount           int32              `json:"witness_count"`
+	RecordedByMembershipID pgtype.UUID        `json:"recorded_by_membership_id"`
+	RecordedAt             pgtype.Timestamptz `json:"recorded_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
 // Generic bulk ingestion jobs. Reusable across admin invitations, student imports, exam results, staff imports, and future bulk operations.
 type BulkJob struct {
 	// Auto-generated UUID primary key.
@@ -418,6 +565,18 @@ type ClassTimetableSlot struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Active communication channels between staff and guardians, optionally anchored to specific incidents.
+type CommunicationThread struct {
+	ID                  pgtype.UUID        `json:"id"`
+	SchoolID            pgtype.UUID        `json:"school_id"`
+	StudentID           pgtype.UUID        `json:"student_id"`
+	BehaviourIncidentID pgtype.UUID        `json:"behaviour_incident_id"`
+	Subject             string             `json:"subject"`
+	Status              ThreadStatus       `json:"status"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 // Reference table of countries supported by the SIS (ISO 3166-1 alpha-2 codes).
 type Country struct {
 	// Auto-generated UUID primary key.
@@ -506,6 +665,29 @@ type GuardianStudentLink struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Stores confidential clinical notes, illnesses, and first-aid interventions administered to students.
+type HealthNote struct {
+	ID                     pgtype.UUID        `json:"id"`
+	SchoolID               pgtype.UUID        `json:"school_id"`
+	StudentID              pgtype.UUID        `json:"student_id"`
+	NoteType               string             `json:"note_type"`
+	Description            string             `json:"description"`
+	RecordedByMembershipID pgtype.UUID        `json:"recorded_by_membership_id"`
+	RecordedAt             pgtype.Timestamptz `json:"recorded_at"`
+	Status                 string             `json:"status"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Global/reference lookup table standardizing incident categories for multi-tenant behavioral analytics.
+type IncidentType struct {
+	ID              pgtype.UUID        `json:"id"`
+	Name            string             `json:"name"`
+	Category        string             `json:"category"`
+	IsSystemDefault bool               `json:"is_system_default"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 // B2B member identity mirroring Stytch. Created/updated atomically with users during magic-link provisioning.
 type Member struct {
 	// Auto-generated UUID primary key.
@@ -522,6 +704,16 @@ type Member struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Individual message entities supporting full read-receipt tracking and accountability.
+type Message struct {
+	ID                 pgtype.UUID        `json:"id"`
+	ThreadID           pgtype.UUID        `json:"thread_id"`
+	SenderMembershipID pgtype.UUID        `json:"sender_membership_id"`
+	Content            string             `json:"content"`
+	SentAt             pgtype.Timestamptz `json:"sent_at"`
+	ReadAt             pgtype.Timestamptz `json:"read_at"`
 }
 
 // National public holidays at the country level (e.g., Madaraka Day, Labour Day).
@@ -576,6 +768,8 @@ type School struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	// Kenya NEMIS school code. Nullable for non-Kenya schools. Unique when present.
+	NemisSchoolCode pgtype.Text `json:"nemis_school_code"`
 }
 
 // School-specific events (sports, exams, admission days, etc.) with optional attendance tracking.
@@ -619,6 +813,8 @@ type SchoolMembership struct {
 	InvitedAt  pgtype.Timestamptz `json:"invited_at"`
 	InvitedBy  pgtype.UUID        `json:"invited_by"`
 	AcceptedAt pgtype.Timestamptz `json:"accepted_at"`
+	// Kenya TSC registration number for TEACHER memberships. Nullable for other roles and non-Kenya schools.
+	TscNumber pgtype.Text `json:"tsc_number"`
 }
 
 // Server-issued opaque session tokens. Tokens are stored in HttpOnly cookies; the raw Stytch session token is cached only in Redis.
@@ -670,6 +866,8 @@ type Student struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	// Kenya NEMIS Unique Pupil Number / Learner ID. Nullable for non-Kenya students. Unique when present.
+	NemisUpn pgtype.Text `json:"nemis_upn"`
 }
 
 // Historical mapping of a student to a class_room for a specific academic term or year. Preserves attendance, assessments, and report cards permanently.
@@ -765,6 +963,14 @@ type Tenant struct {
 	StytchOrgID string `json:"stytch_org_id"`
 	// UTC timestamp of row creation.
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+// Participant roster for messaging threads, ensuring strict RLS enforcement.
+type ThreadParticipant struct {
+	ID                 pgtype.UUID        `json:"id"`
+	ThreadID           pgtype.UUID        `json:"thread_id"`
+	SchoolMembershipID pgtype.UUID        `json:"school_membership_id"`
+	JoinedAt           pgtype.Timestamptz `json:"joined_at"`
 }
 
 // Individual periods or breaks belonging to a specific template (e.g., Period 1, Morning Break).
@@ -889,4 +1095,18 @@ type User struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification (updated by application code, not triggers by default).
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Structured student immunization ledger for official health compliance and government reporting.
+type VaccinationRecord struct {
+	ID          pgtype.UUID        `json:"id"`
+	SchoolID    pgtype.UUID        `json:"school_id"`
+	StudentID   pgtype.UUID        `json:"student_id"`
+	VaccineName string             `json:"vaccine_name"`
+	BatchNumber pgtype.Text        `json:"batch_number"`
+	DateGiven   pgtype.Date        `json:"date_given"`
+	NextDueDate pgtype.Date        `json:"next_due_date"`
+	Status      string             `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }

@@ -71,6 +71,48 @@ func (q *Queries) DeleteStudents(ctx context.Context, arg DeleteStudentsParams) 
 	return err
 }
 
+const getStudentByID = `-- name: GetStudentByID :one
+SELECT s.student_id, s.school_id, s.admission_number, s.nemis_upn, s.full_name, s.date_of_birth, s.gender, s.metadata, s.created_at, s.updated_at
+FROM students s
+WHERE s.student_id = $1 AND s.school_id = $2
+`
+
+type GetStudentByIDParams struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	SchoolID  pgtype.UUID `json:"school_id"`
+}
+
+type GetStudentByIDRow struct {
+	StudentID       pgtype.UUID        `json:"student_id"`
+	SchoolID        pgtype.UUID        `json:"school_id"`
+	AdmissionNumber string             `json:"admission_number"`
+	NemisUpn        pgtype.Text        `json:"nemis_upn"`
+	FullName        string             `json:"full_name"`
+	DateOfBirth     pgtype.Date        `json:"date_of_birth"`
+	Gender          interface{}        `json:"gender"`
+	Metadata        []byte             `json:"metadata"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) (GetStudentByIDRow, error) {
+	row := q.db.QueryRow(ctx, getStudentByID, arg.StudentID, arg.SchoolID)
+	var i GetStudentByIDRow
+	err := row.Scan(
+		&i.StudentID,
+		&i.SchoolID,
+		&i.AdmissionNumber,
+		&i.NemisUpn,
+		&i.FullName,
+		&i.DateOfBirth,
+		&i.Gender,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getStudentSummary = `-- name: GetStudentSummary :one
 SELECT
   gc.total_count AS total_students,
@@ -217,4 +259,37 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]L
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateStudent = `-- name: UpdateStudent :exec
+UPDATE students SET
+  full_name = COALESCE(NULLIF($3, ''), full_name),
+  date_of_birth = COALESCE($4, date_of_birth),
+  gender = COALESCE(NULLIF($5::text, ''), gender),
+  nemis_upn = COALESCE(NULLIF($6, ''), nemis_upn),
+  metadata = COALESCE($7, metadata)
+WHERE student_id = $1 AND school_id = $2
+`
+
+type UpdateStudentParams struct {
+	StudentID   pgtype.UUID `json:"student_id"`
+	SchoolID    pgtype.UUID `json:"school_id"`
+	Column3     interface{} `json:"column_3"`
+	DateOfBirth pgtype.Date `json:"date_of_birth"`
+	Column5     string      `json:"column_5"`
+	Column6     interface{} `json:"column_6"`
+	Metadata    []byte      `json:"metadata"`
+}
+
+func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) error {
+	_, err := q.db.Exec(ctx, updateStudent,
+		arg.StudentID,
+		arg.SchoolID,
+		arg.Column3,
+		arg.DateOfBirth,
+		arg.Column5,
+		arg.Column6,
+		arg.Metadata,
+	)
+	return err
 }

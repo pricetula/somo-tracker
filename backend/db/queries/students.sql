@@ -78,3 +78,17 @@ SELECT
                      WHERE sm.school_id = $1) AS unlinked_guardians_count
 FROM student_gender_counts gc
 WHERE gc.school_id = $1;
+
+-- name: GetStudentByID :one
+SELECT s.student_id, s.school_id, s.admission_number, s.nemis_upn, s.full_name, s.date_of_birth, s.gender, s.metadata, s.created_at, s.updated_at
+FROM students s
+WHERE s.student_id = $1 AND s.school_id = $2;
+
+-- name: UpdateStudent :exec
+UPDATE students SET
+  full_name = COALESCE(NULLIF($3, ''), full_name),
+  date_of_birth = COALESCE($4, date_of_birth),
+  gender = COALESCE(NULLIF($5::text, ''), gender),
+  nemis_upn = COALESCE(NULLIF($6, ''), nemis_upn),
+  metadata = COALESCE($7, metadata)
+WHERE student_id = $1 AND school_id = $2;

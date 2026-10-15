@@ -77,6 +77,7 @@ type Querier interface {
 	GetSchoolMembershipRole(ctx context.Context, arg GetSchoolMembershipRoleParams) (UserRole, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
 	GetStream(ctx context.Context, id pgtype.UUID) (GetStreamRow, error)
+	GetStudentByID(ctx context.Context, arg GetStudentByIDParams) (GetStudentByIDRow, error)
 	GetStudentSummary(ctx context.Context, arg GetStudentSummaryParams) (GetStudentSummaryRow, error)
 	GetSubTopicByID(ctx context.Context, id pgtype.UUID) (GetSubTopicByIDRow, error)
 	GetSubjectByID(ctx context.Context, id pgtype.UUID) (GetSubjectByIDRow, error)
@@ -120,6 +121,7 @@ type Querier interface {
 	UpdateMembershipInvitationState(ctx context.Context, arg UpdateMembershipInvitationStateParams) error
 	UpdateRoom(ctx context.Context, arg UpdateRoomParams) (Room, error)
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
+	UpdateStudent(ctx context.Context, arg UpdateStudentParams) error
 	UpdateTimetableSubstitution(ctx context.Context, arg UpdateTimetableSubstitutionParams) error
 	UpdateTimetableTemplate(ctx context.Context, arg UpdateTimetableTemplateParams) error
 	// Upserts (or updates) a school_membership during bulk invitation.

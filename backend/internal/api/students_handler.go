@@ -207,3 +207,60 @@ func (h *StudentsHandler) GetStudentSummary(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(summary)
 }
+
+// GetStudent returns enriched profile for a student
+// @Summary Get student profile
+// @Tags Students
+// @Produce json
+// @Param id path string true "Student ID"
+// @Success 200 {object} services.StudentProfile
+// @Security ApiKeyAuth
+// @Router /students/{id} [get]
+func (h *StudentsHandler) GetStudent(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+	}
+	schoolID, _ := uuid.Parse(schoolIDStr)
+	studentID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid student id", "errors": fiber.Map{}})
+	}
+	profile, err := h.svc.GetStudentByID(c.Context(), schoolID, studentID)
+	if err != nil {
+		h.logger.Error("get student failed", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to get student", "errors": fiber.Map{}})
+	}
+	return c.Status(fiber.StatusOK).JSON(profile)
+}
+
+// UpdateStudent patches personal fields
+// @Summary Update student profile
+// @Tags Students
+// @Accept json
+// @Produce json
+// @Param id path string true "Student ID"
+// @Param body body services.UpdateStudentRequest true "Update payload"
+// @Success 200 {object} map[string]any
+// @Security ApiKeyAuth
+// @Router /students/{id} [patch]
+func (h *StudentsHandler) UpdateStudent(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": "unauthorized", "message": "active school not found", "errors": fiber.Map{}})
+	}
+	schoolID, _ := uuid.Parse(schoolIDStr)
+	studentID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid student id", "errors": fiber.Map{}})
+	}
+	var req services.UpdateStudentRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "bad_request", "message": "invalid body", "errors": fiber.Map{}})
+	}
+	if err := h.svc.UpdateStudent(c.Context(), schoolID, studentID, req); err != nil {
+		h.logger.Error("update student failed", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "failed to update student", "errors": fiber.Map{}})
+	}
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"code": "student_updated", "message": "student updated", "errors": fiber.Map{}})
+}

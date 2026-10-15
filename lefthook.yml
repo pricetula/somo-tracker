@@ -30,3 +30,9 @@ pre-commit:
       glob: "*.{js,jsx,ts,tsx,json,css,md}"
       run: npx prettier --write {staged_files}
       stage_fixed: true
+
+    public-lint:
+      root: "public/"
+      glob: "*.{astro,js,ts,mjs,json,md}"
+      run: pnpm run lint
+      stage_fixed: false

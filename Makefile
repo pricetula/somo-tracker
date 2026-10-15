@@ -51,6 +51,14 @@ build-api:    ## Build the API service (no start)
 lint:  ## Run golangci-lint (backend)
 	cd backend && golangci-lint run
 
+lint-frontend:  ## Run ESLint (frontend)
+	cd frontend && pnpm lint
+
+lint-public:  ## Run lint (public)
+	cd public && pnpm run lint
+
+lint-all: lint lint-frontend lint-public  ## Run all lints (backend + frontend + public)
+
 vet:   ## Run go vet (backend)
 	cd backend && go vet ./...
 

@@ -2,9 +2,10 @@
 
 **Area:** frontend
 **Severity:** High
-**Status:** Open
-**Owner:** 
+**Status:** Closed
+**Owner:** Platform team
 **Created:** 2026-10-15
+**Resolved:** 2026-10-15
 **Related Issues:** #
 
 ## Description
@@ -39,9 +40,9 @@ Admins cannot view or edit student details in UI. Forces use of lists only.
 - Frontend component has scaffolded tabs and TODO comments for data fetching
 
 ## Acceptance Criteria
-- [ ] Page loads student data
-- [ ] Shows core fields from schema
-- [ ] Navigation works without dumb back button
+- [x] Page loads student data
+- [x] Shows core fields from schema
+- [x] Navigation works without dumb back button
 
 ## Links
 - Feature: `docs/features/FEATURE-enhanced-student-profile.md`

@@ -12,6 +12,7 @@ The **Student Detail** component is the primary view for displaying a student's 
 ## Purpose
 
 Provide a comprehensive, editable profile page that replaces the current placeholder UI. The page enables:
+
 - Viewing core student data (name, admission number, DOB, gender, address, contact info)
 - Accessing academic history and enrollment records
 - Managing personal details via inline forms
@@ -20,15 +21,15 @@ Provide a comprehensive, editable profile page that replaces the current placeho
 
 ## Key Features
 
-| Feature | Description |
-|---------|-------------|
-| **Profile Overview** | Summary card showing name, admission number, date of birth, gender, and contact details |
-| **Academics Tab** | Current class, enrollment history, and academic progress |
-| **Guardians Tab** | Linked guardian profiles with contact information |
-| **Stats & KPIs Tab** | Attendance rate, tardiness, present/absent counts, trend charts |
-| **Notes Tab** | Internal comments and free-text notes |
-| **Edit Mode** | Inline form for updating personal details (address, phone, email, nationality) |
-| **Responsive Design** | Works on tablet and mobile devices |
+| Feature               | Description                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| **Profile Overview**  | Summary card showing name, admission number, date of birth, gender, and contact details |
+| **Academics Tab**     | Current class, enrollment history, and academic progress                                |
+| **Guardians Tab**     | Linked guardian profiles with contact information                                       |
+| **Stats & KPIs Tab**  | Attendance rate, tardiness, present/absent counts, trend charts                         |
+| **Notes Tab**         | Internal comments and free-text notes                                                   |
+| **Edit Mode**         | Inline form for updating personal details (address, phone, email, nationality)          |
+| **Responsive Design** | Works on tablet and mobile devices                                                      |
 
 ## Component Structure
 
@@ -74,10 +75,10 @@ import { StudentDetail } from "@features/students/components/student-detail.tsx"
 
 ## Component Props
 
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `studentId` | `string` | Yes | Student identifier |
-| `onStudentUpdated?` | `(student: Student) => void` | No | Callback when student profile updates |
+| Prop                | Type                         | Required | Description                           |
+| ------------------- | ---------------------------- | -------- | ------------------------------------- |
+| `studentId`         | `string`                     | Yes      | Student identifier                    |
+| `onStudentUpdated?` | `(student: Student) => void` | No       | Callback when student profile updates |
 
 ## Accessibility
 
@@ -94,21 +95,26 @@ import { StudentDetail } from "@features/students/components/student-detail.tsx"
 ## Implementation Notes
 
 ### State Management
+
 The component uses `React Query` for data fetching:
+
 - `useQuery(['student', studentId], fetchStudent)`
 - `useMutation(updateStudent)` for editing
 
 ### Form Handling
+
 - Uses `React Hook Form` with `Zod` schema validation
 - Controlled form with real-time validation messages
 - Auto-saves when form fields are blurred
 
 ### Performance Optimizations
+
 - Uses `React.memo` to prevent re-renders
 - Implements infinite scrolling for related data where applicable
 - Lazy loads heavy components like charts
 
 ### Error Handling
+
 - Display errors at the component level, not as toasts
 - Provides clear error messages and recovery actions
 - Fallback content displayed during loading states
@@ -116,19 +122,21 @@ The component uses `React Query` for data fetching:
 ## Common Patterns
 
 ### Editing Different Sections
+
 ```tsx
 const editOverview = () => {
-  setIsEditingOverview(true);
+    setIsEditingOverview(true);
 };
 ```
 
 ### Debounced Searches
+
 ```tsx
 const debouncedSearch = useCallback(
-  debounce((value) => {
-    // handle search
-  }, 300),
-  []
+    debounce((value) => {
+        // handle search
+    }, 300),
+    []
 );
 ```
 
@@ -163,18 +171,21 @@ const debouncedSearch = useCallback(
 ## Development Notes
 
 ### Local Development
+
 1. Implement backend handlers first (follow docs-first pattern)
 2. Generate TypeScript types using `pnpm generate:api`
 3. Implement component with controlled forms and proper error handling
 4. Run `pnpm run docs:build` and ensure docs build passes
 
 ### Testing Strategy
+
 1. Unit tests for all component logic
 2. Integration tests for CRUD operations
 3. E2E tests for edit flow using Playwright
 4. Accessibility tests using axe-core
 
 ### Future Enhancements
+
 - Integrate with background workers for real-time KPI updates
 - Add student document upload
 - Implement photo upload for student profiles

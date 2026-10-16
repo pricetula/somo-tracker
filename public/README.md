@@ -1,43 +1,29 @@
-# Astro Starter Kit: Minimal
+# Somotracker — Public Landing Page
 
-```sh
-pnpm create astro@latest -- --template minimal
-```
+Astro + Tailwind CSS v4 marketing site. No React, minimal JS.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Placeholders to fill
 
-## 🚀 Project Structure
+- `[DEADLINE]` — application close date
+- `[FORM_ENDPOINT]` — form endpoint URL (e.g. Formspree)
+- `[FOUNDER NAME]` — founder name
+- `[FOUNDER STORY]` — 2-line plain story
+- `[WHATSAPP_NUMBER_INTERNATIONAL_FORMAT]` — e.g. `2547XXXXXXXX`
+- `[PILOT_SIZE]` — number of pilot schools
+- `[POST_PILOT_PRICING_LINE]` — pricing line, or omit if undecided
+- `[NUMBER]`, `[EMAIL]` — WhatsApp and email in footer
+- Illustration slots: hero-adjacent, timetable, attendance, substitutions, founder photo
+- `public/og-wordmark.png` — Open Graph image (white/ink wordmark)
 
-Inside of your Astro project, you'll see the following folders and files:
+## Build notes
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+- Confirm each FeatureCards item is demo-able before launch. Remove any that are not.
+- Roadmap: only keep a feature in "Building" if it will ship by Term 1 2027; otherwise move to "Next".
+- Form endpoint must return proper JSON; progressive enhancement script handles demo mode when `[FORM_ENDPOINT]` is a placeholder.
+- Privacy Policy must cover children's data under Kenya's Data Protection Act 2019.
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Performance
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- Self-hosted Inter Variable via `@fontsource-variable/inter`
+- Total page weight target: < 500 KB
+- No render-blocking third-party scripts; add Plausible or similar only if needed.

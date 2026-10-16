@@ -56,3 +56,29 @@ export type StudentSummary = {
 export async function getStudentSummary(): Promise<StudentSummary> {
     return api.get<StudentSummary>("/api/students/summary");
 }
+
+export type StudentProfile = {
+    student_id: string;
+    admission_number: string;
+    nemis_upn?: string;
+    full_name: string;
+    date_of_birth: string;
+    gender: string;
+    metadata?: Record<string, unknown>;
+};
+
+export type UpdateStudentRequest = {
+    full_name?: string;
+    date_of_birth?: string;
+    gender?: string;
+    nemis_upn?: string;
+    metadata?: Record<string, unknown>;
+};
+
+export async function getStudent(id: string): Promise<StudentProfile> {
+    return api.get<StudentProfile>(`/api/students/${id}`);
+}
+
+export async function updateStudent(id: string, data: UpdateStudentRequest): Promise<void> {
+    return api.patch<void>(`/api/students/${id}`, data);
+}

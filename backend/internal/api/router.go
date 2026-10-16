@@ -257,6 +257,8 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// Students listing
 	protected.Get("/students", r.Students.ListStudents)
 	protected.Get("/students/summary", r.Students.GetStudentSummary)
+	protected.Get("/students/:id", r.Students.GetStudent)
+	protected.Patch("/students/:id", r.Students.UpdateStudent)
 	protected.Delete("/students", r.Students.DeleteStudents)
 
 	// Subjects list for data table with infinite pagination

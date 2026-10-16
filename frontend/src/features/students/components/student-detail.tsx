@@ -1,32 +1,52 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+    getStudent,
+    updateStudent,
+    type StudentProfile,
+    type UpdateStudentRequest,
+} from "@/lib/api/students";
+import { toast } from "sonner";
 
 interface StudentDetailProps {
     id: string;
 }
 
-interface StudentProfile {
-    student_id: string;
-    admission_number: string;
-    nemis_upn?: string;
-    full_name: string;
-    date_of_birth: string;
-    gender: string;
-}
-
 export function StudentDetail({ id }: StudentDetailProps) {
-    const [profile, setProfile] = useState<StudentProfile | null>(null);
+    const queryClient = useQueryClient();
     const [editing, setEditing] = useState(false);
-    // TODO: fetch profile via TanStack Query GET /students/:id
-    // TODO: PATCH /students/:id on save
+    const [draft, setDraft] = useState<Partial<StudentProfile>>({});
 
-    if (!profile) {
+    const {
+        data: profile,
+        isLoading,
+        error,
+    } = useQuery<StudentProfile>({
+        queryKey: ["students", id],
+        queryFn: () => getStudent(id),
+        enabled: !!id,
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: (data: UpdateStudentRequest) => updateStudent(id, data),
+        onSuccess: () => {
+            toast.success("Student updated");
+            queryClient.invalidateQueries({ queryKey: ["students", id] });
+            setEditing(false);
+        },
+        onError: (_err) => {
+            toast.error("Failed to update student");
+        },
+    });
+
+    if (isLoading) {
         return (
             <div className="p-6">
                 <h1 className="text-2xl font-semibold">Student</h1>
@@ -35,6 +55,26 @@ export function StudentDetail({ id }: StudentDetailProps) {
             </div>
         );
     }
+
+    if (error || !profile) {
+        return (
+            <div className="p-6">
+                <h1 className="text-2xl font-semibold">Student</h1>
+                <p className="mt-2">Student ID: {id}</p>
+                <p className="text-destructive mt-1">Failed to load profile</p>
+            </div>
+        );
+    }
+
+    const handleSave = () => {
+        const payload: UpdateStudentRequest = {
+            full_name: draft.full_name,
+            date_of_birth: draft.date_of_birth,
+            gender: draft.gender,
+            nemis_upn: draft.nemis_upn,
+        };
+        updateMutation.mutate(payload);
+    };
 
     return (
         <div className="space-y-6 p-6">
@@ -66,20 +106,28 @@ export function StudentDetail({ id }: StudentDetailProps) {
                                 <div>
                                     <Label>NEMIS UPN</Label>
                                     <Input
-                                        value={profile.nemis_upn || ""}
+                                        value={
+                                            editing
+                                                ? (draft.nemis_upn ?? profile.nemis_upn ?? "")
+                                                : (profile.nemis_upn ?? "")
+                                        }
                                         disabled={!editing}
                                         onChange={(e) =>
-                                            setProfile({ ...profile, nemis_upn: e.target.value })
+                                            setDraft({ ...draft, nemis_upn: e.target.value })
                                         }
                                     />
                                 </div>
                                 <div>
                                     <Label>Full Name</Label>
                                     <Input
-                                        value={profile.full_name}
+                                        value={
+                                            editing
+                                                ? (draft.full_name ?? profile.full_name)
+                                                : profile.full_name
+                                        }
                                         disabled={!editing}
                                         onChange={(e) =>
-                                            setProfile({ ...profile, full_name: e.target.value })
+                                            setDraft({ ...draft, full_name: e.target.value })
                                         }
                                     />
                                 </div>
@@ -87,28 +135,51 @@ export function StudentDetail({ id }: StudentDetailProps) {
                                     <Label>Date of Birth</Label>
                                     <Input
                                         type="date"
-                                        value={profile.date_of_birth}
+                                        value={
+                                            editing
+                                                ? (draft.date_of_birth ?? profile.date_of_birth)
+                                                : profile.date_of_birth
+                                        }
                                         disabled={!editing}
                                         onChange={(e) =>
-                                            setProfile({
-                                                ...profile,
-                                                date_of_birth: e.target.value,
-                                            })
+                                            setDraft({ ...draft, date_of_birth: e.target.value })
                                         }
                                     />
                                 </div>
                                 <div>
                                     <Label>Gender</Label>
                                     <Input
-                                        value={profile.gender}
+                                        value={
+                                            editing
+                                                ? (draft.gender ?? profile.gender)
+                                                : profile.gender
+                                        }
                                         disabled={!editing}
                                         onChange={(e) =>
-                                            setProfile({ ...profile, gender: e.target.value })
+                                            setDraft({ ...draft, gender: e.target.value })
                                         }
                                     />
                                 </div>
                             </div>
-                            {editing && <Button onClick={() => setEditing(false)}>Save</Button>}
+                            {editing && (
+                                <div className="flex gap-2">
+                                    <Button
+                                        onClick={handleSave}
+                                        disabled={updateMutation.isPending}
+                                    >
+                                        {updateMutation.isPending ? "Saving..." : "Save"}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            setEditing(false);
+                                            setDraft({});
+                                        }}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

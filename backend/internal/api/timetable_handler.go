@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -210,6 +211,17 @@ func (h *TimetableHandler) SetupClassTimetableSlot(c fiber.Ctx) error {
 	err = h.svc.SetupClassTimetableSlot(c.Context(), schoolID, req.ClassRoomID, req.TimeSlotID, req.SubjectID, req.TeacherMembershipID, req.DayOfWeek, req.RoomID)
 	if err != nil {
 		h.logger.Error("setup class timetable slot failed", zap.Error(err))
+		if strings.HasPrefix(err.Error(), "timetable_conflict:") {
+			conflictType := strings.TrimPrefix(err.Error(), "timetable_conflict:")
+			return WriteError(c, APIError{
+				Status:  fiber.StatusConflict,
+				Code:    "timetable_conflict",
+				Message: "Timetable conflict detected",
+				Errors: map[string][]string{
+					"conflicts": {conflictType},
+				},
+			})
+		}
 		return WriteError(c, ErrBadRequest(err.Error(), nil))
 	}
 

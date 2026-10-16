@@ -2,7 +2,7 @@
 
 **Area:** backend
 **Severity:** High
-**Status:** Open
+**Status:** In Progress
 **Created:** 2026-10-15
 
 ## Description

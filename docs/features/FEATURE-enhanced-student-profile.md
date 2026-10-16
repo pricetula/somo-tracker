@@ -10,6 +10,14 @@
 ## Summary
 Expand the current student detail view from a placeholder to a comprehensive profile with editable personal info, guardian links, and student stats/KPIs for attendance, academic progress and engagement.
 
+## Rationale
+**Why now:** Admins and teachers currently bounce between list, enrollment, guardian and attendance screens to assemble a student’s story. The placeholder profile blocks core workflows and creates data entry friction.
+**Business outcome:** Faster decisions, fewer support tickets for missing student details, and a foundation for guardian communications and reporting.
+**Success metrics:**
+- Profile page load < 500ms p95
+- Edit success rate > 98%
+- Time to view full student context reduced from 3 screens to 1
+
 ## Current State
 **Backend:** `StudentsHandler.GetStudent` and `StudentsHandler.UpdateStudent` exist in `backend/internal/api/students_handler.go` with Swagger annotations for `GET /students/{id}` and `PATCH /students/{id}`. Handlers call `StudentsService.GetStudentByID` / `UpdateStudent`. Routes are **not wired** in `backend/internal/api/router.go` — only `GET /students`, `GET /students/summary`, `DELETE /students` are registered.
 **Frontend:** `frontend/src/features/students/components/student-detail.tsx` renders placeholder UI with `profile` state initialized to null and TODO comments for `GET /students/:id` and `PATCH /students/:id`. Tabs are scaffolded but empty. List page works.
@@ -112,9 +120,29 @@ Current `students` schema has limited columns. Use `metadata JSONB` for flexible
 - Frontend E2E for edit flow
 - RLS tests for tenant isolation
 
+### Test Matrix
+| ID | Scope | Method | Data | Expected Result |
+|----|-------|--------|------|-----------------|
+| T-01 | GET /students/:id | API contract | Valid student ID, correct tenant | 200 with student_id, admission_number, full_name, date_of_birth, gender, nemis_upn |
+| T-02 | GET /students/:id | API contract | Wrong tenant | 404 / 403 per RLS |
+| T-03 | PATCH /students/:id | API contract | Valid partial payload | 200, fields persisted |
+| T-04 | PATCH /students/:id | Validation | Invalid date format | 400 with error contract |
+| T-05 | UI Load | Playwright | Navigate to /students/[id] | Profile renders, tabs visible, no dumb back button |
+| T-06 | UI Edit | Playwright | Edit name & save | Optimistic update, toast success, query invalidated |
+| T-07 | RLS | Integration | Cross-tenant request | Data not leaked |
+
+
 ## Rollout
 - Feature flag `enhanced_student_profile`
 - Backend first, then frontend
+
+## Implementation Notes
+**2026-10-15 – Done**
+- Wired `GET /students/:id` and `PATCH /students/:id` in `backend/internal/api/router.go`; handlers already existed in `students_handler.go`
+- Added `getStudent` / `updateStudent` helpers to `frontend/src/lib/api/students.ts`
+- Replaced placeholder `StudentDetail` with TanStack Query data fetching + mutation, Shadcn UI tabs, edit mode
+- Deviation from spec: address/phone/email/nationality displayed via `metadata JSONB` later; current V1 shows core fields full_name, admission_number, date_of_birth, gender, nemis_upn
+- Stats & KPIs, Guardians, Academics tabs scaffolded for future work per open gaps
 
 ## References
 - Current placeholder: `frontend/src/features/students/components/student-detail.tsx`

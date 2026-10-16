@@ -1,6 +1,6 @@
 # Feature: Timetable Conflict Detection
 
-**Status:** Proposed
+**Status:** In Progress
 **Owner:** Platform Team
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
@@ -9,6 +9,14 @@
 
 ## Summary
 Prevent invalid class timetable assignments by detecting teacher double-booking, room double-booking, and class overlapping slots at creation/update time, returning a typed error with details.
+
+## Rationale
+**Why now:** Without server-side validation, schools can publish timetables with teachers in two places at once and rooms over-booked, leading to operational failure on day one of term.
+**Business outcome:** Data integrity for the core scheduling workflow, reduced manual corrections, increased trust in Somotracker vs spreadsheets.
+**Success metrics:**
+- Zero double-booked teacher/room/class slots created in production
+- Conflict detection latency < 100ms p95
+- 409 error handling coverage 100% in assign flow
 
 ## Current State
 **Backend:** `SetupClassTimetableSlot` in `backend/internal/services/timetable_service.go` parses IDs, resolves academic period, and creates `class_timetable_slot` in a transaction. No conflict checks exist for teacher, room, or class. Validation only checks `day_of_week` range 1-7.
@@ -108,10 +116,31 @@ Add server-side validation in the Timetable service before persisting `class_tim
 - RLS tests: ensure tenant cannot see other school conflicts
 - Frontend E2E: assign conflicting teacher, assert error banner appears, assignment not persisted
 
+### Test Matrix
+| ID | Scope | Given | When | Then |
+|----|-------|-------|------|------|
+| T-01 | Teacher double-book | Teacher A assigned Mon 08:00-09:00 Class 1 | POST /timetable/setup assigns Teacher A Mon 08:00-09:00 Class 2 | 409, code `timetable_conflict`, conflicts[0].type = `teacher_double_book` |
+| T-02 | Room double-book | Room 101 assigned Mon 08:00-09:00 Class 1 | POST assigns Room 101 Mon 08:00-09:00 Class 2 | 409, conflicts[0].type = `room_double_book` |
+| T-03 | Class overlap | Class 1 has Mon 08:00-09:00 slot | POST assigns another slot Mon 08:00-09:00 to same Class 1 | 409, conflicts[0].type = `class_overlap` |
+| T-04 | Happy path | No conflicts exist | POST valid slot | 201/200, slot created |
+| T-05 | Term resolution | School in break status | POST without term_id | Term resolved to next term, validation uses resolved term |
+| T-06 | RLS isolation | Tenant A has slot, Tenant B tries same teacher/time via different school | POST from Tenant B | No conflict reported, tenant isolation enforced |
+| T-07 | Frontend error UX | 409 returned from API | Assign form receives conflict | Inline error shown, Save disabled, toast displayed |
+
+
 ## Rollout
 - Feature flag: `timetable_conflict_detection` default on
 - Backend first, frontend error handling second
 - Monitor error rate for `timetable_conflict` in logs
+
+## Implementation Notes
+**2026-10-15 – In Progress**
+- Docs enhanced with Rationale, Test Matrix and Implementation Notes template to pilot document-led workflow
+- Backend validation implemented in `internal/services/timetable_service.go` SetupClassTimetableSlot: teacher, room, class conflict checks inside transaction
+- Handler `api/timetable_handler.go` maps `timetable_conflict:*` errors to 409 with code `timetable_conflict`
+- E2E Playwright tests added in `frontend/tests/e2e/timetable-conflict.spec.ts` covering teacher/room/class conflicts and happy path
+- Frontend error handling for 409 `timetable_conflict` pending in assign form
+- Feature flag `timetable_conflict_detection` remains default on
 
 ## References
 - Gap: `docs/gaps/GAP-timetable-conflict-detection.md`

@@ -126,9 +126,37 @@ func (s *timetableService) SetupClassTimetableSlot(ctx context.Context, schoolID
 		}
 	}()
 
+	// Conflict detection
+	exists := false
+	// Teacher double-book
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM class_timetable_slots WHERE school_id=$1 AND academic_term_id=$2 AND day_of_week=$3 AND time_slot_id=$4 AND teacher_membership_id=$5)`, schoolID, termID, dayOfWeek, timeSlotUUID, teacherUUID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("conflict check teacher: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("timetable_conflict:teacher_double_book")
+	}
+	// Room double-book
+	if roomID != "" {
+		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM class_timetable_slots WHERE school_id=$1 AND academic_term_id=$2 AND day_of_week=$3 AND time_slot_id=$4 AND room_id=$5)`, schoolID, termID, dayOfWeek, timeSlotUUID, roomUUID).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("conflict check room: %w", err)
+		}
+		if exists {
+			return fmt.Errorf("timetable_conflict:room_double_book")
+		}
+	}
+	// Class overlap
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM class_timetable_slots WHERE school_id=$1 AND academic_term_id=$2 AND day_of_week=$3 AND time_slot_id=$4 AND class_room_id=$5)`, schoolID, termID, dayOfWeek, timeSlotUUID, classRoomUUID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("conflict check class: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("timetable_conflict:class_overlap")
+	}
+
 	qtx := s.queries.WithTx(tx)
 
-	// Optional: ensure uniqueness per class_room, day, time_slot, term
 	_, err = qtx.CreateClassTimetableSlot(ctx, sqlc.CreateClassTimetableSlotParams{
 		SchoolID:            pgtype.UUID{Bytes: schoolID, Valid: true},
 		ClassRoomID:         pgtype.UUID{Bytes: classRoomUUID, Valid: true},

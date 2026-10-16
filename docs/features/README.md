@@ -13,7 +13,7 @@ This index lists all documented features for Somotracker. Each feature lives und
 | Bulk Operations Framework | bulk-jobs | Done | Platform | backend |
 | Enhanced Student Profile | enhanced-student-profile | Done | Product / Platform | backend, frontend |
 | Enhanced Student Listing | enhanced-student-listing | Proposed | Product / Platform | backend, frontend |
-| Timetable Conflict Detection | timetable-conflict-detection | Proposed | Platform | backend, frontend |
+| Timetable Conflict Detection | timetable-conflict-detection | In Progress | Platform | backend, frontend |
 | Student Timetable View | student-timetable-view | Proposed | Product / Platform | backend, frontend |
 | Student Schema Enhancement | student-schema-enhancement | Proposed | Platform | backend |
 | Timetable Class Assignment UI Polish | timetable-class-assignment-ui | Proposed | Product / Platform | frontend, backend |

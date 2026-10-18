@@ -2,9 +2,10 @@
 
 **Area:** backend
 **Severity:** High
-**Status:** Open
-**Owner:** 
+**Status:** Done
+**Owner:** Platform team
 **Created:** 2026-10-15
+**Closed:** 2026-10-15
 **Related Issues:** #
 
 ## Description
@@ -41,10 +42,10 @@ Inconsistent API responses break frontend `ApiError` handling. Silent parse fail
 Enforce canonical error contract across all handlers via lint/review checklist.
 
 ## Acceptance Criteria
-- [ ] `StudentsHandler.GetStudent` and `UpdateStudent` use `WriteError`
-- [ ] No `_` discards on `uuid.Parse` in handlers
-- [ ] All errors follow `{code, message, errors}` shape
-- [ ] Frontend `ApiError` client parses responses without fallback
+- [x] `StudentsHandler.GetStudent` and `UpdateStudent` use `WriteError`
+- [x] No `_` discards on `uuid.Parse` in handlers
+- [x] All errors follow `{code, message, errors}` shape
+- [x] Frontend `ApiError` client parses responses without fallback
 
 ## Links
 * Error contract: `backend/internal/api/errors.go`

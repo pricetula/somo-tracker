@@ -14,14 +14,16 @@ import (
 )
 
 type StudentListItem struct {
-	StudentID       string `json:"student_id"`
-	AdmissionNumber string `json:"admission_number"`
-	FullName        string `json:"full_name"`
-	DateOfBirth     string `json:"date_of_birth"`
-	Gender          string `json:"gender"`
-	ClassID         string `json:"class_id"`
-	ClassName       string `json:"class_name"`
-	GradeLevel      string `json:"grade_level"`
+	StudentID       string   `json:"student_id"`
+	AdmissionNumber string   `json:"admission_number"`
+	FullName        string   `json:"full_name"`
+	DateOfBirth     string   `json:"date_of_birth"`
+	Gender          string   `json:"gender"`
+	ClassID         string   `json:"class_id"`
+	ClassName       string   `json:"class_name"`
+	GradeLevel      string   `json:"grade_level"`
+	GuardianLinked  bool     `json:"guardian_linked"`
+	AttendanceRate  *float64 `json:"attendance_rate,omitempty"`
 }
 
 type StudentListResponse struct {
@@ -142,6 +144,14 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 		if r.GradeLevel.Valid {
 			gradeLevel = r.GradeLevel.String
 		}
+		var attendanceRate *float64
+		if r.AttendanceRate.Valid {
+			f8, err := r.AttendanceRate.Float64Value()
+			if err == nil && f8.Valid {
+				v := f8.Float64
+				attendanceRate = &v
+			}
+		}
 		items = append(items, StudentListItem{
 			StudentID:       r.StudentID.String(),
 			AdmissionNumber: r.AdmissionNumber,
@@ -151,6 +161,8 @@ func (s *studentsService) ListStudents(ctx context.Context, schoolID uuid.UUID, 
 			ClassID:         classID,
 			ClassName:       className,
 			GradeLevel:      gradeLevel,
+			GuardianLinked:  r.GuardianLinked,
+			AttendanceRate:  attendanceRate,
 		})
 	}
 

@@ -71,6 +71,13 @@ export function StudentDetail({ id }: StudentDetailProps) {
             date_of_birth: draft.date_of_birth,
             gender: draft.gender,
             nemis_upn: draft.nemis_upn,
+            address: draft.address,
+            phone: draft.phone,
+            email: draft.email,
+            nationality: draft.nationality,
+            emergency_contact_name: draft.emergency_contact_name,
+            emergency_contact_phone: draft.emergency_contact_phone,
+            special_needs: draft.special_needs,
         };
         updateMutation.mutate(payload);
     };
@@ -151,6 +158,116 @@ export function StudentDetail({ id }: StudentDetailProps) {
                                         disabled={!editing}
                                         onChange={(e) =>
                                             setDraft({ ...draft, gender: e.target.value })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Address</Label>
+                                    <Input
+                                        value={
+                                            editing
+                                                ? (draft.address ?? profile.address ?? "")
+                                                : (profile.address ?? "")
+                                        }
+                                        disabled={!editing}
+                                        onChange={(e) =>
+                                            setDraft({ ...draft, address: e.target.value })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Phone</Label>
+                                    <Input
+                                        value={
+                                            editing
+                                                ? (draft.phone ?? profile.phone ?? "")
+                                                : (profile.phone ?? "")
+                                        }
+                                        disabled={!editing}
+                                        onChange={(e) =>
+                                            setDraft({ ...draft, phone: e.target.value })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Email</Label>
+                                    <Input
+                                        value={
+                                            editing
+                                                ? (draft.email ?? profile.email ?? "")
+                                                : (profile.email ?? "")
+                                        }
+                                        disabled={!editing}
+                                        onChange={(e) =>
+                                            setDraft({ ...draft, email: e.target.value })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Nationality</Label>
+                                    <Input
+                                        value={
+                                            editing
+                                                ? (draft.nationality ?? profile.nationality ?? "")
+                                                : (profile.nationality ?? "")
+                                        }
+                                        disabled={!editing}
+                                        onChange={(e) =>
+                                            setDraft({ ...draft, nationality: e.target.value })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Emergency Contact Name</Label>
+                                    <Input
+                                        value={
+                                            editing
+                                                ? (draft.emergency_contact_name ??
+                                                  profile.emergency_contact_name ??
+                                                  "")
+                                                : (profile.emergency_contact_name ?? "")
+                                        }
+                                        disabled={!editing}
+                                        onChange={(e) =>
+                                            setDraft({
+                                                ...draft,
+                                                emergency_contact_name: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Emergency Contact Phone</Label>
+                                    <Input
+                                        value={
+                                            editing
+                                                ? (draft.emergency_contact_phone ??
+                                                  profile.emergency_contact_phone ??
+                                                  "")
+                                                : (profile.emergency_contact_phone ?? "")
+                                        }
+                                        disabled={!editing}
+                                        onChange={(e) =>
+                                            setDraft({
+                                                ...draft,
+                                                emergency_contact_phone: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Special Needs</Label>
+                                    <Input
+                                        value={
+                                            editing
+                                                ? (draft.special_needs ??
+                                                  profile.special_needs ??
+                                                  "")
+                                                : (profile.special_needs ?? "")
+                                        }
+                                        disabled={!editing}
+                                        onChange={(e) =>
+                                            setDraft({ ...draft, special_needs: e.target.value })
                                         }
                                     />
                                 </div>

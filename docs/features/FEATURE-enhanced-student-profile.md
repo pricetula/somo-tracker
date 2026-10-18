@@ -141,7 +141,10 @@ Current `students` schema has limited columns. Use `metadata JSONB` for flexible
 - Wired `GET /students/:id` and `PATCH /students/:id` in `backend/internal/api/router.go`; handlers already existed in `students_handler.go`
 - Added `getStudent` / `updateStudent` helpers to `frontend/src/lib/api/students.ts`
 - Replaced placeholder `StudentDetail` with TanStack Query data fetching + mutation, Shadcn UI tabs, edit mode
-- Deviation from spec: address/phone/email/nationality displayed via `metadata JSONB` later; current V1 shows core fields full_name, admission_number, date_of_birth, gender, nemis_upn
+**2026-10-15 – Updated**
+- Structured columns added via migration 000023_add_student_structured_fields: address, phone, email, nationality, emergency_contact_name, emergency_contact_phone, special_needs
+- `StudentDetail` Overview now renders and inline-edits those fields via `PATCH /students/:id`
+- Backfill script `backend/scripts/backfill_student_metadata.go` added for metadata → columns hydration
 - Stats & KPIs, Guardians, Academics tabs scaffolded for future work per open gaps
 
 ## References

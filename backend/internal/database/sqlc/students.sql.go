@@ -184,7 +184,9 @@ SELECT
     s.updated_at,
     c.id AS class_id,
     c.name AS class_name,
-    gl.local_label AS grade_level
+    gl.local_label AS grade_level,
+    EXISTS (SELECT 1 FROM guardian_student_links gsl WHERE gsl.student_id = s.student_id) AS guardian_linked,
+    COALESCE(st.attendance_rate, NULL) AS attendance_rate
 FROM students s
 LEFT JOIN LATERAL (
     SELECT sce.class_room_id
@@ -196,6 +198,9 @@ LEFT JOIN LATERAL (
 ) e ON true
 LEFT JOIN class_rooms c ON c.id = e.class_room_id
 LEFT JOIN grade_levels gl ON gl.id = c.grade_level_id
+LEFT JOIN student_term_attendance_stats st ON st.student_id = s.student_id AND st.school_id = s.school_id AND st.academic_term_id = (
+    SELECT id FROM academic_terms WHERE school_id = s.school_id AND start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE LIMIT 1
+)
 WHERE s.school_id = $1
   AND (
     $2::text = '' OR
@@ -232,6 +237,8 @@ type ListStudentsRow struct {
 	ClassID         pgtype.UUID        `json:"class_id"`
 	ClassName       pgtype.Text        `json:"class_name"`
 	GradeLevel      pgtype.Text        `json:"grade_level"`
+	GuardianLinked  bool               `json:"guardian_linked"`
+	AttendanceRate  pgtype.Numeric     `json:"attendance_rate"`
 }
 
 func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error) {
@@ -264,6 +271,8 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]L
 			&i.ClassID,
 			&i.ClassName,
 			&i.GradeLevel,
+			&i.GuardianLinked,
+			&i.AttendanceRate,
 		); err != nil {
 			return nil, err
 		}

@@ -80,6 +80,12 @@ export function StudentsTable() {
                 width: "1fr",
             },
             {
+                id: "dob",
+                header: "DOB",
+                cell: (row: StudentListItem) => row.date_of_birth || "—",
+                width: "1fr",
+            },
+            {
                 id: "class",
                 header: "Class",
                 cell: (row: StudentListItem) =>
@@ -110,6 +116,31 @@ export function StudentsTable() {
                         : row.gender === "M" || row.gender === "m"
                           ? "Male"
                           : row.gender || "—",
+                width: "1fr",
+            },
+            {
+                id: "guardian",
+                header: "Guardian",
+                cell: (row: StudentListItem) =>
+                    row.guardian_linked ? (
+                        <span className="inline-flex items-center rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                            Linked
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                            —
+                        </span>
+                    ),
+                width: "1fr",
+            },
+            {
+                id: "attendance",
+                header: "Attendance %",
+                cell: (row: StudentListItem) => {
+                    const rate = row.attendance_rate;
+                    if (rate == null) return "—";
+                    return `${rate.toFixed(0)}%`;
+                },
                 width: "1fr",
             },
             {

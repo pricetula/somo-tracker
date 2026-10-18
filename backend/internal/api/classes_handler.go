@@ -98,7 +98,10 @@ func (h *ClassesHandler) GetClass(c fiber.Ctx) error {
 	if !ok || schoolIDStr == "" {
 		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
-	schoolID, _ := uuid.Parse(schoolIDStr)
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid school id", map[string][]string{"school_id": {"invalid uuid"}}))
+	}
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -126,7 +129,10 @@ func (h *ClassesHandler) CreateClass(c fiber.Ctx) error {
 	if !ok || schoolIDStr == "" {
 		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
-	schoolID, _ := uuid.Parse(schoolIDStr)
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid school id", map[string][]string{"school_id": {"invalid uuid"}}))
+	}
 	var req createClassRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return WriteError(c, ErrBadRequest("invalid body", nil))

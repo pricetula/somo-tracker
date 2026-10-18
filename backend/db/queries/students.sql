@@ -11,7 +11,9 @@ SELECT
     s.updated_at,
     c.id AS class_id,
     c.name AS class_name,
-    gl.local_label AS grade_level
+    gl.local_label AS grade_level,
+    EXISTS (SELECT 1 FROM guardian_student_links gsl WHERE gsl.student_id = s.student_id) AS guardian_linked,
+    NULL::numeric AS attendance_rate
 FROM students s
 LEFT JOIN LATERAL (
     SELECT sce.class_room_id

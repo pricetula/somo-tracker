@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -177,15 +178,18 @@ func (h *StudentsHandler) GetStudent(c fiber.Ctx) error {
 	}
 	schoolID, err := uuid.Parse(schoolIDStr)
 	if err != nil {
-		return WriteError(c, ErrBadRequest("invalid school id", nil))
+		return WriteError(c, ErrBadRequest("invalid school id", map[string][]string{"school_id": {"invalid uuid"}}))
 	}
 	studentID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return WriteError(c, ErrBadRequest("invalid student id", nil))
+		return WriteError(c, ErrBadRequest("invalid student id", map[string][]string{"id": {"invalid uuid"}}))
 	}
 	profile, err := h.svc.GetStudentByID(c.Context(), schoolID, studentID)
 	if err != nil {
 		h.logger.Error("get student failed", zap.Error(err))
+		if errors.Is(err, fmt.Errorf("")) || strings.Contains(err.Error(), "no rows") {
+			return WriteError(c, ErrNotFound("student not found"))
+		}
 		return WriteError(c, ErrInternal("failed to get student"))
 	}
 	return c.Status(fiber.StatusOK).JSON(profile)
@@ -208,18 +212,21 @@ func (h *StudentsHandler) UpdateStudent(c fiber.Ctx) error {
 	}
 	schoolID, err := uuid.Parse(schoolIDStr)
 	if err != nil {
-		return WriteError(c, ErrBadRequest("invalid school id", nil))
+		return WriteError(c, ErrBadRequest("invalid school id", map[string][]string{"school_id": {"invalid uuid"}}))
 	}
 	studentID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return WriteError(c, ErrBadRequest("invalid student id", nil))
+		return WriteError(c, ErrBadRequest("invalid student id", map[string][]string{"id": {"invalid uuid"}}))
 	}
 	var req services.UpdateStudentRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return WriteError(c, ErrBadRequest("invalid body", nil))
+		return WriteError(c, ErrBadRequest("invalid request body", map[string][]string{"body": {"malformed json"}}))
 	}
 	if err := h.svc.UpdateStudent(c.Context(), schoolID, studentID, req); err != nil {
 		h.logger.Error("update student failed", zap.Error(err))
+		if strings.HasPrefix(err.Error(), "bad_request:") {
+			return WriteError(c, ErrBadRequest(err.Error()[len("bad_request:"):], nil))
+		}
 		return WriteError(c, ErrInternal("failed to update student"))
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"code": "student_updated", "message": "student updated", "errors": fiber.Map{}})

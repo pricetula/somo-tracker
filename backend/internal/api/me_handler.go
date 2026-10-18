@@ -81,10 +81,6 @@ func mapMeError(c fiber.Ctx, err error) error {
 			"errors":  fiber.Map{},
 		})
 	default:
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "An unexpected error occurred",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("An unexpected error occurred"))
 	}
 }

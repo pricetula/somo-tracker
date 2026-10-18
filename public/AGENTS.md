@@ -20,3 +20,19 @@ Consult these guides before working on related tasks:
 - [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
 - [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
 - [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+
+---
+
+## AI Skill Integration (Late 2026)
+
+Before making public changes, load the matching skill:
+- **New marketing page:** Load `/skill:craft-docs` → use templates, audit with `pnpm run audit:docs`
+- **UI component:** Load `/skill:pure-shadcn` → use semantic CSS vars only, no arbitrary styles
+- **Review:** Load `/skill:agendas-compliance` → cross-check against public contracts
+- **Context:** Load `/skill:project-context` → ensure consistency with frontend API shapes
+
+---
+
+## Version & Ownership (Late 2026)
+- **Standard version:** 1.0.0 (June 2026) — AI coding optimized with `.pi/skills/` integration
+- **Owner:** Platform team

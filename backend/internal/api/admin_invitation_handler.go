@@ -176,9 +176,7 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	jobID, err := h.svc.CreateBulkJobWithItems(c.Context(), schoolID, tenantID, adminUserID, idempotencyKey, items)
 	if err != nil {
 		h.logger.Error("bulk job creation failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code": "internal_error", "message": "failed to create bulk job", "errors": fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to create bulk job"))
 	}
 
 	// Enqueue batches of 100

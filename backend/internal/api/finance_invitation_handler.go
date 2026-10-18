@@ -56,9 +56,7 @@ func (h *FinanceInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	hasAdmin, err := h.svc.UserHasAdminRole(c.Context(), schoolID, adminUserID)
 	if err != nil {
 		h.logger.Error("admin role check failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code": "internal_error", "message": "failed to verify permissions", "errors": fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to verify permissions"))
 	}
 	if !hasAdmin {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
@@ -154,9 +152,7 @@ func (h *FinanceInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	jobID, err := h.svc.CreateBulkJobWithItems(c.Context(), schoolID, tenantID, adminUserID, idempotencyKey, items)
 	if err != nil {
 		h.logger.Error("bulk job creation failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code": "internal_error", "message": "failed to create bulk job", "errors": fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to create bulk job"))
 	}
 
 	// Enqueue batches of 100

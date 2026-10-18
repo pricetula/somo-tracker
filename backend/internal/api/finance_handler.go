@@ -2,6 +2,7 @@ package api
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -89,18 +90,10 @@ func (h *FinanceHandler) DeleteFinance(c fiber.Ctx) error {
 
 	if err := h.svc.DeleteFinance(c.Context(), schoolID, userIDs, currentUserID); err != nil {
 		h.logger.Error("delete finance failed", zap.Error(err))
-		if err.Error()[:len("bad_request:")] == "bad_request:" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "bad_request",
-				"message": err.Error()[len("bad_request:"):],
-				"errors":  fiber.Map{},
-			})
+		if strings.HasPrefix(err.Error(), "bad_request:") {
+			return WriteError(c, ErrBadRequest(err.Error()[len("bad_request:"):], nil))
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to delete finance",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to delete finance"))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -136,18 +129,10 @@ func (h *FinanceHandler) ListFinance(c fiber.Ctx) error {
 	resp, err := h.svc.ListFinance(c.Context(), schoolID, page, limit, search, invitationStatus)
 	if err != nil {
 		h.logger.Error("list finance failed", zap.Error(err))
-		if err.Error()[:len("bad_request:")] == "bad_request:" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "bad_request",
-				"message": err.Error()[len("bad_request:"):],
-				"errors":  fiber.Map{},
-			})
+		if strings.HasPrefix(err.Error(), "bad_request:") {
+			return WriteError(c, ErrBadRequest(err.Error()[len("bad_request:"):], nil))
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to list finance",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to list finance"))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(resp)

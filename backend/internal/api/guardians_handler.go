@@ -2,6 +2,7 @@ package api
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -89,18 +90,10 @@ func (h *GuardiansHandler) DeleteGuardians(c fiber.Ctx) error {
 
 	if err := h.svc.DeleteGuardians(c.Context(), schoolID, userIDs, currentUserID); err != nil {
 		h.logger.Error("delete guardians failed", zap.Error(err))
-		if err.Error()[:len("bad_request:")] == "bad_request:" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "bad_request",
-				"message": err.Error()[len("bad_request:"):],
-				"errors":  fiber.Map{},
-			})
+		if strings.HasPrefix(err.Error(), "bad_request:") {
+			return WriteError(c, ErrBadRequest(err.Error()[len("bad_request:"):], nil))
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to delete guardians",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to delete guardians"))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -141,11 +134,7 @@ func (h *GuardiansHandler) GetGuardianSummary(c fiber.Ctx) error {
 	summary, err := h.svc.GetGuardianSummary(c.Context(), schoolID)
 	if err != nil {
 		h.logger.Error("get guardian summary failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to get guardian summary",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to get guardian summary"))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(summary)
@@ -177,18 +166,10 @@ func (h *GuardiansHandler) ListGuardians(c fiber.Ctx) error {
 	resp, err := h.svc.ListGuardians(c.Context(), schoolID, page, limit, search, invitationStatus)
 	if err != nil {
 		h.logger.Error("list guardians failed", zap.Error(err))
-		if err.Error()[:len("bad_request:")] == "bad_request:" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "bad_request",
-				"message": err.Error()[len("bad_request:"):],
-				"errors":  fiber.Map{},
-			})
+		if strings.HasPrefix(err.Error(), "bad_request:") {
+			return WriteError(c, ErrBadRequest(err.Error()[len("bad_request:"):], nil))
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to list guardians",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to list guardians"))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(resp)

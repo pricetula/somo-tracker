@@ -1,10 +1,8 @@
-# Somotracker — Backend Agent Contract
+# Somotracker Backend — Agent Architecture Contract
 
 ## Golden Rule: Never Commit
 
-The AI agent must **never** run `git add`, `git commit`, or `git push`.
-All changes must be left as unstaged modifications in the working tree.
-Only the user decides when and what to commit.
+The AI agent must **never** run `git add`, `git commit`, or `git push`. All changes must be left as unstaged modifications in the working tree.
 
 ---
 
@@ -21,8 +19,7 @@ The canonical test file is:
 backend/internal/database/migrator_integration_test.go
 ```
 
-Add a new `func TestMigrator_<FeatureName>(t *testing.T)` alongside the existing
-functions. The test must:
+Add a new `func TestMigrator_<FeatureName>(t *testing.T)` alongside the existing functions. The test must:
 
 1. Run `migrator.Up(ctx)` to apply the migration.
 2. Assert the expected schema artifacts exist using simple catalog queries:
@@ -35,8 +32,7 @@ functions. The test must:
    `SET LOCAL app.current_tenant_id`, or a single INSERT + SELECT to verify FK works).
 
 All migration tests are tagged `//go:build integration` and run against a
-real PostgreSQL instance. Do **not** use mock pools — use the same `testdb.DB(t)`
-pattern as the existing tests.
+real PostgreSQL instance. Do **not** use mock pools — use the same `testdb.DB(t)` pattern as the existing tests.
 
 ### Migration Test Pitfalls (Never Do These)
 
@@ -57,11 +53,6 @@ All database access must go through `internal/services` and use sqlc-generated q
 - Never import `github.com/jackc/pgx/v5/pgxpool` in handlers.
 
 This keeps RLS context, transactions, and testability in the service layer.
-
-## General Rules
-
-For all other backend conventions (error handling, API patterns, dependencies,
-etc.) refer to the **root** `AGENTS.md` at the project root.
 
 ---
 
@@ -108,4 +99,30 @@ Before writing `swaggo` annotations (`@Router`, `@Param body`) for any new endpo
 
 Never assume the route string alone is the complete endpoint URI.
 
-**Version:** 1.0.0 (September 2025)
+---
+
+## AI Skill Integration
+
+Before creating any backend change, load the relevant skill:
+
+- **New API endpoint:** Load `/skill:generate-api` → follows Steps 1–5 in that skill
+- **Migration:** Load `/skill:migration-testing` → enforces Step 1–4 validation gates
+- **Error response:** Always validate against the canonical error contract via `error-contract` skill
+- **Review:** Load `/skill:agendas-compliance` → validates against this contract
+- **Context for frontend:** Load `/skill:project-context` → ensures API shapes match frontend contract
+
+## Error Handling
+
+For all other backend conventions (error handling, API patterns, dependencies, etc.) refer to the **root** `AGENTS.md` at the project root.
+
+Built-in error constructors (from `internal/api/errors.go`):
+- `ErrBadRequest` — 400, `code: "bad_request"`
+- `ErrNotFound` — 404, `code: "not_found"`
+- `ErrUnauthorized` — 401, `code: "unauthorized"`
+- `ErrForbidden` — 403, `code: "forbidden"`
+- `ErrInternal` — 500, `code: "internal_error"`
+- `ErrNoActiveTermFutureExists` — 400, `code: "no_active_term_future_exists"`
+
+## Contract Version
+- **Version:** 1.0.0 (Late 2026) — AI coding optimized with `.pi/skills/` integration
+- **Owner:** Platform team

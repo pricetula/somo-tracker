@@ -76,22 +76,16 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
 	adminUserID, err3 := uuid.Parse(fmt.Sprintf("%v", adminUserIDStr))
 	if err1 != nil || err2 != nil || err3 != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code": "unauthorized", "message": "missing session context", "errors": fiber.Map{},
-		})
+		return WriteError(c, ErrUnauthorized("missing session context"))
 	}
 	// Role guard: only SCHOOL_ADMIN can create bulk invites
 	hasAdmin, err := h.svc.UserHasAdminRole(c.Context(), schoolID, adminUserID)
 	if err != nil {
 		h.logger.Error("admin role check failed", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code": "internal_error", "message": "failed to verify permissions", "errors": fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("failed to verify permissions"))
 	}
 	if !hasAdmin {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code": "forbidden", "message": "insufficient permissions", "errors": fiber.Map{},
-		})
+		return WriteError(c, ErrForbidden("insufficient_permissions", "insufficient permissions"))
 	}
 
 	var req BulkInvitationRequest

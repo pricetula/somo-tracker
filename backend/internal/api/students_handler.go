@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/services"
@@ -187,7 +188,7 @@ func (h *StudentsHandler) GetStudent(c fiber.Ctx) error {
 	profile, err := h.svc.GetStudentByID(c.Context(), schoolID, studentID)
 	if err != nil {
 		h.logger.Error("get student failed", zap.Error(err))
-		if errors.Is(err, fmt.Errorf("")) || strings.Contains(err.Error(), "no rows") {
+		if errors.Is(err, pgx.ErrNoRows) || strings.Contains(err.Error(), "no rows") {
 			return WriteError(c, ErrNotFound("student not found"))
 		}
 		return WriteError(c, ErrInternal("failed to get student"))

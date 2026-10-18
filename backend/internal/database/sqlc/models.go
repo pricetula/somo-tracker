@@ -868,6 +868,20 @@ type Student struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	// Kenya NEMIS Unique Pupil Number / Learner ID. Nullable for non-Kenya students. Unique when present.
 	NemisUpn pgtype.Text `json:"nemis_upn"`
+	// Student residential address.
+	Address pgtype.Text `json:"address"`
+	// Student phone number.
+	Phone pgtype.Text `json:"phone"`
+	// Student email address.
+	Email pgtype.Text `json:"email"`
+	// Student nationality.
+	Nationality pgtype.Text `json:"nationality"`
+	// Name of emergency contact.
+	EmergencyContactName pgtype.Text `json:"emergency_contact_name"`
+	// Phone number of emergency contact.
+	EmergencyContactPhone pgtype.Text `json:"emergency_contact_phone"`
+	// Notes on special needs or accommodations.
+	SpecialNeeds pgtype.Text `json:"special_needs"`
 }
 
 // Historical mapping of a student to a class_room for a specific academic term or year. Preserves attendance, assessments, and report cards permanently.

@@ -38,21 +38,35 @@ type StudentSummary struct {
 }
 
 type StudentProfile struct {
-	StudentID       string         `json:"student_id"`
-	AdmissionNumber string         `json:"admission_number"`
-	NemisUPN        *string        `json:"nemis_upn,omitempty"`
-	FullName        string         `json:"full_name"`
-	DateOfBirth     string         `json:"date_of_birth"`
-	Gender          string         `json:"gender"`
-	Metadata        map[string]any `json:"metadata,omitempty"`
+	StudentID             string         `json:"student_id"`
+	AdmissionNumber       string         `json:"admission_number"`
+	NemisUPN              *string        `json:"nemis_upn,omitempty"`
+	FullName              string         `json:"full_name"`
+	DateOfBirth           string         `json:"date_of_birth"`
+	Gender                string         `json:"gender"`
+	Address               *string        `json:"address,omitempty"`
+	Phone                 *string        `json:"phone,omitempty"`
+	Email                 *string        `json:"email,omitempty"`
+	Nationality           *string        `json:"nationality,omitempty"`
+	EmergencyContactName  *string        `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone *string        `json:"emergency_contact_phone,omitempty"`
+	SpecialNeeds          *string        `json:"special_needs,omitempty"`
+	Metadata              map[string]any `json:"metadata,omitempty"`
 }
 
 type UpdateStudentRequest struct {
-	FullName    *string        `json:"full_name,omitempty"`
-	DateOfBirth *string        `json:"date_of_birth,omitempty"`
-	Gender      *string        `json:"gender,omitempty"`
-	NemisUPN    *string        `json:"nemis_upn,omitempty"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
+	FullName              *string        `json:"full_name,omitempty"`
+	DateOfBirth           *string        `json:"date_of_birth,omitempty"`
+	Gender                *string        `json:"gender,omitempty"`
+	NemisUPN              *string        `json:"nemis_upn,omitempty"`
+	Address               *string        `json:"address,omitempty"`
+	Phone                 *string        `json:"phone,omitempty"`
+	Email                 *string        `json:"email,omitempty"`
+	Nationality           *string        `json:"nationality,omitempty"`
+	EmergencyContactName  *string        `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone *string        `json:"emergency_contact_phone,omitempty"`
+	SpecialNeeds          *string        `json:"special_needs,omitempty"`
+	Metadata              map[string]any `json:"metadata,omitempty"`
 }
 
 type StudentsService interface {
@@ -225,6 +239,34 @@ func (s *studentsService) GetStudentByID(ctx context.Context, schoolID uuid.UUID
 		upn := row.NemisUpn.String
 		profile.NemisUPN = &upn
 	}
+	if row.Address.Valid {
+		addr := row.Address.String
+		profile.Address = &addr
+	}
+	if row.Phone.Valid {
+		ph := row.Phone.String
+		profile.Phone = &ph
+	}
+	if row.Email.Valid {
+		em := row.Email.String
+		profile.Email = &em
+	}
+	if row.Nationality.Valid {
+		nat := row.Nationality.String
+		profile.Nationality = &nat
+	}
+	if row.EmergencyContactName.Valid {
+		ecName := row.EmergencyContactName.String
+		profile.EmergencyContactName = &ecName
+	}
+	if row.EmergencyContactPhone.Valid {
+		ecPhone := row.EmergencyContactPhone.String
+		profile.EmergencyContactPhone = &ecPhone
+	}
+	if row.SpecialNeeds.Valid {
+		sn := row.SpecialNeeds.String
+		profile.SpecialNeeds = &sn
+	}
 	// metadata parsing omitted for brevity; return empty map if needed
 	return profile, nil
 }
@@ -257,6 +299,30 @@ func (s *studentsService) UpdateStudent(ctx context.Context, schoolID uuid.UUID,
 		nemisUpn = pgtype.Text{String: *req.NemisUPN, Valid: true}
 	}
 
+	var address, phone, email, nationality pgtype.Text
+	var emergencyContactName, emergencyContactPhone, specialNeeds pgtype.Text
+	if req.Address != nil {
+		address = pgtype.Text{String: *req.Address, Valid: true}
+	}
+	if req.Phone != nil {
+		phone = pgtype.Text{String: *req.Phone, Valid: true}
+	}
+	if req.Email != nil {
+		email = pgtype.Text{String: *req.Email, Valid: true}
+	}
+	if req.Nationality != nil {
+		nationality = pgtype.Text{String: *req.Nationality, Valid: true}
+	}
+	if req.EmergencyContactName != nil {
+		emergencyContactName = pgtype.Text{String: *req.EmergencyContactName, Valid: true}
+	}
+	if req.EmergencyContactPhone != nil {
+		emergencyContactPhone = pgtype.Text{String: *req.EmergencyContactPhone, Valid: true}
+	}
+	if req.SpecialNeeds != nil {
+		specialNeeds = pgtype.Text{String: *req.SpecialNeeds, Valid: true}
+	}
+
 	var metadataBytes []byte
 	if req.Metadata != nil {
 		b, err := json.Marshal(req.Metadata)
@@ -267,13 +333,20 @@ func (s *studentsService) UpdateStudent(ctx context.Context, schoolID uuid.UUID,
 	}
 
 	if err := s.queries.UpdateStudent(ctx, sqlc.UpdateStudentParams{
-		StudentID:   studentUUID,
-		SchoolID:    schoolUUID,
-		Column3:     fullName,
-		DateOfBirth: dob,
-		Column5:     genderStr,
-		Column6:     nemisUpn,
-		Metadata:    metadataBytes,
+		StudentID:    studentUUID,
+		SchoolID:     schoolUUID,
+		Column3:      fullName,
+		DateOfBirth:  dob,
+		Column5:      genderStr,
+		Column6:      nemisUpn,
+		Metadata:     metadataBytes,
+		Address:      address,
+		Column9:      phone,
+		Column10:     email,
+		Column11:     nationality,
+		Column12:     emergencyContactName,
+		Column13:     emergencyContactPhone,
+		SpecialNeeds: specialNeeds,
 	}); err != nil {
 		return fmt.Errorf("update student: %w", err)
 	}

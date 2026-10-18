@@ -96,6 +96,19 @@ export function AssignSlotForm({
                                         message: messages?.[0],
                                     });
                                 });
+                            } else if (
+                                err instanceof ApiError &&
+                                err.status === 409 &&
+                                err.code === "timetable_conflict"
+                            ) {
+                                toast.error(
+                                    err.message ||
+                                        "Timetable conflict detected. Please adjust the assignment."
+                                );
+                                form.setError("root", {
+                                    type: "server",
+                                    message: err.message,
+                                });
                             } else {
                                 toast.error(getErrorMessage(err));
                             }
@@ -125,6 +138,19 @@ export function AssignSlotForm({
                                     message: messages?.[0],
                                 });
                             });
+                        } else if (
+                            err instanceof ApiError &&
+                            err.status === 409 &&
+                            err.code === "timetable_conflict"
+                        ) {
+                            toast.error(
+                                err.message ||
+                                    "Timetable conflict detected. Please adjust the assignment."
+                            );
+                            form.setError("root", {
+                                type: "server",
+                                message: err.message,
+                            });
                         } else {
                             toast.error(getErrorMessage(err));
                         }
@@ -140,6 +166,11 @@ export function AssignSlotForm({
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                {form.formState.errors.root && (
+                    <div className="text-destructive text-sm">
+                        {form.formState.errors.root.message}
+                    </div>
+                )}
                 <FormField
                     control={form.control}
                     name="subject_id"

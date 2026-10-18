@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -85,14 +84,9 @@ export function StudentDetail({ id }: StudentDetailProps) {
                 </Button>
             </div>
 
-            <Tabs defaultValue="overview">
-                <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="academics">Academics</TabsTrigger>
-                    <TabsTrigger value="guardians">Guardians</TabsTrigger>
-                    <TabsTrigger value="stats">Stats & KPIs</TabsTrigger>
-                </TabsList>
-                <TabsContent value="overview">
+            <div className="space-y-6">
+                <section className="space-y-2">
+                    <h2 className="text-lg font-semibold">Overview</h2>
                     <Card>
                         <CardHeader>
                             <CardTitle>Personal Information</CardTitle>
@@ -182,11 +176,35 @@ export function StudentDetail({ id }: StudentDetailProps) {
                             )}
                         </CardContent>
                     </Card>
-                </TabsContent>
-                <TabsContent value="academics">Academics content</TabsContent>
-                <TabsContent value="guardians">Guardians content</TabsContent>
-                <TabsContent value="stats">Stats & KPIs content</TabsContent>
-            </Tabs>
+                </section>
+
+                <section className="space-y-2">
+                    <h2 className="text-lg font-semibold">Academics</h2>
+                    <Card>
+                        <CardContent>
+                            <p className="text-muted-foreground">Academics content</p>
+                        </CardContent>
+                    </Card>
+                </section>
+
+                <section className="space-y-2">
+                    <h2 className="text-lg font-semibold">Guardians</h2>
+                    <Card>
+                        <CardContent>
+                            <p className="text-muted-foreground">Guardians content</p>
+                        </CardContent>
+                    </Card>
+                </section>
+
+                <section className="space-y-2">
+                    <h2 className="text-lg font-semibold">Stats & KPIs</h2>
+                    <Card>
+                        <CardContent>
+                            <p className="text-muted-foreground">Stats & KPIs content</p>
+                        </CardContent>
+                    </Card>
+                </section>
+            </div>
         </div>
     );
 }

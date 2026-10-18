@@ -72,7 +72,7 @@ func (q *Queries) DeleteStudents(ctx context.Context, arg DeleteStudentsParams) 
 }
 
 const getStudentByID = `-- name: GetStudentByID :one
-SELECT s.student_id, s.school_id, s.admission_number, s.nemis_upn, s.full_name, s.date_of_birth, s.gender, s.metadata, s.created_at, s.updated_at
+SELECT s.student_id, s.school_id, s.admission_number, s.nemis_upn, s.full_name, s.date_of_birth, s.gender, s.address, s.phone, s.email, s.nationality, s.emergency_contact_name, s.emergency_contact_phone, s.special_needs, s.metadata, s.created_at, s.updated_at
 FROM students s
 WHERE s.student_id = $1 AND s.school_id = $2
 `
@@ -83,16 +83,23 @@ type GetStudentByIDParams struct {
 }
 
 type GetStudentByIDRow struct {
-	StudentID       pgtype.UUID        `json:"student_id"`
-	SchoolID        pgtype.UUID        `json:"school_id"`
-	AdmissionNumber string             `json:"admission_number"`
-	NemisUpn        pgtype.Text        `json:"nemis_upn"`
-	FullName        string             `json:"full_name"`
-	DateOfBirth     pgtype.Date        `json:"date_of_birth"`
-	Gender          interface{}        `json:"gender"`
-	Metadata        []byte             `json:"metadata"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	StudentID             pgtype.UUID        `json:"student_id"`
+	SchoolID              pgtype.UUID        `json:"school_id"`
+	AdmissionNumber       string             `json:"admission_number"`
+	NemisUpn              pgtype.Text        `json:"nemis_upn"`
+	FullName              string             `json:"full_name"`
+	DateOfBirth           pgtype.Date        `json:"date_of_birth"`
+	Gender                interface{}        `json:"gender"`
+	Address               pgtype.Text        `json:"address"`
+	Phone                 pgtype.Text        `json:"phone"`
+	Email                 pgtype.Text        `json:"email"`
+	Nationality           pgtype.Text        `json:"nationality"`
+	EmergencyContactName  pgtype.Text        `json:"emergency_contact_name"`
+	EmergencyContactPhone pgtype.Text        `json:"emergency_contact_phone"`
+	SpecialNeeds          pgtype.Text        `json:"special_needs"`
+	Metadata              []byte             `json:"metadata"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) (GetStudentByIDRow, error) {
@@ -106,6 +113,13 @@ func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) 
 		&i.FullName,
 		&i.DateOfBirth,
 		&i.Gender,
+		&i.Address,
+		&i.Phone,
+		&i.Email,
+		&i.Nationality,
+		&i.EmergencyContactName,
+		&i.EmergencyContactPhone,
+		&i.SpecialNeeds,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -267,18 +281,32 @@ UPDATE students SET
   date_of_birth = COALESCE($4, date_of_birth),
   gender = COALESCE(NULLIF($5::text, ''), gender),
   nemis_upn = COALESCE(NULLIF($6, ''), nemis_upn),
+  address = COALESCE($8, address),
+  phone = COALESCE(NULLIF($9, ''), phone),
+  email = COALESCE(NULLIF($10, ''), email),
+  nationality = COALESCE(NULLIF($11, ''), nationality),
+  emergency_contact_name = COALESCE(NULLIF($12, ''), emergency_contact_name),
+  emergency_contact_phone = COALESCE(NULLIF($13, ''), emergency_contact_phone),
+  special_needs = COALESCE($14, special_needs),
   metadata = COALESCE($7, metadata)
 WHERE student_id = $1 AND school_id = $2
 `
 
 type UpdateStudentParams struct {
-	StudentID   pgtype.UUID `json:"student_id"`
-	SchoolID    pgtype.UUID `json:"school_id"`
-	Column3     interface{} `json:"column_3"`
-	DateOfBirth pgtype.Date `json:"date_of_birth"`
-	Column5     string      `json:"column_5"`
-	Column6     interface{} `json:"column_6"`
-	Metadata    []byte      `json:"metadata"`
+	StudentID    pgtype.UUID `json:"student_id"`
+	SchoolID     pgtype.UUID `json:"school_id"`
+	Column3      interface{} `json:"column_3"`
+	DateOfBirth  pgtype.Date `json:"date_of_birth"`
+	Column5      string      `json:"column_5"`
+	Column6      interface{} `json:"column_6"`
+	Metadata     []byte      `json:"metadata"`
+	Address      pgtype.Text `json:"address"`
+	Column9      interface{} `json:"column_9"`
+	Column10     interface{} `json:"column_10"`
+	Column11     interface{} `json:"column_11"`
+	Column12     interface{} `json:"column_12"`
+	Column13     interface{} `json:"column_13"`
+	SpecialNeeds pgtype.Text `json:"special_needs"`
 }
 
 func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) error {
@@ -290,6 +318,13 @@ func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) er
 		arg.Column5,
 		arg.Column6,
 		arg.Metadata,
+		arg.Address,
+		arg.Column9,
+		arg.Column10,
+		arg.Column11,
+		arg.Column12,
+		arg.Column13,
+		arg.SpecialNeeds,
 	)
 	return err
 }

@@ -13,6 +13,7 @@ import (
 	"somotracker/backend/internal/api/middleware/ratelimit"
 	"somotracker/backend/internal/api/middleware/session"
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/database/sqlc"
 	"somotracker/backend/internal/services"
 )
 
@@ -83,32 +84,37 @@ func NewRouter(
 	cfg *config.Config,
 	pool *pgxpool.Pool,
 ) *Router {
+	queries := sqlc.New(pool)
 	return &Router{
-		Auth:               newAuthHandler(authSvc, cfg),
-		Me:                 newMeHandler(meSvc),
-		School:             NewSchoolHandler(&schoolSvc),
-		SchoolCreate:       NewSchoolCreateHandler(&schoolSvc),
-		AcademicPeriod:     NewAcademicPeriodHandler(academicSvc),
-		Streams:            NewStreamsHandler(streamsSvc),
-		Grades:             NewGradesHandler(gradesSvc),
-		Classes:            NewClassesHandler(classesSvc, zap.L()),
-		Admins:             NewAdminsHandler(adminsSvc, zap.L()),
-		Teachers:           NewTeachersHandler(teachersSvc, zap.L()),
-		Finance:            NewFinanceHandler(financeSvc, zap.L()),
-		Guardians:          NewGuardiansHandler(guardiansSvc, zap.L()),
-		Timetable:          NewTimetableHandler(timetableSvc, zap.L()),
-		Attendance:         NewAttendanceHandler(attendanceSvc, zap.L()),
-		Events:             NewEventsHandler(services.NewEventsService(pool), zap.L()),
-		Rooms:              NewRoomsHandler(roomsSvc),
-		UserCounts:         NewUserCountsHandler(services.NewUserCountsService(pool, zap.L())),
-		Curriculum:         curriculumSvc,
-		AdminInvitation:    nil,
-		TeacherInvitation:  nil,
-		FinanceInvitation:  nil,
-		GuardianInvitation: nil,
-		limiter:            limiter,
-		cfg:                cfg,
-		pool:               pool,
+		Auth:                   newAuthHandler(authSvc, cfg),
+		Me:                     newMeHandler(meSvc),
+		School:                 NewSchoolHandler(&schoolSvc),
+		SchoolCreate:           NewSchoolCreateHandler(&schoolSvc),
+		AcademicPeriod:         NewAcademicPeriodHandler(academicSvc),
+		Streams:                NewStreamsHandler(streamsSvc),
+		Grades:                 NewGradesHandler(gradesSvc),
+		Classes:                NewClassesHandler(classesSvc, zap.L()),
+		Admins:                 NewAdminsHandler(adminsSvc, zap.L()),
+		Teachers:               NewTeachersHandler(teachersSvc, zap.L()),
+		Finance:                NewFinanceHandler(financeSvc, zap.L()),
+		Guardians:              NewGuardiansHandler(guardiansSvc, zap.L()),
+		Timetable:              NewTimetableHandler(timetableSvc, zap.L()),
+		TimetableSubstitutions: NewTimetableSubstitutionsHandler(services.NewTimetableSubstitutionsService(queries), zap.L()),
+		Attendance:             NewAttendanceHandler(attendanceSvc, zap.L()),
+		Events:                 NewEventsHandler(services.NewEventsService(pool), zap.L()),
+		Rooms:                  NewRoomsHandler(roomsSvc),
+		UserCounts:             NewUserCountsHandler(services.NewUserCountsService(pool, zap.L())),
+		Enrollments:            NewEnrollmentsHandler(services.NewEnrollmentsService(queries, zap.L()), zap.L()),
+		Students:               NewStudentsHandler(services.NewStudentsService(queries), zap.L()),
+		StudentsImport:         nil, // requires Asynq/Redis, wired in newFiberApp
+		Curriculum:             curriculumSvc,
+		AdminInvitation:        nil,
+		TeacherInvitation:      nil,
+		FinanceInvitation:      nil,
+		GuardianInvitation:     nil,
+		limiter:                limiter,
+		cfg:                    cfg,
+		pool:                   pool,
 	}
 }
 

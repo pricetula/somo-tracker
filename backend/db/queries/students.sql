@@ -80,7 +80,7 @@ FROM student_gender_counts gc
 WHERE gc.school_id = $1;
 
 -- name: GetStudentByID :one
-SELECT s.student_id, s.school_id, s.admission_number, s.nemis_upn, s.full_name, s.date_of_birth, s.gender, s.metadata, s.created_at, s.updated_at
+SELECT s.student_id, s.school_id, s.admission_number, s.nemis_upn, s.full_name, s.date_of_birth, s.gender, s.address, s.phone, s.email, s.nationality, s.emergency_contact_name, s.emergency_contact_phone, s.special_needs, s.metadata, s.created_at, s.updated_at
 FROM students s
 WHERE s.student_id = $1 AND s.school_id = $2;
 
@@ -90,5 +90,12 @@ UPDATE students SET
   date_of_birth = COALESCE($4, date_of_birth),
   gender = COALESCE(NULLIF($5::text, ''), gender),
   nemis_upn = COALESCE(NULLIF($6, ''), nemis_upn),
+  address = COALESCE($8, address),
+  phone = COALESCE(NULLIF($9, ''), phone),
+  email = COALESCE(NULLIF($10, ''), email),
+  nationality = COALESCE(NULLIF($11, ''), nationality),
+  emergency_contact_name = COALESCE(NULLIF($12, ''), emergency_contact_name),
+  emergency_contact_phone = COALESCE(NULLIF($13, ''), emergency_contact_phone),
+  special_needs = COALESCE($14, special_needs),
   metadata = COALESCE($7, metadata)
 WHERE student_id = $1 AND school_id = $2;

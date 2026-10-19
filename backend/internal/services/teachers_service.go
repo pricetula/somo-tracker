@@ -36,10 +36,22 @@ type TeacherSummary struct {
 	TeachersWithoutAssignment int64 `json:"teachers_without_assignment"`
 }
 
+type TeacherDetail struct {
+	MembershipID string  `json:"membership_id"`
+	UserID       string  `json:"user_id"`
+	Email        string  `json:"email"`
+	FullName     string  `json:"full_name"`
+	IsActive     bool    `json:"is_active"`
+	InvitedAt    *string `json:"invited_at,omitempty"`
+	AcceptedAt   *string `json:"accepted_at,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+}
+
 type TeachersService interface {
 	ListTeachers(ctx context.Context, schoolID uuid.UUID, page, limit int, search string, invitationStatus string) (*TeacherListResponse, error)
 	DeleteTeachers(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error
 	GetTeacherSummary(ctx context.Context, schoolID uuid.UUID) (*TeacherSummary, error)
+	GetTeacher(ctx context.Context, schoolID uuid.UUID, membershipID uuid.UUID) (*TeacherDetail, error)
 }
 
 type teachersService struct {
@@ -165,5 +177,27 @@ func (s *teachersService) GetTeacherSummary(ctx context.Context, schoolID uuid.U
 	return &TeacherSummary{
 		TotalTeachers:             row.TotalTeachers,
 		TeachersWithoutAssignment: row.TeachersWithoutAssignment,
+	}, nil
+}
+
+func (s *teachersService) GetTeacher(ctx context.Context, schoolID uuid.UUID, membershipID uuid.UUID) (*TeacherDetail, error) {
+	// Reuse ListTeachers with search by membership id string
+	resp, err := s.ListTeachers(ctx, schoolID, 1, 1, membershipID.String(), "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list teachers: %w", err)
+	}
+	if len(resp.Items) == 0 {
+		return nil, fmt.Errorf("not_found: teacher not found")
+	}
+	it := resp.Items[0]
+	return &TeacherDetail{
+		MembershipID: it.MembershipID.String(),
+		UserID:       it.UserID.String(),
+		Email:        it.Email,
+		FullName:     it.FullName,
+		IsActive:     it.IsActive,
+		InvitedAt:    it.InvitedAt,
+		AcceptedAt:   it.AcceptedAt,
+		CreatedAt:    it.CreatedAt,
 	}, nil
 }

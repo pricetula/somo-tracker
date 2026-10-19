@@ -14,8 +14,6 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Bulk Import UI | frontend | High | Open | ... |
 | Student Schema Missing Structured Fields | backend | High | Open | ... |
 | Student List Missing Fields for Enhanced Listing | backend | High | Open | ... |
-| Timetable Class Assignment UI Missing | frontend | Critical | Open | ... |
-| Timetable Conflict Detection Missing | backend | High | In Progress | ... |
 | Student Timetable View Missing | frontend | High | Open | ... |
 | Assessment and Report Card Management | backend | frontend | High | Open | ... |
 | ... | ... | ... | Open | ... |
@@ -25,6 +23,8 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Gap | Area | Severity | Status | Owner |
 |-----|------|----------|--------|-------|
 | Student Detail Page is Placeholder | frontend | High | Closed | Platform team |
+| Timetable Class Assignment UI Missing | frontend | Medium | Done | Platform team |
+| Timetable Conflict Detection Missing | backend | High | Done | Platform team |
 
 ## Deferred / Won't Do
 

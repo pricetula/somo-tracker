@@ -140,6 +140,36 @@ func (h *TeachersHandler) GetTeacherSummary(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(summary)
 }
 
+// GetTeacher returns a single teacher
+// @Summary Get teacher
+// @Tags Teachers
+// @Produce json
+// @Param id path string true "Teacher Membership ID"
+// @Success 200 {object} services.TeacherDetail
+// @Failure 404 {object} map[string]any
+// @Failure 401 {object} map[string]any
+// @Router /teachers/{id} [get]
+func (h *TeachersHandler) GetTeacher(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return WriteError(c, ErrUnauthorized("active school not found"))
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid school id", nil))
+	}
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid id", nil))
+	}
+	detail, err := h.svc.GetTeacher(c.Context(), schoolID, id)
+	if err != nil {
+		return WriteError(c, ErrNotFound("teacher not found"))
+	}
+	return c.Status(fiber.StatusOK).JSON(detail)
+}
+
 func (h *TeachersHandler) ListTeachers(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {

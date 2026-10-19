@@ -174,7 +174,12 @@ func (s *classesService) GetClass(ctx context.Context, schoolID uuid.UUID, id uu
 	}
 	d.GradeID = gradeID.String()
 	d.TeacherName = teacher
-	d.StudentsCount = 0
+	// Students count for current academic term
+	var count int
+	countQry := `SELECT COUNT(*) FROM student_class_enrollments sce WHERE sce.class_room_id = $1 AND sce.academic_term_id IN (SELECT id FROM academic_terms WHERE academic_year_id = $2)`
+	if err := s.pool.QueryRow(ctx, countQry, id, res.ReadYearID).Scan(&count); err == nil {
+		d.StudentsCount = count
+	}
 	return &d, nil
 }
 

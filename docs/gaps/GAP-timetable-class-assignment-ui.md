@@ -2,7 +2,7 @@
 
 **Area:** frontend
 **Severity:** Medium
-**Status:** Open
+**Status:** Done
 **Created:** 2026-10-15
 
 ## Description
@@ -21,11 +21,11 @@ Without conflict detection, invalid timetables can be created. Workflow needs po
 Extend weekly matrix UI to support assignment mode. Add assign slot form with validation and conflict detection.
 
 ## Acceptance Criteria
-- [ ] Admin can open class timetable editor
-- [ ] Slot selection opens assignment form
-- [ ] Form validates required fields
-- [ ] Assignments persist via API
-- [ ] Changes reflected in matrix
+- [x] Admin can open class timetable editor
+- [x] Slot selection opens assignment form
+- [x] Form validates required fields
+- [x] Assignments persist via API
+- [x] Changes reflected in matrix
 
 ## Links
 - Analysis: `docs/timetable-gap-analysis.md`

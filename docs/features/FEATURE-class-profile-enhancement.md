@@ -1,6 +1,6 @@
 # Feature: Class Profile Enhancement
 
-**Status:** Proposed
+**Status:** In Progress
 **Owner:** Product / Platform
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
@@ -21,7 +21,7 @@ No holistic view of class.
 Add enriched `GET /api/classes/:id` with students, teachers, timetable. Enrollment counts sourced from `class_enrollment_stats` summary table per ADR-2026-10-15-stats-architecture.
 
 ### Acceptance Criteria
-- [ ] Class profile shows overview, students, teachers, timetable
+- [x] Class profile shows overview, students, teachers, timetable
 - [ ] Edit capability
 
 ## References

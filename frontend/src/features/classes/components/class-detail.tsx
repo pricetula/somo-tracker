@@ -143,6 +143,33 @@ export function ClassDetail({ id }: ClassDetailProps) {
                     }
                 />
             </div>
+
+            <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Teacher Assignments</h2>
+                <div className="text-muted-foreground text-sm">
+                    Teacher assignments are managed via the timetable. View the class timetable for
+                    details.
+                </div>
+                <Link
+                    href={`/timetable?classId=${id}`}
+                    className="text-primary underline underline-offset-4"
+                >
+                    View Timetable
+                </Link>
+            </div>
+
+            <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Timetable</h2>
+                <div className="text-muted-foreground text-sm">
+                    Class timetable slots are managed in the timetable module.
+                </div>
+                <Link
+                    href={`/timetable?classId=${id}`}
+                    className="text-primary underline underline-offset-4"
+                >
+                    Open Timetable
+                </Link>
+            </div>
         </div>
     );
 }

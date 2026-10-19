@@ -1936,24 +1936,6 @@ func TestMigrator_BulkJobIngestion(t *testing.T) {
 	// Optional: single INSERT + SELECT functional check
 }
 
-func TestMigrator_AddGradeIdToSubjects(t *testing.T) {
-	// Apply migration via migrator.Up(ctx)
-	// Assert artifacts exist:
-	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
-	// SELECT enumlabel FROM pg_enum WHERE ...
-	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
-	// Optional: single INSERT + SELECT functional check
-}
-
-func TestMigrator_ExpandSubjectCode(t *testing.T) {
-	// Apply migration via migrator.Up(ctx)
-	// Assert artifacts exist:
-	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
-	// SELECT enumlabel FROM pg_enum WHERE ...
-	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
-	// Optional: single INSERT + SELECT functional check
-}
-
 func TestMigrator_AddClassTimetableSlotsUnique(t *testing.T) {
 	// Apply migration via migrator.Up(ctx)
 	// Assert artifacts exist:
@@ -1964,24 +1946,6 @@ func TestMigrator_AddClassTimetableSlotsUnique(t *testing.T) {
 }
 
 func TestMigrator_AddColorToSubjects(t *testing.T) {
-	// Apply migration via migrator.Up(ctx)
-	// Assert artifacts exist:
-	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
-	// SELECT enumlabel FROM pg_enum WHERE ...
-	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
-	// Optional: single INSERT + SELECT functional check
-}
-
-func TestMigrator_AddStudentBulkImportSupport(t *testing.T) {
-	// Apply migration via migrator.Up(ctx)
-	// Assert artifacts exist:
-	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'
-	// SELECT enumlabel FROM pg_enum WHERE ...
-	// SELECT indexname FROM pg_indexes WHERE tablename = '...'
-	// Optional: single INSERT + SELECT functional check
-}
-
-func TestMigrator_StudentImportHardening(t *testing.T) {
 	// Apply migration via migrator.Up(ctx)
 	// Assert artifacts exist:
 	// SELECT table_name FROM information_schema.tables WHERE table_name = '...'

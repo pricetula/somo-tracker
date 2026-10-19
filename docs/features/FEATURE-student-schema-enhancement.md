@@ -1,6 +1,6 @@
 # Feature: Student Schema Enhancement
 
-**Status:** Proposed
+**Status:** Done
 **Owner:** Platform Team
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
@@ -26,13 +26,13 @@ Migrate `students` table to add structured columns and update service DTOs, RLS 
 - As an Admin, I want to edit address/phone/email inline in student profile.
 
 ### Acceptance Criteria
-- [ ] Migration adds columns: `address`, `phone`, `email`, `nationality`, `emergency_contact_name`, `emergency_contact_phone`, `special_needs`
-- [ ] Columns are nullable with appropriate constraints
-- [ ] RLS policies updated to cover new columns
-- [ ] `GET /students/:id` returns new fields
-- [ ] `PATCH /students/:id` accepts and validates new fields
-- [ ] Backfill script migrates existing `metadata` values where present
-- [ ] API error contract compliant
+- [x] Migration adds columns: `address`, `phone`, `email`, `nationality`, `emergency_contact_name`, `emergency_contact_phone`, `special_needs`
+- [x] Columns are nullable with appropriate constraints
+- [x] RLS policies updated to cover new columns
+- [x] `GET /students/:id` returns new fields
+- [x] `PATCH /students/:id` accepts and validates new fields
+- [x] Backfill script migrates existing `metadata` values where present
+- [x] API error contract compliant
 
 ## Scope
 

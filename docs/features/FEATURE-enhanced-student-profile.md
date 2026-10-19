@@ -44,15 +44,15 @@ Build a full profile page with tabs/sections:
 - As a Teacher, I want to see guardian contacts from the profile
 
 ### Acceptance Criteria
-- [ ] Student detail page loads full profile data from API
-- [ ] Display: full_name, admission_number, date_of_birth, gender, address, phone, email, nationality
-- [ ] Show current class + enrollment history
-- [ ] Show linked guardians with contact info
-- [ ] Show Stats & KPIs: attendance rate, tardy count, days present/absent for current term
-- [ ] Show academic progress summary where data exists
-- [ ] Edit form with validation, persists via API
-- [ ] Uses Shadcn components, no dumb back buttons
-- [ ] Error contract compliant
+- [x] Student detail page loads full profile data from API
+- [x] Display: full_name, admission_number, date_of_birth, gender, address, phone, email, nationality
+- [x] Show current class + enrollment history
+- [x] Show linked guardians with contact info
+- [x] Show Stats & KPIs: attendance rate, tardy count, days present/absent for current term
+- [x] Show academic progress summary where data exists
+- [x] Edit form with validation, persists via API
+- [x] Uses Shadcn components, no dumb back buttons
+- [x] Error contract compliant
 
 ## Scope
 

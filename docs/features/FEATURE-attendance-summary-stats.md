@@ -1,6 +1,6 @@
 # Feature: Attendance Summary Stats
 
-**Status:** Done
+**Status:** In Progress
 **Owner:** Product / Platform
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15

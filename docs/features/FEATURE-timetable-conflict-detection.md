@@ -38,10 +38,10 @@ Add server-side validation in the Timetable service before persisting `class_tim
 - As a System, I want conflicts detected at write time to maintain data integrity.
 
 ### Acceptance Criteria
-- [ ] `POST /api/timetable/setup` validates teacher availability per day + time + academic term
-- [ ] `POST /api/timetable/setup` validates room availability per day + time + academic term
-- [ ] `POST /api/timetable/setup` validates class does not already have a slot for same day + time
-- [ ] On conflict, API returns 409 with body:
+- [x] `POST /api/timetable/setup` validates teacher availability per day + time + academic term
+- [x] `POST /api/timetable/setup` validates room availability per day + time + academic term
+- [x] `POST /api/timetable/setup` validates class does not already have a slot for same day + time
+- [x] On conflict, API returns 409 with body:
   ```json
   {
     "code": "timetable_conflict",
@@ -58,8 +58,8 @@ Add server-side validation in the Timetable service before persisting `class_tim
     }
   }
   ```
-- [ ] Validation respects current academic term resolution; never uses term_id from client
-- [ ] Validation is tenant-isolated via RLS
+- [x] Validation respects current academic term resolution; never uses term_id from client
+- [x] Validation is tenant-isolated via RLS
 
 ## Scope
 
@@ -134,12 +134,12 @@ Add server-side validation in the Timetable service before persisting `class_tim
 - Monitor error rate for `timetable_conflict` in logs
 
 ## Implementation Notes
-**2026-10-15 – In Progress**
+**2026-10-15 – Done**
 - Docs enhanced with Rationale, Test Matrix and Implementation Notes template to pilot document-led workflow
 - Backend validation implemented in `internal/services/timetable_service.go` SetupClassTimetableSlot: teacher, room, class conflict checks inside transaction
 - Handler `api/timetable_handler.go` maps `timetable_conflict:*` errors to 409 with code `timetable_conflict`
 - E2E Playwright tests added in `frontend/tests/e2e/timetable-conflict.spec.ts` covering teacher/room/class conflicts and happy path
-- Frontend error handling for 409 `timetable_conflict` pending in assign form
+- Frontend error handling for 409 `timetable_conflict` implemented in `assign-slot-form.tsx` with inline field errors and toast
 - Feature flag `timetable_conflict_detection` remains default on
 
 ## References

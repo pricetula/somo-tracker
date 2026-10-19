@@ -4,9 +4,7 @@ import (
 	"context"
 )
 
-type GuardianLinkService struct {
-	pool interface{}
-}
+type GuardianLinkService struct{}
 
 func NewGuardianLinkService() *GuardianLinkService {
 	return &GuardianLinkService{}

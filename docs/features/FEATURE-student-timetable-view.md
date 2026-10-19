@@ -27,12 +27,12 @@ Add a read-only weekly grid for a student, resolved server-side from enrollments
 - As an Admin, I want to verify student schedules without opening multiple class pages.
 
 ### Acceptance Criteria
-- [ ] `GET /api/students/:id/timetable` returns weekly grid for current academic term
-- [ ] Response includes day, time slot, subject, teacher name, room name, class name
-- [ ] Frontend page `/students/[id]/timetable` renders weekly grid
-- [ ] Grid updates when enrollment changes
-- [ ] Empty state shown if student has no enrollments
-- [ ] RLS enforced, student can only view own timetable or authorized users can view any
+- [x] `GET /api/students/:id/timetable` returns weekly grid for current academic term
+- [x] Response includes day, time slot, subject, teacher name, room name, class name
+- [x] Frontend page `/students/[id]/timetable` renders weekly grid
+- [x] Grid updates when enrollment changes
+- [x] Empty state shown if student has no enrollments
+- [x] RLS enforced, student can only view own timetable or authorized users can view any
 
 ## Scope
 

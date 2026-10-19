@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -36,7 +38,9 @@ func (h *AttendanceReportsHandler) ListStudentTermStats(c fiber.Ctx) error {
 	page := 1
 	limit := 50
 	if p := c.Query("page"); p != "" {
-		// parse int
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
 	}
 	items, _, err := h.svc.ListStudentTermStats(c.Context(), schoolID, termID, page, limit)
 	if err != nil {

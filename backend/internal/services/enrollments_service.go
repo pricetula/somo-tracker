@@ -3,10 +3,12 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.uber.org/zap"
 
@@ -119,6 +121,20 @@ func (s *enrollmentsService) CreateEnrollments(ctx context.Context, schoolID uui
 	for _, req := range reqs {
 		if req.StudentID == uuid.Nil {
 			return nil, fmt.Errorf("student_id is required")
+		}
+		// Check for existing active enrollment for this student in the same academic year
+		existing, err := s.queries.GetActiveEnrollmentByStudent(ctx, sqlc.GetActiveEnrollmentByStudentParams{
+			StudentID:      uuidToPG(req.StudentID),
+			AcademicYearID: uuidToPG(academicYearID),
+		})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Error("check existing enrollment failed", zap.Error(err))
+			return nil, fmt.Errorf("failed to check existing enrollment: %w", err)
+		}
+		if err == nil && existing.ID.Valid {
+			// Skip duplicate
+			s.logger.Warn("duplicate enrollment skipped", zap.String("student_id", req.StudentID.String()), zap.String("class_room_id", classRoomID.String()))
+			continue
 		}
 		enrolledAt, err := time.Parse("2006-01-02", req.EnrollmentDate)
 		if err != nil {

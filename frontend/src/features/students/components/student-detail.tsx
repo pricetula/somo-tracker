@@ -307,8 +307,14 @@ export function StudentDetail({ id }: StudentDetailProps) {
                 <section className="space-y-2">
                     <h2 className="text-lg font-semibold">Guardians</h2>
                     <Card>
-                        <CardContent>
-                            <p className="text-muted-foreground">Guardians content</p>
+                        <CardContent className="space-y-4">
+                            <p className="text-muted-foreground">
+                                Link guardians to this student and manage relationship types.
+                            </p>
+                            <div className="text-muted-foreground text-sm">
+                                Guardian linking UI placeholder – backend API for link/unlink
+                                endpoints to be wired.
+                            </div>
                         </CardContent>
                     </Card>
                 </section>

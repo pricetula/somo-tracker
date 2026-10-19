@@ -2,8 +2,10 @@
 
 **Area:** frontend | backend
 **Severity:** High
-**Status:** Open
+**Status:** Done
+**Owner:** Platform team
 **Created:** 2026-10-15
+**Closed:** 2026-10-15
 
 ## Description
 Enrollment UI exists but lacks bulk actions, validation, and clear feedback. No easy way to bulk assign students to classes.
@@ -15,9 +17,9 @@ Admins struggle with class enrollment management.
 Polish enrollment UI with bulk actions, validation, and feedback.
 
 ## Acceptance Criteria
-- [ ] Bulk assign students to class
-- [ ] Validation
-- [ ] Success feedback
+- [x] Bulk assign students to class
+- [x] Validation
+- [x] Success feedback
 
 ## Links
 - Feature to be created

@@ -1,6 +1,6 @@
 # Feature: Student Timetable View
 
-**Status:** Proposed
+**Status:** Done
 **Owner:** Product / Platform
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15

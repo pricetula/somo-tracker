@@ -2,8 +2,10 @@
 
 **Area:** backend
 **Severity:** High
-**Status:** In Progress
+**Status:** Done
+**Owner:** Platform team
 **Created:** 2026-10-15
+**Closed:** 2026-10-15
 
 ## Description
 No validation prevents teacher double-booking, room double-booking, or class overlapping slots when creating `class_timetable_slots`.
@@ -18,8 +20,8 @@ Add validation in `SetupClassTimetableSlot` service:
 - Class room cannot have overlapping slots
 
 ## Acceptance Criteria
-- [ ] API returns error with code `timetable_conflict` on double booking
-- [ ] Error details indicate conflicting resource
+- [x] API returns error with code `timetable_conflict` on double booking
+- [x] Error details indicate conflicting resource
 
 ## Links
 - Feature: `docs/features/FEATURE-timetable-conflict-detection.md`

@@ -198,7 +198,12 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, que
 
 	// Initialize students listing
 	studentsSvc := services.NewStudentsService(queries)
-	router.Students = api.NewStudentsHandler(studentsSvc, logger)
+	timetableSvc := services.NewTimetableService(pool, queries)
+	router.Students = api.NewStudentsHandler(studentsSvc, timetableSvc, logger)
+
+	// Initialize attendance reporting
+	attendanceReportingSvc := services.NewAttendanceReportingService(queries)
+	router.AttendanceReports = api.NewAttendanceReportsHandler(attendanceReportingSvc, logger)
 
 	// Initialize timetable substitutions
 	timetableSubstitutionsSvc := services.NewTimetableSubstitutionsService(queries)

@@ -51,6 +51,7 @@ type Router struct {
 	Timetable              *TimetableHandler
 	TimetableSubstitutions *TimetableSubstitutionsHandler
 	Attendance             *AttendanceHandler
+	AttendanceReports      *AttendanceReportsHandler
 	Events                 *EventsHandler
 	Rooms                  *RoomsHandler
 	Enrollments            *EnrollmentsHandler
@@ -105,7 +106,7 @@ func NewRouter(
 		Rooms:                  NewRoomsHandler(roomsSvc),
 		UserCounts:             NewUserCountsHandler(services.NewUserCountsService(pool, zap.L())),
 		Enrollments:            NewEnrollmentsHandler(services.NewEnrollmentsService(queries, zap.L()), zap.L()),
-		Students:               NewStudentsHandler(services.NewStudentsService(queries), zap.L()),
+		Students:               NewStudentsHandler(services.NewStudentsService(queries), timetableSvc, zap.L()),
 		StudentsImport:         nil, // requires Asynq/Redis, wired in newFiberApp
 		Curriculum:             curriculumSvc,
 		AdminInvitation:        nil,
@@ -274,6 +275,8 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/students", r.Students.ListStudents)
 	protected.Get("/students/summary", r.Students.GetStudentSummary)
 	protected.Get("/students/:id", r.Students.GetStudent)
+	protected.Get("/students/:id/timetable", r.Students.GetStudentTimetable)
+	protected.Get("/attendance/reports", r.AttendanceReports.ListStudentTermStats)
 	protected.Patch("/students/:id", r.Students.UpdateStudent)
 	protected.Delete("/students", r.Students.DeleteStudents)
 

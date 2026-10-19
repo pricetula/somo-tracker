@@ -2,8 +2,10 @@
 
 **Area:** frontend
 **Severity:** High
-**Status:** Open
+**Status:** Done
+**Owner:** Platform team
 **Created:** 2026-10-15
+**Closed:** 2026-10-15
 
 ## Description
 Students cannot view their personal weekly timetable derived from class enrollments and class_timetable_slots.
@@ -15,6 +17,6 @@ Students lack visibility into schedule.
 Create student timetable view that resolves current class enrollment, fetches class timetable slots for current academic term, displays weekly grid.
 
 ## Acceptance Criteria
-- [ ] Student can view weekly timetable
-- [ ] Shows subject, teacher, room, time
-- [ ] Updates when enrollment changes
+- [x] Student can view weekly timetable
+- [x] Shows subject, teacher, room, time
+- [x] Updates when enrollment changes

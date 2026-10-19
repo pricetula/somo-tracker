@@ -649,6 +649,16 @@ type GradeLevel struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Summary table for guardian links per student, updated by background workers.
+type GuardianLinkStat struct {
+	SchoolID          pgtype.UUID        `json:"school_id"`
+	StudentID         pgtype.UUID        `json:"student_id"`
+	GuardianCount     int32              `json:"guardian_count"`
+	IsLinked          bool               `json:"is_linked"`
+	PrimaryGuardianID pgtype.UUID        `json:"primary_guardian_id"`
+	LastUpdatedAt     pgtype.Timestamptz `json:"last_updated_at"`
+}
+
 // Links a guardian (via school_membership) to a student with a relationship type.
 type GuardianStudentLink struct {
 	// Auto-generated UUID primary key.
@@ -926,6 +936,29 @@ type StudentGenderCount struct {
 	TotalCount int32 `json:"total_count"`
 	// Last recompute timestamp.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type StudentNote struct {
+	ID        pgtype.UUID        `json:"id"`
+	SchoolID  pgtype.UUID        `json:"school_id"`
+	StudentID pgtype.UUID        `json:"student_id"`
+	AuthorID  pgtype.UUID        `json:"author_id"`
+	Content   string             `json:"content"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Summary table for student attendance per term, updated by background workers.
+type StudentTermAttendanceStat struct {
+	SchoolID       pgtype.UUID `json:"school_id"`
+	AcademicTermID pgtype.UUID `json:"academic_term_id"`
+	StudentID      pgtype.UUID `json:"student_id"`
+	PresentCount   int32       `json:"present_count"`
+	AbsentCount    int32       `json:"absent_count"`
+	LateCount      int32       `json:"late_count"`
+	// Percentage present, computed as present / (present+absent+late) * 100
+	AttendanceRate pgtype.Numeric     `json:"attendance_rate"`
+	LastUpdatedAt  pgtype.Timestamptz `json:"last_updated_at"`
 }
 
 // Sub-topics within a topic, ordered by sequence_index for granular curriculum sequencing.

@@ -35,6 +35,7 @@ type Querier interface {
 	CreateRoom(ctx context.Context, arg CreateRoomParams) (Room, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateStream(ctx context.Context, arg CreateStreamParams) (Stream, error)
+	CreateStudentNote(ctx context.Context, arg CreateStudentNoteParams) (StudentNote, error)
 	CreateTimeSlot(ctx context.Context, arg CreateTimeSlotParams) (pgtype.UUID, error)
 	CreateTimetableAttendance(ctx context.Context, arg CreateTimetableAttendanceParams) (TimetableAttendance, error)
 	CreateTimetableSubstitution(ctx context.Context, arg CreateTimetableSubstitutionParams) (TimetableSubstitution, error)
@@ -46,6 +47,7 @@ type Querier interface {
 	DeleteGuardians(ctx context.Context, arg DeleteGuardiansParams) error
 	DeleteRoom(ctx context.Context, arg DeleteRoomParams) error
 	DeleteSession(ctx context.Context, token string) error
+	DeleteStudentNote(ctx context.Context, arg DeleteStudentNoteParams) error
 	DeleteStudents(ctx context.Context, arg DeleteStudentsParams) error
 	DeleteTeachers(ctx context.Context, arg DeleteTeachersParams) error
 	DeleteTimetableSubstitution(ctx context.Context, id pgtype.UUID) error
@@ -59,6 +61,7 @@ type Querier interface {
 	GetBulkJob(ctx context.Context, id pgtype.UUID) (BulkJob, error)
 	GetBulkJobByTenantAndIdempotency(ctx context.Context, arg GetBulkJobByTenantAndIdempotencyParams) (BulkJob, error)
 	GetClassRoom(ctx context.Context, id pgtype.UUID) (GetClassRoomRow, error)
+	GetClassTimetableSlots(ctx context.Context, arg GetClassTimetableSlotsParams) ([]GetClassTimetableSlotsRow, error)
 	GetClassTimetableSlotsByTemplate(ctx context.Context, arg GetClassTimetableSlotsByTemplateParams) ([]GetClassTimetableSlotsByTemplateRow, error)
 	GetClassTimetableSlotsByTemplateWithDetails(ctx context.Context, arg GetClassTimetableSlotsByTemplateWithDetailsParams) ([]GetClassTimetableSlotsByTemplateWithDetailsRow, error)
 	GetCountryByName(ctx context.Context, countryName string) (pgtype.UUID, error)
@@ -91,16 +94,23 @@ type Querier interface {
 	GetTopicByID(ctx context.Context, id pgtype.UUID) (GetTopicByIDRow, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	IncrementBulkJobCounts(ctx context.Context, arg IncrementBulkJobCountsParams) error
+	LinkGuardianToStudent(ctx context.Context, arg LinkGuardianToStudentParams) (pgtype.UUID, error)
 	ListAcademicTermsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]ListAcademicTermsBySchoolRow, error)
 	ListAdmins(ctx context.Context, arg ListAdminsParams) ([]ListAdminsRow, error)
 	ListClassEnrollmentsSummaryBySchoolAndYear(ctx context.Context, arg ListClassEnrollmentsSummaryBySchoolAndYearParams) ([]ListClassEnrollmentsSummaryBySchoolAndYearRow, error)
 	ListClassRoomsBySchoolAndYear(ctx context.Context, arg ListClassRoomsBySchoolAndYearParams) ([]ListClassRoomsBySchoolAndYearRow, error)
+	ListClassTermAttendanceStats(ctx context.Context, arg ListClassTermAttendanceStatsParams) ([]ListClassTermAttendanceStatsRow, error)
 	ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]ListEnrollmentsRow, error)
 	ListFinance(ctx context.Context, arg ListFinanceParams) ([]ListFinanceRow, error)
 	ListGuardians(ctx context.Context, arg ListGuardiansParams) ([]ListGuardiansRow, error)
+	ListGuardiansForStudent(ctx context.Context, studentID pgtype.UUID) ([]ListGuardiansForStudentRow, error)
 	ListRoomsBySchool(ctx context.Context, arg ListRoomsBySchoolParams) ([]Room, error)
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
+	ListStudentNotes(ctx context.Context, arg ListStudentNotesParams) ([]StudentNote, error)
+	ListStudentTermAttendanceStats(ctx context.Context, arg ListStudentTermAttendanceStatsParams) ([]StudentTermAttendanceStat, error)
+	ListStudentTermAttendanceStatsByStudent(ctx context.Context, arg ListStudentTermAttendanceStatsByStudentParams) (StudentTermAttendanceStat, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error)
+	ListStudentsForGuardian(ctx context.Context, schoolMembershipID pgtype.UUID) ([]ListStudentsForGuardianRow, error)
 	ListSubTopics(ctx context.Context, arg ListSubTopicsParams) ([]ListSubTopicsRow, error)
 	ListSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) ([]ListSubTopicsByTopicRow, error)
 	ListSubjects(ctx context.Context, arg ListSubjectsParams) ([]ListSubjectsRow, error)
@@ -113,6 +123,7 @@ type Querier interface {
 	ListTopicsBySubject(ctx context.Context, subjectID pgtype.UUID) ([]ListTopicsBySubjectRow, error)
 	ListUnassignedStudents(ctx context.Context, arg ListUnassignedStudentsParams) ([]ListUnassignedStudentsRow, error)
 	SearchSubjects(ctx context.Context, arg SearchSubjectsParams) ([]SearchSubjectsRow, error)
+	UnlinkGuardianFromStudent(ctx context.Context, arg UnlinkGuardianFromStudentParams) error
 	UpdateBulkJobItem(ctx context.Context, arg UpdateBulkJobItemParams) error
 	UpdateBulkJobItemResultStatus(ctx context.Context, arg UpdateBulkJobItemResultStatusParams) error
 	UpdateBulkJobStatus(ctx context.Context, arg UpdateBulkJobStatusParams) error
@@ -122,6 +133,7 @@ type Querier interface {
 	UpdateRoom(ctx context.Context, arg UpdateRoomParams) (Room, error)
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
 	UpdateStudent(ctx context.Context, arg UpdateStudentParams) error
+	UpdateStudentNote(ctx context.Context, arg UpdateStudentNoteParams) (StudentNote, error)
 	UpdateTimetableSubstitution(ctx context.Context, arg UpdateTimetableSubstitutionParams) error
 	UpdateTimetableTemplate(ctx context.Context, arg UpdateTimetableTemplateParams) error
 	// Upserts (or updates) a school_membership during bulk invitation.

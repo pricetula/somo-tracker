@@ -24,6 +24,42 @@ import { RoomsCombobox } from "@/features/rooms/components/rooms-combobox";
 import { useQuery } from "@tanstack/react-query";
 import { getClass } from "@/features/classes/services/api";
 
+type ConflictType = "teacher_double_book" | "room_double_book" | "class_overlap";
+
+interface TimetableConflict {
+    type: ConflictType;
+    resource_name?: string;
+    resource_id?: string;
+    existing_slot_id?: string;
+}
+
+function extractConflicts(err: ApiError): TimetableConflict[] {
+    const raw = (err.errors as Record<string, unknown> | undefined)?.conflicts;
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map((item): TimetableConflict | null => {
+            if (typeof item === "string") {
+                return { type: item as ConflictType };
+            }
+            if (typeof item === "object" && item !== null && "type" in item) {
+                const obj = item as {
+                    type: string;
+                    resource_name?: string;
+                    resource_id?: string;
+                    existing_slot_id?: string;
+                };
+                return {
+                    type: obj.type as ConflictType,
+                    resource_name: obj.resource_name,
+                    resource_id: obj.resource_id,
+                    existing_slot_id: obj.existing_slot_id,
+                };
+            }
+            return null;
+        })
+        .filter((c): c is TimetableConflict => c !== null);
+}
+
 const schema = z.object({
     subject_id: z.string().min(1, "Subject is required"),
     teacher_membership_id: z.string().min(1, "Teacher is required"),
@@ -101,14 +137,31 @@ export function AssignSlotForm({
                                 err.status === 409 &&
                                 err.code === "timetable_conflict"
                             ) {
+                                const conflicts = extractConflicts(err);
+                                conflicts.forEach((c) => {
+                                    if (c.type === "teacher_double_book") {
+                                        form.setError("teacher_membership_id", {
+                                            type: "server",
+                                            message: `Teacher already booked: ${c.resource_name ?? "selected teacher"}`,
+                                        });
+                                    }
+                                    if (c.type === "room_double_book") {
+                                        form.setError("room_id", {
+                                            type: "server",
+                                            message: `Room already booked: ${c.resource_name ?? "selected room"}`,
+                                        });
+                                    }
+                                    if (c.type === "class_overlap") {
+                                        form.setError("root", {
+                                            type: "server",
+                                            message: `Class already has a slot at this time`,
+                                        });
+                                    }
+                                });
                                 toast.error(
                                     err.message ||
                                         "Timetable conflict detected. Please adjust the assignment."
                                 );
-                                form.setError("root", {
-                                    type: "server",
-                                    message: err.message,
-                                });
                             } else {
                                 toast.error(getErrorMessage(err));
                             }
@@ -143,14 +196,31 @@ export function AssignSlotForm({
                             err.status === 409 &&
                             err.code === "timetable_conflict"
                         ) {
+                            const conflicts = extractConflicts(err);
+                            conflicts.forEach((c) => {
+                                if (c.type === "teacher_double_book") {
+                                    form.setError("teacher_membership_id", {
+                                        type: "server",
+                                        message: `Teacher already booked: ${c.resource_name ?? "selected teacher"}`,
+                                    });
+                                }
+                                if (c.type === "room_double_book") {
+                                    form.setError("room_id", {
+                                        type: "server",
+                                        message: `Room already booked: ${c.resource_name ?? "selected room"}`,
+                                    });
+                                }
+                                if (c.type === "class_overlap") {
+                                    form.setError("root", {
+                                        type: "server",
+                                        message: `Class already has a slot at this time`,
+                                    });
+                                }
+                            });
                             toast.error(
                                 err.message ||
                                     "Timetable conflict detected. Please adjust the assignment."
                             );
-                            form.setError("root", {
-                                type: "server",
-                                message: err.message,
-                            });
                         } else {
                             toast.error(getErrorMessage(err));
                         }

@@ -3,21 +3,21 @@
 Derived from `docs/planning/student-module-roadmap.md`. For implementation starting next week.
 
 ## Phase 1 – Core Profile & Schema
-- [ ] Migration: Add structured columns to `students`
+- [x] Migration: Add structured columns to `students`
   - address, phone, email, nationality, emergency_contact_name, emergency_contact_phone, special_needs
   - RLS policies updated
   - Backfill script for existing metadata if needed
 
-- [ ] Backend API: Enriched student profile
-  - [ ] `GET /students/:id` returns enriched payload with personal fields, current class, enrollment history, guardians, stats_kpis, notes
-  - [ ] `PATCH /students/:id` validates and updates editable fields
-  - [ ] Error contract compliant
+- [x] Backend API: Enriched student profile
+  - [x] `GET /students/:id` returns enriched payload with personal fields, current class, enrollment history, guardians, stats_kpis, notes
+  - [x] `PATCH /students/:id` validates and updates editable fields
+  - [x] Error contract compliant
 
-- [ ] Frontend: Student Detail Page
-  - [ ] Replace placeholder `StudentDetail` component
-  - [ ] Tabs: Overview, Academics, Guardians, Stats & KPIs, Notes
-  - [ ] Stats & KPIs tab shows attendance rate, present/absent/tardy counts for current term
-  - [ ] Edit mode with validation
+- [x] Frontend: Student Detail Page
+  - [x] Replace placeholder `StudentDetail` component
+  - [x] Tabs: Overview, Academics, Guardians, Stats & KPIs, Notes
+  - [x] Stats & KPIs tab shows attendance rate, present/absent/tardy counts for current term
+  - [x] Edit mode with validation
 
 ## Phase 2 – Listing Enhancements
 - [x] Backend API: Extend ListStudents
@@ -31,13 +31,13 @@ Derived from `docs/planning/student-module-roadmap.md`. For implementation start
   - [x] Bulk delete action
 
 ## Phase 3 – Relationships & Notes
-- [ ] Guardian linking UI
-  - [ ] View linked guardians in detail page
-  - [ ] Link/unlink flow
+- [x] Guardian linking UI
+  - [x] View linked guardians in detail page
+  - [x] Link/unlink flow
 
-- [ ] Student Notes
-  - [ ] `student_notes` table
-  - [ ] Notes tab in profile with create/edit/delete
+- [x] Student Notes
+  - [x] `student_notes` table
+  - [x] Notes tab in profile with create/edit/delete
 
 ## Deferred
 - [ ] Document / photo uploads

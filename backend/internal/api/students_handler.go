@@ -19,12 +19,13 @@ type deleteStudentsRequest struct {
 }
 
 type StudentsHandler struct {
-	svc    services.StudentsService
-	logger *zap.Logger
+	svc          services.StudentsService
+	timetableSvc services.TimetableService
+	logger       *zap.Logger
 }
 
-func NewStudentsHandler(svc services.StudentsService, logger *zap.Logger) *StudentsHandler {
-	return &StudentsHandler{svc: svc, logger: logger.With(zap.String("handler", "students"))}
+func NewStudentsHandler(svc services.StudentsService, timetableSvc services.TimetableService, logger *zap.Logger) *StudentsHandler {
+	return &StudentsHandler{svc: svc, timetableSvc: timetableSvc, logger: logger.With(zap.String("handler", "students"))}
 }
 
 // ListStudents returns paginated students for the active school with optional search.
@@ -231,4 +232,27 @@ func (h *StudentsHandler) UpdateStudent(c fiber.Ctx) error {
 		return WriteError(c, ErrInternal("failed to update student"))
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"code": "student_updated", "message": "student updated", "errors": fiber.Map{}})
+}
+
+// GetStudentTimetable returns student's weekly timetable for current term
+func (h *StudentsHandler) GetStudentTimetable(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return WriteError(c, ErrUnauthorized("active school not found"))
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid school id", nil))
+	}
+	studentIDStr := c.Params("id")
+	studentID, err := uuid.Parse(studentIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid student id", map[string][]string{"id": {"invalid uuid"}}))
+	}
+	slots, err := h.timetableSvc.GetStudentTimetable(c.Context(), schoolID, studentID)
+	if err != nil {
+		h.logger.Error("get student timetable failed", zap.Error(err))
+		return WriteError(c, ErrInternal("failed to get student timetable"))
+	}
+	return c.Status(fiber.StatusOK).JSON(slots)
 }

@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     Form,
     FormControl,
@@ -16,6 +17,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { useAssignSlot } from "../hooks/use-assign-slot";
+import { useTimeSlots } from "../hooks/use-time-slots";
 import { ApiError } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/errors";
 import { TeachersCombobox } from "@/features/teachers/components/teachers-combobox";
@@ -77,6 +79,7 @@ interface AssignSlotFormProps {
     initialTeacherId?: string;
     initialRoomId?: string;
     assignmentId?: string;
+    templateId?: string;
 }
 
 export function AssignSlotForm({
@@ -88,6 +91,7 @@ export function AssignSlotForm({
     initialTeacherId,
     initialRoomId,
     assignmentId,
+    templateId,
 }: AssignSlotFormProps) {
     const { data: classData, isLoading: isClassLoading } = useQuery({
         queryKey: ["class", classId],
@@ -95,8 +99,27 @@ export function AssignSlotForm({
         enabled: !!classId,
     });
 
+    const { data: timeSlots } = useTimeSlots(templateId ?? "");
+    const timeSlot = React.useMemo(() => {
+        if (!timeSlots) return undefined;
+        return timeSlots.find((s) => s.id?.toLowerCase() === timeSlotId.toLowerCase());
+    }, [timeSlots, timeSlotId]);
+
     const gradeId = classData?.gradeId ?? "";
     const { mutate, isPending } = useAssignSlot();
+    const [conflicts, setConflicts] = React.useState<TimetableConflict[]>([]);
+
+    const dayNames = [
+        "",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ];
+    const dayName = dayNames[dayOfWeek] ?? `Day ${dayOfWeek}`;
 
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
@@ -122,9 +145,11 @@ export function AssignSlotForm({
                     },
                     {
                         onSuccess: () => {
+                            setConflicts([]);
                             onSuccess?.();
                         },
                         onError: (err) => {
+                            setConflicts([]);
                             if (err instanceof ApiError && err.status === 400 && err.errors) {
                                 Object.entries(err.errors).forEach(([field, messages]) => {
                                     form.setError(field as keyof FormValues, {
@@ -137,8 +162,9 @@ export function AssignSlotForm({
                                 err.status === 409 &&
                                 err.code === "timetable_conflict"
                             ) {
-                                const conflicts = extractConflicts(err);
-                                conflicts.forEach((c) => {
+                                const extracted = extractConflicts(err);
+                                setConflicts(extracted);
+                                extracted.forEach((c) => {
                                     if (c.type === "teacher_double_book") {
                                         form.setError("teacher_membership_id", {
                                             type: "server",
@@ -181,9 +207,11 @@ export function AssignSlotForm({
                 },
                 {
                     onSuccess: () => {
+                        setConflicts([]);
                         onSuccess?.();
                     },
                     onError: (err) => {
+                        setConflicts([]);
                         if (err instanceof ApiError && err.status === 400 && err.errors) {
                             Object.entries(err.errors).forEach(([field, messages]) => {
                                 form.setError(field as keyof FormValues, {
@@ -196,8 +224,9 @@ export function AssignSlotForm({
                             err.status === 409 &&
                             err.code === "timetable_conflict"
                         ) {
-                            const conflicts = extractConflicts(err);
-                            conflicts.forEach((c) => {
+                            const extracted = extractConflicts(err);
+                            setConflicts(extracted);
+                            extracted.forEach((c) => {
                                 if (c.type === "teacher_double_book") {
                                     form.setError("teacher_membership_id", {
                                         type: "server",
@@ -235,7 +264,42 @@ export function AssignSlotForm({
 
     return (
         <Form {...form}>
+            <div className="space-y-4">
+                <div className="text-muted-foreground space-y-1 text-sm">
+                    <div>
+                        <span className="text-foreground font-medium">Class:</span>{" "}
+                        {classData?.name ?? "—"}
+                    </div>
+                    <div>
+                        <span className="text-foreground font-medium">Day:</span> {dayName}
+                    </div>
+                    <div>
+                        <span className="text-foreground font-medium">Time slot:</span>{" "}
+                        {timeSlot?.name ?? "—"}
+                        {timeSlot?.start_time && timeSlot?.end_time
+                            ? ` • ${timeSlot.start_time} – ${timeSlot.end_time}`
+                            : ""}
+                    </div>
+                </div>
+            </div>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                {conflicts.length > 0 && (
+                    <Alert variant="destructive">
+                        <AlertTitle>Timetable conflict detected</AlertTitle>
+                        <AlertDescription>
+                            {conflicts.map((c, i) => (
+                                <div key={i} className="text-sm">
+                                    {c.type === "teacher_double_book" &&
+                                        `Teacher ${c.resource_name ?? "selected teacher"} is already booked`}
+                                    {c.type === "room_double_book" &&
+                                        `Room ${c.resource_name ?? "selected room"} is already booked`}
+                                    {c.type === "class_overlap" &&
+                                        `Class already has a slot at this time`}
+                                </div>
+                            ))}
+                        </AlertDescription>
+                    </Alert>
+                )}
                 {form.formState.errors.root && (
                     <div className="text-destructive text-sm">
                         {form.formState.errors.root.message}

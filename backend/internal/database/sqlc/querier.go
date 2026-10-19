@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	CheckClassRoomBelongsToSchool(ctx context.Context, arg CheckClassRoomBelongsToSchoolParams) (bool, error)
+	CheckClassTimetableSlotBelongsToSchool(ctx context.Context, arg CheckClassTimetableSlotBelongsToSchoolParams) (bool, error)
 	CountAdmins(ctx context.Context, arg CountAdminsParams) (int64, error)
 	CountClassRoomsBySchoolAndYear(ctx context.Context, arg CountClassRoomsBySchoolAndYearParams) (int64, error)
 	CountEnrollments(ctx context.Context, arg CountEnrollmentsParams) (int64, error)
@@ -18,6 +20,7 @@ type Querier interface {
 	CountGuardians(ctx context.Context, arg CountGuardiansParams) (int64, error)
 	CountRoomsBySchool(ctx context.Context, schoolID pgtype.UUID) (int64, error)
 	CountSearchSubjects(ctx context.Context, name string) (int64, error)
+	CountStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) (int64, error)
 	CountStudents(ctx context.Context, arg CountStudentsParams) (int64, error)
 	CountSubTopicsByTopic(ctx context.Context, topicID pgtype.UUID) (int64, error)
 	CountSubjects(ctx context.Context) (int64, error)
@@ -106,6 +109,7 @@ type Querier interface {
 	ListGuardiansForStudent(ctx context.Context, studentID pgtype.UUID) ([]ListGuardiansForStudentRow, error)
 	ListRoomsBySchool(ctx context.Context, arg ListRoomsBySchoolParams) ([]Room, error)
 	ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error)
+	ListStreamsBySchoolPaginated(ctx context.Context, arg ListStreamsBySchoolPaginatedParams) ([]Stream, error)
 	ListStudentNotes(ctx context.Context, arg ListStudentNotesParams) ([]StudentNote, error)
 	ListStudentTermAttendanceStats(ctx context.Context, arg ListStudentTermAttendanceStatsParams) ([]StudentTermAttendanceStat, error)
 	ListStudentTermAttendanceStatsByStudent(ctx context.Context, arg ListStudentTermAttendanceStatsByStudentParams) (StudentTermAttendanceStat, error)

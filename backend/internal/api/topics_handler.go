@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strconv"
-
 	"github.com/gofiber/fiber/v3"
 
 	"somotracker/backend/internal/services"
@@ -15,14 +13,12 @@ func topicsListHandler(curriculumSvc services.CurriculumService) fiber.Handler {
 		if subjectID == "" {
 			return WriteError(c, ErrBadRequest("subject_id is required", nil))
 		}
-		page, _ := strconv.Atoi(c.Query("page", "1"))
-		if page < 1 {
-			page = 1
+
+		pagination, err := ValidatePagination(c, 100)
+		if err != nil {
+			return err
 		}
-		limit, _ := strconv.Atoi(c.Query("limit", "50"))
-		if limit < 1 || limit > 200 {
-			limit = 50
-		}
+		page, limit := pagination.Page, pagination.Limit
 
 		items, total, err := curriculumSvc.ListTopics(ctx, subjectID, page, limit)
 		if err != nil {
@@ -33,6 +29,8 @@ func topicsListHandler(curriculumSvc services.CurriculumService) fiber.Handler {
 			"code":   "topics_fetched",
 			"items":  items,
 			"total":  total,
+			"page":   page,
+			"limit":  limit,
 			"errors": fiber.Map{},
 		})
 	}

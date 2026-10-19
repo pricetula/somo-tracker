@@ -14,12 +14,14 @@ func NewStreamsHandler(svc services.StreamsService) *StreamsHandler {
 	return &StreamsHandler{service: svc}
 }
 
-// ListStreams lists all streams for the active school.
+// ListStreams lists all streams for the active school with pagination.
 //
 // @Summary List streams
-// @Description Lists all streams for the active school.
+// @Description Lists all streams for the active school with pagination.
 // @Tags Streams
 // @Produce json
+// @Param page query int false "Page number (default 1)"
+// @Param limit query int false "Page size (default 50, max 100)"
 // @Success 200 {object} object
 // @Failure 401 {object} object
 // @Router /streams [get]
@@ -29,7 +31,12 @@ func (h *StreamsHandler) ListStreams(c fiber.Ctx) error {
 		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
 	}
 
-	streams, err := h.service.ListStreams(c.Context(), schoolID)
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+
+	streams, total, err := h.service.ListStreamsPaginated(c.Context(), schoolID, pagination.Page, pagination.Limit)
 	if err != nil {
 		go_uber_zap.L().Error("streams: list failed", go_uber_zap.Error(err))
 		return WriteError(c, ErrInternal("failed to list streams"))
@@ -39,6 +46,9 @@ func (h *StreamsHandler) ListStreams(c fiber.Ctx) error {
 		"code":    "streams_listed",
 		"message": "Streams listed successfully",
 		"streams": streams,
+		"total":   total,
+		"page":    pagination.Page,
+		"limit":   pagination.Limit,
 		"errors":  fiber.Map{},
 	})
 }

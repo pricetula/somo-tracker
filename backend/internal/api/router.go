@@ -21,9 +21,9 @@ import (
 // IP-based: first line of defense against distributed attacks.
 // Email-based: stricter limit to prevent email bombing/enumeration.
 var (
-	authRateIP     = redis_rate.PerMinute(10) // 10 req/min per IP
-	authRateEmail  = redis_rate.PerHour(3)    // 3 req/hour per email
-	bulkInviteRate = redis_rate.PerHour(5)    // 5 bulk invites per hour per tenant
+	authRateIP     = redis_rate.PerMinute(5) // 10 req/min per IP
+	authRateEmail  = redis_rate.PerHour(3)   // 3 req/hour per email
+	bulkInviteRate = redis_rate.PerHour(5)   // 5 bulk invites per hour per tenant
 )
 
 // Router wires all delivery-layer routes. It depends only on the service

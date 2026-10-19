@@ -17,8 +17,13 @@ func Middleware() fiber.Handler {
 			c.Set("X-Content-Type-Options", "nosniff")
 			// Clickjacking protection.
 			c.Set("X-Frame-Options", "DENY")
+			// Referrer policy.
+			c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 			// Content Security Policy for API responses (no inline scripts/styles).
-			c.Set("Content-Security-Policy", "default-src 'none'")
+			c.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'")
+			// HSTS (only set in production via config, but we set it here for HTTPS)
+			// Note: In production behind TLS termination, this header may be set by reverse proxy.
+			// c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 		}()
 
 		return c.Next()

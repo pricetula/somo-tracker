@@ -11,6 +11,45 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkClassRoomBelongsToSchool = `-- name: CheckClassRoomBelongsToSchool :one
+SELECT EXISTS(
+    SELECT 1 FROM class_rooms
+    WHERE id = $2 AND school_id = $1
+) AS exists
+`
+
+type CheckClassRoomBelongsToSchoolParams struct {
+	SchoolID pgtype.UUID `json:"school_id"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) CheckClassRoomBelongsToSchool(ctx context.Context, arg CheckClassRoomBelongsToSchoolParams) (bool, error) {
+	row := q.db.QueryRow(ctx, checkClassRoomBelongsToSchool, arg.SchoolID, arg.ID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const checkClassTimetableSlotBelongsToSchool = `-- name: CheckClassTimetableSlotBelongsToSchool :one
+SELECT EXISTS(
+    SELECT 1 FROM class_timetable_slots cts
+    JOIN class_rooms cr ON cr.id = cts.class_room_id
+    WHERE cts.id = $2 AND cr.school_id = $1
+) AS exists
+`
+
+type CheckClassTimetableSlotBelongsToSchoolParams struct {
+	SchoolID pgtype.UUID `json:"school_id"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) CheckClassTimetableSlotBelongsToSchool(ctx context.Context, arg CheckClassTimetableSlotBelongsToSchoolParams) (bool, error) {
+	row := q.db.QueryRow(ctx, checkClassTimetableSlotBelongsToSchool, arg.SchoolID, arg.ID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createClassTimetableSlot = `-- name: CreateClassTimetableSlot :one
 INSERT INTO class_timetable_slots (school_id, class_room_id, academic_term_id, day_of_week, time_slot_id, subject_id, teacher_membership_id, room_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

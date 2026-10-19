@@ -110,3 +110,16 @@ WHERE cts.class_room_id = $1
   AND cts.academic_term_id = $2
 ORDER BY cts.day_of_week ASC, ts.sequence_index ASC;
 
+-- name: CheckClassRoomBelongsToSchool :one
+SELECT EXISTS(
+    SELECT 1 FROM class_rooms
+    WHERE id = $2 AND school_id = $1
+) AS exists;
+
+-- name: CheckClassTimetableSlotBelongsToSchool :one
+SELECT EXISTS(
+    SELECT 1 FROM class_timetable_slots cts
+    JOIN class_rooms cr ON cr.id = cts.class_room_id
+    WHERE cts.id = $2 AND cr.school_id = $1
+) AS exists;
+

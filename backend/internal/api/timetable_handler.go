@@ -1,11 +1,13 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/services"
@@ -86,7 +88,10 @@ func (h *TimetableHandler) GetTemplate(c fiber.Ctx) error {
 	template, err := h.svc.GetTemplate(c.Context(), templateID)
 	if err != nil {
 		h.logger.Error("get timetable template failed", zap.Error(err))
-		return WriteError(c, ErrBadRequest(err.Error(), nil))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return WriteError(c, ErrNotFound("template not found"))
+		}
+		return WriteError(c, ErrInternal("failed to get template"))
 	}
 	return c.Status(fiber.StatusOK).JSON(template)
 }
@@ -146,6 +151,11 @@ func (h *TimetableHandler) GetClassSlotsByTemplate(c fiber.Ctx) error {
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid class id", nil))
 	}
+	// Verify class belongs to school (BOLA prevention)
+	if err := h.svc.VerifyClassBelongsToSchool(c.Context(), schoolID, classID); err != nil {
+		h.logger.Warn("class ownership verification failed", zap.Error(err), zap.String("school_id", schoolIDStr), zap.String("class_id", classIDStr))
+		return WriteError(c, ErrNotFound("class not found"))
+	}
 	rows, err := h.svc.GetClassTimetableSlotsByTemplate(c.Context(), schoolID, classID, templateID)
 	if err != nil {
 		h.logger.Error("get class timetable slots failed", zap.Error(err))
@@ -160,15 +170,28 @@ func (h *TimetableHandler) GetClassSlotsByTemplate(c fiber.Ctx) error {
 // @Param id path string true "Class timetable slot ID"
 // @Success 204
 // @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
 // @Router /api/timetable/class-timetable-slots/{id} [delete]
 func (h *TimetableHandler) DeleteClassTimetableSlot(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return WriteError(c, ErrUnauthorized("active school not found"))
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid school id", nil))
+	}
 	slotIDStr := c.Params("id")
 	slotID, err := uuid.Parse(slotIDStr)
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid slot id", nil))
 	}
-	if err := h.svc.DeleteClassTimetableSlot(c.Context(), slotID); err != nil {
+	if err := h.svc.DeleteClassTimetableSlot(c.Context(), schoolID, slotID); err != nil {
 		h.logger.Error("delete class timetable slot failed", zap.Error(err))
+		// Return 404 if slot not found or not in school (prevents enumeration)
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not in school") {
+			return WriteError(c, ErrNotFound("slot not found"))
+		}
 		return WriteError(c, ErrBadRequest(err.Error(), nil))
 	}
 	return c.Status(fiber.StatusNoContent).Send(nil)

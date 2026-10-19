@@ -38,6 +38,13 @@ func (m *mockStreamsService) ListStreams(ctx context.Context, schoolID string) (
 	return m.listResult, nil
 }
 
+func (m *mockStreamsService) ListStreamsPaginated(ctx context.Context, schoolID string, page, limit int) ([]sqlc.Stream, int, error) {
+	if m.listErr != nil {
+		return nil, 0, m.listErr
+	}
+	return m.listResult, len(m.listResult), nil
+}
+
 func (m *mockStreamsService) GetStream(ctx context.Context, streamID string) (*sqlc.Stream, error) {
 	return nil, nil
 }

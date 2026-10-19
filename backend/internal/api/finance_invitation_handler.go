@@ -76,9 +76,9 @@ func (h *FinanceInvitationHandler) HandleInvites(c fiber.Ctx) error {
 			"code": "bad_request", "message": "invitations array is required", "errors": fiber.Map{"invitations": []string{"required"}},
 		})
 	}
-	if len(req.Invitations) > 10000 {
+	if len(req.Invitations) > 1000 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code": "bad_request", "message": "exceeds maximum of 10000 rows", "errors": fiber.Map{"invitations": []string{"max 10000"}},
+			"code": "bad_request", "message": "exceeds maximum of 1000 rows", "errors": fiber.Map{"invitations": []string{"max 10000"}},
 		})
 	}
 

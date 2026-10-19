@@ -47,7 +47,8 @@ type TimetableService interface {
 	ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error)
 	SetupClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, classRoomID, timeSlotID, subjectID, teacherMembershipID string, dayOfWeek int, roomID string) error
 	GetClassTimetableSlotsByTemplate(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error)
-	DeleteClassTimetableSlot(ctx context.Context, slotID uuid.UUID) error
+	DeleteClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, slotID uuid.UUID) error
+	VerifyClassBelongsToSchool(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID) error
 	GetStudentTimetable(ctx context.Context, schoolID uuid.UUID, studentID uuid.UUID) ([]StudentTimetableSlot, error)
 }
 
@@ -332,8 +333,42 @@ func (s *timetableService) GetStudentTimetable(ctx context.Context, schoolID uui
 	return slots, nil
 }
 
-func (s *timetableService) DeleteClassTimetableSlot(ctx context.Context, slotID uuid.UUID) error {
+func (s *timetableService) DeleteClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, slotID uuid.UUID) error {
+	// Verify slot belongs to school before deletion
+	if err := s.VerifyClassTimetableSlotBelongsToSchool(ctx, schoolID, slotID); err != nil {
+		return fmt.Errorf("not in school: %w", err)
+	}
 	return s.queries.DeleteClassTimetableSlot(ctx, pgtype.UUID{Bytes: slotID, Valid: true})
+}
+
+func (s *timetableService) VerifyClassBelongsToSchool(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID) error {
+	// Check if class_room exists and belongs to school
+	exists, err := s.queries.CheckClassRoomBelongsToSchool(ctx, sqlc.CheckClassRoomBelongsToSchoolParams{
+		SchoolID: pgtype.UUID{Bytes: schoolID, Valid: true},
+		ID:       pgtype.UUID{Bytes: classRoomID, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("check class ownership: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("class not found in school")
+	}
+	return nil
+}
+
+func (s *timetableService) VerifyClassTimetableSlotBelongsToSchool(ctx context.Context, schoolID uuid.UUID, slotID uuid.UUID) error {
+	// Check if class_timetable_slot exists and belongs to school via class_room
+	exists, err := s.queries.CheckClassTimetableSlotBelongsToSchool(ctx, sqlc.CheckClassTimetableSlotBelongsToSchoolParams{
+		SchoolID: pgtype.UUID{Bytes: schoolID, Valid: true},
+		ID:       pgtype.UUID{Bytes: slotID, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("check slot ownership: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("slot not found in school")
+	}
+	return nil
 }
 
 func parseTime(v string) (pgtype.Time, error) {

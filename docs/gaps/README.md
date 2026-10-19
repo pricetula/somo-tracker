@@ -17,6 +17,36 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Student Timetable View Missing | frontend | High | Open | ... |
 | Assessment and Report Card Management | backend | frontend | High | Open | Product / Platform |
 | Health / Nurse Domain — Orphan Schema | backend | frontend | High | Open | Platform team |
+| Pagination Limit Cap Exceeds Security Standard (200 > 100) | backend | High | Open | ... |
+| Missing Request Body Size Limit on Public Auth Endpoints | backend | High | Open | ... |
+| Magic-Link IP Rate Limit Too Permissive (10/min → 5/min) | backend | High | Open | ... |
+| MagicLinkResponse Violates Canonical Error Contract | backend | Medium | Open | ... |
+| CSP Header Configuration Unverified / Missing | backend | Medium | Open | ... |
+| Bulk Invitation Row Limit Too High (10K → 1K) | backend | High | Open | ... |
+| Finance List Pagination Uncapped | backend | High | Open | ... |
+| Timetable Templates No Pagination | backend | High | Open | ... |
+| Timetable Slot Delete BOLA (Missing School Check) | backend | Critical | Open | ... |
+| Timetable Class Slots BOLA (Missing Class Ownership Check) | backend | Critical | Open | ... |
+| Bulk Invitation Service Missing Authz (BFLA) | backend | Critical | Open | ... |
+| Idempotency Key Format Not Validated | backend | High | Open | ... |
+| Bulk Invitation Duplicate Emails Silently Dropped | backend | High | Open | ... |
+| Invitation Handlers Unsafe Type Assertion | backend | High | Open | ... |
+| Invitation Handlers Inline Error Responses | backend | Medium | Open | ... |
+| Finance Handler Error Inconsistency | backend | Medium | Open | ... |
+| GetTemplate Returns 400 Instead of 404 | backend | Medium | Open | ... |
+| SSE Endpoints Missing OpenAPI Annotations | backend | Low | Open | ... |
+| Timetable Inline DTOs No Validation | backend | Low | Open | ... |
+| Admins List Pagination Uncapped | backend | High | Open | ... |
+| Teachers List Pagination Uncapped | backend | High | Open | ... |
+| Guardians List Pagination Uncapped | backend | High | Open | ... |
+| Streams List No Pagination | backend | High | Open | ... |
+| Curriculum List Pagination Cap 200 | backend | High | Open | ... |
+| Attendance Reports Pagination Uncapped | backend | High | Open | ... |
+| Students Import Inline Errors | backend | Medium | Open | ... |
+| Events Handler Inline Auth Errors | backend | Medium | Open | ... |
+| Me Handler Inline Auth Errors | backend | Medium | Open | ... |
+| School Handler ListSchools Uses fiber.NewError | backend | Medium | Open | ... |
+| User Counts Handler Uses fiber.NewError | backend | Medium | Open | ... |
 | ... | ... | ... | Open | ... |
 
 ## Closed Gaps

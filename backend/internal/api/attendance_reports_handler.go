@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strconv"
-
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -35,17 +33,22 @@ func (h *AttendanceReportsHandler) ListStudentTermStats(c fiber.Ctx) error {
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid term_id", nil))
 	}
-	page := 1
-	limit := 50
-	if p := c.Query("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
+
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
 	}
-	items, _, err := h.svc.ListStudentTermStats(c.Context(), schoolID, termID, page, limit)
+	page, limit := pagination.Page, pagination.Limit
+
+	items, total, err := h.svc.ListStudentTermStats(c.Context(), schoolID, termID, page, limit)
 	if err != nil {
 		h.logger.Error("list attendance stats failed", zap.Error(err))
 		return WriteError(c, ErrInternal("failed to list attendance stats"))
 	}
-	return c.JSON(fiber.Map{"items": items})
+	return c.JSON(fiber.Map{
+		"items": items,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }

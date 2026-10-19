@@ -14,6 +14,7 @@ import (
 
 type StreamsService interface {
 	ListStreams(ctx context.Context, schoolID string) ([]sqlc.Stream, error)
+	ListStreamsPaginated(ctx context.Context, schoolID string, page, limit int) ([]sqlc.Stream, int, error)
 	CreateStreams(ctx context.Context, schoolID string, names []string, colors []string) ([]string, error)
 	GetStream(ctx context.Context, streamID string) (*sqlc.Stream, error)
 	UpdateStream(ctx context.Context, streamID string, name *string, color *string) (*sqlc.Stream, error)
@@ -47,6 +48,40 @@ func (s *streamsService) ListStreams(ctx context.Context, schoolID string) ([]sq
 		return nil, fmt.Errorf("internal_error: failed to list streams: %w", err)
 	}
 	return rows, nil
+}
+
+func (s *streamsService) ListStreamsPaginated(ctx context.Context, schoolID string, page, limit int) ([]sqlc.Stream, int, error) {
+	if schoolID == "" {
+		return nil, 0, BadRequest("school_id is required")
+	}
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	offset := (page - 1) * limit
+
+	schoolUUID, err := uuid.Parse(schoolID)
+	if err != nil {
+		return nil, 0, BadRequest("invalid school_id")
+	}
+
+	total, err := s.queries.CountStreamsBySchool(ctx, pgtype.UUID{Bytes: schoolUUID, Valid: true})
+	if err != nil {
+		return nil, 0, fmt.Errorf("internal_error: failed to count streams: %w", err)
+	}
+
+	rows, err := s.queries.ListStreamsBySchoolPaginated(ctx, sqlc.ListStreamsBySchoolPaginatedParams{
+		SchoolID: pgtype.UUID{Bytes: schoolUUID, Valid: true},
+		Limit:    int32(limit),
+		Offset:   int32(offset),
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("internal_error: failed to list streams: %w", err)
+	}
+
+	return rows, int(total), nil
 }
 
 func (s *streamsService) CreateStreams(ctx context.Context, schoolID string, names []string, colors []string) ([]string, error) {

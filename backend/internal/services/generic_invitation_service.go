@@ -57,9 +57,24 @@ func (s *GenericInvitationService) CreateBulkJob(ctx context.Context, schoolID, 
 }
 
 func (s *GenericInvitationService) CreateBulkJobWithItems(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error) {
+	return s.CreateBulkJobWithItemsWithAuth(ctx, schoolID, tenantID, createdBy, createdBy, idempotencyKey, items)
+}
+
+// CreateBulkJobWithItemsWithAuth creates a bulk job with authorization check.
+// actorUserID is the user performing the action; createdBy is recorded as job creator.
+func (s *GenericInvitationService) CreateBulkJobWithItemsWithAuth(ctx context.Context, schoolID, tenantID, createdBy, actorUserID uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error) {
 	if s.pool == nil {
 		return uuid.Nil, fmt.Errorf("invitation_service: pool nil")
 	}
+	// Authorization: verify actor has admin role for this school
+	hasAdmin, err := s.UserHasAdminRole(ctx, schoolID, actorUserID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("auth check failed: %w", err)
+	}
+	if !hasAdmin {
+		return uuid.Nil, NewErrForbidden("insufficient_permissions", "insufficient permissions")
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("begin_tx: %w", err)
@@ -136,6 +151,21 @@ func (s *GenericInvitationService) GetJob(ctx context.Context, jobID uuid.UUID) 
 }
 
 func (s *GenericInvitationService) GetFailedOrDeferredItems(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error) {
+	return s.GetFailedOrDeferredItemsWithAuth(ctx, jobID, uuid.Nil, uuid.Nil)
+}
+
+// GetFailedOrDeferredItemsWithAuth returns failed/deferred items with authorization check.
+// schoolID and actorUserID are used to verify the job belongs to the school and actor is admin.
+func (s *GenericInvitationService) GetFailedOrDeferredItemsWithAuth(ctx context.Context, jobID, schoolID, actorUserID uuid.UUID) ([]BulkJobItem, error) {
+	if schoolID != uuid.Nil && actorUserID != uuid.Nil {
+		hasAdmin, err := s.UserHasAdminRole(ctx, schoolID, actorUserID)
+		if err != nil {
+			return nil, fmt.Errorf("auth check failed: %w", err)
+		}
+		if !hasAdmin {
+			return nil, NewErrForbidden("insufficient_permissions", "insufficient permissions")
+		}
+	}
 	rows, err := s.pool.Query(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, COALESCE(last_error,''), created_at, updated_at FROM bulk_job_items WHERE job_id=$1 AND status IN ('FAILED','DEFERRED') ORDER BY row_index`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("get_retry_items: %w", err)

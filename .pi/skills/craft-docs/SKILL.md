@@ -2,6 +2,8 @@
 name: craft-docs
 description: Crafts and structures MDX files under content/docs/ from raw engineering prompts, ensuring standard frontmatter compliance and triggering sync audits. Use when user requests "add documentation page" or "update existing doc".
 
+---
+
 # Craft Documentation
 
 ## Output Example

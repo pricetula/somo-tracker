@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
-import { listStudents, type StudentListItem } from "@/lib/api/students";
+import { listStudents, bulkAssignStudentsToClass, type StudentListItem } from "@/lib/api/students";
 import { useDeleteStudents } from "../hooks/use-students";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { studentFilterGroups, mapStudentFiltersToParams } from "./students-filters";
 import { useClasses } from "@/features/classes/hooks/use-classes";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 function listStudentsWithFilters(params: {
     page?: number;
@@ -34,6 +43,20 @@ function listStudentsWithFilters(params: {
 export function StudentsTable() {
     const { mutateAsync: deleteStudents } = useDeleteStudents();
     const { data: classesResponse } = useClasses({ page: 1, limit: 100 });
+    const queryClient = useQueryClient();
+    const [assignClassId, setAssignClassId] = useState<string>("");
+    const assignMutation = useMutation({
+        mutationFn: async ({ classId, studentIds }: { classId: string; studentIds: string[] }) => {
+            await bulkAssignStudentsToClass(classId, studentIds);
+        },
+        onSuccess: () => {
+            toast.success("Students assigned to class");
+            queryClient.invalidateQueries({ queryKey: ["students"] });
+        },
+        onError: () => {
+            toast.error("Failed to assign students");
+        },
+    });
 
     const filterGroups = useMemo(
         () => [
@@ -203,6 +226,35 @@ export function StudentsTable() {
                 class: "class_id",
                 without_class: "without_class",
                 without_guardian: "without_guardian",
+            }}
+            renderToolBarComponents={(selectedIds) => {
+                if (selectedIds.size === 0) return null;
+                return (
+                    <div className="flex items-center gap-2">
+                        <Select value={assignClassId} onValueChange={setAssignClassId}>
+                            <SelectTrigger className="w-[240px]">
+                                <SelectValue placeholder="Select class" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {classesResponse?.items?.map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                        {c.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            variant="default"
+                            disabled={!assignClassId || assignMutation.isPending}
+                            onClick={() => {
+                                const ids = Array.from(selectedIds);
+                                assignMutation.mutate({ classId: assignClassId, studentIds: ids });
+                            }}
+                        >
+                            {assignMutation.isPending ? "Assigning…" : "Assign to class"}
+                        </Button>
+                    </div>
+                );
             }}
         />
     );

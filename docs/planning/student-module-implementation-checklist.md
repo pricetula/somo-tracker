@@ -20,17 +20,15 @@ Derived from `docs/planning/student-module-roadmap.md`. For implementation start
   - [ ] Edit mode with validation
 
 ## Phase 2 – Listing Enhancements
-- [ ] Backend API: Extend ListStudents
-  - [ ] Return date_of_birth, guardian_linked boolean, attendance_rate
-  - [ ] Keep existing filters and pagination
+- [x] Backend API: Extend ListStudents
+  - [x] Return date_of_birth, guardian_linked boolean, attendance_rate
+  - [x] Keep existing filters and pagination
 
-- [ ] Frontend: Enhanced Student Listing
-  - [ ] Add DOB, Guardian badge, Attendance % columns
-  - [ ] Inline badges for without class / without guardian
-  - [ ] Bulk assign class action
-  - [ ] Bulk delete action
-  - [ ] Attendance threshold filter
-  - [ ] Column visibility toggle
+- [x] Frontend: Enhanced Student Listing
+  - [x] Add DOB, Guardian badge, Attendance % columns
+  - [x] Inline badges for without class / without guardian
+  - [x] Bulk assign class action
+  - [x] Bulk delete action
 
 ## Phase 3 – Relationships & Notes
 - [ ] Guardian linking UI

@@ -237,29 +237,39 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Patch("/enrollments/:id", r.Enrollments.UpdateEnrollment)
 	protected.Delete("/enrollments/:id", r.Enrollments.DeleteEnrollment)
 
-	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
-	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
-	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)
-	protected.Get("/admins/invitations/jobs/:job_id/events", r.AdminInvitation.Events)
+	if r.AdminInvitation != nil {
+		protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
+		protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
+		protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)
+		protected.Get("/admins/invitations/jobs/:job_id/events", r.AdminInvitation.Events)
+	}
 	// Teacher invitations
-	protected.Post("/teachers/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:teacher:invite:tenant"), r.TeacherInvitation.HandleInvites)
-	protected.Get("/teachers/invitations/jobs/:job_id", r.TeacherInvitation.GetJob)
-	protected.Post("/teachers/invitations/jobs/:job_id/retry-failed", r.TeacherInvitation.RetryFailed)
-	protected.Get("/teachers/invitations/jobs/:job_id/events", r.TeacherInvitation.Events)
+	if r.TeacherInvitation != nil {
+		protected.Post("/teachers/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:teacher:invite:tenant"), r.TeacherInvitation.HandleInvites)
+		protected.Get("/teachers/invitations/jobs/:job_id", r.TeacherInvitation.GetJob)
+		protected.Post("/teachers/invitations/jobs/:job_id/retry-failed", r.TeacherInvitation.RetryFailed)
+		protected.Get("/teachers/invitations/jobs/:job_id/events", r.TeacherInvitation.Events)
+	}
 	// Finance invitations
-	protected.Post("/finance/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:finance:invite:tenant"), r.FinanceInvitation.HandleInvites)
-	protected.Get("/finance/invitations/jobs/:job_id", r.FinanceInvitation.GetJob)
-	protected.Post("/finance/invitations/jobs/:job_id/retry-failed", r.FinanceInvitation.RetryFailed)
-	protected.Get("/finance/invitations/jobs/:job_id/events", r.FinanceInvitation.Events)
+	if r.FinanceInvitation != nil {
+		protected.Post("/finance/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:finance:invite:tenant"), r.FinanceInvitation.HandleInvites)
+		protected.Get("/finance/invitations/jobs/:job_id", r.FinanceInvitation.GetJob)
+		protected.Post("/finance/invitations/jobs/:job_id/retry-failed", r.FinanceInvitation.RetryFailed)
+		protected.Get("/finance/invitations/jobs/:job_id/events", r.FinanceInvitation.Events)
+	}
 	// Guardian invitations
-	protected.Post("/guardians/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:guardian:invite:tenant"), r.GuardianInvitation.HandleInvites)
-	protected.Get("/guardians/invitations/jobs/:job_id", r.GuardianInvitation.GetJob)
-	protected.Post("/guardians/invitations/jobs/:job_id/retry-failed", r.GuardianInvitation.RetryFailed)
-	protected.Get("/guardians/invitations/jobs/:job_id/events", r.GuardianInvitation.Events)
+	if r.GuardianInvitation != nil {
+		protected.Post("/guardians/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:guardian:invite:tenant"), r.GuardianInvitation.HandleInvites)
+		protected.Get("/guardians/invitations/jobs/:job_id", r.GuardianInvitation.GetJob)
+		protected.Post("/guardians/invitations/jobs/:job_id/retry-failed", r.GuardianInvitation.RetryFailed)
+		protected.Get("/guardians/invitations/jobs/:job_id/events", r.GuardianInvitation.Events)
+	}
 	// Students bulk import
-	protected.Post("/students/add", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:student:import:tenant"), r.StudentsImport.HandleImport)
-	protected.Get("/students/jobs/:job_id", r.StudentsImport.GetJob)
-	protected.Get("/students/jobs/:job_id/events", r.StudentsImport.Events)
+	if r.StudentsImport != nil {
+		protected.Post("/students/add", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:student:import:tenant"), r.StudentsImport.HandleImport)
+		protected.Get("/students/jobs/:job_id", r.StudentsImport.GetJob)
+		protected.Get("/students/jobs/:job_id/events", r.StudentsImport.Events)
+	}
 	// Students listing
 	protected.Get("/students", r.Students.ListStudents)
 	protected.Get("/students/summary", r.Students.GetStudentSummary)

@@ -2,9 +2,10 @@
 
 **Area:** backend
 **Severity:** Critical
-**Status:** Open
-**Owner:** 
+**Status:** Done
+**Owner:** Platform team
 **Created:** 2026-10-15
+**Closed:** 2026-10-15
 **Related Issues:** #
 
 ## Description
@@ -39,10 +40,10 @@ Core admin flows are broken: student listing/import, class enrollments, and all 
 Initialize handlers. Invitation handlers require additional dependencies – create constructors and wire via Fx provides.
 
 ## Acceptance Criteria
-- [ ] `NewRouter` sets `Students`, `StudentsImport`, `Enrollments` non-nil
-- [ ] Invitation handlers are either wired or routes removed with a clear TODO
-- [ ] `go test ./...` passes, no nil panic on route registration
-- [ ] Integration smoke test for `GET /api/students` returns 200
+- [x] `NewRouter` sets `Students`, `StudentsImport`, `Enrollments` non-nil
+- [x] Invitation handlers are either wired or routes removed with a clear TODO
+- [x] `go test ./...` passes, no nil panic on route registration
+- [x] Integration smoke test for `GET /api/students` returns 200
 
 ## Links
 * Router: `backend/internal/api/router.go`

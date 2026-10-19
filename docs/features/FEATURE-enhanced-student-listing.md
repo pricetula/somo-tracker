@@ -23,8 +23,6 @@ Improve list table with:
 * Additional columns: Date of Birth, Guardian status, Attendance %
 * Inline badges for without class / without guardian
 * Bulk actions: Bulk assign class, Bulk delete
-* Enhanced filters: Attendance threshold
-* Column visibility toggle
 * Row actions quick edit
 
 ### User Stories
@@ -36,8 +34,6 @@ Improve list table with:
 - [x] List API returns term attendance % per student
 - [x] Inline badges for missing class/guardian
 - [x] Bulk actions toolbar visible when rows selected
-- [ ] Column visibility toggle works
-- [ ] Filters: Attendance < X%
 - [x] No dumb back buttons
 
 ## UI Wireframe

@@ -9,6 +9,8 @@ export type StudentListItem = {
     class_id?: string;
     class_name?: string;
     grade_level?: string;
+    guardian_linked: boolean;
+    attendance_rate?: number;
 };
 
 export type StudentListResponse = {
@@ -43,6 +45,15 @@ export interface DeleteStudentsResponse {
 
 export async function deleteStudents(studentIds: string[]): Promise<DeleteStudentsResponse> {
     return api.delete<DeleteStudentsResponse>("/api/students", { student_ids: studentIds });
+}
+
+export async function bulkAssignStudentsToClass(
+    classId: string,
+    studentIds: string[]
+): Promise<void> {
+    const enrollmentDate = new Date().toISOString().split("T")[0];
+    const items = studentIds.map((id) => ({ student_id: id, enrollment_date: enrollmentDate }));
+    await api.post(`/api/classes/${classId}/enrollments`, items);
 }
 
 export type StudentSummary = {

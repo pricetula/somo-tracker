@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -33,16 +32,19 @@ func (m *mockAcademicPeriodService) CreateAcademicPeriod(ctx context.Context, sc
 
 	// Mimic service validation for tests that need it
 	if schoolID == "" {
-		return "", fmt.Errorf("bad_request: school_id is required")
+		return "", &services.ServiceError{Code: "bad_request", Message: "school_id is required"}
 	}
 	if req.Year == 0 {
-		return "", fmt.Errorf("bad_request: year is required")
+		return "", &services.ServiceError{Code: "bad_request", Message: "year is required"}
 	}
 	if len(req.Terms) == 0 {
-		return "", fmt.Errorf("bad_request: at least one term is required")
+		return "", &services.ServiceError{Code: "bad_request", Message: "at least one term is required"}
 	}
 
-	return m.result, m.err
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.result, nil
 }
 
 func (m *mockAcademicPeriodService) ListAcademicPeriods(ctx context.Context, schoolID string) ([]services.ListAcademicPeriodResponse, error) {
@@ -167,7 +169,7 @@ func TestCreateAcademicPeriod_MissingTerms_Returns400(t *testing.T) {
 }
 
 func TestCreateAcademicPeriod_ServiceBadRequest_Returns400(t *testing.T) {
-	mock := &mockAcademicPeriodService{err: academicPeriodAssertAnError{msg: "bad_request: invalid school_id"}}
+	mock := &mockAcademicPeriodService{err: &services.ServiceError{Code: "bad_request", Message: "invalid school_id"}}
 	app := newAcademicPeriodTestApp(mock, "school-42")
 
 	body := []byte(`{"year": 2026, "terms": [{"name": "Term 1", "start_date": "2026-01-15", "end_date": "2026-04-15"}]}`)
@@ -175,7 +177,6 @@ func TestCreateAcademicPeriod_ServiceBadRequest_Returns400(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-	// fiber.NewError returns plain text by default
 }
 
 func TestCreateAcademicPeriod_ServiceInternalError_Returns500(t *testing.T) {
@@ -191,7 +192,7 @@ func TestCreateAcademicPeriod_ServiceInternalError_Returns500(t *testing.T) {
 }
 
 func TestCreateAcademicPeriod_InvalidTermDates_Returns400(t *testing.T) {
-	mock := &mockAcademicPeriodService{err: academicPeriodAssertAnError{msg: "bad_request: invalid term start_date 2026-13-01: parsing time"}}
+	mock := &mockAcademicPeriodService{err: &services.ServiceError{Code: "bad_request", Message: "invalid term start_date 2026-13-01: parsing time"}}
 	app := newAcademicPeriodTestApp(mock, "school-42")
 
 	body := []byte(`{"year": 2026, "terms": [{"name": "Term 1", "start_date": "2026-13-01", "end_date": "2026-04-15"}]}`)
@@ -199,7 +200,6 @@ func TestCreateAcademicPeriod_InvalidTermDates_Returns400(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-	// fiber.NewError returns plain text by default
 }
 
 func TestCreateAcademicPeriod_HandlerPassesRequestToService(t *testing.T) {
@@ -233,3 +233,5 @@ func TestCreateAcademicPeriod_HandlerPassesRequestToService(t *testing.T) {
 type academicPeriodAssertAnError struct{ msg string }
 
 func (a academicPeriodAssertAnError) Error() string { return a.msg }
+
+func (a academicPeriodAssertAnError) Unwrap() error { return nil }

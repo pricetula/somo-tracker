@@ -87,9 +87,16 @@ func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 
 	ids, err := h.service.CreateStreams(c.Context(), schoolID, names, colors)
 	if err != nil {
-		msg := err.Error()
-		if len(msg) > 11 && msg[:11] == "bad_request:" {
-			return WriteError(c, ErrBadRequest(msg[11:], nil))
+		if se, ok := err.(*services.ServiceError); ok {
+			switch se.Code {
+			case "bad_request":
+				return WriteError(c, ErrBadRequest(se.Message, nil))
+			case "forbidden":
+				return WriteError(c, ErrForbidden(se.Code, se.Message))
+			default:
+				go_uber_zap.L().Error("streams: create failed", go_uber_zap.Error(err))
+				return WriteError(c, ErrInternal("failed to create streams"))
+			}
 		}
 		go_uber_zap.L().Error("streams: create failed", go_uber_zap.Error(err))
 		return WriteError(c, ErrInternal("failed to create streams"))
@@ -103,6 +110,14 @@ func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 	})
 }
 
+// GetStream gets a single room by ID.
+// @Summary Get stream
+// @Description Get a stream by ID for the active school
+// @Tags Streams
+// @Produce json
+// @Param id path string true "Stream ID"
+// @Success 200 {object} object
+// @Router /streams/{id} [get]
 func (h *StreamsHandler) GetStream(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
@@ -133,6 +148,15 @@ func (h *StreamsHandler) GetStream(c fiber.Ctx) error {
 	})
 }
 
+// UpdateStream updates an existing stream.
+// @Summary Update stream
+// @Description Update stream details for the active school
+// @Tags Streams
+// @Accept json
+// @Produce json
+// @Param body body UpdateStreamRequest true "Stream update"
+// @Success 200 {object} object
+// @Router /streams [patch]
 func (h *StreamsHandler) UpdateStream(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
@@ -175,6 +199,14 @@ func (h *StreamsHandler) UpdateStream(c fiber.Ctx) error {
 	})
 }
 
+// DeleteStreams deletes streams by id.
+// @Summary Delete streams
+// @Description Delete streams for the active school
+// @Tags Streams
+// @Produce json
+// @Param body body object{ids:[]string} true "Stream IDs"
+// @Success 200 {object} object
+// @Router /streams [delete]
 func (h *StreamsHandler) DeleteStreams(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {

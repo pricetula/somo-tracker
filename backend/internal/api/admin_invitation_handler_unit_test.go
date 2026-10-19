@@ -54,7 +54,6 @@ func makeRowsJSON(n int) string {
 
 // Section 1: Request Validation (handler layer)
 func TestHandleInvites_Validation(t *testing.T) {
-	t.Parallel()
 	svc := &mockAdminInvitationService{}
 	h := newTestHandler(svc)
 
@@ -132,7 +131,7 @@ func TestHandleInvites_Validation(t *testing.T) {
 			req, err := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(tt.body))
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Idempotency-Key", "test-key-"+tt.name)
+			req.Header.Set("Idempotency-Key", uuid.New().String())
 
 			resp, err := app.Test(req, fiber.TestConfig{})
 			require.NoError(t, err)
@@ -156,6 +155,7 @@ func TestHandleInvites_DuplicateEmailsPayload(t *testing.T) {
 	body := `{"invitations":[{"email":"dup@dup.co","full_name":"A"},{"email":"dup@dup.co","full_name":"B"}]}`
 	req, _ := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", uuid.New().String())
 	app := setupFiber()
 	locals := map[string]interface{}{
 		"active_school_id": uuid.New().String(),
@@ -211,7 +211,7 @@ func TestHandleInvites_MissingInvalidLocals(t *testing.T) {
 			body := `{"invitations":[{"email":"a@b.co","full_name":"Alice"}]}`
 			req, _ := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(body))
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Idempotency-Key", "test-key-"+tt.name)
+			req.Header.Set("Idempotency-Key", uuid.New().String())
 
 			resp, err := app.Test(req, fiber.TestConfig{})
 			require.NoError(t, err)
@@ -294,7 +294,7 @@ func (m *mockAdminInvitationService) IncrementJobCounters(ctx context.Context, j
 }
 func (m *mockAdminInvitationService) GetJobByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*services.BulkJob, error) {
 	// Return a job to test idempotency replay
-	if key == "same-key-for-both-requests" {
+	if key == "same-key-for-both-requests" || key == "00000000-0000-0000-0000-000000000001" {
 		return &services.BulkJob{ID: uuid.MustParse("00000000-0000-0000-0000-000000000001")}, nil
 	}
 	return nil, nil
@@ -316,4 +316,32 @@ func (m *mockAdminInvitationService) GetStytchOrgID(ctx context.Context, tenantI
 }
 func (m *mockAdminInvitationService) ProvisionInvitee(ctx context.Context, tenantID, schoolID, invitedBy uuid.UUID, email, fullName, role, stytchMemberID string) error {
 	return nil
+}
+
+func TestDebugInvitationHandler(t *testing.T) {
+	svc := &mockAdminInvitationService{}
+	h := newTestHandler(svc)
+
+	app := setupFiber()
+	locals := map[string]interface{}{
+		"active_school_id": uuid.New().String(),
+		"tenant_id":        uuid.New().String(),
+		"user_id":          uuid.New().String(),
+	}
+	app.Post("/invitations", injectLocalsMW(locals), h.HandleInvites)
+
+	body := `{"invitations":[{"email":"a@b.co","full_name":"Alice"}]}`
+	req, _ := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", uuid.New().String())
+
+	resp, err := app.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+
+	var respBody map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&respBody)
+
+	fmt.Printf("DEBUG: Status=%d, Body=%v\n", resp.StatusCode, respBody)
+
+	assert.Equal(t, fiber.StatusAccepted, resp.StatusCode)
 }

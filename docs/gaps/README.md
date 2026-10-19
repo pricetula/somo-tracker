@@ -15,7 +15,8 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Student Schema Missing Structured Fields | backend | High | Open | ... |
 | Student List Missing Fields for Enhanced Listing | backend | High | Open | ... |
 | Student Timetable View Missing | frontend | High | Open | ... |
-| Assessment and Report Card Management | backend | frontend | High | Open | ... |
+| Assessment and Report Card Management | backend | frontend | High | Open | Product / Platform |
+| Health / Nurse Domain — Orphan Schema | backend | frontend | High | Open | Platform team |
 | ... | ... | ... | Open | ... |
 
 ## Closed Gaps

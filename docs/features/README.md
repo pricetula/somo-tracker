@@ -34,6 +34,7 @@ This index lists all documented features for Somotracker. Each feature lives und
 | Events Management Enhancement | events-management-enhancement | Proposed | Product / Platform | backend, frontend |
 | Rooms Management Enhancement | rooms-management-enhancement | Proposed | Product / Platform | backend, frontend |
 | Curriculum Enhancement | curriculum-enhancement | Proposed | Product / Platform | backend, frontend |
+| Assessment and Report Card Management | assessment-and-report-card | Draft | Product / Platform | backend, frontend, docs |
 | ... | ... | ... | ... | ... |
 
 ## How to add a feature

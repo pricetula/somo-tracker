@@ -2,6 +2,8 @@
 name: feature-module-validation
 description: Validate feature modules adhere to the feature-module architecture (isolated logic, UI, services, types).
 
+---
+
 # Feature Module Validation
 
 ## When to Run

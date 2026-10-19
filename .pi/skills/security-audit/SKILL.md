@@ -2,6 +2,8 @@
 name: security-audit
 description: Audit and harden REST/GraphQL/gRPC APIs for OWASP Top 10 vulnerabilities. Used before PR approval, during design, and for production deployment.
 
+---
+
 # Security Audit Workflow
 
 ## When to Run

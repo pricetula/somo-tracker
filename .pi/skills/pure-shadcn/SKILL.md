@@ -2,6 +2,8 @@
 name: pure-shadcn
 description: Generates or refactors Next.js views using unadulterated, minimalist Shadcn components without custom Tailwind colors or nested div wrappers. Use whenever the user asks for new UI, components, or layout updates.
 
+---
+
 # Pure Shadcn Engineering Procedure
 
 ## Absolute Token Enforcement (No Arbitrary Styles)

@@ -2,6 +2,8 @@
 name: generate-api
 description: Scaffold a new Fiber API endpoint (service interface + router entry + Postman stub). Use when user requests adding a new endpoint, route, or API feature.
 
+---
+
 # Generate API Endpoint
 
 ## Output Example

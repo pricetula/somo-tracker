@@ -2,6 +2,8 @@
 name: project-context
 description: Loads project-specific agent context from AGENTS.md files and skills. The single entry point for understanding how this project should be built.
 
+---
+
 # Project Context Loader
 
 When Pi starts this project, it MUST first read the following files:

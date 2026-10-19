@@ -2,6 +2,8 @@
 name: error-contract
 description: Enforce canonical error response contracts across the backend and frontend. Every non-2xx response must return the standardized error JSON shape.
 
+---
+
 # Error Contract Enforcement
 
 ## Backend (Go)

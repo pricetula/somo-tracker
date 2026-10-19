@@ -2,6 +2,8 @@
 name: agendas-compliance
 description: Validate adherence to AGENTS.md contracts across backend, frontend, and docs. Used before PRs to ensure all contracts are respected.
 
+---
+
 # AGENTS.md Compliance Validation
 
 ## When to Run

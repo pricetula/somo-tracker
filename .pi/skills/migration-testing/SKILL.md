@@ -2,6 +2,8 @@
 name: migration-testing
 description: Enforce rigorous migration testing for PostgreSQL migrations. Required for every new migration SQL file.
 
+---
+
 # Migration Testing Workflow
 
 ## When to Run

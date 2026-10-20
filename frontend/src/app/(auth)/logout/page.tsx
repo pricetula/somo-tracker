@@ -1,43 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { logout } from "@/lib/api/auth";
-import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "@/lib/auth";
 
 export default function LogoutPage() {
-    const router = useRouter();
-    const queryClient = useQueryClient();
-
-    useEffect(() => {
-        async function doLogout() {
-            try {
-                await logout();
-                // Explicitly expire both cookies locally in case the backend
-                // response cookies don't apply correctly.
-                document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
-                document.cookie = `${CSRF_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
-                queryClient.clear();
-                toast.success("Logged out");
-            } catch {
-                // Session may already be expired or backend unreachable —
-                // still redirect to /login. When the API call fails (network
-                // error, backend down), cookies are NOT cleared server-side,
-                // so we clear both cookies here to prevent the proxy
-                // middleware from seeing stale cookies.
-                document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
-                document.cookie = `${CSRF_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
-            } finally {
-                router.replace("/login");
-            }
-        }
-
-        doLogout();
-    }, [router, queryClient]);
-
     return (
         <div className="flex min-h-screen items-center justify-center">
             <div className="flex flex-col items-center gap-4">

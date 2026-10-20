@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
@@ -20,7 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 function listStudentsWithFilters(params: {

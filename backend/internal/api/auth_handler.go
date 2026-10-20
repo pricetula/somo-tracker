@@ -16,21 +16,21 @@ type MagicLinkRequest struct {
 }
 
 type MagicLinkResponse struct {
-	Code    string                 `json:"code"`
-	Message string                 `json:"message"`
-	Errors  map[string]interface{} `json:"errors"`
+	Code    string              `json:"code"`
+	Message string              `json:"message"`
+	Errors  map[string][]string `json:"errors"`
 }
 
 type CallbackResponse struct {
-	Code    string                 `json:"code"`
-	Message string                 `json:"message"`
-	Errors  map[string]interface{} `json:"errors"`
+	Code    string              `json:"code"`
+	Message string              `json:"message"`
+	Errors  map[string][]string `json:"errors"`
 }
 
 type LogoutResponse struct {
-	Code    string                 `json:"code"`
-	Message string                 `json:"message"`
-	Errors  map[string]interface{} `json:"errors"`
+	Code    string              `json:"code"`
+	Message string              `json:"message"`
+	Errors  map[string][]string `json:"errors"`
 }
 
 // authHandler responds to /api/auth/*.

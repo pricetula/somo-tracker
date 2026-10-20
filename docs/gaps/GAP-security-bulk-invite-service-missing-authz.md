@@ -2,7 +2,7 @@
 
 **Area:** backend
 **Severity:** Critical
-**Status:** Open
+**Status:** Closed
 **Owner:** 
 **Created:** 2025-10-19
 **Related Issues:** #security-audit-2025-10-19
@@ -50,12 +50,12 @@ Service layer must enforce authorization as defense in depth. Every mutating met
 Pending — recommend Option A for explicit, testable authorization.
 
 ## Acceptance Criteria
-- [ ] All mutating service methods (`CreateBulkJobWithItems`, `RetryFailed`, etc.) accept `actorUserID` parameter
-- [ ] Service verifies `UserHasAdminRole(ctx, schoolID, actorUserID)` before operation
-- [ ] Returns `ErrForbidden` if not admin
-- [ ] Handler passes `adminUserID` from context to service
-- [ ] Unit tests verify service rejects non-admin callers
-- [ ] Applied to Admin, Teacher, Finance, Guardian invitation services
+- [x] All mutating service methods (`CreateBulkJobWithItems`, `RetryFailed`, etc.) accept `actorUserID` parameter
+- [x] Service verifies `UserHasAdminRole(ctx, schoolID, actorUserID)` before operation
+- [x] Returns `ErrForbidden` if not admin
+- [x] Handler passes `adminUserID` from context to service
+- [x] Unit tests verify service rejects non-admin callers
+- [x] Applied to Admin, Teacher, Finance, Guardian invitation services
 
 ## Links
 - Security audit report: `security-report-extended.md`

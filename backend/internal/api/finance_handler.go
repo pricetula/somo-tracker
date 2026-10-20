@@ -23,6 +23,20 @@ func NewFinanceHandler(svc services.FinanceService, logger *zap.Logger) *Finance
 	return &FinanceHandler{svc: svc, logger: logger.With(zap.String("handler", "finance"))}
 }
 
+// DeleteFinance removes finance members from the active school; requires ADMIN role.
+// @Summary Delete finance members
+// @Description Delete school finance members by user IDs. Requires ADMIN role in the active school. Returns error if current user is included.
+// @Tags Finance
+// @Accept json
+// @Produce json
+// @Param body body deleteFinanceRequest true "User IDs to delete"
+// @Success 200 {object} map[string]any "finance deleted successfully"
+// @Failure 400 {object} map[string]any "bad request"
+// @Failure 401 {object} map[string]any "unauthorized"
+// @Failure 403 {object} map[string]any "forbidden - admin role required"
+// @Failure 500 {object} map[string]any "internal error"
+// @Security ApiKeyAuth
+// @Router /finance [delete]
 func (h *FinanceHandler) DeleteFinance(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
@@ -40,6 +54,16 @@ func (h *FinanceHandler) DeleteFinance(c fiber.Ctx) error {
 	currentUserID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid user id", nil))
+	}
+
+	// Role check: only ADMIN can delete finance records
+	hasAdmin, err := h.svc.UserHasAdminRole(c.Context(), schoolID, currentUserID)
+	if err != nil {
+		h.logger.Error("admin role check failed", zap.Error(err))
+		return WriteError(c, ErrInternal("failed to verify permissions"))
+	}
+	if !hasAdmin {
+		return WriteError(c, ErrForbidden("insufficient_permissions", "insufficient permissions"))
 	}
 
 	var req deleteFinanceRequest

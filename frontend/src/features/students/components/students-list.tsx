@@ -6,7 +6,7 @@ import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
 import { useDeleteStudents, useAssignStudents, studentsListQueryFn } from "../hooks/use-students";
 import type { StudentListItem } from "../types/student";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -199,7 +199,18 @@ export function StudentsTable() {
                 without_guardian: "without_guardian",
             }}
             renderToolBarComponents={(selectedIds) => {
-                if (selectedIds.size === 0) return null;
+                if (selectedIds.size === 0) {
+                    return (
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href="/students/add"
+                                className={buttonVariants({ variant: "outline", size: "sm" })}
+                            >
+                                Bulk Import
+                            </Link>
+                        </div>
+                    );
+                }
                 return (
                     <div className="flex items-center gap-2">
                         <Select value={assignClassId} onValueChange={setAssignClassId}>

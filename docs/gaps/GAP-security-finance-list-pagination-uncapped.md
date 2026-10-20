@@ -2,7 +2,7 @@
 
 **Area:** backend
 **Severity:** High
-**Status:** Open
+**Status:** Closed
 **Owner:** 
 **Created:** 2025-10-19
 **Related Issues:** #security-audit-2025-10-19
@@ -38,10 +38,10 @@ Pagination limit capped at 100 items per page (consistent with security standard
 Pending — recommend Option B for consistency (see GAP-security-pagination-cap-too-high).
 
 ## Acceptance Criteria
-- [ ] `GET /api/finance?limit=100` returns 200 OK with up to 100 items
-- [ ] `GET /api/finance?limit=101` returns 400 Bad Request (or clamped to 100)
-- [ ] Shared validation helper created and used
-- [ ] Integration test for pagination boundary
+- [x] `GET /api/finance?limit=100` returns 200 OK with up to 100 items
+- [x] `GET /api/finance?limit=101` returns 400 Bad Request (or clamped to 100)
+- [x] Shared validation helper created and used
+- [x] Integration test for pagination boundary
 
 ## Links
 - Security audit report: `security-report-extended.md`

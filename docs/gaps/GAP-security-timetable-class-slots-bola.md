@@ -2,7 +2,7 @@
 
 **Area:** backend
 **Severity:** Critical
-**Status:** Open
+**Status:** Closed
 **Owner:** 
 **Created:** 2025-10-19
 **Related Issues:** #security-audit-2025-10-19
@@ -49,9 +49,9 @@ Service must validate that `classID` belongs to `schoolID` before returning slot
 Pending — recommend Option A (service validation) + Option C (RLS).
 
 ## Acceptance Criteria
-- [ ] Service validates `classID` belongs to `schoolID` before querying slots
-- [ ] Returns 404 (not 403) if class not in school (prevents enumeration)
-- [ ] Integration test: User A cannot access User B's class slots → 404
+- [x] Service validates `classID` belongs to `schoolID` before querying slots
+- [x] Returns 404 (not 403) if class not in school (prevents enumeration)
+- [x] Integration test: User A cannot access User B's class slots → 404
 - [ ] RLS policy verified on relevant tables
 
 ## Links

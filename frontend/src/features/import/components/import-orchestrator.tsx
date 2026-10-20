@@ -112,6 +112,30 @@ export function ImportOrchestrator({
                         }}
                     />
                 </div>
+                {isDone && progress.failed > 0 && (
+                    <div className="mt-4 space-y-2">
+                        <div className="text-foreground font-medium">Failed rows</div>
+                        <div className="text-muted-foreground text-sm">
+                            {progress.failed} row{progress.failed > 1 ? "s" : ""} failed. Per-row
+                            error details can be viewed in the job details API. Use retry per row in
+                            the full import view.
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    setJobId(null);
+                                    setProgress(null);
+                                    setImportType("");
+                                    onReset?.();
+                                }}
+                            >
+                                Retry failed rows
+                            </Button>
+                        </div>
+                    </div>
+                )}
                 {isDone && (
                     <div className="mt-4 flex gap-2">
                         <Button

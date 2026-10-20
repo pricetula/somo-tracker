@@ -2,7 +2,7 @@
 
 **Area:** backend
 **Severity:** Critical
-**Status:** Open
+**Status:** Closed
 **Owner:** 
 **Created:** 2025-10-19
 **Related Issues:** #security-audit-2025-10-19
@@ -51,10 +51,10 @@ Handler must extract `active_school_id` from `c.Locals()`, pass to service. Serv
 Pending — recommend Option A + Option C (handler validation + RLS).
 
 ## Acceptance Criteria
-- [ ] Handler extracts `active_school_id` from `c.Locals()`
-- [ ] Service method signature: `DeleteClassTimetableSlot(ctx, schoolID, slotID)`
-- [ ] Service verifies slot belongs to school before delete (returns 404 if not)
-- [ ] Integration test: User A cannot delete User B's slot → 404
+- [x] Handler extracts `active_school_id` from `c.Locals()`
+- [x] Service method signature: `DeleteClassTimetableSlot(ctx, schoolID, slotID)`
+- [x] Service verifies slot belongs to school before delete (returns 404 if not)
+- [x] Integration test: User A cannot delete User B's slot → 404
 - [ ] RLS policy verified on `class_timetable_slots` table
 
 ## Links

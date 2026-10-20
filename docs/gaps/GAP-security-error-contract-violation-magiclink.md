@@ -2,7 +2,7 @@
 
 **Area:** backend
 **Severity:** Medium
-**Status:** Open
+**Status:** Closed
 **Owner:** 
 **Created:** 2025-10-19
 **Related Issues:** #security-audit-2025-10-19
@@ -48,12 +48,12 @@ All error response structs must use `Errors map[string][]string` to match:
 Pending — recommend Option A for minimal change, Option C for long-term consistency.
 
 ## Acceptance Criteria
-- [ ] `MagicLinkResponse.Errors` changed to `map[string][]string`
-- [ ] `CallbackResponse.Errors` and `LogoutResponse.Errors` also fixed (same issue)
-- [ ] Handler returns use `fiber.Map{"errors": map[string][]string{}}` or `fiber.Map{}` 
-- [ ] Frontend error handling tests pass
-- [ ] `make build-backend` compiles without errors
-- [ ] Error contract test (`error_contract_test.go`) covers auth responses
+- [x] `MagicLinkResponse.Errors` changed to `map[string][]string`
+- [x] `CallbackResponse.Errors` and `LogoutResponse.Errors` also fixed (same issue)
+- [x] Handler returns use `fiber.Map{"errors": map[string][]string{}}` or `fiber.Map{}` 
+- [x] Frontend error handling tests pass
+- [x] `make build-backend` compiles without errors
+- [x] Error contract test (`error_contract_test.go`) covers auth responses
 
 ## Links
 - Security audit report: `security-report-test.md`

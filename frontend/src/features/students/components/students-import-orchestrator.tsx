@@ -45,6 +45,7 @@ async function sha256Hex(input: string): Promise<string> {
 
 export function StudentsImportOrchestrator() {
     const mutation = useBulkImportStudents();
+    const [idempotencyKey, setIdempotencyKey] = React.useState<string | null>(null);
 
     const handleMappedList = async (rows: MappedRow[]) => {
         const students = rows.map((r) => ({
@@ -59,6 +60,7 @@ export function StudentsImportOrchestrator() {
         );
         const hash = await sha256Hex(canonical);
         const key = `bulk-student-import:${hash}`;
+        setIdempotencyKey(key);
         try {
             sessionStorage.setItem(`bulk-student-import-key:${hash}`, key);
         } catch {}
@@ -66,16 +68,26 @@ export function StudentsImportOrchestrator() {
         return { job_id: resp.job_id, total_records: resp.total_records, status: resp.status };
     };
 
-    const handleReset = () => {};
+    const handleReset = () => {
+        setIdempotencyKey(null);
+    };
 
     return (
-        <ImportOrchestrator
-            fieldDef={STUDENT_IMPORT_FIELDS}
-            onMappedList={handleMappedList}
-            isSubmitting={mutation.isPending}
-            progressUrl={(jobId) => `/backend/api/students/jobs/${jobId}/events`}
-            showProgress
-            onReset={handleReset}
-        />
+        <div className="space-y-4">
+            {idempotencyKey && (
+                <div className="text-muted-foreground text-xs">
+                    Idempotency key:{" "}
+                    <span className="text-foreground font-mono">{idempotencyKey}</span>
+                </div>
+            )}
+            <ImportOrchestrator
+                fieldDef={STUDENT_IMPORT_FIELDS}
+                onMappedList={handleMappedList}
+                isSubmitting={mutation.isPending}
+                progressUrl={(jobId) => `/backend/api/students/jobs/${jobId}/events`}
+                showProgress
+                onReset={handleReset}
+            />
+        </div>
     );
 }

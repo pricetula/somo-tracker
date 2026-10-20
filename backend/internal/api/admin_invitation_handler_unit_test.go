@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
@@ -40,13 +39,13 @@ func injectLocalsMW(locals map[string]interface{}) fiber.Handler {
 }
 
 func makeRowsJSON(n int) string {
-	var b strings.Builder
+	var b bytes.Buffer
 	b.WriteString(`[`)
 	for i := 0; i < n; i++ {
 		if i > 0 {
 			b.WriteString(`,`)
 		}
-		b.WriteString(fmt.Sprintf(`{"email":"user%d@test.co","full_name":"User %d"}`, i, i))
+		fmt.Fprintf(&b, `{"email":"user%d@test.co","full_name":"User %d"}`, i, i)
 	}
 	b.WriteString(`]`)
 	return b.String()

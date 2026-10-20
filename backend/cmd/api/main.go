@@ -75,6 +75,9 @@ func main() {
 		fx.Provide(services.NewTeachersService),
 		fx.Provide(services.NewFinanceService),
 		fx.Provide(services.NewGuardiansService),
+		fx.Provide(func(pool *pgxpool.Pool, logger *zap.Logger) *services.CurriculumSeeder {
+			return services.NewCurriculumSeeder(pool, logger)
+		}),
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),
@@ -84,6 +87,11 @@ func main() {
 			return newFiberApp(cfg, logger, pool, queries, router, curriculumSvc, reqIDHandler, redisClient, stytchClient)
 		}),
 		fx.Invoke(database.RunMigrations),
+		fx.Invoke(func(seeder *services.CurriculumSeeder, logger *zap.Logger) {
+			if err := seeder.SeedCurriculumIfEmpty(context.Background()); err != nil {
+				logger.Error("curriculum seed failed", zap.Error(err))
+			}
+		}),
 		somoredis.Module,
 		ratelimit.Module,
 		stytch.Module,

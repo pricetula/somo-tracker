@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { listTopics, listSubTopics } from "../services/api";
-import type { TopicItem, SubTopicItem } from "../types/curriculum";
+import { useTopics, useSubTopics } from "../hooks/use-subjects";
 
 interface SubjectDetailProps {
     gradeId: string;
@@ -11,24 +9,10 @@ interface SubjectDetailProps {
 }
 
 export function SubjectDetail({ gradeId, subjectId }: SubjectDetailProps) {
-    const [topics, setTopics] = useState<TopicItem[]>([]);
-    const [selectedTopic, setSelectedTopic] = useState<TopicItem | null>(null);
-    const [subTopics, setSubTopics] = useState<SubTopicItem[]>([]);
+    const { data: topics = [] } = useTopics(subjectId);
+    const selectedTopic = topics[0] ?? null;
 
-    useEffect(() => {
-        listTopics(subjectId).then((data) => {
-            setTopics(data);
-            if (data.length > 0 && !selectedTopic) {
-                setSelectedTopic(data[0]);
-            }
-        });
-    }, [subjectId, selectedTopic]);
-
-    useEffect(() => {
-        if (selectedTopic) {
-            listSubTopics(selectedTopic.id).then(setSubTopics);
-        }
-    }, [selectedTopic]);
+    const { data: subTopics = [] } = useSubTopics(selectedTopic?.id ?? "");
 
     if (!selectedTopic) {
         return (

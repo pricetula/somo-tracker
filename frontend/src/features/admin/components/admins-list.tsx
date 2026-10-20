@@ -2,8 +2,8 @@ import { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
-import { listAdmins, type AdminListItem } from "@/lib/api/admins";
-import { useDeleteAdmins } from "../hooks/use-admins";
+import { useDeleteAdmins, adminsListQueryFn } from "../hooks/use-admins";
+import type { AdminListItem } from "../types/admin";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -11,23 +11,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { adminFilterGroups, mapAdminFiltersToParams } from "./admins-filters";
-
-function listAdminsWithFilters(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filters?: Record<string, string | string[]>;
-    invitation_status?: "all" | "invited" | "accepted";
-}) {
-    const { invitation_status } = mapAdminFiltersToParams(params.filters);
-    return listAdmins({
-        page: params.page,
-        limit: params.limit,
-        search: params.search,
-        invitation_status: invitation_status ?? params.invitation_status,
-    });
-}
+import { adminFilterGroups } from "./admins-filters";
 
 export function AdminsTable() {
     const { mutateAsync: deleteAdmins } = useDeleteAdmins();
@@ -112,7 +96,7 @@ export function AdminsTable() {
             { items: AdminListItem[]; total?: number }
         >
             queryKey={["admins"]}
-            queryFn={listAdminsWithFilters}
+            queryFn={adminsListQueryFn()}
             getRowId={(row) => row.user_id}
             columns={columns}
             isCheckable

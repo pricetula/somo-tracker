@@ -1,17 +1,13 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getTeacher } from "@/lib/api/teachers";
+import { useTeacher } from "../hooks/use-teachers";
 
 interface TeacherDetailProps {
     id: string;
 }
 
 export function TeacherDetail({ id }: TeacherDetailProps) {
-    const { data, isLoading } = useQuery({
-        queryKey: ["teacher", id],
-        queryFn: () => getTeacher(id),
-    });
+    const { data, isLoading } = useTeacher(id);
 
     if (isLoading) return <div className="p-6">Loading...</div>;
     if (!data) return <div className="p-6">Teacher not found</div>;

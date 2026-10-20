@@ -11,9 +11,7 @@ import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { X } from "lucide-react";
 import { useStreams } from "@/features/streams";
 import { useGrades } from "@/features/grades";
-import { createClass } from "../services/api";
-import { useApiMutation } from "@/hooks/use-api-mutation";
-import { toast } from "sonner";
+import { useCreateClassesBatch } from "../hooks/use-classes";
 
 const itemSchema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -71,27 +69,13 @@ export function CreateUsingStreamsForm() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [defaultItems]);
 
-    const mutation = useApiMutation(
-        async (items: FormValues["items"]) => {
-            // Create sequentially to avoid overwhelming the API; could parallelize if preferred
-            for (const item of items) {
-                await createClass({
-                    name: item.name,
-                    gradeId: item.gradeId,
-                    streamId: item.streamId,
-                });
-            }
-        },
-        {
-            onSuccess: () => {
-                toast.success("Classes created successfully");
-                router.back();
-            },
-        }
-    );
+    const mutation = useCreateClassesBatch();
 
     const onSubmit = (values: FormValues) => {
-        mutation.mutate(values.items);
+        mutation.mutate(
+            values.items.map((i) => ({ name: i.name, gradeId: i.gradeId, streamId: i.streamId })),
+            { onSuccess: () => router.back() }
+        );
     };
 
     const isLoading = streamsLoading || gradesLoading;

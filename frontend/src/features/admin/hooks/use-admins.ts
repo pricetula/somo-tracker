@@ -5,13 +5,32 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteAdmins } from "@/lib/api/admins";
+import { deleteAdmins, listAdmins } from "@/lib/api/admins";
+import { mapAdminFiltersToParams } from "../components/admins-filters";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
 export const adminKeys = {
     list: ["admins"] as const,
 };
+
+export function adminsListQueryFn() {
+    return (params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        filters?: Record<string, string | string[]>;
+        invitation_status?: "all" | "invited" | "accepted";
+    }) => {
+        const { invitation_status } = mapAdminFiltersToParams(params.filters);
+        return listAdmins({
+            page: params.page,
+            limit: params.limit,
+            search: params.search,
+            invitation_status: invitation_status ?? params.invitation_status,
+        });
+    };
+}
 
 export function useDeleteAdmins() {
     const queryClient = useQueryClient();

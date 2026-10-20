@@ -12,7 +12,7 @@ import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { buttonVariants } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSchoolsList } from "../hooks/use-schools-list";
-import type { SchoolItem } from "@/lib/api/schools";
+import type { SchoolItem } from "../types/school";
 import { cn } from "@/lib/utils";
 
 export function SchoolsTable() {

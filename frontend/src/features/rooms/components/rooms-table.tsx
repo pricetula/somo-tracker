@@ -2,7 +2,7 @@
 import { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
-import { listRooms } from "../services/api";
+import { roomsListQueryFn } from "../hooks/use-rooms";
 import type { Room, ListRoomsParams } from "../types/room";
 import { useDeleteRoom } from "../hooks/use-rooms";
 import { MoreVertical } from "lucide-react";
@@ -13,10 +13,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-function listWithFilters(params: ListRoomsParams) {
-    return listRooms(params);
-}
 
 export function RoomsTable() {
     const { mutateAsync: deleteRoom } = useDeleteRoom();
@@ -121,7 +117,7 @@ export function RoomsTable() {
             { items: Room[]; total: number; page: number; limit: number }
         >
             queryKey={["rooms", "list"]}
-            queryFn={listWithFilters}
+            queryFn={roomsListQueryFn()}
             getRowId={(row) => row.id}
             columns={columns}
             isSearchable

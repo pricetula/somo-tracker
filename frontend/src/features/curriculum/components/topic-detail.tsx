@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { listSubTopics, getSubTopic } from "../services/api";
-import type { SubTopicItem } from "../types/curriculum";
+import { useSubTopics, useSubTopic } from "../hooks/use-subjects";
 
 interface TopicDetailProps {
     _subjectId?: string;
@@ -12,35 +10,10 @@ interface TopicDetailProps {
 }
 
 export function TopicDetail({ _subjectId, subjectId, subTopicId }: TopicDetailProps) {
-    const [subTopics, setSubTopics] = useState<SubTopicItem[]>([]);
-    const [selectedSubTopic, setSelectedSubTopic] = useState<SubTopicItem | null>(null);
-    const [topicId, setTopicId] = useState<string | null>(null);
+    const { data: selectedSubTopic } = useSubTopic(subTopicId ?? "");
+    const topicId = selectedSubTopic?.topicId ?? null;
 
-    // Fetch the specific sub-topic first to get its topicId
-    useEffect(() => {
-        if (subTopicId) {
-            getSubTopic("", subTopicId).then((st) => {
-                if (st) {
-                    setSelectedSubTopic(st);
-                    setTopicId(st.topicId);
-                }
-            });
-        }
-    }, [subTopicId]);
-
-    // Fetch all sub-topics for the topic
-    useEffect(() => {
-        if (topicId) {
-            listSubTopics(topicId).then((data) => {
-                setSubTopics(data);
-                // If no subTopicId provided, auto-select first sub-topic
-                if (!subTopicId && data.length > 0 && !selectedSubTopic) {
-                    setSelectedSubTopic(data[0]);
-                    setTopicId(data[0].topicId);
-                }
-            });
-        }
-    }, [topicId, subTopicId, selectedSubTopic]);
+    const { data: subTopics = [] } = useSubTopics(topicId ?? "");
 
     if (!selectedSubTopic || !topicId) {
         return (

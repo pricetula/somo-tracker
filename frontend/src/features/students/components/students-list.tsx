@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
-import { listStudents, bulkAssignStudentsToClass, type StudentListItem } from "@/lib/api/students";
-import { useDeleteStudents } from "../hooks/use-students";
+import { useDeleteStudents, useAssignStudents, studentsListQueryFn } from "../hooks/use-students";
+import type { StudentListItem } from "../types/student";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -13,7 +13,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { studentFilterGroups, mapStudentFiltersToParams } from "./students-filters";
+import { studentFilterGroups } from "./students-filters";
 import { useClasses } from "@/features/classes/hooks/use-classes";
 import {
     Select,
@@ -22,43 +22,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-
-function listStudentsWithFilters(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filters?: Record<string, string | string[]>;
-}) {
-    const { class_id, without_class, without_guardian } = mapStudentFiltersToParams(params.filters);
-    return listStudents({
-        page: params.page,
-        limit: params.limit,
-        search: params.search,
-        class_id,
-        without_class,
-        without_guardian,
-    });
-}
 
 export function StudentsTable() {
     const { mutateAsync: deleteStudents } = useDeleteStudents();
     const { data: classesResponse } = useClasses({ page: 1, limit: 100 });
-    const queryClient = useQueryClient();
     const [assignClassId, setAssignClassId] = useState<string>("");
-    const assignMutation = useMutation({
-        mutationFn: async ({ classId, studentIds }: { classId: string; studentIds: string[] }) => {
-            await bulkAssignStudentsToClass(classId, studentIds);
-        },
-        onSuccess: () => {
-            toast.success("Students assigned to class");
-            queryClient.invalidateQueries({ queryKey: ["students"] });
-        },
-        onError: () => {
-            toast.error("Failed to assign students");
-        },
-    });
+    const assignMutation = useAssignStudents();
 
     const filterGroups = useMemo(
         () => [
@@ -209,7 +178,7 @@ export function StudentsTable() {
             { items: StudentListItem[]; total: number }
         >
             queryKey={["students"]}
-            queryFn={listStudentsWithFilters}
+            queryFn={studentsListQueryFn}
             getRowId={(row) => row.student_id}
             columns={columns}
             isCheckable

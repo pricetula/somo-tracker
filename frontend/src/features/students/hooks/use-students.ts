@@ -1,13 +1,87 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteStudents } from "@/lib/api/students";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+    deleteStudents,
+    listStudents,
+    bulkAssignStudentsToClass,
+    getStudent,
+    updateStudent,
+} from "@/lib/api/students";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
+function mapStudentFiltersToParams(filters?: Record<string, string | string[]>) {
+    const classId = typeof filters?.class === "string" ? filters.class : undefined;
+    const withoutClass = filters?.without_class === "true";
+    const withoutGuardian = filters?.without_guardian === "true";
+    return { class_id: classId, without_class: withoutClass, without_guardian: withoutGuardian };
+}
+
 export const studentKeys = {
     list: ["students"] as const,
+    detail: (id: string) => ["students", id] as const,
 };
+
+export function useStudent(id: string) {
+    return useQuery({
+        queryKey: studentKeys.detail(id),
+        queryFn: () => getStudent(id),
+        enabled: !!id,
+    });
+}
+
+export function useUpdateStudent(id: string) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: [...studentKeys.detail(id), "update"],
+        mutationFn: (data: UpdateStudentRequest) => updateStudent(id, data),
+        onSuccess: () => {
+            toast.success("Student updated");
+            queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
+    });
+}
+
+export function studentsListQueryFn(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    filters?: Record<string, string | string[]>;
+}) {
+    // map filters via component helper import to avoid circular deps
+    // For now, forward params directly; filter mapping is handled by caller
+    const { class_id, without_class, without_guardian } = params.filters
+        ? mapStudentFiltersToParams(params.filters)
+        : { class_id: undefined, without_class: undefined, without_guardian: undefined };
+    return listStudents({
+        page: params.page,
+        limit: params.limit,
+        search: params.search,
+        class_id,
+        without_class,
+        without_guardian,
+    });
+}
+
+export function useAssignStudents() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: [...studentKeys.list, "assign"],
+        mutationFn: ({ classId, studentIds }: { classId: string; studentIds: string[] }) =>
+            bulkAssignStudentsToClass(classId, studentIds),
+        onSuccess: () => {
+            toast.success("Students assigned to class");
+            queryClient.invalidateQueries({ queryKey: studentKeys.list });
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
+    });
+}
 
 export function useDeleteStudents() {
     const queryClient = useQueryClient();

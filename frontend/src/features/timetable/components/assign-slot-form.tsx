@@ -23,8 +23,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { TeachersCombobox } from "@/features/teachers/components/teachers-combobox";
 import { SubjectsCombobox } from "@/features/curriculum/components/subjects-combobox";
 import { RoomsCombobox } from "@/features/rooms/components/rooms-combobox";
-import { useQuery } from "@tanstack/react-query";
-import { getClass } from "@/features/classes/services/api";
+import { useClass } from "@/features/classes/hooks/use-classes";
 
 type ConflictType = "teacher_double_book" | "room_double_book" | "class_overlap";
 
@@ -93,11 +92,7 @@ export function AssignSlotForm({
     assignmentId,
     templateId,
 }: AssignSlotFormProps) {
-    const { data: classData, isLoading: isClassLoading } = useQuery({
-        queryKey: ["class", classId],
-        queryFn: () => getClass(classId),
-        enabled: !!classId,
-    });
+    const { data: classData, isLoading: isClassLoading } = useClass(classId);
 
     const { data: timeSlots } = useTimeSlots(templateId ?? "");
     const timeSlot = React.useMemo(() => {

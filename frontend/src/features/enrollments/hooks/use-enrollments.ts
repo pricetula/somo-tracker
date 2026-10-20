@@ -17,6 +17,16 @@ export const enrollmentKeys = {
     unassigned: ["unassigned-students"] as const,
 };
 
+export function enrollmentsListQueryFn(classId: string) {
+    return (params: { page?: number; limit?: number }) =>
+        listByClass(classId, { page: params.page ?? 1, limit: params.limit ?? 50 });
+}
+
+export function unassignedListQueryFn() {
+    return (params: { page?: number; limit?: number }) =>
+        listUnassigned({ page: params.page ?? 1, limit: params.limit ?? 50 });
+}
+
 export function useEnrollmentsByClass(classId: string) {
     return useQuery({
         queryKey: enrollmentKeys.list(classId),

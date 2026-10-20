@@ -1,24 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getSubject, listTopics } from "../services/api";
-import type { SubjectListItem, TopicItem } from "../types/curriculum";
+import { useSubject, useTopics } from "../hooks/use-subjects";
 
 interface CurriculumDetailProps {
     id: string;
 }
 
 export function CurriculumDetail({ id }: CurriculumDetailProps) {
-    const [subject, setSubject] = useState<SubjectListItem | null>(null);
-    const [topics, setTopics] = useState<TopicItem[]>([]);
+    const { data: subject, isLoading: subjectLoading } = useSubject(id);
+    const { data: topics = [] } = useTopics(id);
 
-    useEffect(() => {
-        getSubject(id).then(setSubject);
-        listTopics(id).then(setTopics);
-    }, [id]);
-
-    if (!subject) return null;
+    if (subjectLoading || !subject) return null;
 
     return (
         <div className="space-y-6 p-6">

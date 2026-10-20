@@ -2,8 +2,8 @@ import { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
-import { listGuardians, type GuardianListItem } from "@/lib/api/guardians";
-import { useDeleteGuardians } from "../hooks/use-guardians";
+import { useDeleteGuardians, guardiansListQueryFn } from "../hooks/use-guardians";
+import type { GuardianListItem } from "../types/guardian";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -11,29 +11,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-function listGuardiansWithFilters(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filters?: Record<string, string | string[]>;
-    invitation_status?: string;
-}) {
-    const invitationStatus =
-        typeof params.filters?.status === "string"
-            ? params.filters.status
-            : params.invitation_status;
-
-    return listGuardians({
-        page: params.page,
-        limit: params.limit,
-        search: params.search,
-        invitation_status:
-            invitationStatus === "all" || !invitationStatus
-                ? undefined
-                : (invitationStatus as "invited" | "accepted"),
-    });
-}
 
 export function GuardiansTable() {
     const { mutateAsync: deleteGuardians } = useDeleteGuardians();
@@ -138,7 +115,7 @@ export function GuardiansTable() {
             { items: GuardianListItem[]; total?: number }
         >
             queryKey={["guardians"]}
-            queryFn={listGuardiansWithFilters}
+            queryFn={guardiansListQueryFn()}
             getRowId={(row) => row.user_id}
             columns={columns}
             isCheckable

@@ -1,49 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-    getStudent,
-    updateStudent,
-    type StudentProfile,
-    type UpdateStudentRequest,
-} from "@/lib/api/students";
-import { toast } from "sonner";
+import { type StudentProfile, type UpdateStudentRequest } from "../types/student";
+import { useStudent, useUpdateStudent } from "../hooks/use-students";
 
 interface StudentDetailProps {
     id: string;
 }
 
 export function StudentDetail({ id }: StudentDetailProps) {
-    const queryClient = useQueryClient();
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState<Partial<StudentProfile>>({});
 
-    const {
-        data: profile,
-        isLoading,
-        error,
-    } = useQuery<StudentProfile>({
-        queryKey: ["students", id],
-        queryFn: () => getStudent(id),
-        enabled: !!id,
-    });
+    const { data: profile, isLoading, error } = useStudent(id);
 
-    const updateMutation = useMutation({
-        mutationFn: (data: UpdateStudentRequest) => updateStudent(id, data),
-        onSuccess: () => {
-            toast.success("Student updated");
-            queryClient.invalidateQueries({ queryKey: ["students", id] });
-            setEditing(false);
-        },
-        onError: (_err) => {
-            toast.error("Failed to update student");
-        },
-    });
+    const updateMutation = useUpdateStudent(id);
 
     if (isLoading) {
         return (
@@ -79,7 +54,7 @@ export function StudentDetail({ id }: StudentDetailProps) {
             emergency_contact_phone: draft.emergency_contact_phone,
             special_needs: draft.special_needs,
         };
-        updateMutation.mutate(payload);
+        updateMutation.mutate(payload, { onSuccess: () => setEditing(false) });
     };
 
     return (

@@ -1,21 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getRoom } from "../services/api";
-import type { Room } from "../types/room";
+import { useRoom } from "../hooks/use-rooms";
 
 interface RoomDetailProps {
     id: string;
 }
 
 export function RoomDetail({ id }: RoomDetailProps) {
-    const [room, setRoom] = useState<Room | null>(null);
+    const { data: room, isLoading } = useRoom(id);
 
-    useEffect(() => {
-        getRoom(id).then(setRoom);
-    }, [id]);
-
-    if (!room) {
+    if (isLoading || !room) {
         return (
             <div className="space-y-6 p-6">
                 <p className="text-muted-foreground">Loading…</p>

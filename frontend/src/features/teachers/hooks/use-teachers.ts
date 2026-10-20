@@ -4,14 +4,23 @@
 
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteTeachers } from "@/lib/api/teachers";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { deleteTeachers, getTeacher } from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
 export const teacherKeys = {
     list: ["teachers"] as const,
+    detail: (id: string) => ["teacher", id] as const,
 };
+
+export function useTeacher(id: string) {
+    return useQuery({
+        queryKey: teacherKeys.detail(id),
+        queryFn: () => getTeacher(id),
+        enabled: !!id,
+    });
+}
 
 export function useDeleteTeachers() {
     const queryClient = useQueryClient();

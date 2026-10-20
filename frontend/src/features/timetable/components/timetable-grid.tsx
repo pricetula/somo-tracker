@@ -8,8 +8,7 @@ import { formatDateString } from "@/lib/utils/date";
 import { Plus, Trash2 } from "lucide-react";
 import { useDeleteClassTimetableSlot } from "../hooks/use-delete-class-timetable-slot";
 import { useAssignSlot } from "../hooks/use-assign-slot";
-import { useQuery } from "@tanstack/react-query";
-import { getClass } from "@/features/classes/services/api";
+import { useClass } from "@/features/classes/hooks/use-classes";
 import { SubjectsCombobox } from "@/features/curriculum/components/subjects-combobox";
 import { TeachersCombobox } from "@/features/teachers/components/teachers-combobox";
 import { RoomsCombobox } from "@/features/rooms/components/rooms-combobox";
@@ -46,11 +45,7 @@ export function TimetableGrid({
         templateId || "",
         selectedIds?.classId || ""
     );
-    const { data: classData } = useQuery({
-        queryKey: ["class", selectedIds?.classId],
-        queryFn: () => getClass(selectedIds?.classId ?? ""),
-        enabled: !!selectedIds?.classId,
-    });
+    const { data: classData } = useClass(selectedIds?.classId ?? "");
     const gradeId = classData?.gradeId ?? "";
     const { mutate: assignMutate, isPending: isAssignPending } = useAssignSlot();
     const [bulkMode, setBulkMode] = React.useState(false);

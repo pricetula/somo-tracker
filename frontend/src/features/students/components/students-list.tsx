@@ -213,7 +213,14 @@ export function StudentsTable() {
                 }
                 return (
                     <div className="flex items-center gap-2">
-                        <Select value={assignClassId} onValueChange={setAssignClassId}>
+                        <Select
+                            value={assignClassId}
+                            onValueChange={(v) => {
+                                if (v) {
+                                    setAssignClassId(v);
+                                }
+                            }}
+                        >
                             <SelectTrigger className="w-[240px]">
                                 <SelectValue placeholder="Select class" />
                             </SelectTrigger>

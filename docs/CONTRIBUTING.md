@@ -58,7 +58,7 @@ If architecture is affected, create an ADR in `docs/adr/` first.
 * Implement to the spec exactly
 * Backend error contract: `backend/internal/api/errors.go`
 * Frontend error handling: `frontend/src/lib/api/client.ts`
-* No `git add/commit/push` by the agent. Changes remain unstaged for user review.
+* Agent assists with commit/push upon explicit user instruction.
 
 ### 5. Small changes to existing features
 * **Tweak < 1 day, no new API:** Update existing `FEATURE-*.md` with a changelog note

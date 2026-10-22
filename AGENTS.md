@@ -24,6 +24,16 @@ Load from `.pi/skills/` when the task matches:
 - `agendas-compliance` — Cross-layer contract audit
 - `project-context` — Load all contracts + docs for new work
 
+### Bot Factory (Executable Enforcement)
+Skills are now backed by CI bots in `.github/workflows/bots.yml`:
+- `docs-bot` — `pnpm docs:lint` / audit:docs / link validation
+- `api-bot` — `make generate` idempotency, swagger/router match
+- `security-bot` — OWASP API Top 10, BOLA/BFLA, error contract
+- `migration-bot` — Every migration SQL has `TestMigrator_*` integration test
+- `ui-bot` — pure-shadcn rules, no hex colors, no back buttons, `pnpm lint`
+
+Run locally: `make compliance`. PRs require bot green before merge.
+
 ### Prompt Templates (Reusable Commands)
 - `/review` — Contract review across all layers
 - `/skill:<name>` — Force-load any skill
@@ -31,9 +41,10 @@ Load from `.pi/skills/` when the task matches:
 ### Project Context Loading Order
 Every AI task must load in this sequence:
 1. `AGENTS.md` (this file + layer file) — constraints
-2. `docs/features/` or `docs/gaps/` — spec / known issues
-3. `.pi/skills/<matching>` — procedural instructions
-4. `docs/CONTRIBUTING.md` — workflow conventions
+2. `docs/REVAMP-PLAN.md` — current process improvements
+3. `docs/features/` or `docs/gaps/` — spec / known issues
+4. `.pi/skills/<matching>` — procedural instructions
+5. `docs/CONTRIBUTING.md` — workflow conventions
 
 ---
 

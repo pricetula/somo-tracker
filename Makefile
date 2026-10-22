@@ -99,6 +99,12 @@ docs:  ## Doc-led workflow: lint + build docs + audit
 	cd frontend && pnpm docs:lint
 	@echo "Docs audit passed. See docs/openapi.yaml, docs/adr/, docs/features/"
 
+compliance:  ## Run AGENTS.md compliance checks via bot scripts
+	./scripts/compliance.sh
+
+bots:  ## Run all bot audits
+	./scripts/bots/run-all.sh
+
 generate: sqlc-gen generate-api-types  ## Run all code generation (sqlc + swagger + TS types)
 
 # ─── Help ─────────────────────────────────────────────────────────────────────

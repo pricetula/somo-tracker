@@ -2,6 +2,8 @@
 
 This project is document-led. Code follows docs, never the other way around.
 
+**Bot Factory:** See `docs/REVAMP-PLAN.md`. PRs are enforced by bots: docs-bot, api-bot, security-bot, migration-bot, ui-bot. Run `make compliance` locally before pushing.
+
 ## Folder intent
 
 ```
@@ -10,7 +12,7 @@ docs/
   ROADMAP.md            # high-level product roadmap
   reference/            # immutable reference info
     backend_schema.md
-  planning/             # pre-spec analysis, roadmaps, checklists, gap analyses
+  planning/             # active roadmaps only
   features/             # formal feature specs
     README.md
     FEATURE-*.md
@@ -22,6 +24,7 @@ docs/
   seed/                 # seeding / authoring data, not documentation
     cbc/*.json
     teachers.csv
+  archive/              # moved obsolete checklists, audits, stale planning
 ```
 
 A non-dev should be able to understand what each folder contains from its name alone.

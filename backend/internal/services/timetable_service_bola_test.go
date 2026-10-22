@@ -28,8 +28,8 @@ func (m *mockTimetableService) GetTemplate(ctx context.Context, templateID uuid.
 func (m *mockTimetableService) UpdateTemplate(ctx context.Context, templateID uuid.UUID, name string, description string) error {
 	return nil
 }
-func (m *mockTimetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error) {
-	return nil, nil
+func (m *mockTimetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID, page int, limit int) ([]sqlc.TimetableTemplate, int, error) {
+	return nil, 0, nil
 }
 func (m *mockTimetableService) ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error) {
 	return nil, nil

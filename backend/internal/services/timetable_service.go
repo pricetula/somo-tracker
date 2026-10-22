@@ -43,7 +43,7 @@ type TimetableService interface {
 	CreateTemplate(ctx context.Context, schoolID uuid.UUID, req CreateTemplateRequest) (uuid.UUID, error)
 	GetTemplate(ctx context.Context, templateID uuid.UUID) (sqlc.TimetableTemplate, error)
 	UpdateTemplate(ctx context.Context, templateID uuid.UUID, name string, description string) error
-	ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error)
+	ListTemplates(ctx context.Context, schoolID uuid.UUID, page int, limit int) ([]sqlc.TimetableTemplate, int, error)
 	ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error)
 	SetupClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, classRoomID, timeSlotID, subjectID, teacherMembershipID string, dayOfWeek int, roomID string) error
 	GetClassTimetableSlotsByTemplate(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error)
@@ -79,8 +79,22 @@ func (s *timetableService) UpdateTemplate(ctx context.Context, templateID uuid.U
 	})
 }
 
-func (s *timetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error) {
-	return s.queries.ListTimetableTemplatesBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+func (s *timetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID, page int, limit int) ([]sqlc.TimetableTemplate, int, error) {
+	offset := (page - 1) * limit
+	params := sqlc.ListTimetableTemplatesBySchoolParams{
+		SchoolID: pgtype.UUID{Bytes: schoolID, Valid: true},
+		Limit:    int32(limit),
+		Offset:   int32(offset),
+	}
+	items, err := s.queries.ListTimetableTemplatesBySchool(ctx, params)
+	if err != nil {
+		return nil, 0, err
+	}
+	count, err := s.queries.CountTimetableTemplatesBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, int(count), nil
 }
 
 func (s *timetableService) ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error) {

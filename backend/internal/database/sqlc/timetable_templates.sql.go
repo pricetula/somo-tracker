@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countTimetableTemplatesBySchool = `-- name: CountTimetableTemplatesBySchool :one
+SELECT COUNT(*) FROM timetable_templates WHERE school_id = $1
+`
+
+func (q *Queries) CountTimetableTemplatesBySchool(ctx context.Context, schoolID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countTimetableTemplatesBySchool, schoolID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTimetableTemplate = `-- name: CreateTimetableTemplate :one
 INSERT INTO timetable_templates (id, school_id, name, description)
 VALUES ($1, $2, $3, $4)
@@ -61,10 +72,17 @@ SELECT id, school_id, name, description, created_at, updated_at
 FROM timetable_templates
 WHERE school_id = $1
 ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) ListTimetableTemplatesBySchool(ctx context.Context, schoolID pgtype.UUID) ([]TimetableTemplate, error) {
-	rows, err := q.db.Query(ctx, listTimetableTemplatesBySchool, schoolID)
+type ListTimetableTemplatesBySchoolParams struct {
+	SchoolID pgtype.UUID `json:"school_id"`
+	Limit    int32       `json:"limit"`
+	Offset   int32       `json:"offset"`
+}
+
+func (q *Queries) ListTimetableTemplatesBySchool(ctx context.Context, arg ListTimetableTemplatesBySchoolParams) ([]TimetableTemplate, error) {
+	rows, err := q.db.Query(ctx, listTimetableTemplatesBySchool, arg.SchoolID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

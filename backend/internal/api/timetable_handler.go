@@ -49,12 +49,21 @@ func (h *TimetableHandler) ListTemplates(c fiber.Ctx) error {
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
-	items, err := h.svc.ListTemplates(c.Context(), schoolID)
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	items, total, err := h.svc.ListTemplates(c.Context(), schoolID, pagination.Page, pagination.Limit)
 	if err != nil {
 		h.logger.Error("list timetable templates failed", zap.Error(err))
 		return WriteError(c, ErrInternal("failed to list timetable templates"))
 	}
-	return c.Status(fiber.StatusOK).JSON(items)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"items": items,
+		"total": total,
+		"page":  pagination.Page,
+		"limit": pagination.Limit,
+	})
 }
 
 func (h *TimetableHandler) UpdateTemplate(c fiber.Ctx) error {

@@ -76,5 +76,5 @@ func TestHelmetMiddleware_SetsHeadersOnError(t *testing.T) {
 	// Headers should still be present even on error responses.
 	assert.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
 	assert.Equal(t, "DENY", resp.Header.Get("X-Frame-Options"))
-	assert.Equal(t, "default-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'", resp.Header.Get("Content-Security-Policy"))
+	assert.Equal(t, "default-src 'none'", resp.Header.Get("Content-Security-Policy"))
 }

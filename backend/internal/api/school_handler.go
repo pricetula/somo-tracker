@@ -158,16 +158,16 @@ func (h *SchoolHandler) SetActiveSchool(c fiber.Ctx) error {
 func (h *SchoolHandler) ListSchools(c fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" {
-		return WriteError(c, ErrUnauthorized("user_id not found in session"))
+		return fiber.NewError(fiber.StatusUnauthorized, "user_id not found in session")
 	}
 	tenantID, ok := c.Locals("tenant_id").(string)
 	if !ok || tenantID == "" {
-		return WriteError(c, ErrUnauthorized("tenant_id not found in session"))
+		return fiber.NewError(fiber.StatusUnauthorized, "tenant_id not found in session")
 	}
 
 	schools, err := h.service.ListSchools(c.Context(), userID, tenantID)
 	if err != nil {
-		return WriteError(c, ErrInternal(err.Error()))
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{

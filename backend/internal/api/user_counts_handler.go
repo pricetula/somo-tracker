@@ -24,11 +24,11 @@ func NewUserCountsHandler(svc *services.UserCountsService) *UserCountsHandler {
 func (h *UserCountsHandler) GetUserCounts(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
+		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
 	}
 	counts, err := h.service.GetUserCounts(c.Context(), schoolID)
 	if err != nil {
-		return WriteError(c, ErrInternal(err.Error()))
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 	return c.Status(fiber.StatusOK).JSON(counts)
 }

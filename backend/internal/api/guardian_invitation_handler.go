@@ -40,17 +40,17 @@ func NewGuardianInvitationHandler(svc services.GuardianInvitationServiceInterfac
 // @Router /api/guardians/invitations [post]
 func (h *GuardianInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	// Extract locals
-	schoolIDStr := c.Locals("active_school_id")
-	tenantIDStr := c.Locals("tenant_id")
-	adminUserIDStr := c.Locals("user_id")
-
-	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
-	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
-	adminUserID, err3 := uuid.Parse(fmt.Sprintf("%v", adminUserIDStr))
+	schoolIDStr, ok1 := c.Locals("active_school_id").(string)
+	tenantIDStr, ok2 := c.Locals("tenant_id").(string)
+	adminUserIDStr, ok3 := c.Locals("user_id").(string)
+	if !ok1 || schoolIDStr == "" || !ok2 || tenantIDStr == "" || !ok3 || adminUserIDStr == "" {
+		return WriteError(c, ErrUnauthorized("missing session context"))
+	}
+	schoolID, err1 := uuid.Parse(schoolIDStr)
+	tenantID, err2 := uuid.Parse(tenantIDStr)
+	adminUserID, err3 := uuid.Parse(adminUserIDStr)
 	if err1 != nil || err2 != nil || err3 != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code": "unauthorized", "message": "missing session context", "errors": fiber.Map{},
-		})
+		return WriteError(c, ErrUnauthorized("invalid session ids"))
 	}
 	// Role guard: only SCHOOL_ADMIN can create bulk invites
 	hasAdmin, err := h.svc.UserHasAdminRole(c.Context(), schoolID, adminUserID)
@@ -209,12 +209,15 @@ func (h *GuardianInvitationHandler) GetJob(c fiber.Ctx) error {
 		return WriteError(c, ErrBadRequest("invalid job_id", nil))
 	}
 	// Load session context for ownership check
-	schoolIDStr := c.Locals("active_school_id")
-	tenantIDStr := c.Locals("tenant_id")
-	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
-	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
-	if err1 != nil || err2 != nil {
+	schoolIDStr, ok1 := c.Locals("active_school_id").(string)
+	tenantIDStr, ok2 := c.Locals("tenant_id").(string)
+	if !ok1 || schoolIDStr == "" || !ok2 || tenantIDStr == "" {
 		return WriteError(c, ErrUnauthorized("missing session context"))
+	}
+	schoolID, err1 := uuid.Parse(schoolIDStr)
+	tenantID, err2 := uuid.Parse(tenantIDStr)
+	if err1 != nil || err2 != nil {
+		return WriteError(c, ErrUnauthorized("invalid session ids"))
 	}
 	job, err := h.svc.GetJob(c.Context(), jobID)
 	if err != nil {
@@ -239,12 +242,15 @@ func (h *GuardianInvitationHandler) RetryFailed(c fiber.Ctx) error {
 		return WriteError(c, ErrBadRequest("invalid job_id", nil))
 	}
 	// Ownership check
-	schoolIDStr := c.Locals("active_school_id")
-	tenantIDStr := c.Locals("tenant_id")
-	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
-	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
-	if err1 != nil || err2 != nil {
+	schoolIDStr, ok1 := c.Locals("active_school_id").(string)
+	tenantIDStr, ok2 := c.Locals("tenant_id").(string)
+	if !ok1 || schoolIDStr == "" || !ok2 || tenantIDStr == "" {
 		return WriteError(c, ErrUnauthorized("missing session context"))
+	}
+	schoolID, err1 := uuid.Parse(schoolIDStr)
+	tenantID, err2 := uuid.Parse(tenantIDStr)
+	if err1 != nil || err2 != nil {
+		return WriteError(c, ErrUnauthorized("invalid session ids"))
 	}
 	job, err := h.svc.GetJob(c.Context(), jobID)
 	if err != nil || job == nil || job.TenantID != tenantID || job.SchoolID != schoolID {
@@ -291,8 +297,11 @@ func (h *GuardianInvitationHandler) Events(c fiber.Ctx) error {
 		return c.SendString("event: error\ndata: bad job_id\n\n")
 	}
 	// Ownership check
-	tenantIDStr := c.Locals("tenant_id")
-	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
+	tenantIDStr, ok := c.Locals("tenant_id").(string)
+	if !ok || tenantIDStr == "" {
+		return WriteError(c, ErrUnauthorized("missing session context"))
+	}
+	tenantID, err2 := uuid.Parse(tenantIDStr)
 	if err2 != nil {
 		c.Status(fiber.StatusUnauthorized)
 		return c.SendString("event: error\ndata: missing session locals\n\n")

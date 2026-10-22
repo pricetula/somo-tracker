@@ -2,9 +2,9 @@
 
 > **AI Coding Directive:** Before modifying any file, identify the layer (backend/frontend/public/docs) and load the matching `.pi/skills/`. Use `/skill:project-context` first to understand constraints. Use `/review` before committing work.
 
-## Golden Rule: Never Commit
+## Golden Rule: User-Managed Commit
 
-The AI agent must **never** run `git add`, `git commit`, or `git push`. All changes must be left as unstaged modifications in the working tree. Only the user decides when and what to commit.
+Changes remain unstaged for user review; the agent may assist with `git add/commit/push` when explicitly instructed by the user for PR creation.
 
 ---
 

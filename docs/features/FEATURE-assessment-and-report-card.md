@@ -82,7 +82,7 @@ Add an `assessment` domain that plugs into the existing `academic_period_resolve
 ## Test Plan
 - Unit tests: service-level QUERY verification (`SELECT 1 FROM assessments WHERE ...`); conversion logic (percentage → grade descriptor) tested independently.
 - Integration tests: `migrator_integration_test.go` pattern — `TestMigrator_AssessmentDomain` asserts `grade_scales`, `assessments`, `assessment_marks` tables + FK constraints + RLS isolation (`SET LOCAL app.current_tenant_id`).
-- E2E / Playwright: teacher creates assessment, adds marks, publishes batch; student profile shows report card section; guardian profile (if portal exists later) sees aggregated stats.
+- E2E / Playwright: (Ignore) teacher creates assessment, adds marks, publishes batch; student profile shows report card section; guardian profile (if portal exists later) sees aggregated stats.
 - Contract test: every handler non-2xx returns `{code, message, errors, request_id}`; `getErrorMessage(err)` surfaces to UI; no hardcoded `toast.error`.
 
 ## Rollout

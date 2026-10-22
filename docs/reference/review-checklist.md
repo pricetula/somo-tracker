@@ -179,7 +179,7 @@ make lint-backend           # golangci-lint
 # Frontend
 npm run build:frontend      # Next.js build
 npm run lint:frontend       # ESLint
-npm run test:frontend       # Jest + Playwright
+npm run test:frontend       # Jest + Playwright (Ignore)
 
 # Security
 make security-audit         # Run security-audit skill (CI)

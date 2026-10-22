@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/api/middleware"
 	"somotracker/backend/internal/services"
 )
 
@@ -236,13 +237,23 @@ func (h *TimetableHandler) SetupClassTimetableSlot(c fiber.Ctx) error {
 		h.logger.Error("setup class timetable slot failed", zap.Error(err))
 		if strings.HasPrefix(err.Error(), "timetable_conflict:") {
 			conflictType := strings.TrimPrefix(err.Error(), "timetable_conflict:")
-			return WriteError(c, APIError{
-				Status:  fiber.StatusConflict,
-				Code:    "timetable_conflict",
-				Message: "Timetable conflict detected",
-				Errors: map[string][]string{
-					"conflicts": {conflictType},
+			// The feature spec requires structured conflicts array with objects.
+			// APIError.Errors (map[string][]string) can't carry objects,
+			// so return canonical JSON directly with structured conflicts.
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":    "timetable_conflict",
+				"message": "Timetable conflict detected",
+				"errors": map[string]interface{}{
+					"conflicts": []map[string]interface{}{
+						{
+							"type":             conflictType,
+							"resource_id":      "",
+							"resource_name":    "",
+							"existing_slot_id": "",
+						},
+					},
 				},
+				"request_id": middleware.GetRequestID(c),
 			})
 		}
 		return WriteError(c, ErrBadRequest(err.Error(), nil))

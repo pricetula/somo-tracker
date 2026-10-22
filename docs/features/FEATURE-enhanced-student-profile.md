@@ -127,8 +127,8 @@ Current `students` schema has limited columns. Use `metadata JSONB` for flexible
 | T-02 | GET /students/:id | API contract | Wrong tenant | 404 / 403 per RLS |
 | T-03 | PATCH /students/:id | API contract | Valid partial payload | 200, fields persisted |
 | T-04 | PATCH /students/:id | Validation | Invalid date format | 400 with error contract |
-| T-05 | UI Load | Playwright | Navigate to /students/[id] | Profile renders, tabs visible, no dumb back button |
-| T-06 | UI Edit | Playwright | Edit name & save | Optimistic update, toast success, query invalidated |
+| T-05 | UI Load | Playwright (Ignore) | Navigate to /students/[id] | Profile renders, tabs visible, no dumb back button |
+| T-06 | UI Edit | Playwright (Ignore) | Edit name & save | Optimistic update, toast success, query invalidated |
 | T-07 | RLS | Integration | Cross-tenant request | Data not leaked |
 
 

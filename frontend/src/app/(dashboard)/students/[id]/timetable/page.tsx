@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 type StudentTimetableSlot = {
     day_of_week: number;
@@ -20,7 +21,7 @@ type StudentTimetableSlot = {
 
 export default function StudentTimetablePage() {
     const params = useParams<{ id: string }>();
-    const { data, isLoading } = useQuery<StudentTimetableSlot[]>({
+    const { data, isLoading, isError, error } = useQuery<StudentTimetableSlot[]>({
         queryKey: ["student-timetable", params.id],
         queryFn: async () => {
             const res = await api.get<StudentTimetableSlot[]>(
@@ -36,6 +37,19 @@ export default function StudentTimetablePage() {
             <div className="space-y-4 p-6">
                 <Skeleton className="h-8 w-64" />
                 <Skeleton className="h-40 w-full" />
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="p-6">
+                <Alert variant="destructive">
+                    <AlertTitle>Error loading timetable</AlertTitle>
+                    <AlertDescription>
+                        {(error as Error)?.message ?? "Failed to load student timetable"}
+                    </AlertDescription>
+                </Alert>
             </div>
         );
     }

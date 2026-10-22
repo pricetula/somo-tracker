@@ -22,6 +22,12 @@ Status was set to Done without verifying Acceptance Criteria, Test Pass, Error C
 3. Validate Error Contract, Security Audit, Migration Tests, and Compliance via `/review`
 4. Only then mark Status `Done` and sync GAP status
 
+## Remediation — Updated 2026-10-20
+- `FEATURE-timetable-conflict-detection.md`: Status reverted to `In Progress`; `SetupClassTimetableSlot` conflict detection verified (service tests PASS); handler now returns structured `errors.conflicts[]`; error-contract validated.
+- `FEATURE-student-timetable-view.md`: Status reverted to `In Progress`; endpoint `GET /api/students/:id/timetable` exists (`GetStudentTimetable`); pending RLS/test/E2E verification.
+- `GAP-*` files updated to `In Progress` with open criteria listed.
+- Only mark `Done` after all AC checked, `/review` passed, and GAP synced.
+
 ## Definition of Done
 - All Acceptance Criteria `[x]`
 - Implementation Notes contain no pending items

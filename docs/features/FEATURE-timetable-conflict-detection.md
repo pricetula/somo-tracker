@@ -1,9 +1,9 @@
 # Feature: Timetable Conflict Detection
 
-**Status:** Done
+**Status:** In Progress
 **Owner:** Platform Team
 **Created:** 2026-10-15
-**Last Updated:** 2026-10-15
+**Last Updated:** 2026-10-20
 **Related Issues:** #
 **Affected Layers:** backend | frontend | docs
 
@@ -134,13 +134,23 @@ Add server-side validation in the Timetable service before persisting `class_tim
 - Monitor error rate for `timetable_conflict` in logs
 
 ## Implementation Notes
-**2026-10-15 – Done**
+**2026-10-15 – Initial implementation**
 - Docs enhanced with Rationale, Test Matrix and Implementation Notes template to pilot document-led workflow
 - Backend validation implemented in `internal/services/timetable_service.go` SetupClassTimetableSlot: teacher, room, class conflict checks inside transaction
 - Handler `api/timetable_handler.go` maps `timetable_conflict:*` errors to 409 with code `timetable_conflict`
-- E2E Playwright tests added in `frontend/tests/e2e/timetable-conflict.spec.ts` covering teacher/room/class conflicts and happy path
+- E2E Playwright tests added in `frontend/tests/e2e/timetable-conflict.spec.ts` covering teacher/room/class conflicts and happy path (Ignore)
 - Frontend error handling for 409 `timetable_conflict` implemented in `assign-slot-form.tsx` with inline field errors and toast
 - Feature flag `timetable_conflict_detection` remains default on
+
+**2026-10-20 – Error contract remediation**
+- `POST /api/timetable/setup` 409 response now returns a structured `errors.conflicts[]` array of objects (`type`, `resource_id`, `resource_name`, `existing_slot_id`) as required by this spec. Previously `WriteError` could only carry a flat `map[string][]string`, so conflicts were emitted as plain strings.
+- Added `backend/internal/api/timetable_conflict_contract_test.go` covering the 409 response shape (code, message, structured conflicts).
+- Verified RLS: `class_timetable_slots` has `ENABLE`/`FORCE ROW LEVEL SECURITY` with the `class_timetable_slots_tenant_isolation` policy (migration `000008`).
+- Status reverted `Done` → `In Progress` per `docs/audit-status-mismatch-2026-10-15.md` (acceptance criteria had been ticked without verification).
+
+### Pending
+- Playwright E2E (`tests/e2e/timetable-conflict.spec.ts`) not yet executed — requires a running dev server. Deferred 2026-10-20. (Ignore)
+- `ValidateTimetableSlot` was not extracted as a standalone service method; conflict checks remain inline in `SetupClassTimetableSlot`.
 
 ## References
 - Gap: `docs/gaps/GAP-timetable-conflict-detection.md`

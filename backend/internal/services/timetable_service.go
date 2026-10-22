@@ -28,15 +28,15 @@ type CreateTemplateRequest struct {
 }
 
 type StudentTimetableSlot struct {
-	DayOfWeek    int32
-	TimeSlotName string
-	StartTime    string
-	EndTime      string
-	SubjectName  string
-	TeacherName  string
-	RoomName     string
-	ClassName    string
-	GradeName    string
+	DayOfWeek    int32  `json:"day_of_week"`
+	TimeSlotName string `json:"time_slot_name"`
+	StartTime    string `json:"start_time"`
+	EndTime      string `json:"end_time"`
+	SubjectName  string `json:"subject_name"`
+	TeacherName  string `json:"teacher_name"`
+	RoomName     string `json:"room_name"`
+	ClassName    string `json:"class_name"`
+	GradeName    string `json:"grade_name"`
 }
 
 type TimetableService interface {

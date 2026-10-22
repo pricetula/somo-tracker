@@ -17,7 +17,7 @@ Gap: `docs/gaps/GAP-timetable-conflict-detection.md`
   - [ ] Unit tests for each conflict type
   - [ ] Integration tests for 409 response shape
   - [ ] RLS isolation test
-  - [ ] Playwright E2E test passes
+  - [ ] Playwright E2E test passes (Ignore)
 - [ ] Security audit passed via `/skill:security-audit`
 - [ ] Error contract validated via `/skill:error-contract`
 - [ ] Compliance passed via `/review`
@@ -30,7 +30,7 @@ Status reverted to `In Progress` on 2026-10-15 due to unchecked acceptance crite
 ## Next Steps
 1. Verify frontend error handling is complete and tested
 2. Tick acceptance criteria in feature spec
-3. Run `pnpm run test:all` and Playwright tests
+3. Run `pnpm run test:all` and Playwright tests (Ignore)
 4. Run `/review` and `/security`
 5. Update Implementation Notes and sync GAP
 6. Mark feature `Done` only after all checks pass

@@ -1,9 +1,9 @@
 # Feature: Student Timetable View
 
-**Status:** Done
+**Status:** In Progress
 **Owner:** Product / Platform
 **Created:** 2026-10-15
-**Last Updated:** 2026-10-15
+**Last Updated:** 2026-10-20
 **Related Issues:** #
 **Affected Layers:** backend | frontend | docs
 
@@ -70,6 +70,21 @@ Reuse `TimetableGrid` component from `frontend/src/features/timetable/` with rea
 
 ## Rollout
 - Backend first, frontend second
+
+## Implementation Notes
+**2026-10-15 – Spec created**
+- Feature spec drafted with read-only weekly grid design, endpoint design (`GET /api/students/:id/timetable`), and RLS requirements.
+
+**2026-10-20 – Implementation verified; status reverted to In Progress**
+- Backend endpoint implemented (`backend/internal/api/students_handler.go` `GetStudentTimetable`) and service method (`GetStudentTimetable`) using `AcademicPeriodResolver`.
+- Backend JSON contract fixed (`StudentTimetableSlot` JSON tags added — `day_of_week`, `time_slot_name`, etc.). Previously missing tags caused PascalCase output (`DayOfWeek`) which the frontend could not read.
+- Frontend page (`/students/[id]/timetable`) renders weekly data; `useQuery` missing `isError` state fixed (added `<Alert variant="destructive">`). `TimetableGrid` reuse deferred — component requires `templateId`/`classId` and `ClassTimetableSlotWithDetails` input shape incompatible with `StudentTimetableSlot[]`; refactoring to align shapes is a separate task.
+- Added `backend/internal/services/student_timetable_contract_test.go` (JSON contract verification) — PASS.
+
+### Pending
+- `GetStudentTimetable` RLS authorization check not fully verified: endpoint resolves `schoolID` from `app.current_tenant_id` but does not enforce that `studentID` belongs to the school or that the calling user is authorized to view that student. Requires integration test.
+- Empty-state and grid-update-on-enrollment-change not fully tested.
+- Playwright E2E (`tests/e2e/`) for student timetable view not yet created. (Ignore)
 
 ## References
 - Gap: `docs/gaps/GAP-student-timetable-view.md`

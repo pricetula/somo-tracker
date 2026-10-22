@@ -14,7 +14,7 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Bulk Import UI | frontend | High | Open | ... |
 | Student Schema Missing Structured Fields | backend | High | Open | ... |
 | Student List Missing Fields for Enhanced Listing | backend | High | Open | ... |
-| Student Timetable View Missing | frontend | High | Open | ... |
+| Student Timetable View Missing | frontend | High | In Progress | ... |
 | Assessment and Report Card Management | backend | frontend | High | Open | Product / Platform |
 | Health / Nurse Domain — Orphan Schema | backend | frontend | High | Open | Platform team |
 | Pagination Limit Cap Exceeds Security Standard (200 > 100) | backend | High | Open | ... |
@@ -27,6 +27,7 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Timetable Templates No Pagination | backend | High | Open | ... |
 | Timetable Slot Delete BOLA (Missing School Check) | backend | Critical | Closed | ... |
 | Timetable Class Slots BOLA (Missing Class Ownership Check) | backend | Critical | Closed | ... |
+| Timetable Conflict Detection Missing | backend | High | In Progress | Platform team |
 | Bulk Invitation Service Missing Authz (BFLA) | backend | Critical | Closed | ... |
 | Finance Delete No Role Verification (BFLA) | backend | Critical | Closed | ... |
 | Idempotency Key Format Not Validated | backend | High | Open | ... |
@@ -56,7 +57,6 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 |-----|------|----------|--------|-------|
 | Student Detail Page is Placeholder | frontend | High | Closed | Platform team |
 | Timetable Class Assignment UI Missing | frontend | Medium | Done | Platform team |
-| Timetable Conflict Detection Missing | backend | High | Done | Platform team |
 
 ## Deferred / Won't Do
 

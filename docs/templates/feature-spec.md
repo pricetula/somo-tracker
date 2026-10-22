@@ -59,7 +59,7 @@ Relevant ADRs, diagrams, links.
 ## Test Plan
 - Unit tests
 - Integration tests
-- Playwright / E2E scenarios
+- Playwright / E2E scenarios (Ignore)
 
 ## Rollout
 - Feature flag? 

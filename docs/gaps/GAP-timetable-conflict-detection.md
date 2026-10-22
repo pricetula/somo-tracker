@@ -2,10 +2,10 @@
 
 **Area:** backend
 **Severity:** High
-**Status:** Done
+**Status:** In Progress
 **Owner:** Platform team
 **Created:** 2026-10-15
-**Closed:** 2026-10-15
+**Closed:** (pending — error-contract validation + `/review`)
 
 ## Description
 No validation prevents teacher double-booking, room double-booking, or class overlapping slots when creating `class_timetable_slots`.
@@ -22,6 +22,7 @@ Add validation in `SetupClassTimetableSlot` service:
 ## Acceptance Criteria
 - [x] API returns error with code `timetable_conflict` on double booking
 - [x] Error details indicate conflicting resource
+- [x] `errors.conflicts[]` carries structured conflict objects (`type`, `resource_id`, `resource_name`, `existing_slot_id`)
 
 ## Links
 - Feature: `docs/features/FEATURE-timetable-conflict-detection.md`

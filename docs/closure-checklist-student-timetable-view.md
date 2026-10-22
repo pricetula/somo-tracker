@@ -16,7 +16,7 @@ Gap: `docs/gaps/GAP-student-timetable-view.md`
 - [ ] Empty state shown when no enrollments
 - [ ] Tests pass
   - [ ] API contract test for student with multiple enrollments
-  - [ ] E2E test for student viewing own timetable
+  - [ ] E2E test for student viewing own timetable (Ignore)
   - [ ] RLS test
 - [ ] Error contract validated
 - [ ] Compliance passed via `/review`

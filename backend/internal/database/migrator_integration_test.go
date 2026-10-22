@@ -784,14 +784,14 @@ func TestMigrator_ClassRoomsAndEnrollments(t *testing.T) {
 
 	var classRoomA, classRoomB string
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
-		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name)
+		VALUES ($1, $2, $3, 'Class 1 Blue')
 		RETURNING id::text
 	`, schoolA, yearA, gradeLevelID).Scan(&classRoomA)
 	require.NoError(t, err)
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
-		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name)
+		VALUES ($1, $2, $3, 'Class 1 Blue')
 		RETURNING id::text
 	`, schoolB, yearB, gradeLevelID).Scan(&classRoomB)
 	require.NoError(t, err)
@@ -1135,14 +1135,14 @@ func TestMigrator_TimetableScheduling(t *testing.T) {
 
 	var classRoomA, classRoomB string
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
-		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name)
+		VALUES ($1, $2, $3, 'Class 1 Blue')
 		RETURNING id::text
 	`, schoolA, yearA, gradeLevelID).Scan(&classRoomA)
 	require.NoError(t, err)
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
-		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name)
+		VALUES ($1, $2, $3, 'Class 1 Blue')
 		RETURNING id::text
 	`, schoolB, yearB, gradeLevelID).Scan(&classRoomB)
 	require.NoError(t, err)

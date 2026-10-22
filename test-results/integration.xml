@@ -1,53 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="36" failures="15" errors="0" time="9.184791">
-	<testsuite tests="31" failures="15" time="0.980000" name="somotracker/backend/internal/database" timestamp="2026-10-19T16:45:12+03:00">
+<testsuites tests="36" failures="15" errors="0" time="123.919337">
+	<testsuite tests="31" failures="15" time="0.779000" name="somotracker/backend/internal/database" timestamp="2026-10-22T23:46:55+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_ClassRoomsAndEnrollments" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_ClassRoomsAndEnrollments&#xA;=== PAUSE TestMigrator_ClassRoomsAndEnrollments&#xA;=== CONT  TestMigrator_ClassRoomsAndEnrollments&#xA;    migrator_integration_test.go:563: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_ClassRoomsAndEnrollments (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SISSchema" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_SISSchema&#xA;=== PAUSE TestMigrator_SISSchema&#xA;=== CONT  TestMigrator_SISSchema&#xA;    migrator_integration_test.go:324: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_SISSchema (0.00s)&#xA;</failure>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_GenericBulkJobs" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_GenericBulkJobs&#xA;    migrator_generic_bulk_jobs_test.go:19: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_GenericBulkJobs (0.00s)&#xA;</failure>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_Integration" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_Integration&#xA;=== PAUSE TestMigrator_Integration&#xA;=== CONT  TestMigrator_Integration&#xA;    migrator_integration_test.go:30: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/database/migrator_integration_test.go:30&#xA;        &#x9;Error:      &#x9;Received unexpected error:&#xA;        &#x9;            &#x9;database.NewMigrator: pgx driver: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;        &#x9;Test:       &#x9;TestMigrator_Integration&#xA;        &#x9;Messages:   &#x9;NewMigrator should not fail&#xA;--- FAIL: TestMigrator_Integration (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_GenericBulkJobs" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_GenericBulkJobs&#xA;=== PAUSE TestMigrator_GenericBulkJobs&#xA;=== CONT  TestMigrator_GenericBulkJobs&#xA;    migrator_generic_bulk_jobs_test.go:20: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_GenericBulkJobs (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SubjectHierarchy" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_SubjectHierarchy&#xA;=== PAUSE TestMigrator_SubjectHierarchy&#xA;=== CONT  TestMigrator_SubjectHierarchy&#xA;    migrator_integration_test.go:420: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_SubjectHierarchy (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_TenantsAndUsers" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_TenantsAndUsers&#xA;=== PAUSE TestMigrator_TenantsAndUsers&#xA;=== CONT  TestMigrator_TenantsAndUsers&#xA;    migrator_integration_test.go:94: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_TenantsAndUsers (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_ExpandSubjectCode" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_ExpandSubjectCode&#xA;=== PAUSE TestMigrator_ExpandSubjectCode&#xA;=== CONT  TestMigrator_ExpandSubjectCode&#xA;    migrator_integration_test.go:1587: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_ExpandSubjectCode (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AttendanceTracking" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_AttendanceTracking&#xA;=== PAUSE TestMigrator_AttendanceTracking&#xA;=== CONT  TestMigrator_AttendanceTracking&#xA;    migrator_integration_test.go:1317: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_AttendanceTracking (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AddStudentBulkImportSupport" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_AddStudentBulkImportSupport&#xA;=== PAUSE TestMigrator_AddStudentBulkImportSupport&#xA;=== CONT  TestMigrator_AddStudentBulkImportSupport&#xA;    migrator_integration_test.go:1671: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_AddStudentBulkImportSupport (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AcademicCalendar" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_AcademicCalendar&#xA;=== PAUSE TestMigrator_AcademicCalendar&#xA;=== CONT  TestMigrator_AcademicCalendar&#xA;    migrator_integration_test.go:489: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_AcademicCalendar (0.00s)&#xA;</failure>
+			<failure message="Failed" type="">=== RUN   TestMigrator_Integration&#xA;    migrator_integration_test.go:29: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/database/migrator_integration_test.go:29&#xA;        &#x9;Error:      &#x9;Received unexpected error:&#xA;        &#x9;            &#x9;database.NewMigrator: pgx driver: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;        &#x9;Test:       &#x9;TestMigrator_Integration&#xA;        &#x9;Messages:   &#x9;NewMigrator should not fail&#xA;--- FAIL: TestMigrator_Integration (0.00s)&#xA;</failure>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_Extensions" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_Extensions&#xA;=== PAUSE TestMigrator_Extensions&#xA;=== CONT  TestMigrator_Extensions&#xA;    migrator_integration_test.go:49: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_Extensions (0.00s)&#xA;</failure>
+			<failure message="Failed" type="">=== RUN   TestMigrator_Extensions&#xA;    migrator_integration_test.go:47: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_Extensions (0.00s)&#xA;</failure>
 		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SubjectColor" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_SubjectColor&#xA;=== PAUSE TestMigrator_SubjectColor&#xA;=== CONT  TestMigrator_SubjectColor&#xA;    migrator_integration_test.go:1639: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_SubjectColor (0.00s)&#xA;</failure>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_TenantsAndUsers" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_TenantsAndUsers&#xA;    migrator_integration_test.go:91: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_TenantsAndUsers (0.00s)&#xA;</failure>
 		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_StudentImportHardening" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_StudentImportHardening&#xA;=== PAUSE TestMigrator_StudentImportHardening&#xA;=== CONT  TestMigrator_StudentImportHardening&#xA;    migrator_integration_test.go:1748: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_StudentImportHardening (0.00s)&#xA;</failure>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SISSchema" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_SISSchema&#xA;    migrator_integration_test.go:320: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_SISSchema (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SubjectHierarchy" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_SubjectHierarchy&#xA;    migrator_integration_test.go:415: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_SubjectHierarchy (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AcademicCalendar" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_AcademicCalendar&#xA;    migrator_integration_test.go:483: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_AcademicCalendar (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_ClassRoomsAndEnrollments" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_ClassRoomsAndEnrollments&#xA;    migrator_integration_test.go:556: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_ClassRoomsAndEnrollments (0.00s)&#xA;</failure>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_TimetableScheduling" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_TimetableScheduling&#xA;=== PAUSE TestMigrator_TimetableScheduling&#xA;=== CONT  TestMigrator_TimetableScheduling&#xA;    migrator_integration_test.go:875: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_TimetableScheduling (0.00s)&#xA;</failure>
+			<failure message="Failed" type="">=== RUN   TestMigrator_TimetableScheduling&#xA;    migrator_integration_test.go:867: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_TimetableScheduling (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AttendanceTracking" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_AttendanceTracking&#xA;    migrator_integration_test.go:1308: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_AttendanceTracking (0.00s)&#xA;</failure>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AddGradeIdToSubjects" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMigrator_AddGradeIdToSubjects&#xA;=== PAUSE TestMigrator_AddGradeIdToSubjects&#xA;=== CONT  TestMigrator_AddGradeIdToSubjects&#xA;    migrator_integration_test.go:1492: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_AddGradeIdToSubjects (0.00s)&#xA;</failure>
+			<failure message="Failed" type="">=== RUN   TestMigrator_AddGradeIdToSubjects&#xA;    migrator_integration_test.go:1482: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_AddGradeIdToSubjects (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_ExpandSubjectCode" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_ExpandSubjectCode&#xA;    migrator_integration_test.go:1576: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_ExpandSubjectCode (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_SubjectColor" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_SubjectColor&#xA;    migrator_integration_test.go:1627: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_SubjectColor (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AddStudentBulkImportSupport" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_AddStudentBulkImportSupport&#xA;    migrator_integration_test.go:1658: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_AddStudentBulkImportSupport (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_StudentImportHardening" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMigrator_StudentImportHardening&#xA;    migrator_integration_test.go:1734: testdb.DB: failed to open test database connection: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- FAIL: TestMigrator_StudentImportHardening (0.00s)&#xA;</failure>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_Template" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_InitExtensions" time="0.000000"></testcase>
@@ -66,19 +66,19 @@
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AddColorToSubjects" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrator_AddInvitationJobTypes" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/sqlc" timestamp="2026-10-19T16:45:12+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/sqlc" timestamp="2026-10-22T23:46:55+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="5" failures="0" time="9.185000" name="somotracker/backend/internal/testdb" timestamp="2026-10-19T16:45:12+03:00">
+	<testsuite tests="5" failures="0" time="123.924000" name="somotracker/backend/internal/testdb" timestamp="2026-10-22T23:46:55+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
-		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithTestcontainers" time="1.860000"></testcase>
-		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithCustomConfig" time="1.480000"></testcase>
-		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithMigrator" time="1.430000"></testcase>
-		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleSpecificMigration" time="1.420000"></testcase>
-		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleParallelIsolation" time="1.450000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithTestcontainers" time="115.720000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithCustomConfig" time="1.440000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleWithMigrator" time="1.440000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleSpecificMigration" time="1.440000"></testcase>
+		<testcase classname="somotracker/backend/internal/testdb" name="TestExampleParallelIsolation" time="1.440000"></testcase>
 	</testsuite>
 </testsuites>

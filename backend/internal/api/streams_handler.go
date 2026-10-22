@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strings"
-
 	"github.com/gofiber/fiber/v3"
 	go_uber_zap "go.uber.org/zap"
 	"somotracker/backend/internal/services"
@@ -16,31 +14,41 @@ func NewStreamsHandler(svc services.StreamsService) *StreamsHandler {
 	return &StreamsHandler{service: svc}
 }
 
-// ListStreams lists all streams for the active school.
+// ListStreams lists all streams for the active school with pagination.
 //
 // @Summary List streams
-// @Description Lists all streams for the active school.
+// @Description Lists all streams for the active school with pagination.
 // @Tags Streams
 // @Produce json
+// @Param page query int false "Page number (default 1)"
+// @Param limit query int false "Page size (default 50, max 100)"
 // @Success 200 {object} object
 // @Failure 401 {object} object
-// @Router /school/streams [get]
+// @Router /streams [get]
 func (h *StreamsHandler) ListStreams(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
+		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
 	}
 
-	streams, err := h.service.ListStreams(c.Context(), schoolID)
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+
+	streams, total, err := h.service.ListStreamsPaginated(c.Context(), schoolID, pagination.Page, pagination.Limit)
 	if err != nil {
 		go_uber_zap.L().Error("streams: list failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to list streams")
+		return WriteError(c, ErrInternal("failed to list streams"))
 	}
 
 	return c.JSON(fiber.Map{
 		"code":    "streams_listed",
 		"message": "Streams listed successfully",
 		"streams": streams,
+		"total":   total,
+		"page":    pagination.Page,
+		"limit":   pagination.Limit,
 		"errors":  fiber.Map{},
 	})
 }
@@ -56,11 +64,11 @@ func (h *StreamsHandler) ListStreams(c fiber.Ctx) error {
 // @Success 201 {object} object
 // @Failure 400 {object} object
 // @Failure 401 {object} object
-// @Router /school/streams [post]
+// @Router /streams [post]
 func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
+		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
 	}
 
 	var body []struct {
@@ -68,7 +76,7 @@ func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 		Color string `json:"color"`
 	}
 	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON body")
+		return WriteError(c, ErrBadRequest("invalid JSON body", nil))
 	}
 	names := make([]string, len(body))
 	colors := make([]string, len(body))
@@ -79,11 +87,19 @@ func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 
 	ids, err := h.service.CreateStreams(c.Context(), schoolID, names, colors)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		if se, ok := err.(*services.ServiceError); ok {
+			switch se.Code {
+			case "bad_request":
+				return WriteError(c, ErrBadRequest(se.Message, nil))
+			case "forbidden":
+				return WriteError(c, ErrForbidden(se.Code, se.Message))
+			default:
+				go_uber_zap.L().Error("streams: create failed", go_uber_zap.Error(err))
+				return WriteError(c, ErrInternal("failed to create streams"))
+			}
 		}
 		go_uber_zap.L().Error("streams: create failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to create streams")
+		return WriteError(c, ErrInternal("failed to create streams"))
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -94,22 +110,35 @@ func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 	})
 }
 
+// GetStream gets a single room by ID.
+// @Summary Get stream
+// @Description Get a stream by ID for the active school
+// @Tags Streams
+// @Produce json
+// @Param id path string true "Stream ID"
+// @Success 200 {object} object
+// @Router /streams/{id} [get]
 func (h *StreamsHandler) GetStream(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
+		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
 	}
 	streamID := c.Params("id")
 	if streamID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: stream id required")
+		return WriteError(c, ErrBadRequest("stream id required", nil))
 	}
 	stream, err := h.service.GetStream(c.Context(), streamID)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		if se, ok := err.(*services.ServiceError); ok {
+			switch se.Code {
+			case "bad_request":
+				return WriteError(c, ErrBadRequest(se.Message, nil))
+			case "forbidden":
+				return WriteError(c, ErrForbidden(se.Code, se.Message))
+			}
 		}
 		go_uber_zap.L().Error("streams: get failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to get stream")
+		return WriteError(c, ErrInternal("failed to get stream"))
 	}
 	return c.JSON(fiber.Map{
 		"code":    "stream_fetched",
@@ -119,18 +148,27 @@ func (h *StreamsHandler) GetStream(c fiber.Ctx) error {
 	})
 }
 
+// UpdateStream updates an existing stream.
+// @Summary Update stream
+// @Description Update stream details for the active school
+// @Tags Streams
+// @Accept json
+// @Produce json
+// @Param body body UpdateStreamRequest true "Stream update"
+// @Success 200 {object} object
+// @Router /streams [patch]
 func (h *StreamsHandler) UpdateStream(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
+		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
 	}
 	streamID := c.Params("id")
 	if streamID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: stream id required")
+		return WriteError(c, ErrBadRequest("stream id required", nil))
 	}
 	var body map[string]interface{}
 	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON body")
+		return WriteError(c, ErrBadRequest("invalid JSON body", nil))
 	}
 	var name *string
 	var color *string
@@ -142,11 +180,16 @@ func (h *StreamsHandler) UpdateStream(c fiber.Ctx) error {
 	}
 	updated, err := h.service.UpdateStream(c.Context(), streamID, name, color)
 	if err != nil {
-		if strings.Contains(err.Error(), "bad_request:") {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error()[len("bad_request:"):])
+		if se, ok := err.(*services.ServiceError); ok {
+			switch se.Code {
+			case "bad_request":
+				return WriteError(c, ErrBadRequest(se.Message, nil))
+			case "forbidden":
+				return WriteError(c, ErrForbidden(se.Code, se.Message))
+			}
 		}
 		go_uber_zap.L().Error("streams: update failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to update stream")
+		return WriteError(c, ErrInternal("failed to update stream"))
 	}
 	return c.JSON(fiber.Map{
 		"code":    "stream_updated",
@@ -156,23 +199,39 @@ func (h *StreamsHandler) UpdateStream(c fiber.Ctx) error {
 	})
 }
 
+// DeleteStreams deletes streams by id.
+// @Summary Delete streams
+// @Description Delete streams for the active school
+// @Tags Streams
+// @Produce json
+// @Param body body object{ids:[]string} true "Stream IDs"
+// @Success 200 {object} object
+// @Router /streams [delete]
 func (h *StreamsHandler) DeleteStreams(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "active_school_id not found in session")
+		return WriteError(c, ErrUnauthorized("active_school_id not found in session"))
 	}
 	var body struct {
 		Ids []string `json:"ids"`
 	}
 	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: invalid JSON body")
+		return WriteError(c, ErrBadRequest("invalid JSON body", nil))
 	}
 	if len(body.Ids) == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "bad_request: at least one stream id required")
+		return WriteError(c, ErrBadRequest("at least one stream id required", nil))
 	}
 	if err := h.service.DeleteStreams(c.Context(), body.Ids); err != nil {
+		if se, ok := err.(*services.ServiceError); ok {
+			switch se.Code {
+			case "bad_request":
+				return WriteError(c, ErrBadRequest(se.Message, nil))
+			case "forbidden":
+				return WriteError(c, ErrForbidden(se.Code, se.Message))
+			}
+		}
 		go_uber_zap.L().Error("streams: multi-delete failed", go_uber_zap.Error(err))
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to delete streams")
+		return WriteError(c, ErrInternal("failed to delete streams"))
 	}
 	return c.JSON(fiber.Map{
 		"code":    "streams_deleted",

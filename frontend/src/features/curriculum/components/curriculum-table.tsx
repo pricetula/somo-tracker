@@ -3,17 +3,8 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
-import { listSubjects } from "../services/api";
+import { subjectsListQueryFn } from "../hooks/use-subjects";
 import type { SubjectListItem } from "../types/curriculum";
-
-function listSubjectsWithFilters(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filters?: Record<string, string | string[]>;
-}) {
-    return listSubjects(params);
-}
 
 export function CurriculumTable() {
     const filterGroups = useMemo(
@@ -78,7 +69,7 @@ export function CurriculumTable() {
             { items: SubjectListItem[]; total: number }
         >
             queryKey={["subjects"]}
-            queryFn={listSubjectsWithFilters}
+            queryFn={subjectsListQueryFn()}
             getRowId={(row) => row.id}
             columns={columns}
             isSearchable

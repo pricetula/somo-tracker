@@ -356,3 +356,23 @@ new Intl.DateTimeFormat(...);   // raw Intl in UI
 ```
 
 ---
+
+---
+
+## 19. AI Skill Integration (Late 2026)
+
+Before making frontend changes, load the matching skill:
+
+- **New UI component:** Load `/skill:pure-shadcn` → use semantic CSS vars only, no arbitrary styles
+- **Feature creation:** Load `/skill:feature-module` → enforce directory structure and import rules
+- **Form UI:** Load `/skill:pure-shadcn` → use compound components, no custom wrappers
+- **Error handling:** Load `/skill:error-contract` → validate canonical error responses
+- **Review:** Load `/skill:agendas-compliance` → cross-check against frontend contracts
+- **Context:** Load `/skill:project-context` → ensure consistency with backend API shapes
+
+---
+
+## 20. Version & Ownership (Late 2026)
+
+- **Standard version:** 1.0.0 (June 2026) — AI coding optimized with `.pi/skills/` integration
+- **Owner:** Platform team

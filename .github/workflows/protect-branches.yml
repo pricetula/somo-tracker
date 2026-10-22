@@ -1,0 +1,16 @@
+name: Protect Branches
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  block-agent-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block direct pushes to protected branches
+        run: |
+          echo "Direct pushes to main/develop are forbidden. Use PR workflow."
+          exit 1

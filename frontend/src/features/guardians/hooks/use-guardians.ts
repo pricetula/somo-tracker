@@ -5,13 +5,37 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteGuardians } from "@/lib/api/guardians";
+import { deleteGuardians, listGuardians } from "@/lib/api/guardians";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
 export const guardianKeys = {
     list: ["guardians"] as const,
 };
+
+export function guardiansListQueryFn() {
+    return (params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        filters?: Record<string, string | string[]>;
+        invitation_status?: string;
+    }) => {
+        const invitationStatus =
+            typeof params.filters?.status === "string"
+                ? params.filters.status
+                : params.invitation_status;
+        return listGuardians({
+            page: params.page,
+            limit: params.limit,
+            search: params.search,
+            invitation_status:
+                invitationStatus === "all" || !invitationStatus
+                    ? undefined
+                    : (invitationStatus as "invited" | "accepted"),
+        });
+    };
+}
 
 export function useDeleteGuardians() {
     const queryClient = useQueryClient();

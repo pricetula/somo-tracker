@@ -75,7 +75,6 @@ export function SchoolSwitcher() {
                         {schools.map((school) => (
                             <DropdownMenuItem
                                 key={school.id}
-                                className=""
                                 onClick={async () => {
                                     if (school.id === me?.active_school_id) return;
                                     await setActiveSchool({ school_id: school.id });

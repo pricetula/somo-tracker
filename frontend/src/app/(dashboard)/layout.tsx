@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/layout";
 import { DashboardAuthLayout } from "@/features/auth/components/dashboard-auth-layout";
+import { PeriodErrorProvider } from "@/components/providers/period-error-provider";
 
 /**
  * Dashboard layout — wraps all authenticated pages.
@@ -16,7 +17,9 @@ export default function DashboardLayout({
 }) {
     return (
         <DashboardAuthLayout>
-            <AppLayout modal={modal}>{children}</AppLayout>
+            <PeriodErrorProvider>
+                <AppLayout modal={modal}>{children}</AppLayout>
+            </PeriodErrorProvider>
         </DashboardAuthLayout>
     );
 }

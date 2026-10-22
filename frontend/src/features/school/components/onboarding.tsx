@@ -11,6 +11,7 @@ import React from "react";
 import { OnboardingForm } from "./onboarding-form";
 import { CreateAcademicYear } from "./create-academic-year";
 import { CreateStreams } from "./create-streams";
+import { CreateClassesBulk } from "./create-classes-bulk";
 import { useRouter } from "next/navigation";
 
 export function Onboarding() {
@@ -29,7 +30,8 @@ export function Onboarding() {
                 />
             )) ||
                 (stage === 1 && <CreateAcademicYear onSuccess={() => setStage(2)} />) ||
-                (stage === 2 && <CreateStreams onSuccess={() => router.push("/")} />)}
+                (stage === 2 && <CreateStreams onSuccess={() => setStage(3)} />) ||
+                (stage === 3 && <CreateClassesBulk onSuccess={() => router.push("/")} />)}
         </>
     );
 }

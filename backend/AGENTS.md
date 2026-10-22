@@ -1,10 +1,10 @@
-# Somotracker — Backend Agent Contract
+# Somotracker Backend — Agent Architecture Contract
 
-## Golden Rule: Never Commit
+## Commit Policy: Allow Commits, No Push to Protected Branches
 
-The AI agent must **never** run `git add`, `git commit`, or `git push`.
-All changes must be left as unstaged modifications in the working tree.
-Only the user decides when and what to commit.
+The AI agent may run `git add` and `git commit` with clear conventional messages.
+
+Never push to `main` or `develop`. PR required for protected branches.
 
 ---
 
@@ -21,8 +21,7 @@ The canonical test file is:
 backend/internal/database/migrator_integration_test.go
 ```
 
-Add a new `func TestMigrator_<FeatureName>(t *testing.T)` alongside the existing
-functions. The test must:
+Add a new `func TestMigrator_<FeatureName>(t *testing.T)` alongside the existing functions. The test must:
 
 1. Run `migrator.Up(ctx)` to apply the migration.
 2. Assert the expected schema artifacts exist using simple catalog queries:
@@ -35,8 +34,7 @@ functions. The test must:
    `SET LOCAL app.current_tenant_id`, or a single INSERT + SELECT to verify FK works).
 
 All migration tests are tagged `//go:build integration` and run against a
-real PostgreSQL instance. Do **not** use mock pools — use the same `testdb.DB(t)`
-pattern as the existing tests.
+real PostgreSQL instance. Do **not** use mock pools — use the same `testdb.DB(t)` pattern as the existing tests.
 
 ### Migration Test Pitfalls (Never Do These)
 
@@ -58,20 +56,37 @@ All database access must go through `internal/services` and use sqlc-generated q
 
 This keeps RLS context, transactions, and testability in the service layer.
 
-## General Rules
-
-For all other backend conventions (error handling, API patterns, dependencies,
-etc.) refer to the **root** `AGENTS.md` at the project root.
-
 ---
 
 ## Academic Term / Year Resolution — Strict Backend Resolution
 
-Any endpoint that needs the current academic term or year must resolve it **strictly inside the backend handler/service** using the school's active data (e.g., `GetCurrentAcademicTermBySchool` / `GetLatestAcademicTermBySchool`).
+Any endpoint that needs the current academic term or year must resolve it **strictly inside the backend handler/service** using the shared academic period resolver.
 
 - **Never** expose `term_id` or `academic_year_id` as query/body parameters to clients.
 - **Never** pass term/year IDs from the frontend; resolution belongs to the API layer.
-- If a service/module needs a term, it queries the database for the school's current term and falls back to the latest if none is active.
+- The year is always derived from the resolved term. Creating a future year must never change what is "current".
+- Term start and end dates are inclusive. Never silently fall back to another term; the resolver returns an explicit status.
+
+### Shared resolver contract
+
+Use `internal/services.AacademicPeriodResolver` (e.g. `NewAcademicPeriodResolver`) for all implicit "current" resolution.
+
+Period status values:
+- `active` — today is inside a term.
+- `break` — today is outside any term but a later term exists. Reads use the most recent started term; writes target the next term.
+- `expired` — today is after the last term and no later term exists. Reads use the last term; period-bound writes are rejected.
+- `none` — school has no terms. Reads are empty; period-bound writes are rejected.
+
+Period-aware endpoints may accept an optional `period` parameter with only two values: `current` (default) and `upcoming`. Any other value returns 400. `upcoming` targets the next term and its year during an active period for planning ahead. No arbitrary year/term IDs are accepted.
+
+Attendance is allowed only in `active` status and is rejected in `break`/`expired`.
+
+Period-bound writes (enrollments, class creation, timetable slots) are:
+- `active`: write into current term.
+- `break`: write into next term automatically; response must state which term was used.
+- `expired` / `none`: reject with typed error `no_next_academic_term`, no partial rows.
+
+Writes not tied to a period (students, teachers, guardians, staff, academic years/terms creation) are always allowed.
 
 ---
 
@@ -86,4 +101,30 @@ Before writing `swaggo` annotations (`@Router`, `@Param body`) for any new endpo
 
 Never assume the route string alone is the complete endpoint URI.
 
-**Version:** 1.0.0 (September 2025)
+---
+
+## AI Skill Integration
+
+Before creating any backend change, load the relevant skill:
+
+- **New API endpoint:** Load `/skill:generate-api` → follows Steps 1–5 in that skill
+- **Migration:** Load `/skill:migration-testing` → enforces Step 1–4 validation gates
+- **Error response:** Always validate against the canonical error contract via `error-contract` skill
+- **Review:** Load `/skill:agendas-compliance` → validates against this contract
+- **Context for frontend:** Load `/skill:project-context` → ensures API shapes match frontend contract
+
+## Error Handling
+
+For all other backend conventions (error handling, API patterns, dependencies, etc.) refer to the **root** `AGENTS.md` at the project root.
+
+Built-in error constructors (from `internal/api/errors.go`):
+- `ErrBadRequest` — 400, `code: "bad_request"`
+- `ErrNotFound` — 404, `code: "not_found"`
+- `ErrUnauthorized` — 401, `code: "unauthorized"`
+- `ErrForbidden` — 403, `code: "forbidden"`
+- `ErrInternal` — 500, `code: "internal_error"`
+- `ErrNoActiveTermFutureExists` — 400, `code: "no_active_term_future_exists"`
+
+## Contract Version
+- **Version:** 1.0.0 (Late 2026) — AI coding optimized with `.pi/skills/` integration
+- **Owner:** Platform team

@@ -7,7 +7,11 @@ RETURNING id;
 SELECT id, school_id, name, description, created_at, updated_at
 FROM timetable_templates
 WHERE school_id = $1
-ORDER BY created_at DESC;
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountTimetableTemplatesBySchool :one
+SELECT COUNT(*) FROM timetable_templates WHERE school_id = $1;
 
 -- name: GetTimetableTemplate :one
 SELECT id, school_id, name, description, created_at, updated_at

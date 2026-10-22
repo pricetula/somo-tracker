@@ -262,7 +262,7 @@ type fakeAdminService struct {
 	jobs  map[string]*services.BulkJob
 }
 
-func (f *fakeAdminService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error {
+func (f *fakeAdminService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result []byte, lastError string, attempts int) error {
 	if it, ok := f.items[itemID.String()]; ok {
 		it.Status = status
 		it.LastError = lastError
@@ -325,7 +325,7 @@ func TestWorker_RateLimitRetryWithFakeService(t *testing.T) {
 	mockStytch.Results = []*stytch.InviteMemberResult{{StytchInviteID: "inv_1", StytchMemberID: "mem_1"}}
 	_, err := mockStytch.InviteMember(nil, "a@b.co", "A", "ADMIN", "org_1")
 	require.NoError(t, err)
-	_ = fake.UpdateItemStatus(context.Background(), itemID, "SUCCEEDED", json.RawMessage(`{}`), "", 2)
+	_ = fake.UpdateItemStatus(context.Background(), itemID, "SUCCEEDED", []byte(`{}`), "", 2)
 	assert.Equal(t, "SUCCEEDED", item.Status)
 	assert.Equal(t, 2, item.AttemptCount)
 	t.Log("Fake service confirms DEFERRED on rate limit then SUCCEEDED on retry")

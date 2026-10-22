@@ -128,6 +128,7 @@ export default function AssignSlotPage() {
                 dayOfWeek={dayOfWeek}
                 timeSlotId={timeSlotId}
                 classId={classId ?? ""}
+                templateId={id}
                 initialSubjectId={initialSubjectId}
                 initialTeacherId={initialTeacherId}
                 initialRoomId={initialRoomId}

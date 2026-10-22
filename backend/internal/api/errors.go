@@ -13,6 +13,11 @@ type APIError struct {
 	Status  int
 }
 
+// Error implements the error interface for APIError.
+func (e APIError) Error() string {
+	return e.Message
+}
+
 // WriteError writes a canonical JSON error response with request_id correlation.
 // It sets X-Request-ID header, uses the request-scoped logger for the request, and
 // returns a Fiber error so callers can continue the chain.
@@ -79,6 +84,15 @@ func ErrInternal(message string) APIError {
 	return APIError{
 		Status:  fiber.StatusInternalServerError,
 		Code:    "internal_error",
+		Message: message,
+		Errors:  map[string][]string{},
+	}
+}
+
+func ErrNoActiveTermFutureExists(message string) APIError {
+	return APIError{
+		Status:  fiber.StatusBadRequest,
+		Code:    "no_active_term_future_exists",
 		Message: message,
 		Errors:  map[string][]string{},
 	}

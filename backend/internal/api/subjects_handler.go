@@ -1,7 +1,6 @@
 package api
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -12,14 +11,13 @@ import (
 func subjectsListHandler(curriculumSvc services.CurriculumService) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		ctx := c.Context()
-		page, _ := strconv.Atoi(c.Query("page", "1"))
-		if page < 1 {
-			page = 1
+
+		pagination, err := ValidatePagination(c, 100)
+		if err != nil {
+			return err
 		}
-		limit, _ := strconv.Atoi(c.Query("limit", "50"))
-		if limit < 1 || limit > 200 {
-			limit = 50
-		}
+		page, limit := pagination.Page, pagination.Limit
+
 		search := c.Query("search")
 		grade := c.Query("grade")
 
@@ -35,6 +33,8 @@ func subjectsListHandler(curriculumSvc services.CurriculumService) fiber.Handler
 			"code":   "subjects_fetched",
 			"items":  items,
 			"total":  total,
+			"page":   page,
+			"limit":  limit,
 			"errors": fiber.Map{},
 		})
 	}

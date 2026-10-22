@@ -16,21 +16,21 @@ type MagicLinkRequest struct {
 }
 
 type MagicLinkResponse struct {
-	Code    string                 `json:"code"`
-	Message string                 `json:"message"`
-	Errors  map[string]interface{} `json:"errors"`
+	Code    string              `json:"code"`
+	Message string              `json:"message"`
+	Errors  map[string][]string `json:"errors"`
 }
 
 type CallbackResponse struct {
-	Code    string                 `json:"code"`
-	Message string                 `json:"message"`
-	Errors  map[string]interface{} `json:"errors"`
+	Code    string              `json:"code"`
+	Message string              `json:"message"`
+	Errors  map[string][]string `json:"errors"`
 }
 
 type LogoutResponse struct {
-	Code    string                 `json:"code"`
-	Message string                 `json:"message"`
-	Errors  map[string]interface{} `json:"errors"`
+	Code    string              `json:"code"`
+	Message string              `json:"message"`
+	Errors  map[string][]string `json:"errors"`
 }
 
 // authHandler responds to /api/auth/*.
@@ -73,11 +73,7 @@ func (h *authHandler) sendMagicLink(c fiber.Ctx) error {
 		}
 	}
 	if email == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "missing_email",
-			"message": "email is required",
-			"errors":  fiber.Map{"email": []string{"required"}},
-		})
+		return WriteError(c, ErrBadRequest("email is required", map[string][]string{"email": {"required"}}))
 	}
 
 	if err := h.svc.SendMagicLink(c.Context(), email); err != nil {
@@ -97,29 +93,13 @@ func mapAuthError(c fiber.Ctx, err error) error {
 	msg := err.Error()
 	switch {
 	case strings.HasPrefix(msg, "bad_request:"):
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_request",
-			"message": strings.TrimPrefix(msg, "bad_request: "),
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrBadRequest(strings.TrimPrefix(msg, "bad_request:"), nil))
 	case strings.HasPrefix(msg, "unauthorized:"):
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": strings.TrimPrefix(msg, "unauthorized: "),
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrUnauthorized(strings.TrimPrefix(msg, "unauthorized:")))
 	case strings.HasPrefix(msg, "too_many_requests:"):
-		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-			"code":    "rate_limit_exceeded",
-			"message": strings.TrimPrefix(msg, "too_many_requests: "),
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, APIError{Status: fiber.StatusTooManyRequests, Code: "rate_limit_exceeded", Message: strings.TrimPrefix(msg, "too_many_requests:"), Errors: map[string][]string{}})
 	default:
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "An unexpected error occurred",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrInternal("An unexpected error occurred"))
 	}
 }
 

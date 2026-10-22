@@ -136,7 +136,9 @@ func (h *StudentsImportHandler) HandleImport(c fiber.Ctx) error {
 
 	// Publish initial progress
 	if h.redis != nil {
-		_ = h.redis.Publish(c.Context(), "bulk_progress_"+jobID.String(), fmt.Sprintf(`{"status":"QUEUED","total":%d}`, len(items))).Err()
+		if err := h.redis.Publish(c.Context(), "bulk_progress_"+jobID.String(), fmt.Sprintf(`{"status":"QUEUED","total":%d}`, len(items))).Err(); err != nil {
+			h.logger.Warn("failed to publish initial progress", zap.Error(err), zap.String("job_id", jobID.String()))
+		}
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
@@ -176,6 +178,49 @@ func (h *StudentsImportHandler) GetJob(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(job)
+}
+
+func (h *StudentsImportHandler) GetItems(c fiber.Ctx) error {
+	jobIDStr := c.Params("job_id")
+	jobID, err := uuid.Parse(jobIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "bad_request",
+			"message": "invalid job_id",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	tenantIDStr := c.Locals("tenant_id")
+	tenantID, err := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "tenant not found",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	job, err := h.svc.GetJob(c.Context(), jobID)
+	if err != nil || job == nil || job.TenantID != tenantID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"code":    "not_found",
+			"message": "job not found",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	items, err := h.svc.GetItemsByJobID(c.Context(), jobID)
+	if err != nil {
+		h.logger.Error("failed to get job items", zap.Error(err), zap.String("job_id", jobID.String()))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to load job items",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(items)
 }
 
 func (h *StudentsImportHandler) Events(c fiber.Ctx) error {
@@ -220,7 +265,11 @@ func (h *StudentsImportHandler) Events(c fiber.Ctx) error {
 
 		channel := "bulk_progress_" + jobIDStr
 		sub := h.redis.Subscribe(c.Context(), channel)
-		defer func() { _ = sub.Close() }()
+		defer func() {
+			if err := sub.Close(); err != nil {
+				h.logger.Warn("redis sub close failed", zap.Error(err), zap.String("job_id", jobID.String()))
+			}
+		}()
 
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()

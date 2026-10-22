@@ -1,11 +1,18 @@
 import React from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TimeSlotRow } from "./time-slot-row";
 import type { ClassTimetableSlotWithDetails, TimeSlotDraft } from "../types/timetable-template";
 import { formatDateString } from "@/lib/utils/date";
 import { Plus, Trash2 } from "lucide-react";
 import { useDeleteClassTimetableSlot } from "../hooks/use-delete-class-timetable-slot";
+import { useAssignSlot } from "../hooks/use-assign-slot";
+import { useClass } from "@/features/classes/hooks/use-classes";
+import { SubjectsCombobox } from "@/features/curriculum/components/subjects-combobox";
+import { TeachersCombobox } from "@/features/teachers/components/teachers-combobox";
+import { RoomsCombobox } from "@/features/rooms/components/rooms-combobox";
+import { toast } from "sonner";
 
 type Props = {
     slots: TimeSlotDraft[];
@@ -38,6 +45,15 @@ export function TimetableGrid({
         templateId || "",
         selectedIds?.classId || ""
     );
+    const { data: classData } = useClass(selectedIds?.classId ?? "");
+    const gradeId = classData?.gradeId ?? "";
+    const { mutate: assignMutate, isPending: isAssignPending } = useAssignSlot();
+    const [bulkMode, setBulkMode] = React.useState(false);
+    const [selectedKeys, setSelectedKeys] = React.useState<Set<string>>(new Set());
+    const [bulkSubjectId, setBulkSubjectId] = React.useState("");
+    const [bulkTeacherId, setBulkTeacherId] = React.useState("");
+    const [bulkRoomId, setBulkRoomId] = React.useState("");
+
     const assignmentMap = React.useMemo(() => {
         const map = new Map<string, ClassTimetableSlotWithDetails>();
         if (!assignments) return map;
@@ -52,6 +68,99 @@ export function TimetableGrid({
 
     return (
         <div className="space-y-4">
+            {templateId && selectedIds?.classId && (
+                <div className="flex items-center justify-between">
+                    <Button
+                        type="button"
+                        variant={bulkMode ? "default" : "outline"}
+                        onClick={() => {
+                            setBulkMode(!bulkMode);
+                            setSelectedKeys(new Set());
+                        }}
+                    >
+                        {bulkMode ? "Exit Bulk Assign" : "Bulk Assign"}
+                    </Button>
+                    {bulkMode && selectedKeys.size > 0 && (
+                        <div className="text-muted-foreground text-sm">
+                            {selectedKeys.size} slot{selectedKeys.size > 1 ? "s" : ""} selected
+                        </div>
+                    )}
+                </div>
+            )}
+            {bulkMode && templateId && selectedIds?.classId && (
+                <div className="space-y-3 rounded-md border p-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <SubjectsCombobox
+                            gradeId={gradeId}
+                            value={bulkSubjectId}
+                            onChange={setBulkSubjectId}
+                            placeholder="Subject"
+                        />
+                        <TeachersCombobox
+                            value={bulkTeacherId}
+                            onChange={setBulkTeacherId}
+                            placeholder="Teacher"
+                        />
+                        <RoomsCombobox
+                            value={bulkRoomId}
+                            onChange={setBulkRoomId}
+                            placeholder="Room (optional)"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setSelectedKeys(new Set());
+                                setBulkSubjectId("");
+                                setBulkTeacherId("");
+                                setBulkRoomId("");
+                            }}
+                        >
+                            Clear
+                        </Button>
+                        <Button
+                            disabled={
+                                !bulkSubjectId ||
+                                !bulkTeacherId ||
+                                selectedKeys.size === 0 ||
+                                isAssignPending
+                            }
+                            onClick={() => {
+                                const promises = Array.from(selectedKeys).map((key) => {
+                                    const [tsId, dayStr] = key.split("_");
+                                    const dayNumber = Number(dayStr);
+                                    return new Promise<void>((resolve) => {
+                                        assignMutate(
+                                            {
+                                                class_room_id: selectedIds.classId,
+                                                day_of_week: dayNumber,
+                                                time_slot_id: tsId,
+                                                subject_id: bulkSubjectId,
+                                                teacher_membership_id: bulkTeacherId,
+                                                room_id: bulkRoomId || undefined,
+                                            },
+                                            {
+                                                onSuccess: () => resolve(),
+                                                onError: () => resolve(),
+                                            }
+                                        );
+                                    });
+                                });
+                                Promise.all(promises).then(() => {
+                                    toast.success(
+                                        `Assigned ${selectedKeys.size} slot${selectedKeys.size > 1 ? "s" : ""}`
+                                    );
+                                    setBulkMode(false);
+                                    setSelectedKeys(new Set());
+                                });
+                            }}
+                        >
+                            Assign to {selectedKeys.size} slot{selectedKeys.size !== 1 ? "s" : ""}
+                        </Button>
+                    </div>
+                </div>
+            )}
             <div className="overflow-x-auto rounded-md border">
                 <table className="w-full">
                     <thead>
@@ -208,12 +317,27 @@ export function TimetableGrid({
                                                   </td>
                                               );
                                           }
+                                          const cellKey = `${timeSlotId}_${dayNumber}`;
+                                          const isSelected = selectedKeys.has(cellKey);
                                           return (
                                               <td
                                                   key={d}
                                                   className="border-r px-4 py-4 text-center align-middle"
                                               >
-                                                  {templateId && selectedIds?.classId ? (
+                                                  {bulkMode ? (
+                                                      <Checkbox
+                                                          checked={isSelected}
+                                                          onCheckedChange={(checked) => {
+                                                              const next = new Set(selectedKeys);
+                                                              if (checked) {
+                                                                  next.add(cellKey);
+                                                              } else {
+                                                                  next.delete(cellKey);
+                                                              }
+                                                              setSelectedKeys(next);
+                                                          }}
+                                                      />
+                                                  ) : templateId && selectedIds?.classId ? (
                                                       <Link
                                                           href={`/timetable/${templateId}/assign?classId=${selectedIds.classId}&day=${dayNumber}&slot=${slot.id}`}
                                                           className={buttonVariants({

@@ -1,0 +1,94 @@
+name: Bot Factory
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docs/**'
+  workflow_dispatch:
+
+jobs:
+  compliance:
+    name: AGENTS.md Compliance Bot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run compliance script
+        run: make compliance
+
+  docs-bot:
+    name: Docs Bot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - name: Lint docs
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile
+          pnpm docs:lint || true
+
+  api-bot:
+    name: API Bot
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'api') || contains(github.event.pull_request.title, '[api]')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - name: Run API audit script
+        run: bash scripts/bots/api-audit.sh
+      - name: Generate check
+        run: |
+          make generate
+          git diff --exit-code || (echo "API generation drift detected. Run make generate and commit." && exit 1)
+
+  security-bot:
+    name: Security Bot
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'security') || contains(github.event.pull_request.changed_files, 'backend/internal/api')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - name: Run security audit script
+        run: bash scripts/bots/security-audit.sh
+
+  migration-bot:
+    name: Migration Bot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run migration testing script
+        run: bash scripts/bots/migration-testing.sh
+
+  ui-bot:
+    name: UI Bot
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'ui') || contains(github.event.pull_request.changed_files, 'frontend/src/features')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - name: Install
+        run: cd frontend && pnpm install --frozen-lockfile
+      - name: Run UI audit script
+        run: bash scripts/bots/ui-audit.sh
+      - name: Lint frontend
+        run: cd frontend && pnpm lint

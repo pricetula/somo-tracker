@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"somotracker/backend/internal/database/sqlc"
+	"somotracker/backend/internal/services"
 )
 
 // mockStreamsService stubs services.StreamsService for transport-layer tests.
@@ -38,6 +39,13 @@ func (m *mockStreamsService) ListStreams(ctx context.Context, schoolID string) (
 	return m.listResult, nil
 }
 
+func (m *mockStreamsService) ListStreamsPaginated(ctx context.Context, schoolID string, page, limit int) ([]sqlc.Stream, int, error) {
+	if m.listErr != nil {
+		return nil, 0, m.listErr
+	}
+	return m.listResult, len(m.listResult), nil
+}
+
 func (m *mockStreamsService) GetStream(ctx context.Context, streamID string) (*sqlc.Stream, error) {
 	return nil, nil
 }
@@ -55,13 +63,16 @@ func (m *mockStreamsService) CreateStreams(ctx context.Context, schoolID string,
 
 	// Mimic service validation for tests that need it
 	if schoolID == "" {
-		return nil, fmt.Errorf("bad_request: school_id is required")
+		return nil, &services.ServiceError{Code: "bad_request", Message: "school_id is required"}
 	}
 	if len(names) == 0 {
-		return nil, fmt.Errorf("bad_request: at least one stream name is required")
+		return nil, &services.ServiceError{Code: "bad_request", Message: "at least one stream name is required"}
 	}
 
-	return m.result, m.err
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.result, nil
 }
 
 // injectSchoolMW injects active_school_id into locals for authenticated routes.
@@ -146,6 +157,14 @@ func TestCreateStreams_EmptyBody_Returns400(t *testing.T) {
 	resp := sendStreamsRequest(t, app, body)
 	defer func() { _ = resp.Body.Close() }()
 
+	// Debug: check what error was returned
+	if resp.StatusCode != fiber.StatusBadRequest {
+		// Read response body for debugging
+		var respBody map[string]any
+		_ = json.NewDecoder(resp.Body).Decode(&respBody)
+		fmt.Printf("DEBUG: Status=%d, Body=%v\n", resp.StatusCode, respBody)
+	}
+
 	// Empty array passes JSON parsing but mock validates and returns bad_request
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	require.Len(t, mock.calls, 1)
@@ -165,7 +184,7 @@ func TestCreateStreams_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestCreateStreams_ServiceBadRequest_Returns400(t *testing.T) {
-	mock := &mockStreamsService{err: streamsAssertAnError{msg: "bad_request: school_id is required"}}
+	mock := &mockStreamsService{err: &services.ServiceError{Code: "bad_request", Message: "school_id is required"}}
 	app := newStreamsTestApp(mock, "school-42")
 
 	body := []byte(`[{"name":"Form 1"}]`)
@@ -221,3 +240,5 @@ func TestCreateStreams_SingleStringNotArray_Returns400(t *testing.T) {
 type streamsAssertAnError struct{ msg string }
 
 func (a streamsAssertAnError) Error() string { return a.msg }
+
+func (a streamsAssertAnError) Unwrap() error { return nil }

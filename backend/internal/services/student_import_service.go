@@ -56,7 +56,9 @@ func (s *studentImportService) CreateBulkJobWithItems(ctx context.Context, schoo
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+				s.logger.Error("rollback failed", zap.Error(rbErr))
+			}
 		}
 	}()
 
@@ -179,7 +181,11 @@ func (s *studentImportService) TryFinalizeJob(ctx context.Context, jobID uuid.UU
 	if err != nil {
 		return false, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			s.logger.Error("TryFinalizeJob rollback failed", zap.Error(rbErr))
+		}
+	}()
 
 	var job BulkJob
 	err = tx.QueryRow(ctx, `SELECT id, school_id, status, total_records, succeeded_count, failed_count, deferred_count FROM bulk_jobs WHERE id=$1 FOR UPDATE`, jobID).Scan(&job.ID, &job.SchoolID, &job.Status, &job.TotalRecords, &job.SucceededCount, &job.FailedCount, &job.DeferredCount)
@@ -203,7 +209,9 @@ func (s *studentImportService) TryFinalizeJob(ctx context.Context, jobID uuid.UU
 		return false, err
 	}
 	if newStatus == "COMPLETED" || newStatus == "COMPLETED_WITH_ERRORS" {
-		_ = s.RecomputeGenderCounts(ctx, job.SchoolID)
+		if err := s.RecomputeGenderCounts(ctx, job.SchoolID); err != nil {
+			s.logger.Warn("failed to recompute gender counts", zap.Error(err), zap.String("school_id", job.SchoolID.String()))
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return false, err

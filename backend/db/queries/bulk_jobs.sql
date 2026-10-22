@@ -7,6 +7,12 @@ SELECT id, job_type, idempotency_key, school_id, tenant_id, created_by, status, 
 -- name: UpdateBulkJobStatus :exec
 UPDATE bulk_jobs SET status=$1, updated_at=NOW() WHERE id=$2;
 
+-- name: UpdateBulkJobItem :exec
+UPDATE bulk_job_items SET status=$1, result=$2, last_error=$3, attempt_count=$4, updated_at=NOW() WHERE id=$5;
+
+-- name: UpdateBulkJobItemResultStatus :exec
+UPDATE bulk_job_items SET result=$1, status=$2, last_error=$3, updated_at=NOW() WHERE id=$4;
+
 -- name: IncrementBulkJobCounts :exec
 UPDATE bulk_jobs SET succeeded_count = succeeded_count + $1, failed_count = failed_count + $2, deferred_count = deferred_count + $3, updated_at = NOW() WHERE id=$4;
 

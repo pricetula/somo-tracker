@@ -158,7 +158,7 @@ func (s *curriculumService) ListSubjects(ctx context.Context, page int, limit in
 func (s *curriculumService) GetSubjectDetail(ctx context.Context, id string) (*CurriculumSubjectDetail, error) {
 	subjectID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid subject id")
+		return nil, BadRequest("invalid subject id")
 	}
 
 	row, err := s.queries.GetSubjectByID(ctx, pgtype.UUID{Bytes: subjectID, Valid: true})
@@ -199,12 +199,10 @@ func (s *curriculumService) GetSubjectDetail(ctx context.Context, id string) (*C
 }
 
 func (s *curriculumService) ListTopics(ctx context.Context, subjectID string, page int, limit int) ([]CurriculumTopic, int, error) {
-	_ = page
-	_ = limit
 
 	sid, err := uuid.Parse(subjectID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("bad_request: invalid subject_id")
+		return nil, 0, BadRequest("invalid subject_id")
 	}
 
 	total, err := s.queries.CountTopicsBySubject(ctx, pgtype.UUID{Bytes: sid, Valid: true})
@@ -226,13 +224,30 @@ func (s *curriculumService) ListTopics(ctx context.Context, subjectID string, pa
 		})
 	}
 
+	// In-memory pagination
+	if limit <= 0 {
+		limit = 50
+	}
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+	if offset >= len(items) {
+		return []CurriculumTopic{}, int(total), nil
+	}
+	end := offset + limit
+	if end > len(items) {
+		end = len(items)
+	}
+	items = items[offset:end]
+
 	return items, int(total), nil
 }
 
 func (s *curriculumService) GetTopicDetail(ctx context.Context, id string) (*CurriculumTopicDetail, error) {
 	tid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid topic id")
+		return nil, BadRequest("invalid topic id")
 	}
 
 	row, err := s.queries.GetTopicByID(ctx, pgtype.UUID{Bytes: tid, Valid: true})
@@ -264,12 +279,10 @@ func (s *curriculumService) GetTopicDetail(ctx context.Context, id string) (*Cur
 }
 
 func (s *curriculumService) ListSubTopics(ctx context.Context, topicID string, page int, limit int) ([]CurriculumSubTopic, int, error) {
-	_ = page
-	_ = limit
 
 	tid, err := uuid.Parse(topicID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("bad_request: invalid topic_id")
+		return nil, 0, BadRequest("invalid topic_id")
 	}
 
 	total, err := s.queries.CountSubTopicsByTopic(ctx, pgtype.UUID{Bytes: tid, Valid: true})
@@ -291,13 +304,30 @@ func (s *curriculumService) ListSubTopics(ctx context.Context, topicID string, p
 		})
 	}
 
+	// In-memory pagination
+	if limit <= 0 {
+		limit = 50
+	}
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+	if offset >= len(items) {
+		return []CurriculumSubTopic{}, int(total), nil
+	}
+	end := offset + limit
+	if end > len(items) {
+		end = len(items)
+	}
+	items = items[offset:end]
+
 	return items, int(total), nil
 }
 
 func (s *curriculumService) GetSubTopic(ctx context.Context, id string) (*CurriculumSubTopic, error) {
 	sid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("bad_request: invalid sub_topic id")
+		return nil, BadRequest("invalid sub_topic id")
 	}
 
 	row, err := s.queries.GetSubTopicByID(ctx, pgtype.UUID{Bytes: sid, Valid: true})

@@ -74,7 +74,7 @@ export function useCreateStreams() {
                         id: `optimistic-${idx}`,
                         school_id: me?.active_school_id ?? "",
                         name: item.name,
-                        color: item.color ?? "#0050d1",
+                        color: item.color ?? "",
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString(),
                     }) as Stream

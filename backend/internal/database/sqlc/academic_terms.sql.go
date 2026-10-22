@@ -7,8 +7,63 @@ package sqlc
 
 import (
 	"context"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const getAcademicTermByID = `-- name: GetAcademicTermByID :one
+SELECT at.id, at.academic_year_id, at.name, at.start_date, at.end_date
+FROM academic_terms at
+WHERE at.id = $1
+`
+
+type GetAcademicTermByIDRow struct {
+	ID             pgtype.UUID `json:"id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+	Name           string      `json:"name"`
+	StartDate      pgtype.Date `json:"start_date"`
+	EndDate        pgtype.Date `json:"end_date"`
+}
+
+func (q *Queries) GetAcademicTermByID(ctx context.Context, id pgtype.UUID) (GetAcademicTermByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAcademicTermByID, id)
+	var i GetAcademicTermByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.AcademicYearID,
+		&i.Name,
+		&i.StartDate,
+		&i.EndDate,
+	)
+	return i, err
+}
+
+const getAcademicYearByID = `-- name: GetAcademicYearByID :one
+SELECT id, school_id, name, start_date, end_date
+FROM academic_years
+WHERE id = $1
+`
+
+type GetAcademicYearByIDRow struct {
+	ID        pgtype.UUID `json:"id"`
+	SchoolID  pgtype.UUID `json:"school_id"`
+	Name      string      `json:"name"`
+	StartDate pgtype.Date `json:"start_date"`
+	EndDate   pgtype.Date `json:"end_date"`
+}
+
+func (q *Queries) GetAcademicYearByID(ctx context.Context, id pgtype.UUID) (GetAcademicYearByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAcademicYearByID, id)
+	var i GetAcademicYearByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.StartDate,
+		&i.EndDate,
+	)
+	return i, err
+}
 
 const getCurrentAcademicTermBySchool = `-- name: GetCurrentAcademicTermBySchool :one
 SELECT at.id, at.start_date, at.end_date
@@ -19,6 +74,19 @@ ORDER BY at.start_date DESC
 LIMIT 1
 `
 
+type GetCurrentAcademicTermBySchoolRow struct {
+	ID        pgtype.UUID `json:"id"`
+	StartDate pgtype.Date `json:"start_date"`
+	EndDate   pgtype.Date `json:"end_date"`
+}
+
+func (q *Queries) GetCurrentAcademicTermBySchool(ctx context.Context, schoolID pgtype.UUID) (GetCurrentAcademicTermBySchoolRow, error) {
+	row := q.db.QueryRow(ctx, getCurrentAcademicTermBySchool, schoolID)
+	var i GetCurrentAcademicTermBySchoolRow
+	err := row.Scan(&i.ID, &i.StartDate, &i.EndDate)
+	return i, err
+}
+
 const getLatestAcademicTermBySchool = `-- name: GetLatestAcademicTermBySchool :one
 SELECT at.id
 FROM academic_terms at
@@ -28,29 +96,53 @@ ORDER BY at.start_date DESC
 LIMIT 1
 `
 
-type AcademicTermRow struct {
-	ID        pgtype.UUID `json:"id"`
-	StartDate pgtype.Date `json:"start_date"`
-	EndDate   pgtype.Date `json:"end_date"`
-}
-type AcademicTermIDRow struct {
-	ID pgtype.UUID `json:"id"`
-}
-
-func (q *Queries) GetCurrentAcademicTermBySchool(ctx context.Context, schoolID pgtype.UUID) (AcademicTermRow, error) {
-	row := q.db.QueryRow(ctx, getCurrentAcademicTermBySchool, schoolID)
-	var i AcademicTermRow
-	if err := row.Scan(&i.ID, &i.StartDate, &i.EndDate); err != nil {
-		return AcademicTermRow{}, err
-	}
-	return i, nil
-}
-
-func (q *Queries) GetLatestAcademicTermBySchool(ctx context.Context, schoolID pgtype.UUID) (AcademicTermIDRow, error) {
+func (q *Queries) GetLatestAcademicTermBySchool(ctx context.Context, schoolID pgtype.UUID) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, getLatestAcademicTermBySchool, schoolID)
-	var i AcademicTermIDRow
-	if err := row.Scan(&i.ID); err != nil {
-		return AcademicTermIDRow{}, err
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const listAcademicTermsBySchool = `-- name: ListAcademicTermsBySchool :many
+SELECT at.id, at.academic_year_id, at.name, at.start_date, at.end_date, ay.name AS academic_year_name
+FROM academic_terms at
+JOIN academic_years ay ON at.academic_year_id = ay.id
+WHERE ay.school_id = $1
+ORDER BY at.start_date ASC
+`
+
+type ListAcademicTermsBySchoolRow struct {
+	ID               pgtype.UUID `json:"id"`
+	AcademicYearID   pgtype.UUID `json:"academic_year_id"`
+	Name             string      `json:"name"`
+	StartDate        pgtype.Date `json:"start_date"`
+	EndDate          pgtype.Date `json:"end_date"`
+	AcademicYearName string      `json:"academic_year_name"`
+}
+
+func (q *Queries) ListAcademicTermsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]ListAcademicTermsBySchoolRow, error) {
+	rows, err := q.db.Query(ctx, listAcademicTermsBySchool, schoolID)
+	if err != nil {
+		return nil, err
 	}
-	return i, nil
+	defer rows.Close()
+	var items []ListAcademicTermsBySchoolRow
+	for rows.Next() {
+		var i ListAcademicTermsBySchoolRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AcademicYearID,
+			&i.Name,
+			&i.StartDate,
+			&i.EndDate,
+			&i.AcademicYearName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -41,7 +41,7 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
 
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
-        defaultValues: { name: "", color: "#0050d1" },
+        defaultValues: { name: "", color: "" },
     });
 
     const addName = (values: FormValues) => {
@@ -50,7 +50,7 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
         if (!names.includes(trimmed)) {
             setNames((prev) => [...prev, trimmed]);
         }
-        form.reset({ name: "", color: values.color || "#0050d1" });
+        form.reset({ name: "", color: values.color || "" });
     };
 
     const removeName = (n: string) => {
@@ -59,7 +59,7 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
 
     const handleSubmit = () => {
         if (names.length === 0) return;
-        const items = names.map((n) => ({ name: n, color: form.getValues().color || "#0050d1" }));
+        const items = names.map((n) => ({ name: n, color: form.getValues().color || "" }));
         createStreams(items, { onSuccess });
     };
 

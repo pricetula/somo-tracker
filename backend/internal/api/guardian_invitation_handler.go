@@ -78,18 +78,14 @@ func (h *GuardianInvitationHandler) HandleInvites(c fiber.Ctx) error {
 			"code": "bad_request", "message": "invitations array is required", "errors": fiber.Map{"invitations": []string{"required"}},
 		})
 	}
-	if len(req.Invitations) > 10000 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code": "bad_request", "message": "exceeds maximum of 10000 rows", "errors": fiber.Map{"invitations": []string{"max 10000"}},
-		})
+	if len(req.Invitations) > 1000 {
+		return WriteError(c, ErrBadRequest("exceeds maximum of 1000 rows", map[string][]string{"invitations": {"max 1000"}}))
 	}
 
 	// Idempotency key is required – check before expensive validation
-	idempotencyKey := c.Get("Idempotency-Key")
-	if idempotencyKey == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code": "bad_request", "message": "Idempotency-Key header is required", "errors": fiber.Map{"Idempotency-Key": []string{"required"}},
-		})
+	idempotencyKey, err := ValidateIDempotencyKey(c)
+	if err != nil {
+		return err
 	}
 
 	// Check existing job by idempotency – avoid re-processing
@@ -308,16 +304,28 @@ func (h *GuardianInvitationHandler) Events(c fiber.Ctx) error {
 	}
 
 	c.Response().SetBodyStreamWriter(func(w *bufio.Writer) {
-		initData, _ := json.Marshal(map[string]interface{}{
+		initData, err := json.Marshal(map[string]interface{}{
 			"status": job.Status, "succeeded": job.SucceededCount, "failed": job.FailedCount, "deferred": job.DeferredCount, "total": job.TotalRecords,
 		})
-		_, _ = fmt.Fprintf(w, "event: progress\ndata: %s\n\n", initData)
-		_ = w.Flush()
+		if err != nil {
+			h.logger.Warn("failed to marshal init progress data", zap.Error(err), zap.String("job_id", jobID.String()))
+			initData = []byte("{}")
+		}
+		if _, err := fmt.Fprintf(w, "event: progress\ndata: %s\n\n", initData); err != nil {
+			h.logger.Warn("failed to write init progress", zap.Error(err), zap.String("job_id", jobID.String()))
+		}
+		if err := w.Flush(); err != nil {
+			h.logger.Warn("failed to flush init progress", zap.Error(err), zap.String("job_id", jobID.String()))
+		}
 
 		// Subscribe to redis channel
 		channel := "bulk_progress_" + jobIDStr
 		sub := h.redis.Subscribe(c.Context(), channel)
-		defer func() { _ = sub.Close() }()
+		defer func() {
+			if err := sub.Close(); err != nil {
+				h.logger.Warn("redis sub close failed", zap.Error(err), zap.String("job_id", jobID.String()))
+			}
+		}()
 
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
@@ -328,11 +336,19 @@ func (h *GuardianInvitationHandler) Events(c fiber.Ctx) error {
 				if !ok {
 					return
 				}
-				_, _ = fmt.Fprintf(w, "event: progress\ndata: %s\n\n", msg.Payload)
-				_ = w.Flush()
+				if _, err := fmt.Fprintf(w, "event: progress\ndata: %s\n\n", msg.Payload); err != nil {
+					h.logger.Warn("failed to write progress", zap.Error(err), zap.String("job_id", jobID.String()))
+				}
+				if err := w.Flush(); err != nil {
+					h.logger.Warn("failed to flush progress", zap.Error(err), zap.String("job_id", jobID.String()))
+				}
 			case <-ticker.C:
-				_, _ = fmt.Fprintf(w, "event: heartbeat\ndata: \n\n")
-				_ = w.Flush()
+				if _, err := fmt.Fprintf(w, "event: heartbeat\ndata: \n\n"); err != nil {
+					h.logger.Warn("failed to write heartbeat", zap.Error(err), zap.String("job_id", jobID.String()))
+				}
+				if err := w.Flush(); err != nil {
+					h.logger.Warn("failed to flush heartbeat", zap.Error(err), zap.String("job_id", jobID.String()))
+				}
 			case <-c.Context().Done():
 				return
 			}

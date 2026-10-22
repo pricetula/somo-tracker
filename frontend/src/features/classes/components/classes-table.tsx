@@ -3,19 +3,10 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
-import { listClasses } from "../services/api";
+import { classesListQueryFn } from "../hooks/use-classes";
 import type { ClassListItem } from "../types/class";
 import { useGrades } from "@/features/grades/hooks/use-grades";
 import { useStreams } from "@/features/streams/hooks/use-streams";
-
-function listClassesWithFilters(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filters?: Record<string, string | string[]>;
-}) {
-    return listClasses(params);
-}
 
 export function ClassesTable() {
     const { data: grades = [] } = useGrades();
@@ -27,7 +18,7 @@ export function ClassesTable() {
     );
 
     const streamOptions = useMemo(
-        () => streams.map((s) => ({ label: s.name, value: s.name, id: s.id })),
+        () => streams.map((s) => ({ label: s.name, value: s.id, id: s.id })),
         [streams]
     );
 
@@ -113,7 +104,7 @@ export function ClassesTable() {
             { items: ClassListItem[]; total: number }
         >
             queryKey={["classes"]}
-            queryFn={listClassesWithFilters}
+            queryFn={classesListQueryFn()}
             getRowId={(row) => row.id}
             columns={columns}
             isSearchable

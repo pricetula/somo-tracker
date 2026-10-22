@@ -36,10 +36,22 @@ type TeacherSummary struct {
 	TeachersWithoutAssignment int64 `json:"teachers_without_assignment"`
 }
 
+type TeacherDetail struct {
+	MembershipID string  `json:"membership_id"`
+	UserID       string  `json:"user_id"`
+	Email        string  `json:"email"`
+	FullName     string  `json:"full_name"`
+	IsActive     bool    `json:"is_active"`
+	InvitedAt    *string `json:"invited_at,omitempty"`
+	AcceptedAt   *string `json:"accepted_at,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+}
+
 type TeachersService interface {
 	ListTeachers(ctx context.Context, schoolID uuid.UUID, page, limit int, search string, invitationStatus string) (*TeacherListResponse, error)
 	DeleteTeachers(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error
 	GetTeacherSummary(ctx context.Context, schoolID uuid.UUID) (*TeacherSummary, error)
+	GetTeacher(ctx context.Context, schoolID uuid.UUID, membershipID uuid.UUID) (*TeacherDetail, error)
 }
 
 type teachersService struct {
@@ -53,11 +65,11 @@ func NewTeachersService(queries *sqlc.Queries, logger *zap.Logger) TeachersServi
 
 func (s *teachersService) DeleteTeachers(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error {
 	if len(userIDs) == 0 {
-		return fmt.Errorf("bad_request: user_ids must be provided and non-empty")
+		return BadRequest("user_ids must be provided and non-empty")
 	}
 	for _, id := range userIDs {
 		if id == currentUserID {
-			return fmt.Errorf("bad_request: cannot delete yourself")
+			return BadRequest("cannot delete yourself")
 		}
 	}
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
@@ -85,7 +97,7 @@ func (s *teachersService) ListTeachers(ctx context.Context, schoolID uuid.UUID, 
 
 	status := strings.ToLower(strings.TrimSpace(invitationStatus))
 	if status != "" && status != "invited" && status != "accepted" && status != "all" {
-		return nil, fmt.Errorf("bad_request: invitation_status must be invited|accepted|all")
+		return nil, BadRequest("invitation_status must be invited|accepted|all")
 	}
 
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
@@ -144,12 +156,15 @@ func (s *teachersService) ListTeachers(ctx context.Context, schoolID uuid.UUID, 
 
 func (s *teachersService) GetTeacherSummary(ctx context.Context, schoolID uuid.UUID) (*TeacherSummary, error) {
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
-
-	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, schoolUUID)
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
 	if err != nil {
-		return nil, fmt.Errorf("no academic term found for school: %w", err)
+		return nil, fmt.Errorf("failed to resolve academic period: %w", err)
 	}
-	termUUID := pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true}
+	if res.ReadTermID == uuid.Nil {
+		return nil, fmt.Errorf("no academic term found for school")
+	}
+	termUUID := pgtype.UUID{Bytes: res.ReadTermID, Valid: true}
 
 	row, err := s.queries.GetTeacherSummary(ctx, sqlc.GetTeacherSummaryParams{
 		SchoolID:       schoolUUID,
@@ -162,5 +177,27 @@ func (s *teachersService) GetTeacherSummary(ctx context.Context, schoolID uuid.U
 	return &TeacherSummary{
 		TotalTeachers:             row.TotalTeachers,
 		TeachersWithoutAssignment: row.TeachersWithoutAssignment,
+	}, nil
+}
+
+func (s *teachersService) GetTeacher(ctx context.Context, schoolID uuid.UUID, membershipID uuid.UUID) (*TeacherDetail, error) {
+	// Reuse ListTeachers with search by membership id string
+	resp, err := s.ListTeachers(ctx, schoolID, 1, 1, membershipID.String(), "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list teachers: %w", err)
+	}
+	if len(resp.Items) == 0 {
+		return nil, fmt.Errorf("not_found: teacher not found")
+	}
+	it := resp.Items[0]
+	return &TeacherDetail{
+		MembershipID: it.MembershipID.String(),
+		UserID:       it.UserID.String(),
+		Email:        it.Email,
+		FullName:     it.FullName,
+		IsActive:     it.IsActive,
+		InvitedAt:    it.InvitedAt,
+		AcceptedAt:   it.AcceptedAt,
+		CreatedAt:    it.CreatedAt,
 	}, nil
 }

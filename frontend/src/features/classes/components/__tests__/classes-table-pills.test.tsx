@@ -98,7 +98,7 @@ describe("ClassesTable Filter Pills", () => {
         });
 
         // Verify filter groups are configured
-        expect(capturedProps.filterGroups).toBeDefined();
+        expect(capturedProps?.filterGroups).toBeDefined();
 
         // Verify filter pills would render for selected options
         expect(screen.getByTestId("filter-pill-grade-1")).toBeInTheDocument();
@@ -130,8 +130,11 @@ describe("ClassesTable Filter Pills", () => {
             expect(screen.getByTestId("data-table")).toBeInTheDocument();
         });
 
-        const gradeItem = capturedProps.filterGroups[0].items[0];
-        const streamItem = capturedProps.filterGroups[1].items[0];
+        const gradeItem = ((capturedProps?.filterGroups as unknown[])?.[0] as { items?: unknown[] })
+            ?.items?.[0];
+        const streamItem = (
+            (capturedProps?.filterGroups as unknown[])?.[1] as { items?: unknown[] }
+        )?.items?.[0];
 
         // Filter item IDs should be unique and stable
         expect(gradeItem.id).toBe("grade-filter");

@@ -81,7 +81,7 @@ func newTestRouter(mock *mockAuthService) *fiber.App {
 	cfg := &config.Config{
 		CAPTCHAEnabled: false,
 	}
-	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), &mockAttendanceService{}, nil, nil, nil, cfg, nil, nil)
+	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), &mockAttendanceService{}, nil, nil, nil, cfg, nil)
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil, nil)
 	return app
@@ -169,7 +169,7 @@ func TestSendMagicLink_MissingEmail_Returns400(t *testing.T) {
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	assert.Empty(t, mock.sendCalls, "service must not be called when email is missing")
-	assert.Equal(t, "missing_email", readJSONField(t, resp, "code"))
+	assert.Equal(t, "bad_request", readJSONField(t, resp, "code"))
 }
 
 func TestSendMagicLink_AcceptsFormEncodedEmail(t *testing.T) {
@@ -286,7 +286,7 @@ func TestCallback_ServiceBadRequest_Returns400(t *testing.T) {
 	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-	assert.Equal(t, "invalid_request", readJSONField(t, resp, "code"))
+	assert.Equal(t, "bad_request", readJSONField(t, resp, "code"))
 }
 
 func TestCallback_ServiceUnauthorized_Returns401(t *testing.T) {
@@ -359,7 +359,7 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{CAPTCHAEnabled: false}
-	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), &mockAttendanceService{}, nil, nil, nil, cfg, nil, nil) // nil limiter → passes through
+	router := NewRouter(mock, nil, services.NewSchoolService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, nil, nil, nil, nil, services.NewTimetableService(nil, nil), &mockAttendanceService{}, nil, nil, nil, cfg, nil) // nil limiter → passes through
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil, nil)
 

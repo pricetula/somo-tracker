@@ -54,3 +54,9 @@ export type TeacherSummary = {
 export async function getTeacherSummary(): Promise<TeacherSummary> {
     return api.get<TeacherSummary>("/api/teachers/summary");
 }
+
+export type TeacherDetail = TeacherListItem;
+
+export async function getTeacher(id: string): Promise<TeacherDetail> {
+    return api.get<TeacherDetail>(`/api/teachers/${id}`);
+}

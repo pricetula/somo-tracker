@@ -2,7 +2,8 @@ import { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
-import { listTeachers, type TeacherListItem } from "@/lib/api/teachers";
+import { teachersListQueryFn } from "../hooks/use-teachers-list";
+import type { TeacherListItem } from "../types/teacher";
 import { useDeleteTeachers } from "../hooks/use-teachers";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,29 +12,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-function listTeachersWithFilters(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filters?: Record<string, string | string[]>;
-    invitation_status?: string;
-}) {
-    const invitationStatus =
-        typeof params.filters?.status === "string"
-            ? params.filters.status
-            : params.invitation_status;
-
-    return listTeachers({
-        page: params.page,
-        limit: params.limit,
-        search: params.search,
-        invitation_status:
-            invitationStatus === "all" || !invitationStatus
-                ? undefined
-                : (invitationStatus as "invited" | "accepted"),
-    });
-}
 
 export function TeachersTable() {
     const { mutateAsync: deleteTeachers } = useDeleteTeachers();
@@ -138,7 +116,7 @@ export function TeachersTable() {
             { items: TeacherListItem[]; total?: number }
         >
             queryKey={["teachers"]}
-            queryFn={listTeachersWithFilters}
+            queryFn={teachersListQueryFn()}
             getRowId={(row) => row.user_id}
             columns={columns}
             isCheckable

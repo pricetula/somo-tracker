@@ -1,12 +1,16 @@
 package api
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/api/middleware"
 	"somotracker/backend/internal/services"
 )
 
@@ -45,12 +49,21 @@ func (h *TimetableHandler) ListTemplates(c fiber.Ctx) error {
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
-	items, err := h.svc.ListTemplates(c.Context(), schoolID)
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	items, total, err := h.svc.ListTemplates(c.Context(), schoolID, pagination.Page, pagination.Limit)
 	if err != nil {
 		h.logger.Error("list timetable templates failed", zap.Error(err))
 		return WriteError(c, ErrInternal("failed to list timetable templates"))
 	}
-	return c.Status(fiber.StatusOK).JSON(items)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"items": items,
+		"total": total,
+		"page":  pagination.Page,
+		"limit": pagination.Limit,
+	})
 }
 
 func (h *TimetableHandler) UpdateTemplate(c fiber.Ctx) error {
@@ -85,7 +98,10 @@ func (h *TimetableHandler) GetTemplate(c fiber.Ctx) error {
 	template, err := h.svc.GetTemplate(c.Context(), templateID)
 	if err != nil {
 		h.logger.Error("get timetable template failed", zap.Error(err))
-		return WriteError(c, ErrBadRequest(err.Error(), nil))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return WriteError(c, ErrNotFound("template not found"))
+		}
+		return WriteError(c, ErrInternal("failed to get template"))
 	}
 	return c.Status(fiber.StatusOK).JSON(template)
 }
@@ -145,6 +161,11 @@ func (h *TimetableHandler) GetClassSlotsByTemplate(c fiber.Ctx) error {
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid class id", nil))
 	}
+	// Verify class belongs to school (BOLA prevention)
+	if err := h.svc.VerifyClassBelongsToSchool(c.Context(), schoolID, classID); err != nil {
+		h.logger.Warn("class ownership verification failed", zap.Error(err), zap.String("school_id", schoolIDStr), zap.String("class_id", classIDStr))
+		return WriteError(c, ErrNotFound("class not found"))
+	}
 	rows, err := h.svc.GetClassTimetableSlotsByTemplate(c.Context(), schoolID, classID, templateID)
 	if err != nil {
 		h.logger.Error("get class timetable slots failed", zap.Error(err))
@@ -159,15 +180,28 @@ func (h *TimetableHandler) GetClassSlotsByTemplate(c fiber.Ctx) error {
 // @Param id path string true "Class timetable slot ID"
 // @Success 204
 // @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
 // @Router /api/timetable/class-timetable-slots/{id} [delete]
 func (h *TimetableHandler) DeleteClassTimetableSlot(c fiber.Ctx) error {
+	schoolIDStr, ok := c.Locals("active_school_id").(string)
+	if !ok || schoolIDStr == "" {
+		return WriteError(c, ErrUnauthorized("active school not found"))
+	}
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid school id", nil))
+	}
 	slotIDStr := c.Params("id")
 	slotID, err := uuid.Parse(slotIDStr)
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid slot id", nil))
 	}
-	if err := h.svc.DeleteClassTimetableSlot(c.Context(), slotID); err != nil {
+	if err := h.svc.DeleteClassTimetableSlot(c.Context(), schoolID, slotID); err != nil {
 		h.logger.Error("delete class timetable slot failed", zap.Error(err))
+		// Return 404 if slot not found or not in school (prevents enumeration)
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not in school") {
+			return WriteError(c, ErrNotFound("slot not found"))
+		}
 		return WriteError(c, ErrBadRequest(err.Error(), nil))
 	}
 	return c.Status(fiber.StatusNoContent).Send(nil)
@@ -210,6 +244,27 @@ func (h *TimetableHandler) SetupClassTimetableSlot(c fiber.Ctx) error {
 	err = h.svc.SetupClassTimetableSlot(c.Context(), schoolID, req.ClassRoomID, req.TimeSlotID, req.SubjectID, req.TeacherMembershipID, req.DayOfWeek, req.RoomID)
 	if err != nil {
 		h.logger.Error("setup class timetable slot failed", zap.Error(err))
+		if strings.HasPrefix(err.Error(), "timetable_conflict:") {
+			conflictType := strings.TrimPrefix(err.Error(), "timetable_conflict:")
+			// The feature spec requires structured conflicts array with objects.
+			// APIError.Errors (map[string][]string) can't carry objects,
+			// so return canonical JSON directly with structured conflicts.
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":    "timetable_conflict",
+				"message": "Timetable conflict detected",
+				"errors": map[string]interface{}{
+					"conflicts": []map[string]interface{}{
+						{
+							"type":             conflictType,
+							"resource_id":      "",
+							"resource_name":    "",
+							"existing_slot_id": "",
+						},
+					},
+				},
+				"request_id": middleware.GetRequestID(c),
+			})
+		}
 		return WriteError(c, ErrBadRequest(err.Error(), nil))
 	}
 

@@ -43,9 +43,7 @@ export async function listRooms(params: ListRoomsParams = {}): Promise<ListRooms
         if (value === undefined || value === null || value === "") return;
         searchParams.set(key, String(value));
     });
-    const response = await api.get<BackendListResponse>(
-        `/api/school/rooms?${searchParams.toString()}`
-    );
+    const response = await api.get<BackendListResponse>(`/api/rooms?${searchParams.toString()}`);
     return {
         items: response.items.map(transformRoom),
         total: response.total,
@@ -55,18 +53,18 @@ export async function listRooms(params: ListRoomsParams = {}): Promise<ListRooms
 }
 
 export async function getRoom(id: string): Promise<Room> {
-    const response = await api.get<{ room: BackendRoom }>(`/api/school/rooms/${id}`);
+    const response = await api.get<{ room: BackendRoom }>(`/api/rooms/${id}`);
     return transformRoom(response.room);
 }
 
 export async function createRoom(data: CreateRoomRequest): Promise<Room> {
-    const response = await api.post<{ room: BackendRoom }>("/api/school/rooms", data);
+    const response = await api.post<{ room: BackendRoom }>("/api/rooms", data);
     return transformRoom(response.room);
 }
 
 export async function updateRoom(data: UpdateRoomRequest): Promise<Room> {
     const { id, ...payload } = data;
-    const response = await api.patch<{ room: BackendRoom }>(`/api/school/rooms`, {
+    const response = await api.patch<{ room: BackendRoom }>(`/api/rooms`, {
         id,
         ...payload,
     });
@@ -74,5 +72,5 @@ export async function updateRoom(data: UpdateRoomRequest): Promise<Room> {
 }
 
 export async function deleteRoom(id: string): Promise<void> {
-    await api.delete(`/api/school/rooms/${id}`);
+    await api.delete(`/api/rooms/${id}`);
 }

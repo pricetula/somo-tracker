@@ -3,10 +3,12 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.uber.org/zap"
 
@@ -97,20 +99,42 @@ func (s *enrollmentsService) CreateEnrollments(ctx context.Context, schoolID uui
 	if !classRow.SchoolID.Valid || classRow.SchoolID.Bytes != schoolID {
 		return nil, fmt.Errorf("class room does not belong to school")
 	}
-	academicYearID := pgToUUID(classRow.AcademicYearID)
-	academicTermRow, termErr := s.queries.GetCurrentAcademicTermBySchool(ctx, uuidToPG(schoolID))
-	if termErr != nil {
-		s.logger.Error("get current academic term failed", zap.Error(termErr), zap.String("school_id", schoolID.String()))
-		return nil, fmt.Errorf("failed to resolve academic term: %w", termErr)
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
+	if err != nil {
+		s.logger.Error("academic period resolve failed", zap.Error(err))
+		return nil, fmt.Errorf("failed to resolve academic period: %w", err)
 	}
-	var academicTermID pgtype.UUID
-	if academicTermRow.ID.Valid {
-		academicTermID = academicTermRow.ID
+	if !res.IsWriteAllowed || res.WriteTermID == uuid.Nil {
+		return nil, fmt.Errorf("no_next_academic_term: enrollment not allowed for current period")
 	}
+	writeYearID := res.WriteYearID
+	writeTermID := res.WriteTermID
+	classYearID := pgToUUID(classRow.AcademicYearID)
+	if classYearID != writeYearID {
+		// Class year must match resolved write year
+		return nil, BadRequest("class academic year does not match current period")
+	}
+	academicYearID := writeYearID
+	academicTermID := pgtype.UUID{Bytes: writeTermID, Valid: true}
 	var results []*Enrollment
 	for _, req := range reqs {
 		if req.StudentID == uuid.Nil {
 			return nil, fmt.Errorf("student_id is required")
+		}
+		// Check for existing active enrollment for this student in the same academic year
+		existing, err := s.queries.GetActiveEnrollmentByStudent(ctx, sqlc.GetActiveEnrollmentByStudentParams{
+			StudentID:      uuidToPG(req.StudentID),
+			AcademicYearID: uuidToPG(academicYearID),
+		})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Error("check existing enrollment failed", zap.Error(err))
+			return nil, fmt.Errorf("failed to check existing enrollment: %w", err)
+		}
+		if err == nil && existing.ID.Valid {
+			// Skip duplicate
+			s.logger.Warn("duplicate enrollment skipped", zap.String("student_id", req.StudentID.String()), zap.String("class_room_id", classRoomID.String()))
+			continue
 		}
 		enrolledAt, err := time.Parse("2006-01-02", req.EnrollmentDate)
 		if err != nil {
@@ -257,15 +281,17 @@ func (s *enrollmentsService) ListUnassignedStudentsByClass(ctx context.Context, 
 }
 
 func (s *enrollmentsService) ListUnassignedStudentsCurrentYear(ctx context.Context, schoolID uuid.UUID, page, limit int) ([]*UnassignedStudent, int, error) {
-	academicYearIDPg, err := s.queries.GetCurrentAcademicYearBySchool(ctx, uuidToPG(schoolID))
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
 	if err != nil {
-		s.logger.Error("get current academic year failed", zap.Error(err), zap.String("school_id", schoolID.String()))
-		return nil, 0, fmt.Errorf("failed to resolve academic year: %w", err)
+		s.logger.Error("academic period resolve failed", zap.Error(err))
+		return nil, 0, fmt.Errorf("failed to resolve academic period: %w", err)
 	}
-	if !academicYearIDPg.Valid {
-		return nil, 0, fmt.Errorf("academic year not found")
+	if res.ReadYearID == uuid.Nil {
+		// No period, return empty
+		return []*UnassignedStudent{}, 0, nil
 	}
-	academicYearID := pgToUUID(academicYearIDPg)
+	academicYearID := res.ReadYearID
 	return s.ListUnassignedStudents(ctx, schoolID, academicYearID, page, limit)
 }
 

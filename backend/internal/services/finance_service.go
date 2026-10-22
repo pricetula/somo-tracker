@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.uber.org/zap"
 	"somotracker/backend/internal/database/sqlc"
@@ -33,24 +34,33 @@ type FinanceListResponse struct {
 type FinanceService interface {
 	ListFinance(ctx context.Context, schoolID uuid.UUID, page, limit int, search string, invitationStatus string) (*FinanceListResponse, error)
 	DeleteFinance(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error
+	UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error)
 }
 
 type financeService struct {
-	queries *sqlc.Queries
+	queries sqlc.Querier
 	logger  *zap.Logger
 }
 
-func NewFinanceService(queries *sqlc.Queries, logger *zap.Logger) FinanceService {
+func NewFinanceService(queries sqlc.Querier, logger *zap.Logger) FinanceService {
 	return &financeService{queries: queries, logger: logger.With(zap.String("service", "finance"))}
 }
 
 func (s *financeService) DeleteFinance(ctx context.Context, schoolID uuid.UUID, userIDs []uuid.UUID, currentUserID uuid.UUID) error {
+	// Defense in depth: verify actor is admin
+	hasAdmin, err := s.UserHasAdminRole(ctx, schoolID, currentUserID)
+	if err != nil {
+		return fmt.Errorf("auth check failed: %w", err)
+	}
+	if !hasAdmin {
+		return fmt.Errorf("forbidden: insufficient permissions")
+	}
 	if len(userIDs) == 0 {
-		return fmt.Errorf("bad_request: user_ids must be provided and non-empty")
+		return BadRequest("user_ids must be provided and non-empty")
 	}
 	for _, id := range userIDs {
 		if id == currentUserID {
-			return fmt.Errorf("bad_request: cannot delete yourself")
+			return BadRequest("cannot delete yourself")
 		}
 	}
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
@@ -71,14 +81,14 @@ func (s *financeService) ListFinance(ctx context.Context, schoolID uuid.UUID, pa
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 200 {
+	if limit < 1 || limit > 100 {
 		limit = 50
 	}
 	offset := (page - 1) * limit
 
 	status := strings.ToLower(strings.TrimSpace(invitationStatus))
 	if status != "" && status != "invited" && status != "accepted" && status != "all" {
-		return nil, fmt.Errorf("bad_request: invitation_status must be invited|accepted|all")
+		return nil, BadRequest("invitation_status must be invited|accepted|all")
 	}
 
 	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
@@ -133,4 +143,18 @@ func (s *financeService) ListFinance(ctx context.Context, schoolID uuid.UUID, pa
 		Page:  page,
 		Limit: limit,
 	}, nil
+}
+
+func (s *financeService) UserHasAdminRole(ctx context.Context, schoolID, userID uuid.UUID) (bool, error) {
+	role, err := s.queries.GetSchoolMembershipRole(ctx, sqlc.GetSchoolMembershipRoleParams{
+		SchoolID: pgtype.UUID{Bytes: schoolID, Valid: true},
+		UserID:   pgtype.UUID{Bytes: userID, Valid: true},
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
+		return false, fmt.Errorf("user_has_admin_role: %w", err)
+	}
+	return role == sqlc.UserRoleADMIN, nil
 }

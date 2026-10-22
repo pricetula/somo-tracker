@@ -1,69 +1,38 @@
-# Somotracker Public Site — Agent Architecture Contract
+## Development
 
-SvelteKit + shadcn-svelte — marketing website.
-
----
-
-## 1. Stack
-
-- **Framework:** SvelteKit (latest)
-- **UI components:** shadcn-svelte
-- **Styling:** Tailwind CSS (`tailwind.config.ts`)
-
----
-
-## 2. Directory Layout
+When starting the dev server, use background mode:
 
 ```
-src/
-├── routes/                     # SvelteKit file-based routing
-│   ├── +layout.svelte
-│   ├── +page.svelte            # Home / landing page
-│   └── [slug]/
-│       └── +page.svelte        # Dynamic marketing pages (/pricing, /about, …)
-│
-├── lib/
-│   ├── components/
-│   │   ├── ui/                 # shadcn-svelte primitives (do not hand-edit)
-│   │   └── marketing/          # Site-specific components (Hero, Navbar, Footer, CTA)
-│   ├── utils.ts                # cn() helper and global utilities
-│   └── types.ts                # Shared TypeScript types
-│
-└── app.css                     # Tailwind base + shadcn CSS variable definitions
+astro dev --background
 ```
 
----
+Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
-## 2. Package Manager
+## Documentation
 
-Use **pnpm** exclusively — never `npm` or `yarn`.
+Full documentation: https://docs.astro.build
 
-- `pnpm install` — local dev
-- `pnpm install --frozen-lockfile` — CI/Docker
-- `pnpm add <pkg>` / `pnpm add -D <pkg>` / `pnpm remove <pkg>`
-- `pnpm exec` / `pnpm dlx` for one-off commands (never global installs)
-- Use `--ignore-scripts` in CI/Docker unless a postinstall script is explicitly required.
+Consult these guides before working on related tasks:
 
----
-
-## 3. Component Rules
-
-- Add shadcn-svelte components with `pnpm dlx shadcn-svelte@latest add <component>`. Never hand-edit files in `src/lib/components/ui/`.
-- Marketing components in `src/lib/components/marketing/` wrap or compose shadcn primitives.
-- Keep `+page.svelte` files lean — they compose components, no inline logic or styles.
+- [Adding pages, dynamic routes, or middleware](https://docs.astro.build/en/guides/routing/)
+- [Working with Astro components](https://docs.astro.build/en/basics/astro-components/)
+- [Using React, Vue, Svelte, or other framework components](https://docs.astro.build/en/guides/framework-components/)
+- [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
+- [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
+- [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
 
 ---
 
-## 4. Rendering Strategy
+## AI Skill Integration (Late 2026)
 
-- Prefer static prerendering (`export const prerender = true`) on all marketing pages.
-- Use `+page.server.ts` only when server-side data fetching is required (CMS, feature flags).
-- Avoid client-side data fetching on marketing pages — it hurts Core Web Vitals.
+Before making public changes, load the matching skill:
+- **New marketing page:** Load `/skill:craft-docs` → use templates, audit with `pnpm run audit:docs`
+- **UI component:** Load `/skill:pure-shadcn` → use semantic CSS vars only, no arbitrary styles
+- **Review:** Load `/skill:agendas-compliance` → cross-check against public contracts
+- **Context:** Load `/skill:project-context` → ensure consistency with frontend API shapes
 
 ---
 
-## 5. Styling
-
-- Tailwind utility classes only. No custom CSS outside of `app.css`.
-- shadcn-svelte theming is controlled via CSS variables in `app.css` — modify variables, not component files.
-- Use `cn()` from `$lib/utils` for conditional class merging.
+## Version & Ownership (Late 2026)
+- **Standard version:** 1.0.0 (June 2026) — AI coding optimized with `.pi/skills/` integration
+- **Owner:** Platform team

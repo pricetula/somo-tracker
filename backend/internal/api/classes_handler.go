@@ -1,7 +1,6 @@
 package api
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -21,9 +20,10 @@ func NewClassesHandler(svc services.ClassesService, logger *zap.Logger) *Classes
 }
 
 type createClassRequest struct {
-	Name     string `json:"name"`
-	GradeID  string `json:"gradeId"`
-	StreamID string `json:"streamId"`
+	Name                  string `json:"name"`
+	GradeID               string `json:"gradeId"`
+	StreamID              string `json:"streamId"`
+	BypassFutureTermModal bool   `json:"bypassFutureTermModal,omitempty"`
 }
 
 // ListClasses lists classes for the active school
@@ -34,10 +34,10 @@ type createClassRequest struct {
 // @Param limit query int false "Page size" default(50)
 // @Param search query string false "Search by name"
 // @Param grade query string false "Comma separated grade labels"
-// @Param stream query string false "Comma separated stream names"
+// @Param stream query string false "Comma separated stream ids"
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
-// @Router /school/classes [get]
+// @Router /classes [get]
 func (h *ClassesHandler) ListClasses(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
@@ -47,8 +47,11 @@ func (h *ClassesHandler) ListClasses(c fiber.Ctx) error {
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	page, limit := pagination.Page, pagination.Limit
 	search := c.Query("search")
 	gradeParam := c.Query("grade")
 	streamParam := c.Query("stream")
@@ -91,13 +94,16 @@ func (h *ClassesHandler) ListClasses(c fiber.Ctx) error {
 // @Success 200 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
-// @Router /school/classes/{id} [get]
+// @Router /classes/{id} [get]
 func (h *ClassesHandler) GetClass(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
 		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
-	schoolID, _ := uuid.Parse(schoolIDStr)
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid school id", map[string][]string{"school_id": {"invalid uuid"}}))
+	}
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -119,23 +125,36 @@ func (h *ClassesHandler) GetClass(c fiber.Ctx) error {
 // @Success 201 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
-// @Router /school/classes [post]
+// @Router /classes [post]
 func (h *ClassesHandler) CreateClass(c fiber.Ctx) error {
 	schoolIDStr, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolIDStr == "" {
 		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
-	schoolID, _ := uuid.Parse(schoolIDStr)
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return WriteError(c, ErrBadRequest("invalid school id", map[string][]string{"school_id": {"invalid uuid"}}))
+	}
 	var req createClassRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return WriteError(c, ErrBadRequest("invalid body", nil))
 	}
 	item, err := h.svc.CreateClass(c.Context(), schoolID, services.CreateClassRequest{
-		Name: req.Name, GradeID: req.GradeID, StreamID: req.StreamID,
+		Name:                  req.Name,
+		GradeID:               req.GradeID,
+		StreamID:              req.StreamID,
+		BypassFutureTermModal: req.BypassFutureTermModal,
 	})
 	if err != nil {
 		h.logger.Error("create class failed", zap.Error(err))
-		return WriteError(c, ErrBadRequest(err.Error(), nil))
+		errMsg := err.Error()
+		if strings.HasPrefix(errMsg, "no_next_academic_term") {
+			return WriteError(c, APIError{Status: fiber.StatusBadRequest, Code: "no_next_academic_term", Message: strings.TrimPrefix(errMsg, "no_next_academic_term:"), Errors: map[string][]string{}})
+		}
+		if strings.HasPrefix(errMsg, "no_active_term_future_exists") {
+			return WriteError(c, ErrNoActiveTermFutureExists(strings.TrimPrefix(errMsg, "no_active_term_future_exists:")))
+		}
+		return WriteError(c, ErrBadRequest(errMsg, nil))
 	}
 	return c.Status(fiber.StatusCreated).JSON(item)
 }

@@ -33,8 +33,24 @@ type AcademicPeriodRequest struct {
 	Terms []TermInput `json:"terms"`
 }
 
+type TermResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+}
+
+type ListAcademicPeriodResponse struct {
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	StartDate string         `json:"start_date"`
+	EndDate   string         `json:"end_date"`
+	Terms     []TermResponse `json:"terms"`
+}
+
 type AcademicPeriodService interface {
 	CreateAcademicPeriod(ctx context.Context, schoolID string, req AcademicPeriodRequest) (string, error)
+	ListAcademicPeriods(ctx context.Context, schoolID string) ([]ListAcademicPeriodResponse, error)
 }
 
 type academicPeriodService struct {
@@ -53,13 +69,13 @@ func NewAcademicPeriodService(pool *pgxpool.Pool, queries *sqlc.Queries, logger 
 
 func (s *academicPeriodService) CreateAcademicPeriod(ctx context.Context, schoolID string, req AcademicPeriodRequest) (string, error) {
 	if schoolID == "" {
-		return "", fmt.Errorf("bad_request: school_id is required")
+		return "", BadRequest("school_id is required")
 	}
 	if req.Year == 0 {
-		return "", fmt.Errorf("bad_request: year is required")
+		return "", BadRequest("year is required")
 	}
 	if len(req.Terms) == 0 {
-		return "", fmt.Errorf("bad_request: at least one term is required")
+		return "", BadRequest("at least one term is required")
 	}
 
 	// Validate and parse term dates; derive year boundaries from sorted terms.
@@ -85,18 +101,18 @@ func (s *academicPeriodService) CreateAcademicPeriod(ctx context.Context, school
 
 	schoolUUID, err := uuid.Parse(schoolID)
 	if err != nil {
-		return "", fmt.Errorf("bad_request: invalid school_id")
+		return "", BadRequest("invalid school_id")
 	}
 
 	yearName := fmt.Sprintf("%d", req.Year)
 
 	minStartDate, minErr := parseDate(minStart)
 	if minErr != nil {
-		return "", fmt.Errorf("bad_request: invalid term start_date %s: %w", minStart, minErr)
+		return "", BadRequest(fmt.Sprintf("invalid term start_date %s: %v", minStart, minErr))
 	}
 	maxEndDate, maxErr := parseDate(maxEnd)
 	if maxErr != nil {
-		return "", fmt.Errorf("bad_request: invalid term end_date %s: %w", maxEnd, maxErr)
+		return "", BadRequest(fmt.Sprintf("invalid term end_date %s: %v", maxEnd, maxErr))
 	}
 
 	yearRow, err := s.queries.CreateAcademicYear(ctx, sqlc.CreateAcademicYearParams{
@@ -113,11 +129,11 @@ func (s *academicPeriodService) CreateAcademicPeriod(ctx context.Context, school
 	for _, t := range sorted {
 		sd, sErr := parseDate(t.StartDate)
 		if sErr != nil {
-			return "", fmt.Errorf("bad_request: invalid term start_date %s: %w", t.StartDate, sErr)
+			return "", BadRequest(fmt.Sprintf("invalid term start_date %s: %v", t.StartDate, sErr))
 		}
 		ed, eErr := parseDate(t.EndDate)
 		if eErr != nil {
-			return "", fmt.Errorf("bad_request: invalid term end_date %s: %w", t.EndDate, eErr)
+			return "", BadRequest(fmt.Sprintf("invalid term end_date %s: %v", t.EndDate, eErr))
 		}
 		_, termErr := s.queries.CreateAcademicTerm(ctx, sqlc.CreateAcademicTermParams{
 			AcademicYearID: pgtype.UUID{Bytes: yearRow.ID.Bytes, Valid: true},
@@ -135,4 +151,59 @@ func (s *academicPeriodService) CreateAcademicPeriod(ctx context.Context, school
 	}
 
 	return yearRow.ID.String(), nil
+}
+
+// ListAcademicPeriods returns all academic periods (years) with their terms for a given school.
+func (s *academicPeriodService) ListAcademicPeriods(ctx context.Context, schoolID string) ([]ListAcademicPeriodResponse, error) {
+	if schoolID == "" {
+		return nil, BadRequest("school_id is required")
+	}
+	schoolUUID, err := uuid.Parse(schoolID)
+	if err != nil {
+		return nil, BadRequest("invalid school_id")
+	}
+	pgUUID := pgtype.UUID{Bytes: schoolUUID, Valid: true}
+
+	rows, err := s.queries.ListAcademicTermsBySchool(ctx, pgUUID)
+	if err != nil {
+		return nil, fmt.Errorf("internal_error: failed to list academic periods: %w", err)
+	}
+
+	// Aggregate terms by academic year
+	periodMap := make(map[string]*ListAcademicPeriodResponse)
+	for _, row := range rows {
+		periodKey := row.AcademicYearID.String()
+		if period := periodMap[periodKey]; period != nil {
+			// Append term to existing period
+			term := TermResponse{
+				ID:        row.ID.String(),
+				Name:      row.Name,
+				StartDate: row.StartDate.Time.Format("2006-01-02"),
+				EndDate:   row.EndDate.Time.Format("2006-01-02"),
+			}
+			period.Terms = append(period.Terms, term)
+		} else {
+			// Create new period
+			period := &ListAcademicPeriodResponse{
+				ID:   row.AcademicYearID.String(),
+				Name: row.AcademicYearName,
+				Terms: []TermResponse{
+					{
+						ID:        row.ID.String(),
+						Name:      row.Name,
+						StartDate: row.StartDate.Time.Format("2006-01-02"),
+						EndDate:   row.EndDate.Time.Format("2006-01-02"),
+					},
+				},
+			}
+			periodMap[periodKey] = period
+		}
+	}
+
+	// Convert map to slice
+	var items []ListAcademicPeriodResponse
+	for _, period := range periodMap {
+		items = append(items, *period)
+	}
+	return items, nil
 }

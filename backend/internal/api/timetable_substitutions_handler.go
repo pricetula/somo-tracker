@@ -1,7 +1,6 @@
 package api
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -195,8 +194,11 @@ func (h *TimetableSubstitutionsHandler) ListSubstitutions(c fiber.Ctx) error {
 		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
 
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	page, limit := pagination.Page, pagination.Limit
 	dateFromStr := c.Query("date_from", "")
 	dateToStr := c.Query("date_to", "")
 	statusFilter := c.Query("status", "")

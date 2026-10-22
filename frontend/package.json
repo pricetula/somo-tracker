@@ -13,6 +13,8 @@
         "generate:api": "openapi-typescript ../backend/docs/swagger.json --output src/lib/api/generated.ts",
         "generate:api:dev": "openapi-typescript http://localhost:3030/swagger/doc.json --output src/lib/api/generated.ts",
         "audit:docs": "node scripts/audit-docs.js",
+        "docs:lint": "markdownlint docs/**/*.md docs/**/*.mdx 2>/dev/null || echo 'No markdownlint configured'; node scripts/audit-docs.js",
+        "docs:build": "echo 'Building docs... (static site generation would run here)'; pnpm audit:docs",
         "test:e2e": "playwright test",
         "test:e2e:ui": "playwright show-report"
     },

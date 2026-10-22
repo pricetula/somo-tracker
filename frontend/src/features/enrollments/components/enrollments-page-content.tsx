@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCreateEnrollments } from "../hooks/use-enrollments";
+import { useCreateEnrollments, unassignedListQueryFn } from "../hooks/use-enrollments";
 import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
-import { listUnassigned, type UnassignedStudent } from "../services/api";
-import type { CreateEnrollmentRequest } from "../types/enrollment";
+import type { UnassignedStudent, CreateEnrollmentRequest } from "../types/enrollment";
 
 export function EnrollmentsPageContent({ classId }: { classId: string }) {
     const createMutation = useCreateEnrollments(classId);
@@ -20,9 +19,7 @@ export function EnrollmentsPageContent({ classId }: { classId: string }) {
                     { items: UnassignedStudent[]; total: number }
                 >
                     queryKey={["unassigned-students"]}
-                    queryFn={(params) =>
-                        listUnassigned({ page: params.page ?? 1, limit: params.limit ?? 50 })
-                    }
+                    queryFn={unassignedListQueryFn()}
                     params={{}}
                     getRowId={(row) => row.student_id}
                     isCheckable

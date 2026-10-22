@@ -1,39 +1,33 @@
-import { useMemo } from "react";
+"use client";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
-import { listStudents, type StudentListItem } from "@/lib/api/students";
-import { useDeleteStudents } from "../hooks/use-students";
-import { Button } from "@/components/ui/button";
+import { useDeleteStudents, useAssignStudents, studentsListQueryFn } from "../hooks/use-students";
+import type { StudentListItem } from "../types/student";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { studentFilterGroups, mapStudentFiltersToParams } from "./students-filters";
+import { studentFilterGroups } from "./students-filters";
 import { useClasses } from "@/features/classes/hooks/use-classes";
-
-function listStudentsWithFilters(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filters?: Record<string, string | string[]>;
-}) {
-    const { class_id, without_class, without_guardian } = mapStudentFiltersToParams(params.filters);
-    return listStudents({
-        page: params.page,
-        limit: params.limit,
-        search: params.search,
-        class_id,
-        without_class,
-        without_guardian,
-    });
-}
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 export function StudentsTable() {
     const { mutateAsync: deleteStudents } = useDeleteStudents();
     const { data: classesResponse } = useClasses({ page: 1, limit: 100 });
+    const [assignClassId, setAssignClassId] = useState<string | undefined>(undefined);
+    const assignMutation = useAssignStudents();
 
     const filterGroups = useMemo(
         () => [
@@ -80,6 +74,12 @@ export function StudentsTable() {
                 width: "1fr",
             },
             {
+                id: "dob",
+                header: "DOB",
+                cell: (row: StudentListItem) => row.date_of_birth || "—",
+                width: "1fr",
+            },
+            {
                 id: "class",
                 header: "Class",
                 cell: (row: StudentListItem) =>
@@ -110,6 +110,31 @@ export function StudentsTable() {
                         : row.gender === "M" || row.gender === "m"
                           ? "Male"
                           : row.gender || "—",
+                width: "1fr",
+            },
+            {
+                id: "guardian",
+                header: "Guardian",
+                cell: (row: StudentListItem) =>
+                    row.guardian_linked ? (
+                        <span className="inline-flex items-center rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                            Linked
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                            —
+                        </span>
+                    ),
+                width: "1fr",
+            },
+            {
+                id: "attendance",
+                header: "Attendance %",
+                cell: (row: StudentListItem) => {
+                    const rate = row.attendance_rate;
+                    if (rate == null) return "—";
+                    return `${rate.toFixed(0)}%`;
+                },
                 width: "1fr",
             },
             {
@@ -153,7 +178,7 @@ export function StudentsTable() {
             { items: StudentListItem[]; total: number }
         >
             queryKey={["students"]}
-            queryFn={listStudentsWithFilters}
+            queryFn={studentsListQueryFn}
             getRowId={(row) => row.student_id}
             columns={columns}
             isCheckable
@@ -172,6 +197,46 @@ export function StudentsTable() {
                 class: "class_id",
                 without_class: "without_class",
                 without_guardian: "without_guardian",
+            }}
+            renderToolBarComponents={(selectedIds) => {
+                if (selectedIds.size === 0) {
+                    return (
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href="/students/add"
+                                className={buttonVariants({ variant: "outline", size: "sm" })}
+                            >
+                                Bulk Import
+                            </Link>
+                        </div>
+                    );
+                }
+                return (
+                    <div className="flex items-center gap-2">
+                        <Select value={assignClassId ?? ""} onValueChange={(v) => setAssignClassId(v || undefined)}>
+                            <SelectTrigger className="w-[240px]">
+                                <SelectValue placeholder="Select class" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {classesResponse?.items?.map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                        {c.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            variant="default"
+                            disabled={!assignClassId || assignMutation.isPending}
+                            onClick={() => {
+                                const ids = Array.from(selectedIds);
+                                assignMutation.mutate({ classId: assignClassId!, studentIds: ids });
+                            }}
+                        >
+                            {assignMutation.isPending ? "Assigning…" : "Assign to class"}
+                        </Button>
+                    </div>
+                );
             }}
         />
     );

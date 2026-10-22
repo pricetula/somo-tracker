@@ -37,6 +37,7 @@ export function TimetableTemplateWizard() {
 
     const createMutation = useCreateTimetableTemplate();
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const nameValue = form.watch("name");
     const canProceed = (nameValue ?? "").trim().length > 0;
 

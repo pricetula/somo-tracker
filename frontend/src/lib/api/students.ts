@@ -9,6 +9,8 @@ export type StudentListItem = {
     class_id?: string;
     class_name?: string;
     grade_level?: string;
+    guardian_linked: boolean;
+    attendance_rate?: number;
 };
 
 export type StudentListResponse = {
@@ -45,6 +47,15 @@ export async function deleteStudents(studentIds: string[]): Promise<DeleteStuden
     return api.delete<DeleteStudentsResponse>("/api/students", { student_ids: studentIds });
 }
 
+export async function bulkAssignStudentsToClass(
+    classId: string,
+    studentIds: string[]
+): Promise<void> {
+    const enrollmentDate = new Date().toISOString().split("T")[0];
+    const items = studentIds.map((id) => ({ student_id: id, enrollment_date: enrollmentDate }));
+    await api.post(`/api/classes/${classId}/enrollments`, items);
+}
+
 export type StudentSummary = {
     total_students: number;
     male_count: number;
@@ -55,4 +66,44 @@ export type StudentSummary = {
 
 export async function getStudentSummary(): Promise<StudentSummary> {
     return api.get<StudentSummary>("/api/students/summary");
+}
+
+export type StudentProfile = {
+    student_id: string;
+    admission_number: string;
+    nemis_upn?: string;
+    full_name: string;
+    date_of_birth: string;
+    gender: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    nationality?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    special_needs?: string;
+    metadata?: Record<string, unknown>;
+};
+
+export type UpdateStudentRequest = {
+    full_name?: string;
+    date_of_birth?: string;
+    gender?: string;
+    nemis_upn?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    nationality?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    special_needs?: string;
+    metadata?: Record<string, unknown>;
+};
+
+export async function getStudent(id: string): Promise<StudentProfile> {
+    return api.get<StudentProfile>(`/api/students/${id}`);
+}
+
+export async function updateStudent(id: string, data: UpdateStudentRequest): Promise<void> {
+    return api.patch<void>(`/api/students/${id}`, data);
 }

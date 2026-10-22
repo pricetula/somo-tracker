@@ -11,9 +11,11 @@ import (
 type FinanceInvitationServiceInterface interface {
 	CreateBulkJob(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, total int) (uuid.UUID, error)
 	CreateBulkJobWithItems(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error)
+	CreateBulkJobWithItemsWithAuth(ctx context.Context, schoolID, tenantID, createdBy, actorUserID uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error)
 	InsertItems(ctx context.Context, jobID uuid.UUID, items []InvitationItem) error
 	GetJob(ctx context.Context, jobID uuid.UUID) (*BulkJob, error)
 	GetFailedOrDeferredItems(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error)
+	GetFailedOrDeferredItemsWithAuth(ctx context.Context, jobID, schoolID, actorUserID uuid.UUID) ([]BulkJobItem, error)
 	GetItemByID(ctx context.Context, itemID uuid.UUID) (*BulkJobItem, error)
 	GetItemsByJobID(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error)
 	UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result []byte, lastError string, attempts int) error

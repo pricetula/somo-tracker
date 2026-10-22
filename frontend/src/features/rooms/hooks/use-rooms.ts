@@ -9,6 +9,10 @@ export const roomKeys = {
     detail: (id: string) => ["rooms", "detail", id] as const,
 };
 
+export function roomsListQueryFn() {
+    return (params: ListRoomsParams) => listRooms(params);
+}
+
 export function useRooms(params: ListRoomsParams = {}) {
     return useQuery({
         queryKey: roomKeys.list(params),

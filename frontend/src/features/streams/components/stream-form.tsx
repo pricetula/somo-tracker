@@ -1,10 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { useStream, useUpdateStream, useCreateStreams } from "../hooks/use-streams";
 import { getErrorMessage } from "@/lib/errors";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 const streamSchema = z.object({
@@ -31,6 +31,11 @@ interface StreamFormProps {
     onSuccess?: () => void;
 }
 
+/**
+ * StreamForm — supports both:
+ *   • Edit mode (single stream) when `streamId` is provided
+ *   • Create mode with multiple stream entries when no `streamId`
+ */
 export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
     const router = useRouter();
     const isEdit = !!streamId;
@@ -38,30 +43,21 @@ export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
     const update = useUpdateStream();
     const create = useCreateStreams();
 
-    const form = useForm<StreamValues>({
+    // ── Edit mode: single‑stream handling (identical to original) ──
+    const editForm = useForm<StreamValues>({
         resolver: zodResolver(streamSchema),
         defaultValues: {
-            name: "",
-            color: "#0050d1",
+            name: stream?.name ?? "",
+            color: stream?.color ?? "",
         },
     });
 
-    useEffect(() => {
-        if (stream && form.reset) {
-            form.reset({ name: stream.name ?? "", color: stream.color ?? "#0050d1" });
-        }
-    }, [stream, form]);
-
-    const onSubmit = async (values: StreamValues) => {
+    const onEditSubmit = async (values: StreamValues) => {
         try {
-            if (isEdit) {
-                await update.mutateAsync({
-                    id: streamId!,
-                    data: { name: values.name.trim(), color: values.color },
-                });
-            } else {
-                await create.mutateAsync([{ name: values.name.trim(), color: values.color }]);
-            }
+            await update.mutateAsync({
+                id: streamId!,
+                data: { name: values.name.trim(), color: values.color },
+            });
             if (onSuccess) onSuccess();
             else router.back();
         } catch (err) {
@@ -69,58 +65,185 @@ export function StreamForm({ streamId, onSuccess }: StreamFormProps) {
         }
     };
 
+    // ── Create mode: multiple‑stream handling using useFieldArray ──
+    const createForm = useForm<{ streams: StreamValues[] }>({
+        resolver: zodResolver(
+            z.object({
+                streams: z.array(streamSchema).min(1, "At least one stream required"),
+            })
+        ),
+        defaultValues: {
+            streams: [{ name: "", color: "" }], // start with one empty entry
+        },
+    });
+
+    const { fields, remove, insert } = useFieldArray({
+        control: createForm.control,
+        name: "streams",
+    });
+
+    const onCreateSubmit = async (data: { streams: StreamValues[] }) => {
+        try {
+            await create.mutateAsync(
+                data.streams.map((s) => ({
+                    name: s.name.trim(),
+                    color: s.color ?? "",
+                }))
+            );
+            if (onSuccess) onSuccess();
+            else router.back();
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
+    const handleAddStream = () => {
+        // Insert new stream at the top
+        insert(0, { name: "", color: "" });
+    };
+
+    const handleRemoveStream = (index: number) => {
+        remove(index);
+    };
+
+    // ── UI ───────────────────────────────────────────────────────────
     if (isEdit && isLoading && !stream) {
         return <div className="text-muted-foreground">Loading stream…</div>;
     }
 
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Stream name</FormLabel>
-                            <FormControl>
-                                <Input
-                                    id="stream-name"
-                                    placeholder="e.g., Arts"
-                                    {...field}
-                                    disabled={update.isPending || create.isPending}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="color"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Color</FormLabel>
-                            <FormControl>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        id="stream-color"
-                                        type="color"
+    if (isEdit) {
+        // ---- Edit mode UI (single stream) ----
+        return (
+            <Form {...editForm}>
+                <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                    <FormField
+                        control={editForm.control}
+                        name="name"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Stream name</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        id="stream-name"
+                                        placeholder="e.g., Arts"
                                         {...field}
-                                        disabled={update.isPending || create.isPending}
-                                        className="m-0 h-6 w-7 cursor-pointer appearance-none border-0 bg-transparent p-0 [&::-moz-color-swatch]:rounded-md [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
+                                        disabled={update.isPending}
                                     />
-                                    <div className="h-7 w-full rounded-md border p-1 px-2 text-xs">
-                                        {field.value}
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={editForm.control}
+                        name="color"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Color</FormLabel>
+                                <FormControl>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            id="stream-color"
+                                            type="color"
+                                            {...field}
+                                            disabled={update.isPending}
+                                            className="m-0 h-6 w-7 cursor-pointer appearance-none border-0 bg-transparent p-0"
+                                        />
+                                        <div className="h-7 w-full rounded-md border p-1 px-2 text-xs">
+                                            {field.value}
+                                        </div>
                                     </div>
-                                </div>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <div className="flex items-center gap-2 pt-2">
+                        <Button type="submit" disabled={update.isPending}>
+                            Save changes
+                        </Button>
+                    </div>
+                </form>
+            </Form>
+        );
+    }
+
+    // ---- Create mode UI (multiple streams) ----
+    return (
+        <Form {...createForm}>
+            <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+                {/* Plus button — top right of list */}
+                <div className="flex justify-end pt-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={handleAddStream}
+                        disabled={createForm.formState.isSubmitting}
+                        aria-label="Add stream"
+                    >
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </div>
+
+                {/* Render each stream entry */}
+                {fields.map((field, index) => (
+                    <div key={field.id} className="flex items-end">
+                        <FormField
+                            control={createForm.control}
+                            name={`streams.${index}.name`}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Stream name</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            id={`stream-name-${index}`}
+                                            placeholder="e.g., Arts"
+                                            {...field}
+                                            disabled={createForm.formState.isSubmitting}
+                                            className="w-full"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={createForm.control}
+                            name={`streams.${index}.color`}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Color</FormLabel>
+                                    <FormControl>
+                                        <input
+                                            id={`stream-color-${index}`}
+                                            type="color"
+                                            {...field}
+                                            value={field.value || "#000000"}
+                                            disabled={createForm.formState.isSubmitting}
+                                            className="m-0 h-6 w-7 cursor-pointer appearance-none border-0 bg-transparent p-0"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveStream(index)}
+                            disabled={createForm.formState.isSubmitting}
+                        >
+                            <X />
+                        </Button>
+                    </div>
+                ))}
+
+                {/* Submit button */}
                 <div className="flex items-center gap-2 pt-2">
-                    <Button type="submit" disabled={update.isPending || create.isPending}>
-                        {isEdit ? "Save changes" : "Add stream"}
+                    <Button type="submit" disabled={createForm.formState.isSubmitting}>
+                        Add streams
                     </Button>
                 </div>
             </form>

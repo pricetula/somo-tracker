@@ -1,42 +1,29 @@
-# sv
+# Somotracker — Public Landing Page
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Astro + Tailwind CSS v4 marketing site. No React, minimal JS.
 
-## Creating a project
+## Placeholders to fill
 
-If you're seeing this, you've probably already done this step. Congrats!
+- `[DEADLINE]` — application close date
+- `[FORM_ENDPOINT]` — form endpoint URL (e.g. Formspree)
+- `[FOUNDER NAME]` — founder name
+- `[FOUNDER STORY]` — 2-line plain story
+- `[WHATSAPP_NUMBER_INTERNATIONAL_FORMAT]` — e.g. `2547XXXXXXXX`
+- `[PILOT_SIZE]` — number of pilot schools
+- `[POST_PILOT_PRICING_LINE]` — pricing line, or omit if undecided
+- `[NUMBER]`, `[EMAIL]` — WhatsApp and email in footer
+- Illustration slots: hero-adjacent, timetable, attendance, substitutions, founder photo
+- `public/og-wordmark.png` — Open Graph image (white/ink wordmark)
 
-```sh
-# create a new project
-npx sv create my-app
-```
+## Build notes
 
-To recreate this project with the same configuration:
+- Confirm each FeatureCards item is demo-able before launch. Remove any that are not.
+- Roadmap: only keep a feature in "Building" if it will ship by Term 1 2027; otherwise move to "Next".
+- Form endpoint must return proper JSON; progressive enhancement script handles demo mode when `[FORM_ENDPOINT]` is a placeholder.
+- Privacy Policy must cover children's data under Kenya's Data Protection Act 2019.
 
-```sh
-# recreate this project
-pnpm dlx sv@0.16.1 create --template minimal --types ts --add prettier eslint vitest="usages:unit,component" tailwindcss="plugins:typography,forms" sveltekit-adapter="adapter:auto" playwright --install pnpm public
-```
+## Performance
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+- Self-hosted Inter Variable via `@fontsource-variable/inter`
+- Total page weight target: < 500 KB
+- No render-blocking third-party scripts; add Plausible or similar only if needed.

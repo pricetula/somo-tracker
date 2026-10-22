@@ -2,8 +2,8 @@ import { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
-import { listFinance, type FinanceListItem } from "@/lib/api/finance";
-import { useDeleteFinance } from "../hooks/use-finance";
+import { useDeleteFinance, financeListQueryFn } from "../hooks/use-finance";
+import type { FinanceListItem } from "../types/finance";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -11,29 +11,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-function listFinanceWithFilters(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filters?: Record<string, string | string[]>;
-    invitation_status?: string;
-}) {
-    const invitationStatus =
-        typeof params.filters?.status === "string"
-            ? params.filters.status
-            : params.invitation_status;
-
-    return listFinance({
-        page: params.page,
-        limit: params.limit,
-        search: params.search,
-        invitation_status:
-            invitationStatus === "all" || !invitationStatus
-                ? undefined
-                : (invitationStatus as "invited" | "accepted"),
-    });
-}
 
 export function FinanceTable() {
     const { mutateAsync: deleteFinance } = useDeleteFinance();
@@ -138,7 +115,7 @@ export function FinanceTable() {
             { items: FinanceListItem[]; total?: number }
         >
             queryKey={["finance"]}
-            queryFn={listFinanceWithFilters}
+            queryFn={financeListQueryFn()}
             getRowId={(row) => row.user_id}
             columns={columns}
             isCheckable

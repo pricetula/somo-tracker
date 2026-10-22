@@ -25,6 +25,7 @@ interface ImportOrchestratorProps {
     showProgress?: boolean;
     onProgress?: (data: ProgressData) => void;
     onReset?: () => void;
+    onJobCompleted?: (jobId: string, progress: ProgressData) => void;
     isSubmitting?: boolean;
     [key: string]: unknown;
 }
@@ -43,10 +44,12 @@ export function ImportOrchestrator({
     showProgress,
     onProgress,
     onReset,
+    onJobCompleted,
 }: ImportOrchestratorProps) {
     const [importType, setImportType] = React.useState("");
     const [jobId, setJobId] = React.useState<string | null>(null);
     const [progress, setProgress] = React.useState<ProgressData | null>(null);
+    const jobCompletedRef = React.useRef<string | null>(null);
 
     const mutation = useMutation({
         mutationFn: async (rows: MappedRow[]) => await onMappedList(rows),
@@ -90,6 +93,18 @@ export function ImportOrchestrator({
         };
     }, [jobId, progressUrl, onProgress]);
 
+    React.useEffect(() => {
+        if (
+            jobId &&
+            progress &&
+            (progress.status === "COMPLETED" || progress.status === "COMPLETED_WITH_ERRORS") &&
+            jobCompletedRef.current !== jobId
+        ) {
+            jobCompletedRef.current = jobId;
+            onJobCompleted?.(jobId, progress);
+        }
+    }, [jobId, progress, onJobCompleted]);
+
     // Progress view when job is running
     if (jobId && showProgress) {
         const isDone =
@@ -98,7 +113,7 @@ export function ImportOrchestrator({
         const progressContent = progress ? (
             <div className="bg-muted rounded border p-4">
                 <div className="mb-2 font-medium">Job {jobId}</div>
-                <div className="">Status: {progress.status}</div>
+                <div>Status: {progress.status}</div>
                 <div className="mt-1">
                     {progress.succeeded} / {progress.total} succeeded
                     {progress.failed > 0 && `, ${progress.failed} failed`}
@@ -112,6 +127,30 @@ export function ImportOrchestrator({
                         }}
                     />
                 </div>
+                {isDone && progress.failed > 0 && (
+                    <div className="mt-4 space-y-2">
+                        <div className="text-foreground font-medium">Failed rows</div>
+                        <div className="text-muted-foreground text-sm">
+                            {progress.failed} row{progress.failed > 1 ? "s" : ""} failed. Per-row
+                            error details can be viewed in the job details API. Use retry per row in
+                            the full import view.
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    setJobId(null);
+                                    setProgress(null);
+                                    setImportType("");
+                                    onReset?.();
+                                }}
+                            >
+                                Retry failed rows
+                            </Button>
+                        </div>
+                    </div>
+                )}
                 {isDone && (
                     <div className="mt-4 flex gap-2">
                         <Button
@@ -131,9 +170,12 @@ export function ImportOrchestrator({
                             variant="secondary"
                             onClick={() => {
                                 setProgress(null);
+                                if (onReset) {
+                                    onReset();
+                                }
                             }}
                         >
-                            Hide progress
+                            Close
                         </Button>
                     </div>
                 )}

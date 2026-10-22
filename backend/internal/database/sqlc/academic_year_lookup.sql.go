@@ -48,3 +48,34 @@ func (q *Queries) GetLatestAcademicYearBySchool(ctx context.Context, schoolID pg
 	err := row.Scan(&i.ID, &i.StartDate)
 	return i, err
 }
+
+const getLatestTermBySchool = `-- name: GetLatestTermBySchool :one
+SELECT at.id, ay.id as academic_year_id, ay.name as academic_year_name, at.name as term_name, at.start_date, at.end_date
+FROM academic_terms at
+JOIN academic_years ay ON ay.id = at.academic_year_id
+WHERE ay.school_id = $1 AND at.start_date <= CURRENT_DATE
+ORDER BY at.start_date DESC LIMIT 1
+`
+
+type GetLatestTermBySchoolRow struct {
+	ID               pgtype.UUID `json:"id"`
+	AcademicYearID   pgtype.UUID `json:"academic_year_id"`
+	AcademicYearName string      `json:"academic_year_name"`
+	TermName         string      `json:"term_name"`
+	StartDate        pgtype.Date `json:"start_date"`
+	EndDate          pgtype.Date `json:"end_date"`
+}
+
+func (q *Queries) GetLatestTermBySchool(ctx context.Context, schoolID pgtype.UUID) (GetLatestTermBySchoolRow, error) {
+	row := q.db.QueryRow(ctx, getLatestTermBySchool, schoolID)
+	var i GetLatestTermBySchoolRow
+	err := row.Scan(
+		&i.ID,
+		&i.AcademicYearID,
+		&i.AcademicYearName,
+		&i.TermName,
+		&i.StartDate,
+		&i.EndDate,
+	)
+	return i, err
+}

@@ -7,13 +7,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+
+	"somotracker/backend/internal/database/sqlc"
 )
 
 type GenericInvitationService struct {
 	pool    *pgxpool.Pool
 	logger  *zap.Logger
+	queries *sqlc.Queries
 	jobType string
 	role    string
 }
@@ -22,6 +26,7 @@ func NewGenericInvitationService(pool *pgxpool.Pool, logger *zap.Logger, jobType
 	return &GenericInvitationService{
 		pool:    pool,
 		logger:  logger.With(zap.String("service", "invitation")),
+		queries: sqlc.New(pool),
 		jobType: jobType,
 		role:    role,
 	}
@@ -52,16 +57,33 @@ func (s *GenericInvitationService) CreateBulkJob(ctx context.Context, schoolID, 
 }
 
 func (s *GenericInvitationService) CreateBulkJobWithItems(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error) {
+	return s.CreateBulkJobWithItemsWithAuth(ctx, schoolID, tenantID, createdBy, createdBy, idempotencyKey, items)
+}
+
+// CreateBulkJobWithItemsWithAuth creates a bulk job with authorization check.
+// actorUserID is the user performing the action; createdBy is recorded as job creator.
+func (s *GenericInvitationService) CreateBulkJobWithItemsWithAuth(ctx context.Context, schoolID, tenantID, createdBy, actorUserID uuid.UUID, idempotencyKey string, items []InvitationItem) (uuid.UUID, error) {
 	if s.pool == nil {
 		return uuid.Nil, fmt.Errorf("invitation_service: pool nil")
 	}
+	// Authorization: verify actor has admin role for this school
+	hasAdmin, err := s.UserHasAdminRole(ctx, schoolID, actorUserID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("auth check failed: %w", err)
+	}
+	if !hasAdmin {
+		return uuid.Nil, NewErrForbidden("insufficient_permissions", "insufficient permissions")
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("begin_tx: %w", err)
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+				s.logger.Error("CreateBulkJobWithItems rollback failed", zap.Error(rbErr))
+			}
 		}
 	}()
 
@@ -129,6 +151,21 @@ func (s *GenericInvitationService) GetJob(ctx context.Context, jobID uuid.UUID) 
 }
 
 func (s *GenericInvitationService) GetFailedOrDeferredItems(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error) {
+	return s.GetFailedOrDeferredItemsWithAuth(ctx, jobID, uuid.Nil, uuid.Nil)
+}
+
+// GetFailedOrDeferredItemsWithAuth returns failed/deferred items with authorization check.
+// schoolID and actorUserID are used to verify the job belongs to the school and actor is admin.
+func (s *GenericInvitationService) GetFailedOrDeferredItemsWithAuth(ctx context.Context, jobID, schoolID, actorUserID uuid.UUID) ([]BulkJobItem, error) {
+	if schoolID != uuid.Nil && actorUserID != uuid.Nil {
+		hasAdmin, err := s.UserHasAdminRole(ctx, schoolID, actorUserID)
+		if err != nil {
+			return nil, fmt.Errorf("auth check failed: %w", err)
+		}
+		if !hasAdmin {
+			return nil, NewErrForbidden("insufficient_permissions", "insufficient permissions")
+		}
+	}
 	rows, err := s.pool.Query(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, COALESCE(last_error,''), created_at, updated_at FROM bulk_job_items WHERE job_id=$1 AND status IN ('FAILED','DEFERRED') ORDER BY row_index`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("get_retry_items: %w", err)
@@ -173,23 +210,38 @@ func (s *GenericInvitationService) GetItemsByJobID(ctx context.Context, jobID uu
 }
 
 func (s *GenericInvitationService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result []byte, lastError string, attempts int) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_job_items SET status=$1, result=$2, last_error=$3, attempt_count=$4, updated_at=NOW() WHERE id=$5`, status, result, lastError, attempts, itemID)
-	return err
+	return s.queries.UpdateBulkJobItem(ctx, sqlc.UpdateBulkJobItemParams{
+		ID:           pgtype.UUID{Bytes: itemID, Valid: true},
+		Status:       status,
+		Result:       result,
+		LastError:    pgtype.Text{String: lastError, Valid: lastError != ""},
+		AttemptCount: int32(attempts),
+	})
 }
 
 func (s *GenericInvitationService) UpdateItemResultOnly(ctx context.Context, itemID uuid.UUID, result []byte, status string, lastError string) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_job_items SET result=$1, status=$2, last_error=$3, updated_at=NOW() WHERE id=$4`, result, status, lastError, itemID)
-	return err
+	return s.queries.UpdateBulkJobItemResultStatus(ctx, sqlc.UpdateBulkJobItemResultStatusParams{
+		ID:        pgtype.UUID{Bytes: itemID, Valid: true},
+		Result:    result,
+		Status:    status,
+		LastError: pgtype.Text{String: lastError, Valid: lastError != ""},
+	})
 }
 
 func (s *GenericInvitationService) UpdateJobStatus(ctx context.Context, jobID uuid.UUID, status string) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_jobs SET status=$1, updated_at=NOW() WHERE id=$2`, status, jobID)
-	return err
+	return s.queries.UpdateBulkJobStatus(ctx, sqlc.UpdateBulkJobStatusParams{
+		ID:     pgtype.UUID{Bytes: jobID, Valid: true},
+		Status: status,
+	})
 }
 
 func (s *GenericInvitationService) IncrementJobCounters(ctx context.Context, jobID uuid.UUID, succeeded, failed, deferred int) error {
-	_, err := s.pool.Exec(ctx, `UPDATE bulk_jobs SET succeeded_count = succeeded_count + $1, failed_count = failed_count + $2, deferred_count = deferred_count + $3, updated_at = NOW() WHERE id=$4`, succeeded, failed, deferred, jobID)
-	return err
+	return s.queries.IncrementBulkJobCounts(ctx, sqlc.IncrementBulkJobCountsParams{
+		ID:             pgtype.UUID{Bytes: jobID, Valid: true},
+		SucceededCount: int32(succeeded),
+		FailedCount:    int32(failed),
+		DeferredCount:  int32(deferred),
+	})
 }
 
 func (s *GenericInvitationService) GetJobByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*BulkJob, error) {
@@ -227,7 +279,11 @@ func (s *GenericInvitationService) ProvisionInvitee(ctx context.Context, tenantI
 	if err != nil {
 		return fmt.Errorf("provision_invitee begin tx: %w", err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			s.logger.Error("provision_invitee rollback failed", zap.Error(rbErr))
+		}
+	}()
 	var userID uuid.UUID
 	err = tx.QueryRow(ctx, `INSERT INTO users (email, full_name, external_auth_id, tenant_id) VALUES ($1,$2,$3,$4) ON CONFLICT (tenant_id, email) DO UPDATE SET external_auth_id = COALESCE(users.external_auth_id,$3), full_name = COALESCE(users.full_name,$2) RETURNING id`, email, fullName, stytchMemberID, tenantID).Scan(&userID)
 	if err != nil {

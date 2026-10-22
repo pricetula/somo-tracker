@@ -29,7 +29,7 @@ func NewGradesService(pool *pgxpool.Pool, queries *sqlc.Queries, logger *zap.Log
 
 func (s *gradesService) GetGradeLevels(ctx context.Context, schoolID string) ([]sqlc.GradeLevel, error) {
 	if schoolID == "" {
-		return nil, fmt.Errorf("bad_request: school_id is required")
+		return nil, BadRequest("school_id is required")
 	}
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, education_system_id, country_id, tier_stage, local_label, sequence_index, created_at, updated_at

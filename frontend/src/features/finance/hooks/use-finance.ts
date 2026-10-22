@@ -5,13 +5,37 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteFinance } from "@/lib/api/finance";
+import { deleteFinance, listFinance } from "@/lib/api/finance";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
 export const financeKeys = {
     list: ["finance"] as const,
 };
+
+export function financeListQueryFn() {
+    return (params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        filters?: Record<string, string | string[]>;
+        invitation_status?: string;
+    }) => {
+        const invitationStatus =
+            typeof params.filters?.status === "string"
+                ? params.filters.status
+                : params.invitation_status;
+        return listFinance({
+            page: params.page,
+            limit: params.limit,
+            search: params.search,
+            invitation_status:
+                invitationStatus === "all" || !invitationStatus
+                    ? undefined
+                    : (invitationStatus as "invited" | "accepted"),
+        });
+    };
+}
 
 export function useDeleteFinance() {
     const queryClient = useQueryClient();

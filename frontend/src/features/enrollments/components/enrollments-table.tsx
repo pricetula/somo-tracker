@@ -4,8 +4,7 @@ import { useMemo } from "react";
 import { MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
-import { listByClass } from "../services/api";
-import { useDeleteEnrollment } from "../hooks/use-enrollments";
+import { useDeleteEnrollment, enrollmentsListQueryFn } from "../hooks/use-enrollments";
 import type { Enrollment } from "../types/enrollment";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,7 +84,7 @@ export function EnrollmentsTable({ classId }: { classId: string }) {
             { items: Enrollment[]; total: number }
         >
             queryKey={["enrollments", classId]}
-            queryFn={(params) => listByClass(classId, params)}
+            queryFn={enrollmentsListQueryFn(classId)}
             getRowId={(row) => row.id}
             columns={columns}
             isCheckable

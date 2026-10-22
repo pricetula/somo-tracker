@@ -13,18 +13,17 @@ import (
 	"somotracker/backend/internal/api/middleware/ratelimit"
 	"somotracker/backend/internal/api/middleware/session"
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/database/sqlc"
 	"somotracker/backend/internal/services"
-	sessionpkg "somotracker/backend/internal/session"
-	"somotracker/backend/internal/stytch"
 )
 
 // Rate limit tiers for auth endpoints.
 // IP-based: first line of defense against distributed attacks.
 // Email-based: stricter limit to prevent email bombing/enumeration.
 var (
-	authRateIP     = redis_rate.PerMinute(10) // 10 req/min per IP
-	authRateEmail  = redis_rate.PerHour(3)    // 3 req/hour per email
-	bulkInviteRate = redis_rate.PerHour(5)    // 5 bulk invites per hour per tenant
+	authRateIP     = redis_rate.PerMinute(5) // 5 req/min per IP
+	authRateEmail  = redis_rate.PerHour(3)   // 3 req/hour per email
+	bulkInviteRate = redis_rate.PerHour(5)   // 5 bulk invites per hour per tenant
 )
 
 // Router wires all delivery-layer routes. It depends only on the service
@@ -52,13 +51,15 @@ type Router struct {
 	Timetable              *TimetableHandler
 	TimetableSubstitutions *TimetableSubstitutionsHandler
 	Attendance             *AttendanceHandler
+	AttendanceReports      *AttendanceReportsHandler
 	Events                 *EventsHandler
 	Rooms                  *RoomsHandler
 	Enrollments            *EnrollmentsHandler
+	UserCounts             *UserCountsHandler
 	Curriculum             services.CurriculumService
 	limiter                *redis_rate.Limiter
 	cfg                    *config.Config
-	stytchClient           *stytch.Client
+	pool                   *pgxpool.Pool
 }
 
 // NewRouter creates a Router from the injected services and the Redis
@@ -83,32 +84,38 @@ func NewRouter(
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 	pool *pgxpool.Pool,
-	stytchClient *stytch.Client,
 ) *Router {
+	queries := sqlc.New(pool)
 	return &Router{
-		Auth:               newAuthHandler(authSvc, cfg),
-		Me:                 newMeHandler(meSvc),
-		School:             NewSchoolHandler(&schoolSvc, stytchClient, pool),
-		SchoolCreate:       NewSchoolCreateHandler(&schoolSvc),
-		AcademicPeriod:     NewAcademicPeriodHandler(academicSvc),
-		Streams:            NewStreamsHandler(streamsSvc),
-		Grades:             NewGradesHandler(gradesSvc),
-		Classes:            NewClassesHandler(classesSvc, zap.L()),
-		Admins:             NewAdminsHandler(adminsSvc, zap.L()),
-		Teachers:           NewTeachersHandler(teachersSvc, zap.L()),
-		Finance:            NewFinanceHandler(financeSvc, zap.L()),
-		Guardians:          NewGuardiansHandler(guardiansSvc, zap.L()),
-		Timetable:          NewTimetableHandler(timetableSvc, zap.L()),
-		Attendance:         NewAttendanceHandler(attendanceSvc, zap.L()),
-		Events:             NewEventsHandler(services.NewEventsService(pool), zap.L()),
-		Rooms:              NewRoomsHandler(roomsSvc),
-		Curriculum:         curriculumSvc,
-		AdminInvitation:    nil,
-		TeacherInvitation:  nil,
-		FinanceInvitation:  nil,
-		GuardianInvitation: nil,
-		limiter:            limiter,
-		cfg:                cfg,
+		Auth:                   newAuthHandler(authSvc, cfg),
+		Me:                     newMeHandler(meSvc),
+		School:                 NewSchoolHandler(&schoolSvc),
+		SchoolCreate:           NewSchoolCreateHandler(&schoolSvc),
+		AcademicPeriod:         NewAcademicPeriodHandler(academicSvc),
+		Streams:                NewStreamsHandler(streamsSvc),
+		Grades:                 NewGradesHandler(gradesSvc),
+		Classes:                NewClassesHandler(classesSvc, zap.L()),
+		Admins:                 NewAdminsHandler(adminsSvc, zap.L()),
+		Teachers:               NewTeachersHandler(teachersSvc, zap.L()),
+		Finance:                NewFinanceHandler(financeSvc, zap.L()),
+		Guardians:              NewGuardiansHandler(guardiansSvc, zap.L()),
+		Timetable:              NewTimetableHandler(timetableSvc, zap.L()),
+		TimetableSubstitutions: NewTimetableSubstitutionsHandler(services.NewTimetableSubstitutionsService(queries), zap.L()),
+		Attendance:             NewAttendanceHandler(attendanceSvc, zap.L()),
+		Events:                 NewEventsHandler(services.NewEventsService(pool), zap.L()),
+		Rooms:                  NewRoomsHandler(roomsSvc),
+		UserCounts:             NewUserCountsHandler(services.NewUserCountsService(pool, zap.L())),
+		Enrollments:            NewEnrollmentsHandler(services.NewEnrollmentsService(queries, zap.L()), zap.L()),
+		Students:               NewStudentsHandler(services.NewStudentsService(queries), timetableSvc, zap.L()),
+		StudentsImport:         nil, // requires Asynq/Redis, wired in newFiberApp
+		Curriculum:             curriculumSvc,
+		AdminInvitation:        nil,
+		TeacherInvitation:      nil,
+		FinanceInvitation:      nil,
+		GuardianInvitation:     nil,
+		limiter:                limiter,
+		cfg:                    cfg,
+		pool:                   pool,
 	}
 }
 
@@ -121,8 +128,12 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 
 	// CAPTCHA middleware for abuse-prone endpoints.
 	// Reads config to determine if enabled and which provider to use.
+	captchaEnabled := r.cfg.CAPTCHAEnabled
+	if r.cfg.Environment == "production" {
+		captchaEnabled = true
+	}
 	captchaMW := captcha.NewCaptchaMiddleware(captcha.Config{
-		Enabled:        r.cfg.CAPTCHAEnabled,
+		Enabled:        captchaEnabled,
 		ProviderName:   r.cfg.CAPTCHAProvider,
 		SiteKey:        r.cfg.CAPTCHASiteKey,
 		SecretKey:      r.cfg.CAPTCHASecretKey,
@@ -134,9 +145,9 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// inheriting middleware from the protected group below.
 
 	// Magic-link send: dual rate limits (IP + email) + optional CAPTCHA
-	// IP limit: 10/min — catches distributed botnets
+	// IP limit: 5/min — catches distributed botnets
 	// Email limit: 3/hour — prevents email bombing/enumeration per address
-	// CAPTCHA: enabled via config (disabled by default for local dev)
+	// CAPTCHA: required in production, optional in dev via config
 	app.Post("/api/auth/magic-link/send",
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRateIP, "api:auth:magic-link:ip"),
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRateEmail, "api:auth:magic-link:email"),
@@ -168,8 +179,6 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// Protected resources — session middleware validates session cookie,
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
 	// CSRF middleware validates double-submit token on mutating requests.
-	r.School.session = sessionpkg.NewStore(redisClient)
-	r.SchoolCreate.session = sessionpkg.NewStore(redisClient)
 
 	// Initialize the admin invitation handler.
 	// Handler is pre-configured in newFiberApp with service/stytch/asynq dependencies.
@@ -177,18 +186,20 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/me", r.Me.getMe)
 	protected.Post("/school/register", r.School.RegisterSchool)
 	protected.Get("/schools", r.School.ListSchools)
+	protected.Get("/school/users/count", r.UserCounts.GetUserCounts)
 	protected.Post("/school", r.SchoolCreate.CreateSchool)
 	protected.Post("/school/set-active", r.School.SetActiveSchool)
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
-	protected.Get("/school/streams", r.Streams.ListStreams)
-	protected.Post("/school/streams", r.Streams.CreateStreams)
-	protected.Get("/school/streams/:id", r.Streams.GetStream)
-	protected.Patch("/school/streams/:id", r.Streams.UpdateStream)
-	protected.Post("/school/streams/delete", r.Streams.DeleteStreams)
-	protected.Get("/school/grades", r.Grades.GetGrades)
-	protected.Get("/school/classes", r.Classes.ListClasses)
-	protected.Get("/school/classes/:id", r.Classes.GetClass)
-	protected.Post("/school/classes", r.Classes.CreateClass)
+	protected.Get("/school/academic-period", r.AcademicPeriod.ListAcademicPeriods)
+	protected.Get("/streams", r.Streams.ListStreams)
+	protected.Post("/streams", r.Streams.CreateStreams)
+	protected.Get("/streams/:id", r.Streams.GetStream)
+	protected.Patch("/streams/:id", r.Streams.UpdateStream)
+	protected.Post("/streams/delete", r.Streams.DeleteStreams)
+	protected.Get("/grades", r.Grades.GetGrades)
+	protected.Get("/classes", r.Classes.ListClasses)
+	protected.Get("/classes/:id", r.Classes.GetClass)
+	protected.Post("/classes", r.Classes.CreateClass)
 	protected.Get("/timetable/templates", r.Timetable.ListTemplates)
 	protected.Get("/timetable/templates/:id", r.Timetable.GetTemplate)
 	protected.Patch("/timetable/templates/:id", r.Timetable.UpdateTemplate)
@@ -207,6 +218,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/admins", r.Admins.ListAdmins)
 	protected.Delete("/admins", r.Admins.DeleteAdmins)
 	protected.Get("/teachers", r.Teachers.ListTeachers)
+	protected.Get("/teachers/:id", r.Teachers.GetTeacher)
 	protected.Get("/teachers/summary", r.Teachers.GetTeacherSummary)
 	protected.Delete("/teachers", r.Teachers.DeleteTeachers)
 	protected.Get("/finance", r.Finance.ListFinance)
@@ -218,11 +230,11 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Post("/events", r.Events.CreateEvent)
 	protected.Patch("/events/:id", r.Events.UpdateEvent)
 	protected.Delete("/events/:id", r.Events.DeleteEvent)
-	protected.Get("/school/rooms", r.Rooms.ListRooms)
-	protected.Post("/school/rooms", r.Rooms.CreateRoom)
-	protected.Get("/school/rooms/:id", r.Rooms.GetRoom)
-	protected.Patch("/school/rooms", r.Rooms.UpdateRoom)
-	protected.Delete("/school/rooms/:id", r.Rooms.DeleteRoom)
+	protected.Get("/rooms", r.Rooms.ListRooms)
+	protected.Post("/rooms", r.Rooms.CreateRoom)
+	protected.Get("/rooms/:id", r.Rooms.GetRoom)
+	protected.Patch("/rooms", r.Rooms.UpdateRoom)
+	protected.Delete("/rooms/:id", r.Rooms.DeleteRoom)
 
 	// Enrollments
 	protected.Post("/classes/:id/enrollments", r.Enrollments.CreateEnrollments)
@@ -231,32 +243,47 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Patch("/enrollments/:id", r.Enrollments.UpdateEnrollment)
 	protected.Delete("/enrollments/:id", r.Enrollments.DeleteEnrollment)
 
-	protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
-	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
-	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)
-	protected.Get("/admins/invitations/jobs/:job_id/events", r.AdminInvitation.Events)
+	if r.AdminInvitation != nil {
+		protected.Post("/admins/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:admin:invite:tenant"), r.AdminInvitation.HandleInvites)
+		protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
+		protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)
+		protected.Get("/admins/invitations/jobs/:job_id/events", r.AdminInvitation.Events)
+	}
 	// Teacher invitations
-	protected.Post("/teachers/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:teacher:invite:tenant"), r.TeacherInvitation.HandleInvites)
-	protected.Get("/teachers/invitations/jobs/:job_id", r.TeacherInvitation.GetJob)
-	protected.Post("/teachers/invitations/jobs/:job_id/retry-failed", r.TeacherInvitation.RetryFailed)
-	protected.Get("/teachers/invitations/jobs/:job_id/events", r.TeacherInvitation.Events)
+	if r.TeacherInvitation != nil {
+		protected.Post("/teachers/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:teacher:invite:tenant"), r.TeacherInvitation.HandleInvites)
+		protected.Get("/teachers/invitations/jobs/:job_id", r.TeacherInvitation.GetJob)
+		protected.Post("/teachers/invitations/jobs/:job_id/retry-failed", r.TeacherInvitation.RetryFailed)
+		protected.Get("/teachers/invitations/jobs/:job_id/events", r.TeacherInvitation.Events)
+	}
 	// Finance invitations
-	protected.Post("/finance/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:finance:invite:tenant"), r.FinanceInvitation.HandleInvites)
-	protected.Get("/finance/invitations/jobs/:job_id", r.FinanceInvitation.GetJob)
-	protected.Post("/finance/invitations/jobs/:job_id/retry-failed", r.FinanceInvitation.RetryFailed)
-	protected.Get("/finance/invitations/jobs/:job_id/events", r.FinanceInvitation.Events)
+	if r.FinanceInvitation != nil {
+		protected.Post("/finance/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:finance:invite:tenant"), r.FinanceInvitation.HandleInvites)
+		protected.Get("/finance/invitations/jobs/:job_id", r.FinanceInvitation.GetJob)
+		protected.Post("/finance/invitations/jobs/:job_id/retry-failed", r.FinanceInvitation.RetryFailed)
+		protected.Get("/finance/invitations/jobs/:job_id/events", r.FinanceInvitation.Events)
+	}
 	// Guardian invitations
-	protected.Post("/guardians/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:guardian:invite:tenant"), r.GuardianInvitation.HandleInvites)
-	protected.Get("/guardians/invitations/jobs/:job_id", r.GuardianInvitation.GetJob)
-	protected.Post("/guardians/invitations/jobs/:job_id/retry-failed", r.GuardianInvitation.RetryFailed)
-	protected.Get("/guardians/invitations/jobs/:job_id/events", r.GuardianInvitation.Events)
+	if r.GuardianInvitation != nil {
+		protected.Post("/guardians/invitations", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:guardian:invite:tenant"), r.GuardianInvitation.HandleInvites)
+		protected.Get("/guardians/invitations/jobs/:job_id", r.GuardianInvitation.GetJob)
+		protected.Post("/guardians/invitations/jobs/:job_id/retry-failed", r.GuardianInvitation.RetryFailed)
+		protected.Get("/guardians/invitations/jobs/:job_id/events", r.GuardianInvitation.Events)
+	}
 	// Students bulk import
-	protected.Post("/students/add", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:student:import:tenant"), r.StudentsImport.HandleImport)
-	protected.Get("/students/jobs/:job_id", r.StudentsImport.GetJob)
-	protected.Get("/students/jobs/:job_id/events", r.StudentsImport.Events)
+	if r.StudentsImport != nil {
+		protected.Post("/students/add", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:student:import:tenant"), r.StudentsImport.HandleImport)
+		protected.Get("/students/jobs/:job_id", r.StudentsImport.GetJob)
+		protected.Get("/students/jobs/:job_id/items", r.StudentsImport.GetItems)
+		protected.Get("/students/jobs/:job_id/events", r.StudentsImport.Events)
+	}
 	// Students listing
 	protected.Get("/students", r.Students.ListStudents)
 	protected.Get("/students/summary", r.Students.GetStudentSummary)
+	protected.Get("/students/:id", r.Students.GetStudent)
+	protected.Get("/students/:id/timetable", r.Students.GetStudentTimetable)
+	protected.Get("/attendance/reports", r.AttendanceReports.ListStudentTermStats)
+	protected.Patch("/students/:id", r.Students.UpdateStudent)
 	protected.Delete("/students", r.Students.DeleteStudents)
 
 	// Subjects list for data table with infinite pagination

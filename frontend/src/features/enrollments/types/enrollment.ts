@@ -1,5 +1,11 @@
 export type EnrollmentStatus = "ACTIVE" | "PROMOTED" | "REPEATING" | "GRADUATED";
 
+export interface UnassignedStudent {
+    student_id: string;
+    full_name: string;
+    admission_number: string;
+}
+
 export interface Enrollment {
     id: string;
     student_id: string;

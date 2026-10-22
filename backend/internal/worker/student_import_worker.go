@@ -53,7 +53,9 @@ func (p *StudentImportProcessor) ProcessTask(ctx context.Context, task *asynq.Ta
 
 	p.logger.Info("processing student batch", zap.String("job_id", payload.JobID), zap.Int("batch_index", payload.BatchIndex), zap.Int("item_count", len(payload.ItemIDs)))
 
-	_ = p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING")
+	if err := p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING"); err != nil {
+		p.logger.Warn("failed to update job status to PROCESSING", zap.String("job_id", jobID.String()), zap.Error(err))
+	}
 
 	const workerConcurrency = 10
 	sem := make(chan struct{}, workerConcurrency)
@@ -95,8 +97,12 @@ func (p *StudentImportProcessor) processSingleItem(ctx context.Context, jobID, i
 
 	var payload StudentItemPayload
 	if err := json.Unmarshal(item.Payload, &payload); err != nil {
-		_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid payload", attempts)
-		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
+		if updErr := p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid payload", attempts); updErr != nil {
+			p.logger.Error("failed to update item status to FAILED", zap.Error(updErr), zap.String("item_id", itemID.String()))
+		}
+		if cntErr := p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0); cntErr != nil {
+			p.logger.Error("failed to increment job counters", zap.Error(cntErr), zap.String("job_id", jobID.String()))
+		}
 		return
 	}
 
@@ -106,37 +112,64 @@ func (p *StudentImportProcessor) processSingleItem(ctx context.Context, jobID, i
 	// Parse date
 	dob, err := services.ParseDate(payload.DateOfBirth)
 	if err != nil {
-		_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid date", attempts)
-		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
+		if updErr := p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "invalid date", attempts); updErr != nil {
+			p.logger.Error("failed to update item status to FAILED", zap.Error(updErr), zap.String("item_id", itemID.String()))
+		}
+		if cntErr := p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0); cntErr != nil {
+			p.logger.Error("failed to increment job counters", zap.Error(cntErr), zap.String("job_id", jobID.String()))
+		}
 		return
 	}
 
 	job, err := p.svc.GetJob(ctx, jobID)
 	if err != nil || job == nil {
-		_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "job not found", attempts)
-		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
+		if updErr := p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "job not found", attempts); updErr != nil {
+			p.logger.Error("failed to update item status to FAILED", zap.Error(updErr), zap.String("item_id", itemID.String()))
+		}
+		if cntErr := p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0); cntErr != nil {
+			p.logger.Error("failed to increment job counters", zap.Error(cntErr), zap.String("job_id", jobID.String()))
+		}
 		return
 	}
 
-	metadataBytes, _ := json.Marshal(payload.Metadata)
+	metadataBytes, err := json.Marshal(payload.Metadata)
+	if err != nil {
+		p.logger.Warn("failed to marshal metadata", zap.Error(err), zap.String("item_id", itemID.String()))
+		metadataBytes = []byte("{}")
+	}
 
 	err = p.svc.InsertStudent(ctx, job.SchoolID, payload.AdmissionNumber, payload.FullName, dob, gender, metadataBytes)
 	if err != nil {
 		// Check for unique violation
 		if isUniqueViolation(err) {
-			_ = p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "admission_number already exists", attempts)
-			_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0)
+			if updErr := p.svc.UpdateItemStatus(ctx, itemID, "FAILED", nil, "admission_number already exists", attempts); updErr != nil {
+				p.logger.Error("failed to update item status to FAILED", zap.Error(updErr), zap.String("item_id", itemID.String()))
+			}
+			if cntErr := p.svc.IncrementJobCounters(ctx, jobID, 0, 1, 0); cntErr != nil {
+				p.logger.Error("failed to increment job counters", zap.Error(cntErr), zap.String("job_id", jobID.String()))
+			}
 			return
 		}
 		// Transient? Mark deferred
-		_ = p.svc.UpdateItemStatus(ctx, itemID, "DEFERRED", nil, err.Error(), attempts)
-		_ = p.svc.IncrementJobCounters(ctx, jobID, 0, 0, 1)
+		if updErr := p.svc.UpdateItemStatus(ctx, itemID, "DEFERRED", nil, err.Error(), attempts); updErr != nil {
+			p.logger.Error("failed to update item status to DEFERRED", zap.Error(updErr), zap.String("item_id", itemID.String()))
+		}
+		if cntErr := p.svc.IncrementJobCounters(ctx, jobID, 0, 0, 1); cntErr != nil {
+			p.logger.Error("failed to increment job counters", zap.Error(cntErr), zap.String("job_id", jobID.String()))
+		}
 		return
 	}
 
-	result, _ := json.Marshal(map[string]string{"admission_number": payload.AdmissionNumber})
-	_ = p.svc.UpdateItemStatus(ctx, itemID, "SUCCEEDED", result, "", attempts)
-	_ = p.svc.IncrementJobCounters(ctx, jobID, 1, 0, 0)
+	result, err := json.Marshal(map[string]string{"admission_number": payload.AdmissionNumber})
+	if err != nil {
+		p.logger.Warn("failed to marshal result", zap.Error(err), zap.String("item_id", itemID.String()))
+	}
+	if updErr := p.svc.UpdateItemStatus(ctx, itemID, "SUCCEEDED", result, "", attempts); updErr != nil {
+		p.logger.Error("failed to update item status to SUCCEEDED", zap.Error(updErr), zap.String("item_id", itemID.String()))
+	}
+	if cntErr := p.svc.IncrementJobCounters(ctx, jobID, 1, 0, 0); cntErr != nil {
+		p.logger.Error("failed to increment job counters", zap.Error(cntErr), zap.String("job_id", jobID.String()))
+	}
 }
 
 func isUniqueViolation(err error) bool {
@@ -167,12 +200,18 @@ func (p *StudentImportProcessor) publishProgress(ctx context.Context, jobID uuid
 	if err != nil || job == nil {
 		return
 	}
-	data, _ := json.Marshal(map[string]interface{}{
+	data, err := json.Marshal(map[string]interface{}{
 		"status":    job.Status,
 		"succeeded": job.SucceededCount,
 		"failed":    job.FailedCount,
 		"deferred":  job.DeferredCount,
 		"total":     job.TotalRecords,
 	})
-	_ = p.redis.Publish(ctx, "bulk_progress_"+jobID.String(), string(data)).Err()
+	if err != nil {
+		p.logger.Warn("failed to marshal progress data", zap.Error(err), zap.String("job_id", jobID.String()))
+		return
+	}
+	if err := p.redis.Publish(ctx, "bulk_progress_"+jobID.String(), string(data)).Err(); err != nil {
+		p.logger.Warn("redis progress publish failed", zap.Error(err), zap.String("job_id", jobID.String()))
+	}
 }

@@ -1,13 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { MoreVertical } from "lucide-react";
 import Link from "next/link";
-import { getClass } from "../services/api";
 import type { ClassDetail } from "../types/class";
 import { DataTable } from "@/components/shared/data-table/data-table";
-import { listByClass } from "@/features/enrollments/services/api";
-import { useDeleteEnrollment } from "@/features/enrollments/hooks/use-enrollments";
+import { useClass } from "../hooks/use-classes";
+import {
+    useDeleteEnrollment,
+    enrollmentsListQueryFn,
+} from "@/features/enrollments/hooks/use-enrollments";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -21,10 +22,7 @@ interface ClassDetailProps {
 }
 
 export function ClassDetail({ id }: ClassDetailProps) {
-    const { data: detail, isLoading } = useQuery({
-        queryKey: ["class", id],
-        queryFn: () => getClass(id),
-    });
+    const { data: detail, isLoading } = useClass(id);
 
     const { mutateAsync: deleteEnrollment } = useDeleteEnrollment(id);
 
@@ -75,9 +73,7 @@ export function ClassDetail({ id }: ClassDetailProps) {
                     { items: unknown[]; total: number }
                 >
                     queryKey={["enrollments", id]}
-                    queryFn={(params) =>
-                        listByClass(id, { page: params.page ?? 1, limit: params.limit ?? 50 })
-                    }
+                    queryFn={enrollmentsListQueryFn(id)}
                     params={{}}
                     getRowId={(row) => row.id}
                     pageSize={10}
@@ -142,6 +138,33 @@ export function ClassDetail({ id }: ClassDetailProps) {
                         </div>
                     }
                 />
+            </div>
+
+            <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Teacher Assignments</h2>
+                <div className="text-muted-foreground text-sm">
+                    Teacher assignments are managed via the timetable. View the class timetable for
+                    details.
+                </div>
+                <Link
+                    href={`/timetable?classId=${id}`}
+                    className="text-primary underline underline-offset-4"
+                >
+                    View Timetable
+                </Link>
+            </div>
+
+            <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Timetable</h2>
+                <div className="text-muted-foreground text-sm">
+                    Class timetable slots are managed in the timetable module.
+                </div>
+                <Link
+                    href={`/timetable?classId=${id}`}
+                    className="text-primary underline underline-offset-4"
+                >
+                    Open Timetable
+                </Link>
             </div>
         </div>
     );

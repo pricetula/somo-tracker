@@ -13,7 +13,7 @@ import (
 func TestSchoolRegistration_ValidationErrors(t *testing.T) {
 	svc := NewSchoolService(nil, zap.NewNop())
 
-	_, err := svc.RegisterSchool(context.Background(), "", "t1", "Alice", "School")
+	_, err := svc.RegisterSchool(context.Background(), "", "t1", "Alice", "School", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bad_request")
 }
@@ -25,7 +25,7 @@ func TestSchoolRegistration_TransactionalFlow_RealDB(t *testing.T) {
 	svc := NewSchoolService(pool, zap.NewNop())
 
 	// The service validates inputs before any DB interaction.
-	_, err := svc.RegisterSchool(context.Background(), "bad-user", "bad-tenant", "", "School")
+	_, err := svc.RegisterSchool(context.Background(), "bad-user", "bad-tenant", "", "School", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bad_request")
 }
@@ -37,7 +37,7 @@ func TestCreateSchoolWithSetup_RealDB(t *testing.T) {
 	svc := NewSchoolService(pool, zap.NewNop())
 
 	// Without admin membership this should return forbidden
-	_, err := svc.CreateSchoolWithSetup(context.Background(), "non-admin-user-id", "some-tenant", "Test School")
+	_, err := svc.CreateSchoolWithSetup(context.Background(), "non-admin-user-id", "some-tenant", "Test School", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forbidden")
 }
@@ -81,7 +81,7 @@ func TestCreateSchoolWithSetup_VerifyAllDBTables(t *testing.T) {
 
 	schoolName := "Verification School"
 
-	schoolID, err := svc.CreateSchoolWithSetup(context.Background(), userID, tenantID, schoolName)
+	schoolID, err := svc.CreateSchoolWithSetup(context.Background(), userID, tenantID, schoolName, "")
 	require.NoError(t, err, "CreateSchoolWithSetup should succeed with admin user")
 	require.NotEmpty(t, schoolID)
 

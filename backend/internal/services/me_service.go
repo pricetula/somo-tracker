@@ -66,10 +66,10 @@ WHERE
 
 func (s *meService) GetCurrentUser(ctx context.Context, token string, tenantID string) (MeResult, error) {
 	if token == "" {
-		return MeResult{}, fmt.Errorf("bad_request: missing session token")
+		return MeResult{}, BadRequest("missing session token")
 	}
 	if tenantID == "" {
-		return MeResult{}, fmt.Errorf("bad_request: missing tenant context")
+		return MeResult{}, BadRequest("missing tenant context")
 	}
 
 	var result MeResult

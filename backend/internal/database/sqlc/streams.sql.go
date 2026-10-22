@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countStreamsBySchool = `-- name: CountStreamsBySchool :one
+SELECT COUNT(*) FROM streams WHERE school_id = $1
+`
+
+func (q *Queries) CountStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countStreamsBySchool, schoolID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createStream = `-- name: CreateStream :one
 INSERT INTO streams (school_id, name, color)
 VALUES ($1, $2, $3)
@@ -66,6 +77,43 @@ SELECT id, school_id, name, color, created_at, updated_at FROM streams WHERE sch
 
 func (q *Queries) ListStreamsBySchool(ctx context.Context, schoolID pgtype.UUID) ([]Stream, error) {
 	rows, err := q.db.Query(ctx, listStreamsBySchool, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Stream
+	for rows.Next() {
+		var i Stream
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchoolID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStreamsBySchoolPaginated = `-- name: ListStreamsBySchoolPaginated :many
+SELECT id, school_id, name, color, created_at, updated_at FROM streams WHERE school_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+`
+
+type ListStreamsBySchoolPaginatedParams struct {
+	SchoolID pgtype.UUID `json:"school_id"`
+	Limit    int32       `json:"limit"`
+	Offset   int32       `json:"offset"`
+}
+
+func (q *Queries) ListStreamsBySchoolPaginated(ctx context.Context, arg ListStreamsBySchoolPaginatedParams) ([]Stream, error) {
+	rows, err := q.db.Query(ctx, listStreamsBySchoolPaginated, arg.SchoolID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

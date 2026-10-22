@@ -30,13 +30,13 @@ export async function listClasses(params: {
     }
 
     const res = await api.get<{ items: ClassListItem[]; total: number }>(
-        `/api/school/classes?${query.toString()}`
+        `/api/classes?${query.toString()}`
     );
     return res;
 }
 
 export async function getClass(id: string): Promise<ClassDetail | null> {
-    const res = await api.get<ClassDetail>(`/api/school/classes/${id}`);
+    const res = await api.get<ClassDetail>(`/api/classes/${id}`);
     return res ?? null;
 }
 
@@ -45,6 +45,6 @@ export async function createClass(data: {
     gradeId: string;
     streamId?: string;
 }): Promise<ClassListItem> {
-    const res = await api.post<ClassListItem>(`/api/school/classes`, data);
+    const res = await api.post<ClassListItem>(`/api/classes`, data);
     return res;
 }

@@ -11,6 +11,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countClassRoomsBySchoolAndYear = `-- name: CountClassRoomsBySchoolAndYear :one
+SELECT COUNT(*) FROM class_rooms WHERE school_id = $1 AND academic_year_id = $2
+`
+
+type CountClassRoomsBySchoolAndYearParams struct {
+	SchoolID       pgtype.UUID `json:"school_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+}
+
+func (q *Queries) CountClassRoomsBySchoolAndYear(ctx context.Context, arg CountClassRoomsBySchoolAndYearParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countClassRoomsBySchoolAndYear, arg.SchoolID, arg.AcademicYearID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getCurrentAcademicYearBySchool = `-- name: GetCurrentAcademicYearBySchool :one
 SELECT id FROM academic_years WHERE school_id = $1 ORDER BY start_date DESC LIMIT 1
 `
@@ -20,4 +36,106 @@ func (q *Queries) GetCurrentAcademicYearBySchool(ctx context.Context, schoolID p
 	var id pgtype.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listClassEnrollmentsSummaryBySchoolAndYear = `-- name: ListClassEnrollmentsSummaryBySchoolAndYear :many
+SELECT 
+  cr.id as class_id,
+  cr.name as class_name,
+  gl.local_label as grade,
+  s.name as stream,
+  COUNT(sce.id) FILTER (WHERE sce.status = 'ACTIVE') as student_count
+FROM class_rooms cr
+JOIN grade_levels gl ON gl.id = cr.grade_level_id
+LEFT JOIN streams s ON s.id = cr.stream_id
+LEFT JOIN student_class_enrollments sce 
+  ON sce.class_room_id = cr.id 
+  AND sce.academic_year_id = $2 
+  AND sce.status = 'ACTIVE'
+WHERE cr.school_id = $1 AND cr.academic_year_id = $2
+GROUP BY cr.id, cr.name, gl.local_label, s.name
+`
+
+type ListClassEnrollmentsSummaryBySchoolAndYearParams struct {
+	SchoolID       pgtype.UUID `json:"school_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+}
+
+type ListClassEnrollmentsSummaryBySchoolAndYearRow struct {
+	ClassID      pgtype.UUID `json:"class_id"`
+	ClassName    string      `json:"class_name"`
+	Grade        string      `json:"grade"`
+	Stream       pgtype.Text `json:"stream"`
+	StudentCount int64       `json:"student_count"`
+}
+
+func (q *Queries) ListClassEnrollmentsSummaryBySchoolAndYear(ctx context.Context, arg ListClassEnrollmentsSummaryBySchoolAndYearParams) ([]ListClassEnrollmentsSummaryBySchoolAndYearRow, error) {
+	rows, err := q.db.Query(ctx, listClassEnrollmentsSummaryBySchoolAndYear, arg.SchoolID, arg.AcademicYearID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClassEnrollmentsSummaryBySchoolAndYearRow
+	for rows.Next() {
+		var i ListClassEnrollmentsSummaryBySchoolAndYearRow
+		if err := rows.Scan(
+			&i.ClassID,
+			&i.ClassName,
+			&i.Grade,
+			&i.Stream,
+			&i.StudentCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClassRoomsBySchoolAndYear = `-- name: ListClassRoomsBySchoolAndYear :many
+SELECT cr.id, cr.name, gl.local_label as grade, s.name as stream
+FROM class_rooms cr
+JOIN grade_levels gl ON gl.id = cr.grade_level_id
+LEFT JOIN streams s ON s.id = cr.stream_id
+WHERE cr.school_id = $1 AND cr.academic_year_id = $2
+`
+
+type ListClassRoomsBySchoolAndYearParams struct {
+	SchoolID       pgtype.UUID `json:"school_id"`
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+}
+
+type ListClassRoomsBySchoolAndYearRow struct {
+	ID     pgtype.UUID `json:"id"`
+	Name   string      `json:"name"`
+	Grade  string      `json:"grade"`
+	Stream pgtype.Text `json:"stream"`
+}
+
+func (q *Queries) ListClassRoomsBySchoolAndYear(ctx context.Context, arg ListClassRoomsBySchoolAndYearParams) ([]ListClassRoomsBySchoolAndYearRow, error) {
+	rows, err := q.db.Query(ctx, listClassRoomsBySchoolAndYear, arg.SchoolID, arg.AcademicYearID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClassRoomsBySchoolAndYearRow
+	for rows.Next() {
+		var i ListClassRoomsBySchoolAndYearRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Grade,
+			&i.Stream,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

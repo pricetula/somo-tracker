@@ -100,7 +100,7 @@ func (s *authService) SendMagicLink(ctx context.Context, email string) error {
 		return fmt.Errorf("auth.SendMagicLink: stytch client is nil")
 	}
 	if email == "" {
-		return fmt.Errorf("bad_request: email is required")
+		return BadRequest("email is required")
 	}
 
 	s.logger.Info("auth: sending magic link",
@@ -123,7 +123,7 @@ func (s *authService) RevokeSession(ctx context.Context, token string, requestID
 		return fmt.Errorf("auth.RevokeSession: session store is nil")
 	}
 	if token == "" {
-		return fmt.Errorf("bad_request: missing token")
+		return BadRequest("missing token")
 	}
 
 	// Delete from Redis
@@ -158,7 +158,7 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 		return nil, fmt.Errorf("auth.AuthenticateCallback: db pool is nil")
 	}
 	if token == "" {
-		return nil, fmt.Errorf("bad_request: missing token")
+		return nil, BadRequest("missing token")
 	}
 
 	// Discovery flow: authenticate URL token → IST + discovered orgs
@@ -187,7 +187,7 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 		// New user / new org
 		ist := discResp.IntermediateSessionToken
 		if ist == "" {
-			return nil, fmt.Errorf("bad_request: intermediate session token missing after discovery")
+			return nil, BadRequest("intermediate session token missing after discovery")
 		}
 		// Derive basic org identifiers from email domain; backend can refine
 		slug := discResp.EmailAddress
@@ -242,7 +242,7 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 	}
 
 	if auth.OrgID == "" || auth.StytchSessionID == "" || auth.MemberID == "" || auth.MemberEmail == "" {
-		return nil, fmt.Errorf("bad_request: incomplete stytch response (missing org/member/session)")
+		return nil, BadRequest("incomplete stytch response (missing org/member/session)")
 	}
 
 	var tenantID, userID uuid.UUID
@@ -347,7 +347,7 @@ func (s *authService) AuthenticateInviteCallback(ctx context.Context, token stri
 		return nil, fmt.Errorf("auth.AuthenticateInviteCallback: db pool is nil")
 	}
 	if token == "" {
-		return nil, fmt.Errorf("bad_request: missing token")
+		return nil, BadRequest("missing token")
 	}
 
 	discResp, authErr := s.client.AuthenticateDiscovery(ctx, token)
@@ -373,7 +373,7 @@ func (s *authService) AuthenticateInviteCallback(ctx context.Context, token stri
 	if len(discResp.DiscoveredOrganizations) == 0 {
 		ist := discResp.IntermediateSessionToken
 		if ist == "" {
-			return nil, fmt.Errorf("bad_request: intermediate session token missing after discovery")
+			return nil, BadRequest("intermediate session token missing after discovery")
 		}
 		slug := discResp.EmailAddress
 		if idx := strings.Index(discResp.EmailAddress, "@"); idx > 0 {
@@ -426,7 +426,7 @@ func (s *authService) AuthenticateInviteCallback(ctx context.Context, token stri
 	}
 
 	if auth.OrgID == "" || auth.StytchSessionID == "" || auth.MemberID == "" || auth.MemberEmail == "" {
-		return nil, fmt.Errorf("bad_request: incomplete stytch response (missing org/member/session)")
+		return nil, BadRequest("incomplete stytch response (missing org/member/session)")
 	}
 
 	var tenantID, userID uuid.UUID

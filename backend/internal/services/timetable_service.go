@@ -27,15 +27,29 @@ type CreateTemplateRequest struct {
 	TimeSlots   []CreateTimeSlot
 }
 
+type StudentTimetableSlot struct {
+	DayOfWeek    int32  `json:"day_of_week"`
+	TimeSlotName string `json:"time_slot_name"`
+	StartTime    string `json:"start_time"`
+	EndTime      string `json:"end_time"`
+	SubjectName  string `json:"subject_name"`
+	TeacherName  string `json:"teacher_name"`
+	RoomName     string `json:"room_name"`
+	ClassName    string `json:"class_name"`
+	GradeName    string `json:"grade_name"`
+}
+
 type TimetableService interface {
 	CreateTemplate(ctx context.Context, schoolID uuid.UUID, req CreateTemplateRequest) (uuid.UUID, error)
 	GetTemplate(ctx context.Context, templateID uuid.UUID) (sqlc.TimetableTemplate, error)
 	UpdateTemplate(ctx context.Context, templateID uuid.UUID, name string, description string) error
-	ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error)
+	ListTemplates(ctx context.Context, schoolID uuid.UUID, page int, limit int) ([]sqlc.TimetableTemplate, int, error)
 	ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error)
 	SetupClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, classRoomID, timeSlotID, subjectID, teacherMembershipID string, dayOfWeek int, roomID string) error
 	GetClassTimetableSlotsByTemplate(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error)
-	DeleteClassTimetableSlot(ctx context.Context, slotID uuid.UUID) error
+	DeleteClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, slotID uuid.UUID) error
+	VerifyClassBelongsToSchool(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID) error
+	GetStudentTimetable(ctx context.Context, schoolID uuid.UUID, studentID uuid.UUID) ([]StudentTimetableSlot, error)
 }
 
 type timetableService struct {
@@ -65,8 +79,22 @@ func (s *timetableService) UpdateTemplate(ctx context.Context, templateID uuid.U
 	})
 }
 
-func (s *timetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID) ([]sqlc.TimetableTemplate, error) {
-	return s.queries.ListTimetableTemplatesBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+func (s *timetableService) ListTemplates(ctx context.Context, schoolID uuid.UUID, page int, limit int) ([]sqlc.TimetableTemplate, int, error) {
+	offset := (page - 1) * limit
+	params := sqlc.ListTimetableTemplatesBySchoolParams{
+		SchoolID: pgtype.UUID{Bytes: schoolID, Valid: true},
+		Limit:    int32(limit),
+		Offset:   int32(offset),
+	}
+	items, err := s.queries.ListTimetableTemplatesBySchool(ctx, params)
+	if err != nil {
+		return nil, 0, err
+	}
+	count, err := s.queries.CountTimetableTemplatesBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, int(count), nil
 }
 
 func (s *timetableService) ListTimeSlotsByTemplate(ctx context.Context, templateID uuid.UUID) ([]sqlc.TimeSlot, error) {
@@ -105,16 +133,15 @@ func (s *timetableService) SetupClassTimetableSlot(ctx context.Context, schoolID
 		roomUUID = pgtype.UUID{Bytes: r, Valid: true}
 	}
 
-	// Resolve current academic term: active term preferred, fallback to latest
-	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
 	if err != nil {
-		s.logger.Warn("current term not found, falling back to latest", zap.Error(err))
-		latest, err2 := s.queries.GetLatestAcademicTermBySchool(ctx, pgtype.UUID{Bytes: schoolID, Valid: true})
-		if err2 != nil {
-			return fmt.Errorf("no academic term found for school: %w", err2)
-		}
-		termRow.ID = latest.ID
+		return fmt.Errorf("failed to resolve academic period: %w", err)
 	}
+	if !res.IsWriteAllowed || res.WriteTermID == uuid.Nil {
+		return fmt.Errorf("no_next_academic_term: cannot schedule timetable slot for current period")
+	}
+	termID := res.WriteTermID
 
 	// Use transaction for atomicity
 	tx, err := s.pool.Begin(ctx)
@@ -127,13 +154,41 @@ func (s *timetableService) SetupClassTimetableSlot(ctx context.Context, schoolID
 		}
 	}()
 
+	// Conflict detection
+	exists := false
+	// Teacher double-book
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM class_timetable_slots WHERE school_id=$1 AND academic_term_id=$2 AND day_of_week=$3 AND time_slot_id=$4 AND teacher_membership_id=$5)`, schoolID, termID, dayOfWeek, timeSlotUUID, teacherUUID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("conflict check teacher: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("timetable_conflict:teacher_double_book")
+	}
+	// Room double-book
+	if roomID != "" {
+		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM class_timetable_slots WHERE school_id=$1 AND academic_term_id=$2 AND day_of_week=$3 AND time_slot_id=$4 AND room_id=$5)`, schoolID, termID, dayOfWeek, timeSlotUUID, roomUUID).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("conflict check room: %w", err)
+		}
+		if exists {
+			return fmt.Errorf("timetable_conflict:room_double_book")
+		}
+	}
+	// Class overlap
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM class_timetable_slots WHERE school_id=$1 AND academic_term_id=$2 AND day_of_week=$3 AND time_slot_id=$4 AND class_room_id=$5)`, schoolID, termID, dayOfWeek, timeSlotUUID, classRoomUUID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("conflict check class: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("timetable_conflict:class_overlap")
+	}
+
 	qtx := s.queries.WithTx(tx)
 
-	// Optional: ensure uniqueness per class_room, day, time_slot, term
 	_, err = qtx.CreateClassTimetableSlot(ctx, sqlc.CreateClassTimetableSlotParams{
 		SchoolID:            pgtype.UUID{Bytes: schoolID, Valid: true},
 		ClassRoomID:         pgtype.UUID{Bytes: classRoomUUID, Valid: true},
-		AcademicTermID:      pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true},
+		AcademicTermID:      pgtype.UUID{Bytes: termID, Valid: true},
 		DayOfWeek:           int32(dayOfWeek),
 		TimeSlotID:          pgtype.UUID{Bytes: timeSlotUUID, Valid: true},
 		SubjectID:           pgtype.UUID{Bytes: subjectUUID, Valid: true},
@@ -213,18 +268,15 @@ func (s *timetableService) CreateTemplate(ctx context.Context, schoolID uuid.UUI
 
 func (s *timetableService) GetClassTimetableSlotsByTemplate(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID, templateID uuid.UUID) ([]sqlc.GetClassTimetableSlotsByTemplateWithDetailsRow, error) {
 	// Resolve current academic term strictly on backend
-	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
-	termRow, err := s.queries.GetCurrentAcademicTermBySchool(ctx, schoolUUID)
-	var termID pgtype.UUID
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
 	if err != nil {
-		latest, err2 := s.queries.GetLatestAcademicTermBySchool(ctx, schoolUUID)
-		if err2 != nil {
-			return nil, fmt.Errorf("no academic term found for school: %w", err2)
-		}
-		termID = pgtype.UUID{Bytes: latest.ID.Bytes, Valid: true}
-	} else {
-		termID = pgtype.UUID{Bytes: termRow.ID.Bytes, Valid: true}
+		return nil, fmt.Errorf("failed to resolve academic period: %w", err)
 	}
+	if res.ReadTermID == uuid.Nil {
+		return nil, fmt.Errorf("no academic term found for school")
+	}
+	termID := pgtype.UUID{Bytes: res.ReadTermID, Valid: true}
 	return s.queries.GetClassTimetableSlotsByTemplateWithDetails(ctx, sqlc.GetClassTimetableSlotsByTemplateWithDetailsParams{
 		ClassRoomID:         pgtype.UUID{Bytes: classRoomID, Valid: true},
 		TimetableTemplateID: pgtype.UUID{Bytes: templateID, Valid: true},
@@ -232,8 +284,105 @@ func (s *timetableService) GetClassTimetableSlotsByTemplate(ctx context.Context,
 	})
 }
 
-func (s *timetableService) DeleteClassTimetableSlot(ctx context.Context, slotID uuid.UUID) error {
+func (s *timetableService) GetStudentTimetable(ctx context.Context, schoolID uuid.UUID, studentID uuid.UUID) ([]StudentTimetableSlot, error) {
+	resolver := NewAcademicPeriodResolver(s.queries, s.logger)
+	res, err := resolver.Resolve(ctx, schoolID, time.Now(), "current")
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve academic period: %w", err)
+	}
+	if res.ReadTermID == uuid.Nil {
+		return []StudentTimetableSlot{}, nil
+	}
+	schoolUUID := pgtype.UUID{Bytes: schoolID, Valid: true}
+	studentUUID := pgtype.UUID{Bytes: studentID, Valid: true}
+	termUUID := pgtype.UUID{Bytes: res.ReadTermID, Valid: true}
+
+	// Fetch active enrollments for student in current term
+	enrollments, err := s.queries.ListEnrollments(ctx, sqlc.ListEnrollmentsParams{
+		SchoolID: schoolUUID,
+		Column3:  studentUUID,
+		Column4:  "ACTIVE",
+		Limit:    100,
+		Offset:   0,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list enrollments: %w", err)
+	}
+	// Filter by academic term
+	var slots []StudentTimetableSlot
+	seen := make(map[string]struct{})
+	for _, e := range enrollments {
+		// Only consider enrollments for current term - assume enrollment academic_term_id matches
+		classRoomID := e.ClassRoomID
+		if !classRoomID.Valid {
+			continue
+		}
+		// Query class timetable slots for this class room
+		classSlots, err := s.queries.GetClassTimetableSlots(ctx, sqlc.GetClassTimetableSlotsParams{
+			ClassRoomID:    classRoomID,
+			AcademicTermID: termUUID,
+		})
+		if err != nil {
+			continue
+		}
+		for _, cs := range classSlots {
+			key := fmt.Sprintf("%s-%d-%s", cs.ClassRoomID.String(), cs.DayOfWeek, cs.TimeSlotID.String())
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			slots = append(slots, StudentTimetableSlot{
+				DayOfWeek:    cs.DayOfWeek,
+				TimeSlotName: cs.TimeSlotName,
+				StartTime:    formatTime(cs.StartTime),
+				EndTime:      formatTime(cs.EndTime),
+				SubjectName:  cs.SubjectName.String,
+				TeacherName:  cs.TeacherName.String,
+				RoomName:     cs.RoomName.String,
+				ClassName:    cs.ClassName,
+				GradeName:    cs.GradeName.String,
+			})
+		}
+	}
+	return slots, nil
+}
+
+func (s *timetableService) DeleteClassTimetableSlot(ctx context.Context, schoolID uuid.UUID, slotID uuid.UUID) error {
+	// Verify slot belongs to school before deletion
+	if err := s.VerifyClassTimetableSlotBelongsToSchool(ctx, schoolID, slotID); err != nil {
+		return fmt.Errorf("not in school: %w", err)
+	}
 	return s.queries.DeleteClassTimetableSlot(ctx, pgtype.UUID{Bytes: slotID, Valid: true})
+}
+
+func (s *timetableService) VerifyClassBelongsToSchool(ctx context.Context, schoolID uuid.UUID, classRoomID uuid.UUID) error {
+	// Check if class_room exists and belongs to school
+	exists, err := s.queries.CheckClassRoomBelongsToSchool(ctx, sqlc.CheckClassRoomBelongsToSchoolParams{
+		SchoolID: pgtype.UUID{Bytes: schoolID, Valid: true},
+		ID:       pgtype.UUID{Bytes: classRoomID, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("check class ownership: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("class not found in school")
+	}
+	return nil
+}
+
+func (s *timetableService) VerifyClassTimetableSlotBelongsToSchool(ctx context.Context, schoolID uuid.UUID, slotID uuid.UUID) error {
+	// Check if class_timetable_slot exists and belongs to school via class_room
+	exists, err := s.queries.CheckClassTimetableSlotBelongsToSchool(ctx, sqlc.CheckClassTimetableSlotBelongsToSchoolParams{
+		SchoolID: pgtype.UUID{Bytes: schoolID, Valid: true},
+		ID:       pgtype.UUID{Bytes: slotID, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("check slot ownership: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("slot not found in school")
+	}
+	return nil
 }
 
 func parseTime(v string) (pgtype.Time, error) {

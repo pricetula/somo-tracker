@@ -1,0 +1,25 @@
+---
+import '../styles/global.css';
+const title = "Somotracker | School management for Kenyan schools";
+const desc = "Join the Term 1 2027 pilot. Free classes, timetable and attendance tools built in Nairobi.";
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="generator" content={Astro.generator} />
+  <title>{title}</title>
+  <meta name="description" content={desc} />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={desc} />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/og-wordmark.png" />
+</head>
+<body class="bg-white text-body">
+  <slot />
+</body>
+</html>

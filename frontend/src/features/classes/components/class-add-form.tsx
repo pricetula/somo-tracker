@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { StreamsCombobox } from "@/features/streams/components/streams-combobox";
 import { GradesCombobox } from "@/features/grades/components/grades-combobox";
-import { createClass } from "../services/api";
+import { useCreateClass } from "../hooks/use-classes";
 
 const schema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -33,9 +33,10 @@ export function ClassAddForm() {
         defaultValues: { name: "", gradeId: "", streamId: "" },
     });
 
-    const onSubmit = async (values: FormValues) => {
-        await createClass(values);
-        router.back();
+    const mutation = useCreateClass();
+
+    const onSubmit = (values: FormValues) => {
+        mutation.mutate(values, { onSuccess: () => router.back() });
     };
 
     return (

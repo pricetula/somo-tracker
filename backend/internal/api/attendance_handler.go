@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -129,8 +128,11 @@ func (h *AttendanceHandler) ListAttendanceSessions(c fiber.Ctx) error {
 		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
 
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	page, limit := pagination.Page, pagination.Limit
 	search := c.Query("search", "")
 	statusFilter := c.Query("status", "")
 	dateFromStr := c.Query("date_from", "")

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
-import { listAttendanceSessions } from "../services/api";
+import { attendanceListQueryFn } from "../hooks/use-attendance-sessions";
 import { StatusBadge } from "./status-badge";
 import type { AttendanceSession, ListAttendanceSessionsParams } from "../types/attendance";
 import { useGrades } from "@/features/grades/hooks/use-grades";
@@ -10,10 +10,6 @@ import { useSubjects } from "@/features/curriculum/hooks/use-subjects";
 import { useTeachers } from "@/features/teachers/hooks/use-teachers-list";
 import { useMemo } from "react";
 import type { FilterGroup, DataTableColumn } from "@/components/shared/data-table/types";
-
-function listWithFilters(params: ListAttendanceSessionsParams) {
-    return listAttendanceSessions(params);
-}
 
 interface FilterOption {
     id: string;
@@ -32,7 +28,7 @@ export function AttendanceTable() {
         [grades]
     );
     const streamOptions = useMemo<FilterOption[]>(
-        () => streams?.map((s) => ({ id: s.id, label: s.name, value: s.name })) ?? [],
+        () => streams?.map((s) => ({ id: s.id, label: s.name, value: s.id })) ?? [],
         [streams]
     );
     const subjectOptions = useMemo<FilterOption[]>(
@@ -234,7 +230,7 @@ export function AttendanceTable() {
             { items: AttendanceSession[]; total: number; page: number; limit: number }
         >
             queryKey={["attendance", "sessions"]}
-            queryFn={listWithFilters}
+            queryFn={attendanceListQueryFn()}
             getRowId={(row) => row.slotId + "-" + row.attendanceDate}
             columns={columns}
             isSearchable

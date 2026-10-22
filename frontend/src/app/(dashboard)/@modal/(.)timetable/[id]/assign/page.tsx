@@ -132,6 +132,7 @@ export default function AssignSlotModalPage() {
                     dayOfWeek={dayOfWeek}
                     timeSlotId={timeSlotId}
                     classId={classId ?? ""}
+                    templateId={id}
                     onSuccess={() => router.back()}
                 />
             </DialogContent>

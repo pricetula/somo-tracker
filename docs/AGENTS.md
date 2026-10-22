@@ -1,8 +1,10 @@
 # Somotracker — Docs Agent Contract
 
-## Golden Rule: Never Commit
+## Commit Policy: Allow Commits, No Push to Protected Branches
 
-The AI agent must **never** run `git add`, `git commit`, or `git push`. All changes must be left as unstaged modifications in the working tree. Only the user decides when and what to commit.
+The AI agent may run `git add` and `git commit` with clear conventional messages.
+
+Never push to `main` or `develop`. All changes must go through PR for human review.
 
 ---
 

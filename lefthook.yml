@@ -1,6 +1,19 @@
 pre-commit:
   parallel: false
   commands:
+
+pre-push:
+  commands:
+    block-protected-branches:
+      run: |
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "develop" ]; then
+          echo "Push to protected branch $BRANCH is forbidden. Open a PR instead."
+          exit 1
+        fi
+        echo "Pre-push check passed for branch $BRANCH"
+
+
     compliance:
       run: make compliance
       stage_fixed: false

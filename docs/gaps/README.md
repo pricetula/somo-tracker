@@ -7,7 +7,6 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 ## Open Gaps
 | Gap | Area | Severity | Status | Owner |
 |-----|------|----------|--------|-------|
-| Bulk Import UI | frontend | High | Open | ... |
 | Student Timetable View Missing | frontend | High | In Progress | ... |
 | Assessment and Report Card Management | backend | frontend | High | Open | Product / Platform |
 | Health / Nurse Domain — Orphan Schema | backend | frontend | High | Open | Platform team |

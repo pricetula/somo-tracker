@@ -26,7 +26,7 @@ import {
 export function StudentsTable() {
     const { mutateAsync: deleteStudents } = useDeleteStudents();
     const { data: classesResponse } = useClasses({ page: 1, limit: 100 });
-    const [assignClassId, setAssignClassId] = useState<string>("");
+    const [assignClassId, setAssignClassId] = useState<string | undefined>(undefined);
     const assignMutation = useAssignStudents();
 
     const filterGroups = useMemo(
@@ -213,7 +213,7 @@ export function StudentsTable() {
                 }
                 return (
                     <div className="flex items-center gap-2">
-                        <Select value={assignClassId} onValueChange={setAssignClassId}>
+                        <Select value={assignClassId ?? ""} onValueChange={(v) => setAssignClassId(v || undefined)}>
                             <SelectTrigger className="w-[240px]">
                                 <SelectValue placeholder="Select class" />
                             </SelectTrigger>
@@ -230,7 +230,7 @@ export function StudentsTable() {
                             disabled={!assignClassId || assignMutation.isPending}
                             onClick={() => {
                                 const ids = Array.from(selectedIds);
-                                assignMutation.mutate({ classId: assignClassId, studentIds: ids });
+                                assignMutation.mutate({ classId: assignClassId!, studentIds: ids });
                             }}
                         >
                             {assignMutation.isPending ? "Assigning…" : "Assign to class"}

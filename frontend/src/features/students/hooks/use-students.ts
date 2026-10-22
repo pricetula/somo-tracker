@@ -7,6 +7,7 @@ import {
     bulkAssignStudentsToClass,
     getStudent,
     updateStudent,
+    type UpdateStudentRequest,
 } from "@/lib/api/students";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";

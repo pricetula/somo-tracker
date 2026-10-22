@@ -25,6 +25,7 @@ interface ImportOrchestratorProps {
     showProgress?: boolean;
     onProgress?: (data: ProgressData) => void;
     onReset?: () => void;
+    onJobCompleted?: (jobId: string, progress: ProgressData) => void;
     isSubmitting?: boolean;
     [key: string]: unknown;
 }
@@ -43,10 +44,12 @@ export function ImportOrchestrator({
     showProgress,
     onProgress,
     onReset,
+    onJobCompleted,
 }: ImportOrchestratorProps) {
     const [importType, setImportType] = React.useState("");
     const [jobId, setJobId] = React.useState<string | null>(null);
     const [progress, setProgress] = React.useState<ProgressData | null>(null);
+    const jobCompletedRef = React.useRef<string | null>(null);
 
     const mutation = useMutation({
         mutationFn: async (rows: MappedRow[]) => await onMappedList(rows),
@@ -89,6 +92,18 @@ export function ImportOrchestrator({
             es.close();
         };
     }, [jobId, progressUrl, onProgress]);
+
+    React.useEffect(() => {
+        if (
+            jobId &&
+            progress &&
+            (progress.status === "COMPLETED" || progress.status === "COMPLETED_WITH_ERRORS") &&
+            jobCompletedRef.current !== jobId
+        ) {
+            jobCompletedRef.current = jobId;
+            onJobCompleted?.(jobId, progress);
+        }
+    }, [jobId, progress, onJobCompleted]);
 
     // Progress view when job is running
     if (jobId && showProgress) {

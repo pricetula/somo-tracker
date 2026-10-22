@@ -270,6 +270,7 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	if r.StudentsImport != nil {
 		protected.Post("/students/add", ratelimit.NewRateLimitMiddleware(r.limiter, bulkInviteRate, "api:student:import:tenant"), r.StudentsImport.HandleImport)
 		protected.Get("/students/jobs/:job_id", r.StudentsImport.GetJob)
+		protected.Get("/students/jobs/:job_id/items", r.StudentsImport.GetItems)
 		protected.Get("/students/jobs/:job_id/events", r.StudentsImport.Events)
 	}
 	// Students listing

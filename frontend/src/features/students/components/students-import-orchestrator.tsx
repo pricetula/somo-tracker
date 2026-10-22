@@ -4,6 +4,8 @@ import React from "react";
 import { ImportOrchestrator } from "@/features/import";
 import { useBulkImportStudents } from "../hooks/use-student-import";
 import type { MappedRow } from "@/features/import/components/upload/field-mapper";
+import { api } from "@/lib/api/client";
+import { Button } from "@/components/ui/button";
 
 const STUDENT_IMPORT_FIELDS = [
     {
@@ -46,6 +48,9 @@ async function sha256Hex(input: string): Promise<string> {
 export function StudentsImportOrchestrator() {
     const mutation = useBulkImportStudents();
     const [idempotencyKey, setIdempotencyKey] = React.useState<string | null>(null);
+    const [jobId, setJobId] = React.useState<string | null>(null);
+    const [items, setItems] = React.useState<BulkJobItem[]>([]);
+    const [loadingItems, setLoadingItems] = React.useState(false);
 
     const handleMappedList = async (rows: MappedRow[]) => {
         const students = rows.map((r) => ({
@@ -70,6 +75,21 @@ export function StudentsImportOrchestrator() {
 
     const handleReset = () => {
         setIdempotencyKey(null);
+        setJobId(null);
+        setItems([]);
+    };
+
+    const handleJobCompleted = async (jid: string) => {
+        setJobId(jid);
+        setLoadingItems(true);
+        try {
+            const data = await api.get<BulkJobItem[]>(`/api/students/jobs/${jid}/items`);
+            setItems(data ?? []);
+        } catch {
+            setItems([]);
+        } finally {
+            setLoadingItems(false);
+        }
     };
 
     return (
@@ -84,10 +104,64 @@ export function StudentsImportOrchestrator() {
                 fieldDef={STUDENT_IMPORT_FIELDS}
                 onMappedList={handleMappedList}
                 isSubmitting={mutation.isPending}
-                progressUrl={(jobId) => `/backend/api/students/jobs/${jobId}/events`}
+                progressUrl={(jid) => `/backend/api/students/jobs/${jid}/events`}
                 showProgress
                 onReset={handleReset}
+                onJobCompleted={handleJobCompleted}
             />
+            {jobId && items.length > 0 && (
+                <div className="space-y-2">
+                    <div className="text-foreground font-medium">Failed rows</div>
+                    <div className="text-muted-foreground text-sm">
+                        Job {jobId} –{" "}
+                        {
+                            items.filter((i) => i.status === "FAILED" || i.status === "DEFERRED")
+                                .length
+                        }{" "}
+                        failed items
+                    </div>
+                    <div className="space-y-2">
+                        {items
+                            .filter((i) => i.status === "FAILED" || i.status === "DEFERRED")
+                            .map((item) => {
+                                let payload: Record<string, unknown> = {};
+                                try {
+                                    payload = JSON.parse(item.payload);
+                                } catch {}
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="border-muted flex items-center justify-between rounded border p-3"
+                                    >
+                                        <div className="text-sm">
+                                            <div className="font-medium">
+                                                {payload.full_name ?? "—"} –{" "}
+                                                {payload.admission_number ?? "—"}
+                                            </div>
+                                            <div className="text-destructive text-xs">
+                                                {item.last_error || "No error details"}
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                // Retry single row – re-submit payload as a mini import
+                                                // For now, just reset to allow a new import
+                                                handleReset();
+                                            }}
+                                        >
+                                            Retry
+                                        </Button>
+                                    </div>
+                                );
+                            })}
+                    </div>
+                </div>
+            )}
+            {loadingItems && (
+                <div className="text-muted-foreground text-sm">Loading failed rows…</div>
+            )}
         </div>
     );
 }

@@ -14,7 +14,6 @@ import (
 )
 
 func TestMigrator_GenericBulkJobs(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)

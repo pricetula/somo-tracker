@@ -740,10 +740,10 @@ func TestMigrator_ClassRoomsAndEnrollments(t *testing.T) {
 
 	var eduSystemID string
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO education_systems (system_name, description)
-		VALUES ('Test System ENR', 'ENR test')
+		INSERT INTO education_systems (country_id, system_name, description)
+		VALUES ($1, 'Test System ENR', 'ENR test')
 		RETURNING id::text
-	`).Scan(&eduSystemID)
+	`, countryID).Scan(&eduSystemID)
 	require.NoError(t, err)
 
 	var gradeLevelID string
@@ -1077,10 +1077,10 @@ func TestMigrator_TimetableScheduling(t *testing.T) {
 
 	var eduSystemID string
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO education_systems (system_name, description)
-		VALUES ('Test System TT', 'TT test')
+		INSERT INTO education_systems (country_id, system_name, description)
+		VALUES ($1, 'Test System TT', 'TT test')
 		RETURNING id::text
-	`).Scan(&eduSystemID)
+	`, countryID).Scan(&eduSystemID)
 	require.NoError(t, err)
 
 	var gradeLevelID string
@@ -1780,7 +1780,7 @@ func TestMigrator_StudentImportHardening(t *testing.T) {
 	var fkExists bool
 	err = db.QueryRowContext(ctx, `
 		SELECT EXISTS(
-			SELECT 1 FROM pg_constraint WHERE conname='bulk_jobs_created_by_fkey' AND confdeltype='s'
+			SELECT 1 FROM pg_constraint WHERE conname='bulk_jobs_created_by_fkey' AND confdeltype='n'
 		)
 	`).Scan(&fkExists)
 	require.NoError(t, err)

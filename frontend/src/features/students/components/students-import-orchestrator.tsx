@@ -7,6 +7,8 @@ import type { MappedRow } from "@/features/import/components/upload/field-mapper
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 
+type BulkJobItem = { id: string; status: string; email: string; error?: string; payload?: string; last_error?: string };
+
 const STUDENT_IMPORT_FIELDS = [
     {
         key: "admission_number",
@@ -58,7 +60,7 @@ export function StudentsImportOrchestrator() {
             full_name: String(r.data.full_name ?? ""),
             date_of_birth: String(r.data.date_of_birth ?? ""),
             gender: String(r.data.gender ?? ""),
-            metadata: (r.data.metadata ?? {}) as Record<string, unknown>,
+            metadata: (r.data.metadata ?? {}) as any,
         }));
         const canonical = JSON.stringify(
             students.slice().sort((a, b) => a.admission_number.localeCompare(b.admission_number))
@@ -124,9 +126,9 @@ export function StudentsImportOrchestrator() {
                         {items
                             .filter((i) => i.status === "FAILED" || i.status === "DEFERRED")
                             .map((item) => {
-                                let payload: Record<string, unknown> = {};
+                                let payload: any = {};
                                 try {
-                                    payload = JSON.parse(item.payload);
+                                    payload = item.payload ? JSON.parse(item.payload) : {};
                                 } catch {}
                                 return (
                                     <div
@@ -139,7 +141,7 @@ export function StudentsImportOrchestrator() {
                                                 {payload.admission_number ?? "—"}
                                             </div>
                                             <div className="text-destructive text-xs">
-                                                {item.last_error || "No error details"}
+                                                { (item as any).last_error || "No error details" }
                                             </div>
                                         </div>
                                         <Button

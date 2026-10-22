@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -86,8 +85,11 @@ func (h *EnrollmentsHandler) ListUnassignedStudents(c fiber.Ctx) error {
 		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 	schoolID, _ := uuid.Parse(schoolIDStr)
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	page, limit := pagination.Page, pagination.Limit
 
 	items, total, err := h.svc.ListUnassignedStudentsCurrentYear(c.Context(), schoolID, page, limit)
 	if err != nil {
@@ -117,8 +119,11 @@ func (h *EnrollmentsHandler) ListEnrollmentsByClass(c fiber.Ctx) error {
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid class id", nil))
 	}
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	page, limit := pagination.Page, pagination.Limit
 
 	params := services.ListEnrollmentsParams{
 		SchoolID:    schoolID,

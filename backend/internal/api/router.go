@@ -21,7 +21,7 @@ import (
 // IP-based: first line of defense against distributed attacks.
 // Email-based: stricter limit to prevent email bombing/enumeration.
 var (
-	authRateIP     = redis_rate.PerMinute(5) // 10 req/min per IP
+	authRateIP     = redis_rate.PerMinute(5) // 5 req/min per IP
 	authRateEmail  = redis_rate.PerHour(3)   // 3 req/hour per email
 	bulkInviteRate = redis_rate.PerHour(5)   // 5 bulk invites per hour per tenant
 )
@@ -128,8 +128,12 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 
 	// CAPTCHA middleware for abuse-prone endpoints.
 	// Reads config to determine if enabled and which provider to use.
+	captchaEnabled := r.cfg.CAPTCHAEnabled
+	if r.cfg.Environment == "production" {
+		captchaEnabled = true
+	}
 	captchaMW := captcha.NewCaptchaMiddleware(captcha.Config{
-		Enabled:        r.cfg.CAPTCHAEnabled,
+		Enabled:        captchaEnabled,
 		ProviderName:   r.cfg.CAPTCHAProvider,
 		SiteKey:        r.cfg.CAPTCHASiteKey,
 		SecretKey:      r.cfg.CAPTCHASecretKey,
@@ -141,9 +145,9 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// inheriting middleware from the protected group below.
 
 	// Magic-link send: dual rate limits (IP + email) + optional CAPTCHA
-	// IP limit: 10/min — catches distributed botnets
+	// IP limit: 5/min — catches distributed botnets
 	// Email limit: 3/hour — prevents email bombing/enumeration per address
-	// CAPTCHA: enabled via config (disabled by default for local dev)
+	// CAPTCHA: required in production, optional in dev via config
 	app.Post("/api/auth/magic-link/send",
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRateIP, "api:auth:magic-link:ip"),
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRateEmail, "api:auth:magic-link:email"),

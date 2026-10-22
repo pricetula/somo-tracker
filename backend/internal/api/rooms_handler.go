@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strconv"
-
 	"github.com/gofiber/fiber/v3"
 	go_uber_zap "go.uber.org/zap"
 	"somotracker/backend/internal/services"
@@ -98,8 +96,11 @@ func (h *RoomsHandler) ListRooms(c fiber.Ctx) error {
 		return WriteError(c, ErrUnauthorized("active school not found"))
 	}
 
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	page, limit := pagination.Page, pagination.Limit
 
 	rooms, total, err := h.service.ListRooms(c.Context(), schoolID, page, limit)
 	if err != nil {

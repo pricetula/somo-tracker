@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -50,16 +49,11 @@ func (h *StudentsHandler) ListStudents(c fiber.Ctx) error {
 		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
 
-	pageStr := c.Query("page", "1")
-	limitStr := c.Query("limit", "50")
-	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
-		return WriteError(c, ErrBadRequest("invalid page parameter", map[string][]string{"page": {"must be a positive integer"}}))
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
 	}
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit < 1 || limit > 200 {
-		return WriteError(c, ErrBadRequest("invalid limit parameter", map[string][]string{"limit": {"must be between 1 and 200"}}))
-	}
+	page, limit := pagination.Page, pagination.Limit
 	search := c.Query("search")
 	classIDStr := c.Query("class_id")
 	var classID *uuid.UUID

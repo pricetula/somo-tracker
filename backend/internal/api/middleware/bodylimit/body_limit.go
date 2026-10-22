@@ -8,9 +8,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-const maxPayloadSize = 4 * 1024 * 1024 // 4MB
+const maxPayloadSize = 1 * 1024 * 1024 // 1MB
 
-// Middleware returns a Fiber handler that enforces a 4MB body size limit.
+// Middleware returns a Fiber handler that enforces a 1MB body size limit.
 // It checks the declared Content-Length header before passing to the next
 // handler, and also intercepts fiber.ErrRequestEntityTooLarge raised by
 // downstream body parsing to return the canonical error response.

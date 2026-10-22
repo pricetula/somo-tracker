@@ -79,17 +79,13 @@ func (h *TeacherInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		})
 	}
 	if len(req.Invitations) > 1000 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code": "bad_request", "message": "exceeds maximum of 1000 rows", "errors": fiber.Map{"invitations": []string{"max 10000"}},
-		})
+		return WriteError(c, ErrBadRequest("exceeds maximum of 1000 rows", map[string][]string{"invitations": {"max 1000"}}))
 	}
 
 	// Idempotency key is required – check before expensive validation
-	idempotencyKey := c.Get("Idempotency-Key")
-	if idempotencyKey == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code": "bad_request", "message": "Idempotency-Key header is required", "errors": fiber.Map{"Idempotency-Key": []string{"required"}},
-		})
+	idempotencyKey, err := ValidateIDempotencyKey(c)
+	if err != nil {
+		return err
 	}
 
 	// Check existing job by idempotency – avoid re-processing

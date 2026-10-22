@@ -1,7 +1,6 @@
 package api
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -48,8 +47,11 @@ func (h *ClassesHandler) ListClasses(c fiber.Ctx) error {
 	if err != nil {
 		return WriteError(c, ErrBadRequest("invalid school id", nil))
 	}
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	pagination, err := ValidatePagination(c, 100)
+	if err != nil {
+		return err
+	}
+	page, limit := pagination.Page, pagination.Limit
 	search := c.Query("search")
 	gradeParam := c.Query("grade")
 	streamParam := c.Query("stream")

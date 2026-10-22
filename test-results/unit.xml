@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="195" failures="16" errors="0" time="21.255991">
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-10-22T21:34:44+03:00">
+<testsuites tests="191" failures="0" errors="0" time="19.407191">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-10-22T23:22:22+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/db" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/db" timestamp="2026-10-22T23:22:22+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/docs" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/docs" timestamp="2026-10-22T23:22:22+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="61" failures="0" time="2.003000" name="somotracker/backend/internal/api" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="61" failures="0" time="2.224000" name="somotracker/backend/internal/api" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
@@ -81,7 +81,7 @@
 		<testcase classname="somotracker/backend/internal/api" name="TestHandleInvites_MissingInvalidLocals/wrong_type_string_active_school_id" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api" name="TestHandleInvites_MissingInvalidLocals" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="4" failures="0" time="3.655000" name="somotracker/backend/internal/api/middleware" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="4" failures="0" time="1.698000" name="somotracker/backend/internal/api/middleware" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
@@ -90,7 +90,7 @@
 		<testcase classname="somotracker/backend/internal/api/middleware" name="TestRequestIDMiddleware_StoresInContext" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware" name="TestNewRequestIDHandler_ResolvesLogger" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="3" failures="0" time="2.529000" name="somotracker/backend/internal/api/middleware/bodylimit" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="3" failures="0" time="2.711000" name="somotracker/backend/internal/api/middleware/bodylimit" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
@@ -98,12 +98,12 @@
 		<testcase classname="somotracker/backend/internal/api/middleware/bodylimit" name="TestBodyLimitMiddleware_AllowsExactlyFourMB" time="0.020000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware/bodylimit" name="TestBodyLimitMiddleware_RejectsOverLimit" time="0.010000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/captcha" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/captcha" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="3" failures="0" time="6.110000" name="somotracker/backend/internal/api/middleware/compression" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="3" failures="0" time="1.437000" name="somotracker/backend/internal/api/middleware/compression" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
@@ -111,7 +111,7 @@
 		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_DoesNotCompressSmallResponse" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_RespectsNoEncoding" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="10" failures="0" time="3.074000" name="somotracker/backend/internal/api/middleware/cors" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="10" failures="0" time="2.418000" name="somotracker/backend/internal/api/middleware/cors" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
@@ -126,29 +126,25 @@
 		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestAllowedOriginsList_ParsesCommaSeparated/with_spaces" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestAllowedOriginsList_ParsesCommaSeparated" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/csrf" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/csrf" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="3" failures="2" time="3.309000" name="somotracker/backend/internal/api/middleware/helmet" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="3" failures="0" time="2.904000" name="somotracker/backend/internal/api/middleware/helmet" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
-		<testcase classname="somotracker/backend/internal/api/middleware/helmet" name="TestHelmetMiddleware_SetsSecurityHeaders" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestHelmetMiddleware_SetsSecurityHeaders&#xA;    helmet_test.go:37: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/api/middleware/helmet/helmet_test.go:37&#xA;        &#x9;Error:      &#x9;Not equal: &#xA;        &#x9;            &#x9;expected: &#34;default-src &#39;none&#39;&#34;&#xA;        &#x9;            &#x9;actual  : &#34;default-src &#39;none&#39;; frame-ancestors &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;self&#39;&#34;&#xA;        &#x9;            &#x9;&#xA;        &#x9;            &#x9;Diff:&#xA;        &#x9;            &#x9;--- Expected&#xA;        &#x9;            &#x9;+++ Actual&#xA;        &#x9;            &#x9;@@ -1 +1 @@&#xA;        &#x9;            &#x9;-default-src &#39;none&#39;&#xA;        &#x9;            &#x9;+default-src &#39;none&#39;; frame-ancestors &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;self&#39;&#xA;        &#x9;Test:       &#x9;TestHelmetMiddleware_SetsSecurityHeaders&#xA;        &#x9;Messages:   &#x9;Content-Security-Policy must be default-src &#39;none&#39;&#xA;--- FAIL: TestHelmetMiddleware_SetsSecurityHeaders (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/api/middleware/helmet" name="TestHelmetMiddleware_SetsHeadersOnError" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestHelmetMiddleware_SetsHeadersOnError&#xA;    helmet_test.go:79: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/api/middleware/helmet/helmet_test.go:79&#xA;        &#x9;Error:      &#x9;Not equal: &#xA;        &#x9;            &#x9;expected: &#34;default-src &#39;none&#39;&#34;&#xA;        &#x9;            &#x9;actual  : &#34;default-src &#39;none&#39;; frame-ancestors &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;self&#39;&#34;&#xA;        &#x9;            &#x9;&#xA;        &#x9;            &#x9;Diff:&#xA;        &#x9;            &#x9;--- Expected&#xA;        &#x9;            &#x9;+++ Actual&#xA;        &#x9;            &#x9;@@ -1 +1 @@&#xA;        &#x9;            &#x9;-default-src &#39;none&#39;&#xA;        &#x9;            &#x9;+default-src &#39;none&#39;; frame-ancestors &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;self&#39;&#xA;        &#x9;Test:       &#x9;TestHelmetMiddleware_SetsHeadersOnError&#xA;--- FAIL: TestHelmetMiddleware_SetsHeadersOnError (0.00s)&#xA;</failure>
-		</testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/helmet" name="TestHelmetMiddleware_SetsSecurityHeaders" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware/helmet" name="TestHelmetMiddleware_PreservesRequestID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/helmet" name="TestHelmetMiddleware_SetsHeadersOnError" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/ipblacklist" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/ipblacklist" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="5" failures="0" time="4.941000" name="somotracker/backend/internal/api/middleware/ratelimit" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="5" failures="0" time="2.979000" name="somotracker/backend/internal/api/middleware/ratelimit" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
@@ -158,99 +154,54 @@
 		<testcase classname="somotracker/backend/internal/api/middleware/ratelimit" name="TestExtractClientID_ExtractsIP" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware/ratelimit" name="TestFallbackLogger_GlobalWhenNotSet" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/session" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/session" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="2" failures="0" time="20.510000" name="somotracker/backend/internal/api/middleware/timeout" timestamp="2026-10-22T21:34:44+03:00">
+	<testsuite tests="2" failures="0" time="18.164000" name="somotracker/backend/internal/api/middleware/timeout" timestamp="2026-10-22T23:22:23+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/api/middleware/timeout" name="TestTimeoutMiddleware_AllowsFastHandler" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware/timeout" name="TestTimeoutMiddleware_RejectsSlowHandler" time="15.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-10-22T21:34:46+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-10-22T23:22:24+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/curriculum" timestamp="2026-10-22T21:34:46+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/curriculum" timestamp="2026-10-22T23:22:24+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database" timestamp="2026-10-22T21:34:46+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database" timestamp="2026-10-22T23:22:24+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/sqlc" timestamp="2026-10-22T21:34:46+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/sqlc" timestamp="2026-10-22T23:22:24+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="2" failures="0" time="4.787000" name="somotracker/backend/internal/observability" timestamp="2026-10-22T21:34:46+03:00">
+	<testsuite tests="2" failures="0" time="2.422000" name="somotracker/backend/internal/observability" timestamp="2026-10-22T23:22:24+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/observability" name="TestMetricsEndpoint_DoesNotBreakRequestIDMiddleware" time="0.010000"></testcase>
 		<testcase classname="somotracker/backend/internal/observability" name="TestMetricsEndpoint_AvailableAndContainsStandardMetrics" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="4" failures="1" time="3.925000" name="somotracker/backend/internal/redis" timestamp="2026-10-22T21:34:47+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/redis" timestamp="2026-10-22T23:22:25+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
-		<testcase classname="somotracker/backend/internal/redis" name="TestNewClient_HappyPath" time="0.080000">
-			<failure message="Failed" type="">=== RUN   TestNewClient_HappyPath&#xA;    writer.go:40: [Fx] PROVIDE&#x9;fx.Lifecycle &lt;= go.uber.org/fx.New.func1()&#xA;    writer.go:40: [Fx] PROVIDE&#x9;fx.Shutdowner &lt;= go.uber.org/fx.(*App).shutdowner-fm()&#xA;    writer.go:40: [Fx] PROVIDE&#x9;fx.DotGraph &lt;= go.uber.org/fx.(*App).dotGraph-fm()&#xA;    writer.go:40: [Fx] PROVIDE&#x9;*config.Config &lt;= somotracker/backend/internal/redis.TestNewClient_HappyPath.func1()&#xA;    writer.go:40: [Fx] PROVIDE&#x9;*zap.Logger &lt;= somotracker/backend/internal/redis.TestNewClient_HappyPath.func2()&#xA;    writer.go:40: [Fx] PROVIDE&#x9;*redis.Client &lt;= somotracker/backend/internal/redis.NewClient() from module &#34;redis&#34;&#xA;    writer.go:40: [Fx] LOGGER&#x9;Initialized custom logger from go.uber.org/fx/fxtest.WithTestLogger.func1()&#xA;    writer.go:40: [Fx] INVOKE&#x9;&#x9;reflect.makeFuncStub()&#xA;    writer.go:40: [Fx] BEFORE RUN&#x9;provide: go.uber.org/fx.New.func1()&#xA;    writer.go:40: [Fx] RUN&#x9;provide: go.uber.org/fx.New.func1() in 19.917µs&#xA;    writer.go:40: [Fx] BEFORE RUN&#x9;provide: somotracker/backend/internal/redis.TestNewClient_HappyPath.func1()&#xA;    writer.go:40: [Fx] RUN&#x9;provide: somotracker/backend/internal/redis.TestNewClient_HappyPath.func1() in 37.25µs&#xA;    writer.go:40: [Fx] BEFORE RUN&#x9;provide: somotracker/backend/internal/redis.TestNewClient_HappyPath.func2()&#xA;    writer.go:40: [Fx] RUN&#x9;provide: somotracker/backend/internal/redis.TestNewClient_HappyPath.func2() in 25.334µs&#xA;    writer.go:40: [Fx] BEFORE RUN&#x9;provide: somotracker/backend/internal/redis.NewClient() from module &#34;redis&#34;&#xA;    writer.go:40: [Fx] RUN&#x9;provide: somotracker/backend/internal/redis.NewClient() in 776.167µs from module &#34;redis&#34;&#xA;    writer.go:40: [Fx] HOOK OnStart&#x9;&#x9;somotracker/backend/internal/redis.NewClient.func1() executing (caller: somotracker/backend/internal/redis.NewClient)&#xA;    writer.go:40: [Fx] HOOK OnStart&#x9;&#x9;somotracker/backend/internal/redis.NewClient.func1() called by somotracker/backend/internal/redis.NewClient failed in 73.899291ms: redis.NewClient: initial ping: dial tcp [::1]:6379: connect: connection refused&#xA;    writer.go:40: [Fx] ERROR&#x9;&#x9;Start failed, rolling back: redis.NewClient: initial ping: dial tcp [::1]:6379: connect: connection refused&#xA;    writer.go:40: [Fx] ERROR&#x9;&#x9;Failed to start: redis.NewClient: initial ping: dial tcp [::1]:6379: connect: connection refused&#xA;    redis_test.go:39: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/redis/redis_test.go:39&#xA;        &#x9;Error:      &#x9;Received unexpected error:&#xA;        &#x9;            &#x9;redis.NewClient: initial ping: dial tcp [::1]:6379: connect: connection refused&#xA;        &#x9;Test:       &#x9;TestNewClient_HappyPath&#xA;        &#x9;Messages:   &#x9;fx app should start cleanly&#xA;--- FAIL: TestNewClient_HappyPath (0.08s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/redis" name="TestNewClient_NilConfig" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/redis" name="TestNewClient_NilLogger" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/redis" name="TestPing_NilClient" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="52" failures="13" skipped="6" time="4.112000" name="somotracker/backend/internal/services" timestamp="2026-10-22T21:34:47+03:00">
+	<testsuite tests="52" failures="0" skipped="6" time="2.465000" name="somotracker/backend/internal/services" timestamp="2026-10-22T23:22:25+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
-		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/empty_schoolID" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestAcademicPeriodService_ValidationErrors/empty_schoolID&#xA;    academic_period_service_test.go:63: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/academic_period_service_test.go:63&#xA;        &#x9;Error:      &#x9;&#34;school_id is required&#34; does not contain &#34;bad_request: school_id is required&#34;&#xA;        &#x9;Test:       &#x9;TestAcademicPeriodService_ValidationErrors/empty_schoolID&#xA;--- FAIL: TestAcademicPeriodService_ValidationErrors/empty_schoolID (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/zero_year" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestAcademicPeriodService_ValidationErrors/zero_year&#xA;    academic_period_service_test.go:63: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/academic_period_service_test.go:63&#xA;        &#x9;Error:      &#x9;&#34;year is required&#34; does not contain &#34;bad_request: year is required&#34;&#xA;        &#x9;Test:       &#x9;TestAcademicPeriodService_ValidationErrors/zero_year&#xA;--- FAIL: TestAcademicPeriodService_ValidationErrors/zero_year (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/no_terms" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestAcademicPeriodService_ValidationErrors/no_terms&#xA;    academic_period_service_test.go:63: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/academic_period_service_test.go:63&#xA;        &#x9;Error:      &#x9;&#34;at least one term is required&#34; does not contain &#34;bad_request: at least one term is required&#34;&#xA;        &#x9;Test:       &#x9;TestAcademicPeriodService_ValidationErrors/no_terms&#xA;--- FAIL: TestAcademicPeriodService_ValidationErrors/no_terms (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_schoolID" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestAcademicPeriodService_ValidationErrors/invalid_schoolID&#xA;    academic_period_service_test.go:63: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/academic_period_service_test.go:63&#xA;        &#x9;Error:      &#x9;&#34;invalid school_id&#34; does not contain &#34;bad_request: invalid school_id&#34;&#xA;        &#x9;Test:       &#x9;TestAcademicPeriodService_ValidationErrors/invalid_schoolID&#xA;--- FAIL: TestAcademicPeriodService_ValidationErrors/invalid_schoolID (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_term_start_date" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestAcademicPeriodService_ValidationErrors/invalid_term_start_date&#xA;    academic_period_service_test.go:63: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/academic_period_service_test.go:63&#xA;        &#x9;Error:      &#x9;&#34;invalid term start_date invalid: parsing time \&#34;invalid\&#34; as \&#34;2006-01-02\&#34;: cannot parse \&#34;invalid\&#34; as \&#34;2006\&#34;&#34; does not contain &#34;bad_request: invalid term start_date&#34;&#xA;        &#x9;Test:       &#x9;TestAcademicPeriodService_ValidationErrors/invalid_term_start_date&#xA;--- FAIL: TestAcademicPeriodService_ValidationErrors/invalid_term_start_date (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_term_end_date" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestAcademicPeriodService_ValidationErrors/invalid_term_end_date&#xA;    academic_period_service_test.go:63: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/academic_period_service_test.go:63&#xA;        &#x9;Error:      &#x9;&#34;invalid term end_date invalid: parsing time \&#34;invalid\&#34; as \&#34;2006-01-02\&#34;: cannot parse \&#34;invalid\&#34; as \&#34;2006\&#34;&#34; does not contain &#34;bad_request: invalid term end_date&#34;&#xA;        &#x9;Test:       &#x9;TestAcademicPeriodService_ValidationErrors/invalid_term_end_date&#xA;--- FAIL: TestAcademicPeriodService_ValidationErrors/invalid_term_end_date (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestAcademicPeriodService_ValidationErrors&#xA;--- FAIL: TestAcademicPeriodService_ValidationErrors (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/empty_token" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMeService_ValidationErrors/empty_token&#xA;    me_service_test.go:46: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/me_service_test.go:46&#xA;        &#x9;Error:      &#x9;&#34;missing session token&#34; does not contain &#34;bad_request: missing session token&#34;&#xA;        &#x9;Test:       &#x9;TestMeService_ValidationErrors/empty_token&#xA;--- FAIL: TestMeService_ValidationErrors/empty_token (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/empty_tenantID" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMeService_ValidationErrors/empty_tenantID&#xA;    me_service_test.go:46: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/me_service_test.go:46&#xA;        &#x9;Error:      &#x9;&#34;missing tenant context&#34; does not contain &#34;bad_request: missing tenant context&#34;&#xA;        &#x9;Test:       &#x9;TestMeService_ValidationErrors/empty_tenantID&#xA;--- FAIL: TestMeService_ValidationErrors/empty_tenantID (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/both_empty" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMeService_ValidationErrors/both_empty&#xA;    me_service_test.go:46: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/me_service_test.go:46&#xA;        &#x9;Error:      &#x9;&#34;missing session token&#34; does not contain &#34;bad_request: missing session token&#34;&#xA;        &#x9;Test:       &#x9;TestMeService_ValidationErrors/both_empty&#xA;--- FAIL: TestMeService_ValidationErrors/both_empty (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMeService_ValidationErrors&#xA;--- FAIL: TestMeService_ValidationErrors (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ErrorPatterns" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestMeService_ErrorPatterns&#xA;    me_service_test.go:107: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/me_service_test.go:107&#xA;        &#x9;Error:      &#x9;Should be true&#xA;        &#x9;Test:       &#x9;TestMeService_ErrorPatterns&#xA;        &#x9;Messages:   &#x9;error should follow expected pattern&#xA;--- FAIL: TestMeService_ErrorPatterns (0.00s)&#xA;</failure>
-		</testcase>
-		<testcase classname="somotracker/backend/internal/services" name="TestStreamsService_ValidationErrors" time="0.000000">
-			<failure message="Failed" type="">=== RUN   TestStreamsService_ValidationErrors&#xA;    streams_service_test.go:18: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/streams_service_test.go:18&#xA;        &#x9;Error:      &#x9;&#34;school_id is required&#34; does not contain &#34;bad_request: school_id is required&#34;&#xA;        &#x9;Test:       &#x9;TestStreamsService_ValidationErrors&#xA;    streams_service_test.go:23: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/streams_service_test.go:23&#xA;        &#x9;Error:      &#x9;&#34;at least one stream name is required&#34; does not contain &#34;bad_request: at least one stream name is required&#34;&#xA;        &#x9;Test:       &#x9;TestStreamsService_ValidationErrors&#xA;    streams_service_test.go:28: &#xA;        &#x9;Error Trace:&#x9;/Users/pricetula/Projects/somo-tracker/backend/internal/services/streams_service_test.go:28&#xA;        &#x9;Error:      &#x9;&#34;invalid school_id&#34; does not contain &#34;bad_request: invalid school_id&#34;&#xA;        &#x9;Test:       &#x9;TestStreamsService_ValidationErrors&#xA;--- FAIL: TestStreamsService_ValidationErrors (0.00s)&#xA;</failure>
-		</testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestEndToEnd_NewUser_CreatesTenantUserAndSession" time="0.010000">
 			<skipped message="=== RUN   TestEndToEnd_NewUser_CreatesTenantUserAndSession&#xA;    auth_service_e2e_test.go:31: test DB not available: ping failed: failed to connect to `user=pricetula database=somotracker`:&#xA;        &#x9;[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connect: connection refused&#xA;        &#x9;127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connect: connection refused&#xA;--- SKIP: TestEndToEnd_NewUser_CreatesTenantUserAndSession (0.01s)&#xA;"></skipped>
 		</testcase>
@@ -270,6 +221,13 @@
 			<skipped message="=== RUN   TestCreateSchoolWithSetup_VerifyAllDBTables&#xA;    school_service_test.go:46: test DB not available: ping failed: failed to connect to `user=pricetula database=somotracker`:&#xA;        &#x9;[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connect: connection refused&#xA;        &#x9;127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connect: connection refused&#xA;--- SKIP: TestCreateSchoolWithSetup_VerifyAllDBTables (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodResolver_Active" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/empty_schoolID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/zero_year" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/no_terms" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_schoolID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_term_start_date" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_term_end_date" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidInput_PassesValidation" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestParseDate_ValidFormat" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestParseDate_InvalidFormat" time="0.000000"></testcase>
@@ -280,10 +238,16 @@
 		<testcase classname="somotracker/backend/internal/services" name="TestFinanceService_DeleteFinance_RejectsNonAdmin" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestFinanceService_DeleteFinance_AllowsAdmin" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestFinanceService_DeleteFinance_CannotDeleteSelf" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/empty_token" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/empty_tenantID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/both_empty" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestMeService_NonValidationErrorsRequireDB" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestMeResult_StructSerialization" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestMeResult_EmptyFields" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ErrorPatterns" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestSchoolRegistration_ValidationErrors" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestStreamsService_ValidationErrors" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestStreamsService_ValidInput_PassesValidation" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestNormalizeGender" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestParseDate" time="0.000000"></testcase>
@@ -303,12 +267,12 @@
 		<testcase classname="somotracker/backend/internal/services" name="TestSetupClassTimetableSlot_Conflicts/happy_path" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/services" name="TestSetupClassTimetableSlot_Conflicts" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/session" timestamp="2026-10-22T21:34:48+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/session" timestamp="2026-10-22T23:22:25+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="27" failures="0" skipped="1" time="5.433000" name="somotracker/backend/internal/stytch" timestamp="2026-10-22T21:34:48+03:00">
+	<testsuite tests="27" failures="0" skipped="1" time="2.177000" name="somotracker/backend/internal/stytch" timestamp="2026-10-22T23:22:25+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
@@ -342,17 +306,17 @@
 		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/internal_server_error" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/testcontainers" timestamp="2026-10-22T21:34:48+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/testcontainers" timestamp="2026-10-22T23:22:25+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/testdb" timestamp="2026-10-22T21:34:48+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/testdb" timestamp="2026-10-22T23:22:25+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="19" failures="0" skipped="2" time="6.289000" name="somotracker/backend/internal/worker" timestamp="2026-10-22T21:34:48+03:00">
+	<testsuite tests="19" failures="0" skipped="2" time="2.365000" name="somotracker/backend/internal/worker" timestamp="2026-10-22T23:22:25+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
@@ -380,12 +344,12 @@
 		<testcase classname="somotracker/backend/internal/worker" name="TestStudentImportWorker_Success" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/worker" name="TestStudentImportWorker_SuccessWithErrors" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/workers" timestamp="2026-10-22T21:34:49+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/workers" timestamp="2026-10-22T23:22:26+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/scripts" timestamp="2026-10-22T21:34:49+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/scripts" timestamp="2026-10-22T23:22:26+03:00">
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>

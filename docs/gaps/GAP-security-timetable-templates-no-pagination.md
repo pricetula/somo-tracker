@@ -2,7 +2,7 @@
 
 **Area:** backend
 **Severity:** High
-**Status:** Open
+**Status:** Done
 **Owner:** 
 **Created:** 2025-10-19
 **Related Issues:** #security-audit-2025-10-19

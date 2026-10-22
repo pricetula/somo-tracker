@@ -17,20 +17,20 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Student Timetable View Missing | frontend | High | In Progress | ... |
 | Assessment and Report Card Management | backend | frontend | High | Open | Product / Platform |
 | Health / Nurse Domain — Orphan Schema | backend | frontend | High | Open | Platform team |
-| Pagination Limit Cap Exceeds Security Standard (200 > 100) | backend | High | Open | ... |
-| Missing Request Body Size Limit on Public Auth Endpoints | backend | High | Open | ... |
-| Magic-Link IP Rate Limit Too Permissive (10/min → 5/min) | backend | High | Open | ... |
+| Pagination Limit Cap Exceeds Security Standard (200 > 100) | backend | High | In Progress | ... |
+| Missing Request Body Size Limit on Public Auth Endpoints | backend | High | Done | ... |
+| Magic-Link IP Rate Limit Too Permissive (10/min → 5/min) | backend | High | Done | ... |
 | MagicLinkResponse Violates Canonical Error Contract | backend | Medium | Closed | ... |
 | CSP Header Configuration Unverified / Missing | backend | Medium | Open | ... |
 | Bulk Invitation Row Limit Too High (10K → 1K) | backend | High | Open | ... |
 | Finance List Pagination Uncapped | backend | High | Closed | ... |
-| Timetable Templates No Pagination | backend | High | Open | ... |
+| Timetable Templates No Pagination | backend | High | Done | ... |
 | Timetable Slot Delete BOLA (Missing School Check) | backend | Critical | Closed | ... |
 | Timetable Class Slots BOLA (Missing Class Ownership Check) | backend | Critical | Closed | ... |
 | Timetable Conflict Detection Missing | backend | High | In Progress | Platform team |
 | Bulk Invitation Service Missing Authz (BFLA) | backend | Critical | Closed | ... |
 | Finance Delete No Role Verification (BFLA) | backend | Critical | Closed | ... |
-| Idempotency Key Format Not Validated | backend | High | Open | ... |
+| Idempotency Key Format Not Validated | backend | High | Done | ... |
 | Bulk Invitation Duplicate Emails Silently Dropped | backend | High | Open | ... |
 | Invitation Handlers Unsafe Type Assertion | backend | High | Open | ... |
 | Invitation Handlers Inline Error Responses | backend | Medium | Open | ... |
@@ -57,6 +57,10 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 |-----|------|----------|--------|-------|
 | Student Detail Page is Placeholder | frontend | High | Closed | Platform team |
 | Timetable Class Assignment UI Missing | frontend | Medium | Done | Platform team |
+| Missing Request Body Size Limit on Public Auth Endpoints | backend | High | Done | ... |
+| Magic-Link IP Rate Limit Too Permissive (10/min → 5/min) | backend | High | Done | ... |
+| Timetable Templates No Pagination | backend | High | Done | ... |
+| Idempotency Key Format Not Validated | backend | High | Done | ... |
 
 ## Deferred / Won't Do
 

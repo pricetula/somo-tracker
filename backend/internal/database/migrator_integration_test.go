@@ -16,7 +16,6 @@ import (
 )
 
 func TestMigrator_Integration(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 
@@ -40,7 +39,6 @@ func TestMigrator_Integration(t *testing.T) {
 }
 
 func TestMigrator_Extensions(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 
@@ -85,7 +83,6 @@ func TestMigrator_Extensions(t *testing.T) {
 }
 
 func TestMigrator_TenantsAndUsers(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 
@@ -318,7 +315,6 @@ func TestMigrator_TenantsAndUsers(t *testing.T) {
 // TestMigrator_SISSchema verifies the SIS schema migration (000004).
 // Tests: tables, enum, indexes, constraints, triggers, comments.
 func TestMigrator_SISSchema(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -414,7 +410,6 @@ func TestMigrator_SISSchema(t *testing.T) {
 // TestMigrator_SubjectHierarchy verifies the subject hierarchy migration (000005).
 // Tests: tables, indexes, triggers.
 func TestMigrator_SubjectHierarchy(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -483,7 +478,6 @@ func TestMigrator_SubjectHierarchy(t *testing.T) {
 // TestMigrator_AcademicCalendar verifies the academic calendar migration (000006).
 // Tests: tables, indexes, triggers.
 func TestMigrator_AcademicCalendar(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -557,7 +551,6 @@ func TestMigrator_AcademicCalendar(t *testing.T) {
 // triggers, RLS policy, unique constraints, and an end-to-end RLS isolation
 // check via SET LOCAL app.current_tenant_id.
 func TestMigrator_ClassRoomsAndEnrollments(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -747,10 +740,10 @@ func TestMigrator_ClassRoomsAndEnrollments(t *testing.T) {
 
 	var eduSystemID string
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO education_systems (system_name, description)
-		VALUES ('Test System ENR', 'ENR test')
+		INSERT INTO education_systems (country_id, system_name, description)
+		VALUES ($1, 'Test System ENR', 'ENR test')
 		RETURNING id::text
-	`).Scan(&eduSystemID)
+	`, countryID).Scan(&eduSystemID)
 	require.NoError(t, err)
 
 	var gradeLevelID string
@@ -791,14 +784,14 @@ func TestMigrator_ClassRoomsAndEnrollments(t *testing.T) {
 
 	var classRoomA, classRoomB string
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
-		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name)
+		VALUES ($1, $2, $3, 'Class 1 Blue')
 		RETURNING id::text
 	`, schoolA, yearA, gradeLevelID).Scan(&classRoomA)
 	require.NoError(t, err)
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
-		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name)
+		VALUES ($1, $2, $3, 'Class 1 Blue')
 		RETURNING id::text
 	`, schoolB, yearB, gradeLevelID).Scan(&classRoomB)
 	require.NoError(t, err)
@@ -869,7 +862,6 @@ func TestMigrator_ClassRoomsAndEnrollments(t *testing.T) {
 // triggers, RLS policies, and an end-to-end RLS isolation check via
 // SET LOCAL app.current_tenant_id.
 func TestMigrator_TimetableScheduling(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -1085,10 +1077,10 @@ func TestMigrator_TimetableScheduling(t *testing.T) {
 
 	var eduSystemID string
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO education_systems (system_name, description)
-		VALUES ('Test System TT', 'TT test')
+		INSERT INTO education_systems (country_id, system_name, description)
+		VALUES ($1, 'Test System TT', 'TT test')
 		RETURNING id::text
-	`).Scan(&eduSystemID)
+	`, countryID).Scan(&eduSystemID)
 	require.NoError(t, err)
 
 	var gradeLevelID string
@@ -1143,14 +1135,14 @@ func TestMigrator_TimetableScheduling(t *testing.T) {
 
 	var classRoomA, classRoomB string
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
-		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name)
+		VALUES ($1, $2, $3, 'Class 1 Blue')
 		RETURNING id::text
 	`, schoolA, yearA, gradeLevelID).Scan(&classRoomA)
 	require.NoError(t, err)
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
-		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name)
+		VALUES ($1, $2, $3, 'Class 1 Blue')
 		RETURNING id::text
 	`, schoolB, yearB, gradeLevelID).Scan(&classRoomB)
 	require.NoError(t, err)
@@ -1311,7 +1303,6 @@ func TestMigrator_TimetableScheduling(t *testing.T) {
 // (000009). Tests: tables, enums, indexes, unique constraints, triggers,
 // and RLS policies.
 func TestMigrator_AttendanceTracking(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -1486,7 +1477,6 @@ func TestMigrator_AttendanceTracking(t *testing.T) {
 // TestMigrator_AddGradeIdToSubjects verifies migration 000013 adds grade_level_id to subjects.
 // Tests: column exists, index exists, FK constraint exists, and basic insert works.
 func TestMigrator_AddGradeIdToSubjects(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -1581,7 +1571,6 @@ func TestMigrator_AddGradeIdToSubjects(t *testing.T) {
 
 // TestMigrator_ExpandSubjectCode verifies migration 000014 expands subjects.code
 func TestMigrator_ExpandSubjectCode(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -1633,7 +1622,6 @@ func TestMigrator_ExpandSubjectCode(t *testing.T) {
 
 // TestMigrator_SubjectColor verifies migration 000016 adds color column to subjects
 func TestMigrator_SubjectColor(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -1665,7 +1653,6 @@ func TestMigrator_SubjectColor(t *testing.T) {
 
 // TestMigrator_AddStudentBulkImportSupport verifies migration 000017
 func TestMigrator_AddStudentBulkImportSupport(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -1742,7 +1729,6 @@ func TestMigrator_AddStudentBulkImportSupport(t *testing.T) {
 
 // TestMigrator_StudentImportHardening verifies migration 000018
 func TestMigrator_StudentImportHardening(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.DB(t)
@@ -1794,7 +1780,7 @@ func TestMigrator_StudentImportHardening(t *testing.T) {
 	var fkExists bool
 	err = db.QueryRowContext(ctx, `
 		SELECT EXISTS(
-			SELECT 1 FROM pg_constraint WHERE conname='bulk_jobs_created_by_fkey' AND confdeltype='s'
+			SELECT 1 FROM pg_constraint WHERE conname='bulk_jobs_created_by_fkey' AND confdeltype='n'
 		)
 	`).Scan(&fkExists)
 	require.NoError(t, err)

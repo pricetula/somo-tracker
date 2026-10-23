@@ -53,6 +53,7 @@ export function StudentDetail({ id }: StudentDetailProps) {
             emergency_contact_name: draft.emergency_contact_name,
             emergency_contact_phone: draft.emergency_contact_phone,
             special_needs: draft.special_needs,
+            metadata: (draft as any)?.metadata,
         };
         updateMutation.mutate(payload, { onSuccess: () => setEditing(false) });
     };

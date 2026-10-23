@@ -20,7 +20,7 @@ import (
 // newTestConfig returns a Config tuned for a local test Redis instance.
 func newTestConfig(_ *testing.T) *config.Config {
 	return &config.Config{
-		RedisURL: "redis://localhost:6379/0",
+		RedisURL: "redis://127.0.0.1:6379/0",
 	}
 }
 

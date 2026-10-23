@@ -107,7 +107,7 @@
 		<properties>
 			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
 		</properties>
-		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_CompressesLargeResponseWithGzip" time="0.020000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_CompressesLargeResponseWithGzip" time="0.010000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_DoesNotCompressSmallResponse" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_RespectsNoEncoding" time="0.000000"></testcase>
 	</testsuite>

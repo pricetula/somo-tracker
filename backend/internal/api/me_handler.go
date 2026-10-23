@@ -30,21 +30,13 @@ func (h *meHandler) getMe(c fiber.Ctx) error {
 	// Extract the session token from the HTTP-only cookie.
 	token := c.Cookies("session_token")
 	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "session token missing",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrUnauthorized("session token missing"))
 	}
 
 	// The session middleware injects tenant context for RLS.
 	tenantID, _ := c.Locals("tenant_id").(string)
 	if tenantID == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "tenant context missing",
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrUnauthorized("tenant context missing"))
 	}
 
 	result, err := h.svc.GetCurrentUser(c.Context(), token, tenantID)
@@ -64,22 +56,14 @@ func mapMeError(c fiber.Ctx, err error) error {
 		if len(parts) == 2 {
 			message = parts[1]
 		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "bad_request",
-			"message": message,
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrBadRequest(message, nil))
 	case strings.Contains(msg, "not_found:"):
 		parts := strings.SplitN(msg, "not_found: ", 2)
 		message := msg
 		if len(parts) == 2 {
 			message = parts[1]
 		}
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"code":    "not_found",
-			"message": message,
-			"errors":  fiber.Map{},
-		})
+		return WriteError(c, ErrNotFound(message))
 	default:
 		return WriteError(c, ErrInternal("An unexpected error occurred"))
 	}

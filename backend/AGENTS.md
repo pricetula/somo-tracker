@@ -1,130 +1,56 @@
-# Somotracker Backend — Agent Architecture Contract
+# Somotracker Backend — Agent Rules
 
-## Commit Policy: Allow Commits, No Push to Protected Branches
+Version: 0.1.0
+Owner: Platform team
 
-The AI agent may run `git add` and `git commit` with clear conventional messages.
+## Rule list
 
-Never push to `main` or `develop`. PR required for protected branches.
+### BE-001 Handler / Service separation
+Handlers are thin transport adapters only. No SQL, pgx, or sqlc calls in handlers. All DB access via `internal/services`.
+Enforced by: TODO(tooling) – suggested: depguard
 
----
+### BE-002 Academic period resolution
+Academic period resolution is backend-only. Never accept `term_id` or `academic_year_id` from clients.
+Statuses: `active|break|expired|none`. Use `AcademicPeriodResolver`.
+Enforced by: TODO(tooling) – suggested: contract test + lint for forbidden params
 
-## Migration Testing Rule
+### BE-003 Error contract
+Non-2xx responses must return:
+`{ "code": "snake_case", "message": "...", "errors": { "field": ["msg"] } }`
+Enforced by: TODO(tooling) – suggested: error-contract test
 
-Migration files live at `backend/db/migrations/`. They are embedded at build time
-via `backend/db/embed_migrations.go`.
+### BE-004 API spec alignment
+Router prefix + route must match `docs/api/openapi.yaml` and frontend client calls.
+Enforced by: TODO(tooling) – suggested: contract test, `make generate` idempotency
 
-**Every new migration SQL file must have a corresponding integration test.**
+### BE-005 Migration testing
+Every migration SQL file must have `TestMigrator_<Feature>` integration test asserting schema via `information_schema`.
+Enforced by: TODO(tooling) – suggested: CI check for test presence per migration
 
-The canonical test file is:
+### BE-006 Forbidden patterns
+Forbidden: empty error handling, log-and-return duplication, silent `_ =`.
+Enforced by: TODO(tooling) – suggested: golangci-lint errcheck + custom lint
 
-```
-backend/internal/database/migrator_integration_test.go
-```
+### BE-007 Tenancy scoping
+TODO(human): define per-query tenancy scoping. Reference ADR-0001. Do not implement until ADR accepted.
+Enforced by: manual review
 
-Add a new `func TestMigrator_<FeatureName>(t *testing.T)` alongside the existing functions. The test must:
+### BE-008 Authorization
+TODO(human): define authorization model. Reference ADR-0002. Do not implement until ADR accepted.
+Enforced by: manual review
 
-1. Run `migrator.Up(ctx)` to apply the migration.
-2. Assert the expected schema artifacts exist using simple catalog queries:
-   - `SELECT table_name FROM information_schema.tables` — tables exist
-   - `SELECT enumlabel FROM pg_enum` — enum values exist
-   - `SELECT indexname FROM pg_indexes WHERE tablename = 'x'` — indexes exist
-   - `SELECT 1 FROM information_schema.table_constraints WHERE ...` — unique constraints
-   - `SELECT 1 FROM information_schema.triggers WHERE ...` — triggers exist
-3. Optional: a functional end-to-end check (e.g. RLS isolation via
-   `SET LOCAL app.current_tenant_id`, or a single INSERT + SELECT to verify FK works).
+### BE-009 Time zones
+TODO(human): define canonical time zone handling.
+Enforced by: TODO(tooling)
 
-All migration tests are tagged `//go:build integration` and run against a
-real PostgreSQL instance. Do **not** use mock pools — use the same `testdb.DB(t)` pattern as the existing tests.
+### BE-010 Asynq idempotency / retries
+TODO(human): define idempotency keys and retry policy.
+Enforced by: TODO(tooling)
 
-### Migration Test Pitfalls (Never Do These)
+### BE-011 Migration rollback policy
+TODO(human): define rollback policy.
+Enforced by: manual review
 
-- **Complex multi-table joins** across `information_schema.referential_constraints` + `key_column_usage` — these can hang on large catalogs. Use `information_schema.table_constraints` alone for basic constraint existence checks.
-- **Multi-step cascade transactions** — inserting into 5+ dependent tables then deleting and counting is a fragile pattern that can deadlock. Instead, assert the FK constraint exists (via `table_constraints`) and trust PostgreSQL to enforce cascade at runtime.
-- **Variable reuse across transactions** — do not assign INSERT-returned IDs to variables that will be used in a subsequent transaction; the first transaction may be rolled back, leaving dangling references.
-- **Parallel tests against shared DB** — avoid `t.Parallel()` in migration tests that share the same test database; tests should run sequentially to prevent connection pool exhaustion.
-
----
-
-## Handler / Service Separation
-
-Handlers must be thin transport adapters only. No raw SQL, no `pgxpool` queries, and no direct `sqlc` calls inside `internal/api/*.go`.
-
-All database access must go through `internal/services` and use sqlc-generated queries:
-- Handler extracts request data, validates input, and calls a service method.
-- Service contains business logic and invokes `*sqlc.Queries` methods only.
-- Never import `github.com/jackc/pgx/v5/pgxpool` in handlers.
-
-This keeps RLS context, transactions, and testability in the service layer.
-
----
-
-## Academic Term / Year Resolution — Strict Backend Resolution
-
-Any endpoint that needs the current academic term or year must resolve it **strictly inside the backend handler/service** using the shared academic period resolver.
-
-- **Never** expose `term_id` or `academic_year_id` as query/body parameters to clients.
-- **Never** pass term/year IDs from the frontend; resolution belongs to the API layer.
-- The year is always derived from the resolved term. Creating a future year must never change what is "current".
-- Term start and end dates are inclusive. Never silently fall back to another term; the resolver returns an explicit status.
-
-### Shared resolver contract
-
-Use `internal/services.AacademicPeriodResolver` (e.g. `NewAcademicPeriodResolver`) for all implicit "current" resolution.
-
-Period status values:
-- `active` — today is inside a term.
-- `break` — today is outside any term but a later term exists. Reads use the most recent started term; writes target the next term.
-- `expired` — today is after the last term and no later term exists. Reads use the last term; period-bound writes are rejected.
-- `none` — school has no terms. Reads are empty; period-bound writes are rejected.
-
-Period-aware endpoints may accept an optional `period` parameter with only two values: `current` (default) and `upcoming`. Any other value returns 400. `upcoming` targets the next term and its year during an active period for planning ahead. No arbitrary year/term IDs are accepted.
-
-Attendance is allowed only in `active` status and is rejected in `break`/`expired`.
-
-Period-bound writes (enrollments, class creation, timetable slots) are:
-- `active`: write into current term.
-- `break`: write into next term automatically; response must state which term was used.
-- `expired` / `none`: reject with typed error `no_next_academic_term`, no partial rows.
-
-Writes not tied to a period (students, teachers, guardians, staff, academic years/terms creation) are always allowed.
-
----
-
-## Swagger / Endpoint URI Verification
-
-Before writing `swaggo` annotations (`@Router`, `@Param body`) for any new endpoint:
-
-1. Read the router group (`app.Group("/api", ...)`) in `internal/api/router.go`.
-2. Combine group prefix + route string → full URI (e.g., `/api` + `/school/academic-period` = `/api/school/academic-period`).
-3. Verify the frontend `lib/api/*.ts` call uses the matching full path (with `/api` if routed under the group).
-4. After `swag init`, confirm `swagger.json` path matches; after `openapi-typescript`, confirm `generated.ts` path matches.
-
-Never assume the route string alone is the complete endpoint URI.
-
----
-
-## AI Skill Integration
-
-Before creating any backend change, load the relevant skill:
-
-- **New API endpoint:** Load `/skill:generate-api` → follows Steps 1–5 in that skill
-- **Migration:** Load `/skill:migration-testing` → enforces Step 1–4 validation gates
-- **Error response:** Always validate against the canonical error contract via `error-contract` skill
-- **Review:** Load `/skill:agendas-compliance` → validates against this contract
-- **Context for frontend:** Load `/skill:project-context` → ensures API shapes match frontend contract
-
-## Error Handling
-
-For all other backend conventions (error handling, API patterns, dependencies, etc.) refer to the **root** `AGENTS.md` at the project root.
-
-Built-in error constructors (from `internal/api/errors.go`):
-- `ErrBadRequest` — 400, `code: "bad_request"`
-- `ErrNotFound` — 404, `code: "not_found"`
-- `ErrUnauthorized` — 401, `code: "unauthorized"`
-- `ErrForbidden` — 403, `code: "forbidden"`
-- `ErrInternal` — 500, `code: "internal_error"`
-- `ErrNoActiveTermFutureExists` — 400, `code: "no_active_term_future_exists"`
-
-## Contract Version
-- **Version:** 1.0.0 (Late 2026) — AI coding optimized with `.pi/skills/` integration
-- **Owner:** Platform team
+## General
+See root AGENTS.md for commit policy and document-led workflow.
+Library versions: see go.mod.

@@ -1,0 +1,10 @@
+openapi: 3.1.0
+info:
+  title: Somotracker API
+  version: 0.1.0
+  description: TODO(human)
+servers:
+  - url: TODO(human)
+paths: {}
+components:
+  schemas: {}

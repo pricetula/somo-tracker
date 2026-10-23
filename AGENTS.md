@@ -12,6 +12,27 @@ The AI agent **may** run `git add` and `git commit` with clear, conventional com
 - Pushes to `main`/`develop` are forbidden; PRs must be opened for human review.
 - All commits must pass `make compliance` and lefthook pre-commit checks.
 
+### Commit / Push / PR Workflow
+
+Branch naming: `feature/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>`. Create from `develop`.
+
+After completing a task and verifying tests locally:
+1. Run `/review` to validate contracts.
+2. `git add` changed files, `git commit` with a conventional message.
+3. Run `make compliance` locally — it must pass before pushing.
+4. `git push -u origin <branch>` the feature branch to origin.
+5. Create PR via GitHub CLI:
+   ```bash
+   gh pr create --base develop --title "feat(...): <short summary>" --body-file .github/PULL_REQUEST_TEMPLATE.md
+   ```
+   Fill the template with feature spec / gap links, testing notes, and checklist. PR template is at `.github/PULL_REQUEST_TEMPLATE.md`.
+6. PRs must pass all bot checks in `.github/workflows/bots.yml` before merge.
+7. Do not force-push to shared branches. Use conventional commit messages and keep history clean.
+
+**Pre-commit vs Pre-push:**
+- `lefthook pre-commit` should remain fast: formatting and linting of staged files only.
+- Heavy checks (tests, `make compliance`, builds) belong in `pre-push` or CI. Builds are **not** run in pre-commit — they are too slow and should run in CI (`make compliance` + bot suite). This matches common team practice: fast local feedback, comprehensive validation in CI.
+
 ---
 
 ## AI Coding Setup (Late 2026 Edition)

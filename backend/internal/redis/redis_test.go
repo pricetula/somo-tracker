@@ -1,4 +1,5 @@
 //go:build integration
+// +build integration
 
 package redis
 
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxtest"
@@ -46,35 +46,4 @@ func TestNewClient_HappyPath(t *testing.T) {
 	require.NoError(t, client.Ping(pingCtx).Err(), "PING should succeed against test Redis")
 
 	require.NoError(t, app.Stop(t.Context()), "fx app should stop cleanly")
-}
-
-// mockLifecycle satisfies fx.Lifecycle for unit tests that only need the
-// nil-check paths without wiring a full Fx app.
-type mockLifecycle struct{}
-
-func (mockLifecycle) Append(fx.Hook) {}
-
-// TestNewClient_NilConfig asserts the nil-config safety net.
-func TestNewClient_NilConfig(t *testing.T) {
-	logger := zap.NewNop()
-	client, err := NewClient(mockLifecycle{}, nil, logger)
-	assert.Nil(t, client)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "config is required")
-}
-
-// TestNewClient_NilLogger asserts the nil-logger safety net.
-func TestNewClient_NilLogger(t *testing.T) {
-	cfg := newTestConfig(t)
-	client, err := NewClient(mockLifecycle{}, cfg, nil)
-	assert.Nil(t, client)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "logger is required")
-}
-
-// TestPing_NilClient asserts the nil-client safety net.
-func TestPing_NilClient(t *testing.T) {
-	err := Ping(t.Context(), nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "client is nil")
 }

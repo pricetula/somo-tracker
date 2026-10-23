@@ -7,7 +7,18 @@ import type { MappedRow } from "@/features/import/components/upload/field-mapper
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 
-type BulkJobItem = { id: string; status: string; email: string; error?: string; payload?: string; last_error?: string };
+type BulkJobItem = {
+  id: string;
+  job_id: string;
+  row_index: number;
+  payload: string;
+  result?: string;
+  status: string;
+  attempt_count: number;
+  last_error?: string;
+  created_at: string;
+  updated_at: string;
+};
 
 const STUDENT_IMPORT_FIELDS = [
     {
@@ -137,8 +148,8 @@ export function StudentsImportOrchestrator() {
                                     >
                                         <div className="text-sm">
                                             <div className="font-medium">
-                                                {payload.full_name ?? "—"} –{" "}
-                                                {payload.admission_number ?? "—"}
+                                                {String(payload.full_name ?? "—")} –{" "}
+                                                {String(payload.admission_number ?? "—")}
                                             </div>
                                             <div className="text-destructive text-xs">
                                                 { (item as any).last_error || "No error details" }

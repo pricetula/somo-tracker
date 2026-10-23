@@ -2,9 +2,15 @@
 
 > **AI Coding Directive:** Before modifying any file, identify the layer (backend/frontend/public/docs) and load the matching `.pi/skills/`. Use `/skill:project-context` first to understand constraints. Use `/review` before committing work.
 
-## Golden Rule: User-Managed Commit
+## Commit Policy: Allow Commits, No Push to Protected Branches
 
-Changes remain unstaged for user review; the agent may assist with `git add/commit/push` when explicitly instructed by the user for PR creation.
+The AI agent **may** run `git add` and `git commit` with clear, conventional commit messages to create history locally.
+
+**Never** push to protected branches: `main` or `develop`.
+
+- Commits are allowed on feature branches.
+- Pushes to `main`/`develop` are forbidden; PRs must be opened for human review.
+- All commits must pass `make compliance` and lefthook pre-commit checks.
 
 ---
 

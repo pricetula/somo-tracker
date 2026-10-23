@@ -35,7 +35,7 @@ func TestHelmetMiddleware_SetsSecurityHeaders(t *testing.T) {
 	assert.Equal(t, "DENY", resp.Header.Get("X-Frame-Options"),
 		"X-Frame-Options must be DENY")
 	assert.Equal(t, "default-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'", resp.Header.Get("Content-Security-Policy"),
-		"Content-Security-Policy must be default-src 'none'")
+		"Content-Security-Policy must be default-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'")
 }
 
 func TestHelmetMiddleware_PreservesRequestID(t *testing.T) {

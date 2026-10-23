@@ -19,7 +19,6 @@ This is the high-level inventory of known gaps and missing functionality. Detail
 | Timetable Inline DTOs No Validation | backend | Low | Open | ... |
 | Students Import Inline Errors | backend | Medium | Open | ... |
 | Events Handler Inline Auth Errors | backend | Medium | Open | ... |
-| Me Handler Inline Auth Errors | backend | Medium | Open | ... |
 | School Handler ListSchools Uses fiber.NewError | backend | Medium | Open | ... |
 | User Counts Handler Uses fiber.NewError | backend | Medium | Open | ... |
 | ... | ... | ... | Open | ... |

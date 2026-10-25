@@ -14,10 +14,20 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
 
 ## Data layer
 
-- **FE-007** All HTTP uses native `fetch`, wrapped once in `src/lib/api/client.ts`. Paths start with `/api/`. Never hardcode `/backend`. No axios or other HTTP libraries. Never send a school identifier; the backend resolves it.
-- **FE-008** API types and Zod schemas are generated from `openapi/openapi.json` into `src/lib/api/generated/`. Never hand-write or edit them. Generate types and schemas only, never a client or SDK. Inside a feature, only `types.ts` (type re-exports) and `schemas.ts` (Zod, `.extend()` / `.pick()` only) import from `generated/`; everything else imports from `../types` or `../schemas`.
-- **FE-009** Components never call API functions, `useQuery`, `useMutation` or `useQueryClient` directly. Each feature has `api/<fn>.ts` (plain async functions calling `client.ts`) and `hooks/use-<hook-name>.ts` (one hook per file, the only place TanStack Query is used). Query keys come from the key factory. Mutations invalidate affected keys on success.
-- **FE-010** Errors use `ApiError` with `status/code/message/errors`. One global `MutationCache.onError` shows a `sonner` toast. Success and warning toasts are explicit. Submit buttons are disabled with a spinner while pending.
+- FE-007 Base path and client
+   All HTTP uses native fetch, wrapped once in src/lib/api/client.ts. Base path is /api/v1, e.g. /api/v1/me. Paths start with /api/v1. Never hardcode /backend. No axios. Never send a school identifier or
+   X-Active-School header; the backend resolves it. No [school] route segments.
+- FE-008 Types generation
+   API types and Zod schemas are generated from the backend swag-generated Swagger 2.0 spec into src/lib/api/generated/. Generator must accept Swagger 2.0, nullable fields, generic page wrapper { items,
+   nextCursor } and error code enum. Spec location/URL is documented and CI regenerates and diffs on each build. Generate types/schemas only, never a client/SDK.
+- FE-009 / FE-019 Pagination
+  List screens use useInfiniteQuery with getNextPageParam reading nextCursor, null means last page, plus @tanstack/react-virtual. Request params: limit default 50 max 100, cursor, sort whitelisted e.g.
+  name_asc, q and filters. No page numbers, no total counts, no OFFSET. Query key includes sort and filters so change resets cursor. maxPages is set, row heights are fixed. Sensitive lists
+  health/behavior/fees use staleTime:0 gcTime:0.
+- FE-010 Errors
+  ApiError is built from HTTP status + body { code, message, errors?, requestId }. Status is not read from body. One global MutationCache.onError shows a sonner toast. UI copy comes from a code→message map
+  with backend message as English fallback. errors[].field is a dotted path and is fed to react-hook-form setError. 404 is handled identically for missing and cross-tenant records. 204 responses are not
+  parsed as JSON. 401 UNAUTHENTICATED triggers login; no client-side role caching beyond /api/v1/me.
 - **FE-011** The active school is backend state. URLs never contain a school segment (`/students`, never `/[school]/students`). Read it only via `useActiveSchool()`. Query keys are prefixed with its `schoolId` for cache isolation only, and the cache is cleared when it changes.
 - **FE-012** Health, vaccination, behavior and fee queries use `staleTime: 0` and `gcTime: 0` and are never persisted. No PII or secrets in logs, URLs, query strings or analytics.
 
@@ -55,6 +65,13 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
 - **Icons:** `lucide-react` only.
 - **Dependencies:** add none without approval. Prefer what is already installed.
 - **Scope:** change only what the task requires. Don't refactor unrelated code.
+-  Naming: camelCase everywhere, no manual snake_case mapping. Money is integer with Minor suffix, formatted only via formatKes(). Timestamps RFC3339 UTC displayed Africa/Nairobi. Enums are SCREAMING_SNAKE
+  with one label map each and UI safe fallback for unknown values. Updates use PUT with full editable body; no PATCH. Responses are bare objects except lists; declared fields are always present with no null values, arrays are [] never null. Creates
+  expect 201 with body, queued work 202, deletes 204.
+
+- Next.js proxy
+  /api/* rewrites to the private backend. Real client IP is forwarded in the agreed header. Body-size and timeout limits are set to allow CSV import/exports/PDF downloads. No internal backend endpoints
+  /healthz /readyz /metrics /spec are exposed or referenced under /api. Authenticated responses set Cache-Control: no-store.`
 
 ## Definition of done
 

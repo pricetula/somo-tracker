@@ -1,14 +1,14 @@
 # Somotracker Frontend: Agent Rules
 
-Scope: Next.js (App Router) + shadcn/ui (Base UI). Root AGENTS.md covers commit policy and the document-led workflow. Library versions: see package.json.
+Scope: TanStack Start + shadcn/ui (Base UI). Root AGENTS.md covers commit policy and the document-led workflow. Library versions: see package.json.
 Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before finishing.
 
 ## Architecture
 
 - **FE-001** Outside a feature, import only from `features/<name>/index.ts` (components, hooks, types; explicit named exports, no `export *`). Never import a feature's `api/` or internals. Inside a feature use relative imports and never import the feature's own `index.ts`. Features never import other features.
-- **FE-002** `app/` route files only render a page component from `src/components/pages/`. Pages compose features via `index.ts` and hold no business logic or data access. Cross-feature data is composed in the page via props; if that isn't possible, raise an Open Question. `components/ui/` and `components/shared/` never import from `features/` or `components/pages/`.
+- **FE-002** `routes/` files export a TanStack Router `Route` with `loader` for server data and `component` that renders a page component from `src/components/pages/`. Pages compose features via `index.ts` and hold no business logic or data access. Cross-feature data is composed in the page via props; if that isn't possible, raise an Open Question. `components/ui/` and `components/shared/` never import from `features/` or `components/pages/`.
 - **FE-003** No back buttons or "Back to" links. Navigation belongs to the app shell. Closing a modal is not back navigation.
-- **FE-004** `src/proxy.ts` replaces middleware: default export, matcher required. Session check only, never the sole authorization check.
+- **FE-004** `entry.server.tsx` and `routes/$server.ts` replace Next.js middleware: session check only, never the sole authorization check. Root loader provides session.
 - **FE-005** Never call `setState` in an effect to mirror props or state. Compute during render or use event handlers. Subscriptions and `useSyncExternalStore` are fine.
 - **FE-006** One component per `.tsx` file, named after the file. No second component inside it, even a private one; extract it. Hooks and helpers go in `.ts` files. Column definitions and style maps are not components.
 
@@ -45,7 +45,7 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
 - **FE-019** All tables use the shared `<DataTable>` (`@tanstack/react-table` + shadcn `Table`) with server-side pagination, sorting and filtering. No custom div/ul grids. Only exemption: `RollCallList`.
 - **FE-020** Forms use `react-hook-form` + `zodResolver` + shadcn `Form` parts (`FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage`). No `useState` form bindings.
 - **FE-021** Never hand-edit `src/components/ui/`; add via `pnpm dlx shadcn@latest add`. Shared composites live in `src/components/shared/` and never fetch data.
-- **FE-022** Charts use shadcn `ChartContainer`, `ChartTooltip`, `ChartTooltipContent` and `ChartConfig` over Recharts, loaded via `next/dynamic`. No raw SVG/canvas, Chart.js or D3.
+- **FE-022** Charts use shadcn `ChartContainer`, `ChartTooltip`, `ChartTooltipContent` and `ChartConfig` over Recharts, loaded via React.lazy/Suspense for code-splitting. No raw SVG/canvas, Chart.js or D3.
 
 ## Domain and quality
 
@@ -59,7 +59,7 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
 
 - **Feature layout:** `features/<name>/{index.ts, types.ts, schemas.ts, query-keys.ts, api/, hooks/, components/}`.
 - **Naming:** files and folders are kebab-case. Components are PascalCase, matching the file (`student-form.tsx` exports `StudentForm`). Hooks are `use-<name>.ts` exporting `use<Name>`. API functions are verb-first (`get-students.ts`, `create-student.ts`).
-- **Exports:** named exports only. Default exports only where Next.js requires them (`page.tsx`, `layout.tsx`, `proxy.ts`).
+- **Exports:** named exports only. Default exports only where required by framework entry points (e.g., `main.tsx`).
 - **Query keys:** `[schoolId, '<feature>', '<scope>', params]`, built only in the feature's `query-keys.ts`.
 - **TypeScript:** strict. No `any`; use `unknown` and narrow. Use `type` for aliases and `interface` only when extending. Use `undefined` for absent values; `null` only where the API sends it.
 - **Icons:** `lucide-react` only.
@@ -69,9 +69,9 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
   with one label map each and UI safe fallback for unknown values. Updates use PUT with full editable body; no PATCH. Responses are bare objects except lists; declared fields are always present with no null values, arrays are [] never null. Creates
   expect 201 with body, queued work 202, deletes 204.
 
-- Next.js proxy
-  /api/* rewrites to the private backend. Real client IP is forwarded in the agreed header. Body-size and timeout limits are set to allow CSV import/exports/PDF downloads. No internal backend endpoints
-  /healthz /readyz /metrics /spec are exposed or referenced under /api. Authenticated responses set Cache-Control: no-store.`
+- Vite proxy
+  `/api/*` proxied via `vite.config.ts` `server.proxy` to the private backend. Real client IP is forwarded in the agreed header. Body-size and timeout limits are set to allow CSV import/exports/PDF downloads. No internal backend endpoints
+  /healthz /readyz /metrics /spec are exposed or referenced under /api. Authenticated responses set Cache-Control: no-store.
 
 ## Definition of done
 

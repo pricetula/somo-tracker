@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: somotracker
+      POSTGRES_USER: somotracker
+      POSTGRES_PASSWORD: somotracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      ENV: development
+      POSTGRES_DSN: postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable
+      REDIS_ADDR: redis:6379
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:

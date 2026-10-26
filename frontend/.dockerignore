@@ -2,3 +2,9 @@
 node_modules
 .next
 *.md
+.output
+.dist
+dist
+.env*
+coverage
+

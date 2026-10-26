@@ -1,9 +1,6 @@
-import { renderToString } from 'react-dom/server';
-import { ServerRouterProvider } from '@tanstack/react-router';
-import { router } from './routes/__root';
+import { createStartHandler } from '@tanstack/react-start/server';
+import { getRouter } from './router';
 
-export function render(url: string) {
-  return renderToString(
-    <ServerRouterProvider router={router} context={{ url }} />
-  );
-}
+export default createStartHandler({
+  router: getRouter(),
+});

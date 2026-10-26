@@ -1,0 +1,9 @@
+allowBuilds:
+  esbuild: true
+permissions:
+  '@tanstack/react-router':
+    skills: true
+  '@tanstack/react-start':
+    skills: true
+  '@tanstack/router-plugin':
+    skills: true

@@ -1,0 +1,48 @@
+# Lefthook configuration for somo-tracker
+# Pre-commit checks mirror the existing .husky/pre-commit logic
+# and satisfy the AGENTS.md requirement: commits must pass `make compliance`
+# and lefthook pre-commit checks.
+
+pre-commit:
+  # Run jobs in parallel where possible
+  parallel: false
+
+  # Go formatting with goimports – auto-stage fixed files
+  jobs:
+    - name: goimports
+      # Format staged Go files
+      run: |
+        if command -v goimports >/dev/null 2>&1; then
+          goimports -w {staged_files}
+          git add {staged_files}
+        else
+          echo "⚠ goimports not found — skipping Go format"
+        fi
+      glob: backend/**/*.go
+      stage_fixed: true
+
+    - name: golangci-lint
+      # Lint backend only when Go files are staged
+      run: |
+        cd backend
+        if command -v golangci-lint >/dev/null 2>&1; then
+          golangci-lint run --new-from-rev=HEAD~1 ./...
+        else
+          echo "⚠ golangci-lint not found — skipping Go lint"
+        fi
+      glob: backend/**/*.go
+
+    - name: frontend lint-staged
+      # Run prettier + eslint via lint-staged for staged frontend files
+      run: |
+        cd frontend
+        pnpm lint-staged
+      glob: frontend/**/*.{ts,tsx,js,jsx,json,md,css}
+      # Only run if there are staged frontend files
+      only: changed
+
+pre-push:
+  jobs:
+    - name: compliance
+      # Enforce the `make compliance` contract before push
+      run: make compliance

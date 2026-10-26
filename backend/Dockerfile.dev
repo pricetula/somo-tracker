@@ -1,0 +1,16 @@
+FROM golang:1.25-alpine
+
+WORKDIR /app
+
+# Install air for hot reload
+RUN go install github.com/air-verse/air@latest
+
+# Install build deps for CGO if needed
+RUN apk add --no-cache gcc musl-dev
+
+# Cache go modules
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Default command runs air (watches for changes)
+CMD ["air", "-c", ".air.toml"]

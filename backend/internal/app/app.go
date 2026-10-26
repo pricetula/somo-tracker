@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/helmet"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/recover"
@@ -59,6 +60,12 @@ func (a *App) Start(ctx context.Context) error {
 	app := a.server.App()
 	app.Use(recover.New())
 	app.Use(helmet.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"http://localhost:3000"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowCredentials: true,
+	}))
 	app.Use(logger.New(logger.Config{
 		Format:     "${time} ${status} ${method} ${path} ${latency}\n",
 		TimeFormat: time.RFC3339,

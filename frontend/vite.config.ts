@@ -1,12 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from 'tailwindcss';
-import { tanstackRouter } from '@tanstack/router-plugin/vite';
+import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import path from 'path';
 
 export default defineConfig({
   plugins: [
-    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
+    tanstackStart(),
     react(),
   ],
   css: {
@@ -20,6 +20,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     port: 3000,
     proxy: {
       '/api/v1': {

@@ -22,6 +22,9 @@ help:
 
 # Development
 dev:
+	docker compose up --build
+
+dev-local:
 	docker compose up -d postgres redis
 	@echo "Starting backend..."
 	cd backend && go run ./cmd/api &

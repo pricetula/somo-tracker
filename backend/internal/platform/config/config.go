@@ -1,7 +1,9 @@
 package config
 
 import (
+	"net/url"
 	"os"
+	"strings"
 )
 
 // Config holds typed application configuration loaded from environment.
@@ -13,19 +15,60 @@ type Config struct {
 	ServerPort  string
 }
 
-// Load reads configuration from environment variables.
+// Load reads configuration from environment variables with Doppler aliases.
 func Load() (*Config, error) {
+	env := firstNonEmpty("APP_ENV", "ENV", "development")
+
+	postgresDSN := firstNonEmpty("DATABASE_URL", "POSTGRES_DSN", "")
+
+	redisAddr := firstNonEmpty("REDIS_ADDR", "")
+	if redisAddr == "" {
+		if redisURL := os.Getenv("REDIS_URL"); redisURL != "" {
+			redisAddr = parseRedisAddr(redisURL)
+		}
+	}
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+
+	serverPort := firstNonEmpty("PORT", "SERVER_PORT", "8080")
+
 	return &Config{
-		Env:         getEnv("ENV", "development"),
-		PostgresDSN: getEnv("POSTGRES_DSN", ""),
-		RedisAddr:   getEnv("REDIS_ADDR", "localhost:6379"),
-		ServerPort:  getEnv("SERVER_PORT", "8080"),
+		Env:         env,
+		PostgresDSN: postgresDSN,
+		RedisAddr:   redisAddr,
+		ServerPort:  serverPort,
 	}, nil
 }
 
-func getEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+func firstNonEmpty(keys ...string) string {
+	for i, k := range keys {
+		v := os.Getenv(k)
+		if v != "" {
+			return v
+		}
+		// last key may be default
+		if i == len(keys)-1 {
+			return v
+		}
 	}
-	return def
+	return ""
+}
+
+func parseRedisAddr(raw string) string {
+	// Accept redis://host:port or redis://user:pass@host:port/db
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	host := u.Host
+	if host == "" {
+		return raw
+	}
+	// Strip possible userinfo if present without scheme parsing
+	if strings.Contains(host, "@") {
+		parts := strings.SplitN(host, "@", 2)
+		host = parts[1]
+	}
+	return host
 }

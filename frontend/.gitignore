@@ -1,0 +1,51 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# build output
+dist
+.output
+.next
+.nuxt
+out
+
+# env
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# doppler
+.doppler
+.doppler/
+doppler.data
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# testing
+coverage
+.nyc_output
+
+# OS
+.DS_Store
+Thumbs.db
+
+# tanstack
+.tanstack
+
+# misc
+*.gen.*

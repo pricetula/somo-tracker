@@ -59,7 +59,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.tanstack
       - /app/dist
     depends_on:
       - backend

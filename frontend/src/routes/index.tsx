@@ -4,7 +4,7 @@ export const Route = createFileRoute('/')({
   component: Home,
 });
 
-function Home() {
+export function Home() {
   return (
     <div className="space-y-4">
       <h1 className="text-3xl font-bold">Somotracker</h1>

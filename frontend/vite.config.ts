@@ -23,14 +23,8 @@ export default defineConfig({
       '/api/v1': {
         target: process.env.BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
-      },
-      '/healthz': {
-        target: process.env.BACKEND_URL || 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/readyz': {
-        target: process.env.BACKEND_URL || 'http://localhost:8080',
-        changeOrigin: true,
+        timeout: 300_000, // 5 minutes for CSV/PDF downloads
+        proxyTimeout: 300_000,
       },
     },
   },

@@ -7,19 +7,20 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node dist/server/server.js",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "lint:fix": "eslint --fix .",
     "format": "prettier --write .",
-    "generate:api": "echo 'TODO: generate API types from swagger'",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "lint-staged": "pnpm lint:fix && pnpm format",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit",
+    "generate:api": "echo 'TODO: generate API types from swagger'"
   },
   "dependencies": {
-    "@tanstack/react-start": "^1.169.4",
     "@date-fns/tz": "^1.5.0",
     "@hookform/resolvers": "^6.0.0",
     "@tanstack/react-query": "^5.105.0",
+    "@tanstack/react-start": "^1.169.4",
     "@tanstack/react-router": "^1.170.46",
     "@tanstack/react-table": "^9.3.1",
     "@tanstack/react-virtual": "^3.14.23",
@@ -47,23 +48,19 @@
     "eslint": "^10.13.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "jest": "^30.5.2",
-    "jest-environment-jsdom": "^30.5.2",
     "postcss": "^8.5.32",
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.30.0",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   },
   "pnpm": {
     "allowedBuildScripts": [
       "unrs-resolver",
       "esbuild"
     ]
-  },
-  "allowScripts": {
-    "unrs-resolver@1.12.2": true
   }
 }

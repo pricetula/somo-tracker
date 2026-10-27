@@ -1,0 +1,27 @@
+{
+  "name": "somotracker-marketing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro preview",
+    "build": "astro build",
+    "preview": "astro preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "format": "prettier --write .",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "astro": "^7.4.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.5.0",
+    "@eslint/js": "^9.25.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-astro": "^0.32.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.7.3"
+  }
+}

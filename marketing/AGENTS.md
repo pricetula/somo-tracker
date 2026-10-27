@@ -1,7 +1,23 @@
-# Marketing Site — Agent Rules Stub
+# Marketing Site — Agent Rules
 
-TODO(human): define scope for Astro marketing site.
+Status: skeleton / draft
+Scope: Astro static site (latest), not on docker-compose.
+Layer contract: root AGENTS.md covers commit policy and doc-led workflow.
 
-This file exists to satisfy layer contract. No rules defined yet.
+## Build / Quality
 
-See root AGENTS.md for commit policy and document-led workflow.
+- Build: `pnpm build` (Astro static output to `dist/`)
+- Lint / format / typecheck are part of `make lint` / `make compliance`
+- No `node_modules` / `.astro-cache` / `.cache` / `dist` in git
+
+## Architecture
+
+- `src/pages/` only; no custom server
+- `astro.config.mjs` outputs static
+- Not exposed under `/api`; no backend endpoints
+- No PII / secrets in site source or analytics
+
+## Compliance refs
+
+- FE-007 / FE-011 / FE-015 / FE-016 / FE-024 where they apply to public landing pages
+- All features require `status: approved` spec before development

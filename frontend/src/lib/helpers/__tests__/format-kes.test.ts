@@ -23,7 +23,7 @@ describe('formatKes', () => {
   })
 
   it('throws on non-integer', () => {
-    expect(() => formatKes(1.5 as any)).toThrow(TypeError)
+    expect(() => formatKes(1.5)).toThrow(TypeError)
   })
 
   it('formats with two decimal places', () => {

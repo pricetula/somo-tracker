@@ -47,5 +47,8 @@ Thumbs.db
 # tanstack
 .tanstack
 
+# agent environment artifacts (symlinks to node_modules skills)
+.agents/
+
 # misc
 *.gen.*

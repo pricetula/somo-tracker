@@ -1,5 +1,8 @@
 # Somotracker Makefile
 
+# Ensure go bin is on PATH for tools like swag
+PATH := $(PATH):$(shell go env GOPATH)/bin
+
 .PHONY: help \
 	dev dev-local dev-stop dev-logs \
 	build build-backend build-frontend \

@@ -5,10 +5,10 @@ PATH := $(PATH):$(shell go env GOPATH)/bin
 
 .PHONY: help \
 	dev dev-local dev-stop dev-logs \
-	build build-backend build-frontend \
-	test test-backend test-frontend test-coverage test-integration \
+	build build-backend build-frontend build-marketing \
+	test test-backend test-frontend test-marketing test-coverage test-integration \
 	generate generate-sqlc generate-swag generate-frontend-types \
-	compliance lint vet fmt typecheck \
+	compliance lint vet fmt typecheck typecheck-marketing \
 	docker-build docker-up docker-down docker-logs docker-ps \
 	db-migrate-up db-migrate-down db-migrate-create db-seed \
 	clean clean-all
@@ -102,7 +102,7 @@ dev-logs:
 # Build
 # =============================================================================
 
-build: build-backend build-frontend
+build: build-backend build-frontend build-marketing
 
 build-backend:
 	cd backend && CGO_ENABLED=0 go build -o bin/api ./cmd/api
@@ -113,17 +113,23 @@ build-backend:
 build-frontend:
 	cd frontend && pnpm build
 
+build-marketing:
+	cd marketing && pnpm build
+
 # =============================================================================
 # Test
 # =============================================================================
 
-test: test-backend test-frontend
+test: test-backend test-frontend test-marketing
 
 test-backend:
 	cd backend && go test -v ./...
 
 test-frontend:
 	cd frontend && pnpm test
+
+test-marketing:
+	cd marketing && pnpm lint
 
 test-coverage:
 	cd backend && go test -coverprofile=coverage.out ./...
@@ -157,7 +163,7 @@ generate-frontend-types:
 # Quality / Compliance
 # =============================================================================
 
-compliance: vet lint typecheck test-backend generate-check
+compliance: vet lint typecheck typecheck-marketing test-backend generate-check
 
 vet:
 	cd backend && go vet ./...
@@ -167,15 +173,22 @@ lint:
 	cd backend && golangci-lint run ./...
 	@echo "=== Frontend lint ==="
 	cd frontend && pnpm lint
+	@echo "=== Marketing lint ==="
+	cd marketing && pnpm lint
 
 fmt:
 	@echo "=== Backend fmt ==="
 	cd backend && go fmt ./...
 	@echo "=== Frontend fmt ==="
 	cd frontend && pnpm format
+	@echo "=== Marketing fmt ==="
+	cd marketing && pnpm format
 
 typecheck:
 	cd frontend && pnpm typecheck
+
+typecheck-marketing:
+	cd marketing && pnpm typecheck
 
 generate-check: generate
 	@if [ -n "$$(git status --porcelain)" ]; then \

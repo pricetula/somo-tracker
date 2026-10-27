@@ -9,6 +9,7 @@
 
 # Node
 frontend/node_modules
+marketing/node_modules
 frontend/.next
 
 # Go
@@ -17,5 +18,10 @@ backend/vendor
 
 # Docker
 docker-compose.override.yml
+
+# Astro static output
+marketing/dist
+marketing/.astro-cache
+marketing/.cache
 
 backend/tmp

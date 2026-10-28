@@ -1,7 +1,7 @@
 ---
 id: ADR-0002
 title: Auth and Roles
-status: proposed
+status: accepted
 depends_on: []
 touches: [backend, frontend]
 ---

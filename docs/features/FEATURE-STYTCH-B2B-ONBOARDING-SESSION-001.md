@@ -36,7 +36,7 @@ Enable B2B authentication via Stytch Discovery magic links, allow users to start
 - AC-8: After Discovery authentication, Go inspects discovered_organizations and returns onboarding_required, organization_selection_required, or authenticated per product policy
 - AC-9: Provisioning creates Stytch organization and Member via current Discovery exchange/create endpoint, saves stytch_organization_id and stytch_member_id, then creates local tenant, user and membership in a recoverable workflow
 - AC-10: Provisioning is idempotent with application idempotency key, unique constraints on Stytch IDs, and state tracking pending/provisioning/completed/failed_retryable
-- AC-11: Opaque application session token is generated with ≥256 bits entropy, hash stored in PostgreSQL, raw token issued in __Secure-session_token cookie with Domain=domain.com, Path=/, HttpOnly, Secure, SameSite=Lax, Max-Age aligned to session policy, per-environment cookie name
+- AC-11: Opaque application session token is generated with ≥256 bits entropy after tenant is named and Stytch organization/member is created, hash stored in PostgreSQL, raw token issued in __Secure-session_token cookie with Domain=domain.com, Path=/, HttpOnly, Secure, SameSite=Lax, Max-Age aligned to session policy, per-environment cookie name; no session cookie is issued during pre-tenant onboarding steps
 - AC-12: Backend validates every protected API request: token hash lookup, expiry/revocation, user and tenant resolution, tenant membership and RBAC per RULE-001
 - AC-13: Logout revokes server session and clears cookie with same name/Domain/Path; clearing cookie alone is insufficient
 - AC-14: No IST, magic-link token or raw session token is logged, stored in pending onboarding, or exposed to browser JavaScript
@@ -56,7 +56,7 @@ Update openapi.yaml and run `make generate` when defined.
 - Pin Stytch Go SDK version and confirm exact Discovery method names before implementation
 - IST is short-lived and never stored as durable onboarding state; pending onboarding record is saved after successful Discovery authentication
 - Pending onboarding keyed by normalized verified email before Stytch organization/member exists; switch to stytch organization/member IDs once provisioned
-- Do not create tenant on magic-link click; create only after user submits required school/tenant details
+- Do not create tenant on magic-link click; create only after user submits required school/tenant details. After tenant details are submitted, backend creates Stytch organization/member, exchanges current IST for a Stytch session, then issues opaque application session cookie. No session cookie exists before tenant naming.
 - Track provisioning states and idempotency keys; use DB transactions for local writes; log Stytch request IDs and correlation IDs, never secrets
 - Session policy: application-managed opaque session; optional Stytch-bound revalidation is a policy choice, not a requirement
 - Cookie issuance: Set-Cookie __Secure-session_token=<raw>; Domain=domain.com; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=<seconds>. Use distinct cookie name per environment e.g. __Secure-session_token_stg to avoid parent-domain leakage. __Host- prefix is not usable with Domain.
@@ -79,9 +79,12 @@ Update openapi.yaml and run `make generate` when defined.
 - Verify AC-14: no secrets logged; token not in URL after callback
 - Run `make compliance` and `/review` before status change
 
+## Decisions
+- Session lifetime policy: application-managed opaque session adopted for now. Stytch-bound revalidation can be added later.
+- Redis miss policy for session lookups: fallback to PostgreSQL adopted for now.
+- Cleanup/retention for abandoned pending onboarding records: soft expire after 90 days of no activity, retain for audit, purge after 180 days.
+- Email change / account linking: email change requires fresh Stytch verification and admin approval; no automatic merge of pending records.
+- CSRF Origin missing behavior: mutations require Origin header. If Origin is missing, allow only when Sec-Fetch-Site is 'same-origin'. Otherwise reject. Harden later with double-submit token.
+
 ## Open questions
-- Exact Stytch Go SDK Discovery method names and payload fields for pinned SDK version
-- Session lifetime policy: application-managed vs Stytch-bound revalidation interval
-- Redis miss policy for session lookups
-- Cleanup/retention policy for abandoned pending onboarding records
-- Email change handling and account linking rules for existing users
+- Exact Stytch Go SDK Discovery method names and payload fields for pinned SDK version – verify against pinned SDK before implementation

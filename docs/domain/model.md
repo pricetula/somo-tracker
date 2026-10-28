@@ -28,6 +28,8 @@ touches: []
 - **AuditLog** -> create/update/delete/view events on health, behavior, fee records with actor, timestamp, record ID
 - **Invite** -> email invite to staff/guardian with status pending/accepted/expired, expires after 7 days
 - **NeedsAttention** -> system-generated tasks e.g., class attendance not marked by 10:00, timetable slot without teacher, invite pending >3 days
+- **PendingOnboarding** -> verified email, status, current_step, form_data, stytch_organization_id nullable, stytch_member_id nullable, tenant_id nullable. Created after successful Stytch Discovery authentication, before tenant provisioning. Never stores IST or magic-link token.
+- **AppSession** -> token_hash, user_id, tenant_id, created_at, expires_at, revoked_at. Raw opaque token stored only in HttpOnly cookie, hash stored in DB. Session validated by Go on every protected request.
 
 ## Relationships & invariants
 

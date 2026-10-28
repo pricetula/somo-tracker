@@ -31,7 +31,7 @@ Provide a consistent, tenant-aware authentication guard for the TanStack Start f
 
 ## Acceptance criteria
 - AC-1: Frontend guard checks only cookie presence, makes no calls to Go, Redis, PostgreSQL or Stytch
-- AC-2: Missing cookie on protected routes redirects to /login; existing cookie on /login or /signup redirects to /
+- AC-2: Missing cookie on protected routes redirects to /login; existing cookie on /login or /signup redirects to /; /auth/callback is allowed without redirect; /onboarding/tenant-name is allowed without cookie, redirects to / if cookie present
 - AC-3: Client-side navigation follows same policy without reading HttpOnly cookie
 - AC-4: routePolicy is single source of truth for middleware and beforeLoad; both use it and can be unit tested independently
 - AC-5: Middleware does not redirect server function calls, static assets, favicon, fonts, images, or framework internals
@@ -50,7 +50,7 @@ No backend changes are introduced by this feature. Existing Go session validatio
 ## Frontend notes
 - Cookie presence only for navigation. Never read HttpOnly cookie in JS.
 - routePolicy(pathname, hasCookie) returns allow or redirect. Central pure function used by middleware and beforeLoad.
-- Layer A: TanStack Start request middleware for document requests with Accept:text/html and Sec-Fetch-Dest:document. Allowlist paths only; do not redirect server functions, static assets, or API requests.
+- Layer A: TanStack Start request middleware for document requests with Accept:text/html and Sec-Fetch-Dest:document. Allowlist paths only; do not redirect server functions, static assets, API requests, /auth/callback, /onboarding/tenant-name, /logout, /unauthorized, health endpoints.
 - Layer B: root route beforeLoad calls server function getAuthState that reads Cookie header on TanStack server and returns { hasSession: boolean }. Result placed in router context; child guards use routePolicy.
 - Login callback: TODO Stytch integration – read temporary Stytch credential, remove from URL, POST to api.domain.com/auth/session with credentials:'include', then full navigation or router.invalidate().
 - Set Referrer-Policy:no-referrer on callback, avoid token in logs/analytics. Stytch flow is TODO.
@@ -65,9 +65,11 @@ No backend changes are introduced by this feature. Existing Go session validatio
 - Verify AC-10: logout link cannot be triggered by link preloading; router behavior validated
 - Run `make compliance` and `/review` before status change
 
+## Decisions
+- CSRF Origin missing behavior: mutations require Origin header. If Origin is missing, allow only when Sec-Fetch-Site is 'same-origin'. Reject otherwise. Can harden later with double-submit token.
+- ?redirect= param: supported post-login with allowlist of same-origin relative paths only.
+- Local development: use app.local.domain.com over HTTPS or a dev proxy to avoid Domain/Secure issues on localhost.
+
 ## Open questions
 - TODO Stytch integration is a separate large feature. Is Stytch PKCE enabled to prevent login-CSRF?
-- Should a ?redirect= param be supported post-login? If yes, require allowlist of same-origin relative paths only.
-- On Redis miss, fallback to PostgreSQL or reject? Accept per-request latency cost?
-- Should same-origin proxy under app.domain.com/api/* be adopted to enable __Host- cookie and reduce CSRF surface?
-- Local development: use app.local.domain.com with HTTPS or dev proxy to avoid Domain/Secure issues on localhost?
+- Should same-origin proxy under app.domain.com/api/* be adopted to enable __Host- cookie and reduce CSRF surface? Proposed for future hardening.

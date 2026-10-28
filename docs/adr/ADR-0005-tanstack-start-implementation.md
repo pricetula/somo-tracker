@@ -21,6 +21,10 @@ ADR-0004 adopted TanStack Start. This ADR records the concrete implementation de
 - Vite server `host:true` for Docker.
 - API base path proxied in dev, backend reachable via service DNS `http://backend:8080` for SSR.
 - Dockerfile uses multi-stage build with pnpm frozen lockfile, non-root user, copies `.output`.
+- Auth route guard: pure `routePolicy(pathname, hasCookie)` single source of truth for middleware and beforeLoad.
+- Request middleware is allowlist-based for document requests only, with Accept:text/html and Sec-Fetch-Dest checks, never redirects server functions, static assets, or API routes.
+- `getAuthState` server function reads Cookie header on TanStack server and returns `{ hasSession }`; result cached in router context, refreshed on login/logout.
+- Data fetching is client-only; TanStack server does not call Go API.
 
 ## Consequences
 - Frontend no longer uses `index.html` or manual `RouterProvider`.

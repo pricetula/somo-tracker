@@ -45,7 +45,7 @@ Enable B2B authentication via Stytch Discovery magic links, allow users to start
 ## API changes
 Pointer to docs/api/openapi.yaml diff: TODO — define
 - POST /api/v1/auth/magic-link/send
-- POST /api/v1/auth/stytch/discovery/authenticate
+- POST /api/v1/auth/authenticate-token
 - GET /api/v1/onboarding/current
 - PUT /api/v1/onboarding/current
 - POST /api/v1/onboarding/complete

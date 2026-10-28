@@ -39,7 +39,7 @@ Provide a consistent, tenant-aware authentication guard for the TanStack Start f
 - AC-7: No flash on full page load or client-side navigation; redirects happen before HTML render or before route commit
 - AC-8: TODO Login callback strips Stytch credential from URL via history.replaceState, sets Referrer-Policy:no-referrer, and keeps credential out of logs/analytics – Stytch flow is out of scope for this feature
 - AC-9: Stale cookie passes navigation guard intentionally; frontend handles 401 from first protected API call by redirecting to /login without loops
-- AC-10: Logout link is POST only and never triggered by TanStack Router preloading
+- AC-10: Logout is POST with JSON body via button onClick fetch, credentials:'include', never triggered by TanStack Router preloading
 
 ## API changes
 Pointer to docs/api/openapi.yaml diff: none for this feature. Existing session endpoints remain unchanged. If session creation or logout paths are modified, update openapi.yaml and regenerate types via `make generate`.

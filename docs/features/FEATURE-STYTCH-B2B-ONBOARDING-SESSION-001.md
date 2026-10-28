@@ -57,6 +57,8 @@ Update openapi.yaml and run `make generate` when defined.
 - IST is short-lived and never stored as durable onboarding state; pending onboarding record is saved after successful Discovery authentication
 - Pending onboarding keyed by normalized verified email before Stytch organization/member exists; switch to stytch organization/member IDs once provisioned
 - Do not create tenant on magic-link click; create only after user submits required school/tenant details. After tenant details are submitted, backend creates Stytch organization/member, exchanges current IST for a Stytch session, then issues opaque application session cookie. No session cookie exists before tenant naming.
+- Onboarding ticket: after Discovery authenticate, issue host-only cookie __Host-onboarding on api.domain.com with HttpOnly, Secure, Path=/, TTL ≤ IST TTL. Server stores ticket hash + encrypted IST against pending record, single-use, deleted on use. Accepted only on tenant-name submit and pending-record read.
+- PKCE: Stytch Discovery supports PKCE. Go generates pkce_code_verifier, stores in short-lived HttpOnly cookie, sends pkce_code_challenge to Stytch on magic-link send. Verifier is read from cookie on callback.
 - Track provisioning states and idempotency keys; use DB transactions for local writes; log Stytch request IDs and correlation IDs, never secrets
 - Session policy: application-managed opaque session; optional Stytch-bound revalidation is a policy choice, not a requirement
 - Cookie issuance: Set-Cookie __Secure-session_token=<raw>; Domain=domain.com; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=<seconds>. Use distinct cookie name per environment e.g. __Secure-session_token_stg to avoid parent-domain leakage. __Host- prefix is not usable with Domain.

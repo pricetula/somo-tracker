@@ -26,6 +26,35 @@ Enable B2B authentication via Stytch Discovery magic links, allow users to start
 - docs/product/brief.md — Role checks enforced server-side on every request, mobile-first intermittent connectivity
 
 ## Entities
+**Tenant** – organization boundary for data isolation
+- id `uuid`
+- name `text` unique
+- stytch_organization_id `uuid` nullable unique
+- status `enum(active, suspended)`
+- created_at `timestamptz`, updated_at `timestamptz`
+
+**User** – identity per tenant
+- id `uuid`
+- tenant_id `uuid` FK
+- email_normalized `text` unique per tenant
+- stytch_member_id `uuid` nullable unique
+- name `text`
+- created_at `timestamptz`, updated_at `timestamptz`
+
+**School** – institution within tenant
+- id `uuid`
+- tenant_id `uuid` FK
+- name `text`
+- code `text` unique per tenant
+- created_at `timestamptz`, updated_at `timestamptz`
+
+**Membership** – User ↔ School role binding
+- id `uuid`
+- user_id `uuid` FK
+- school_id `uuid` FK
+- role `enum(tenant_owner, head, admin, teacher, finance, guardian, platform_operator)`
+- created_at `timestamptz`
+
 **PendingOnboarding** – resumable onboarding state before tenant provisioning
 - verified_email_normalized `text` PK-ish, unique
 - status `enum(pending, provisioning, completed, failed_retryable)`

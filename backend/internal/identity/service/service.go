@@ -7,7 +7,10 @@ type Service struct {
 
 // Repository is domain repository interface, defined by consumer (BE-005).
 type Repository interface {
-	// TODO: declare methods matching store queries
+	// TODO: define methods matching store queries
+	// GetPendingOnboardingByEmail, UpsertPendingOnboarding, UpdatePendingOnboardingStep
+	// CreateAppSession, GetAppSessionByTokenHash, RevokeAppSession
+	// CreateOnboardingTicket, GetOnboardingTicketByHash, MarkOnboardingTicketUsed
 }
 
 // New creates service.

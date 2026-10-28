@@ -3,3 +3,48 @@
 //   sqlc v1.31.1
 
 package store
+
+import (
+	"database/sql"
+	"encoding/json"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type AppSession struct {
+	ID                    uuid.UUID
+	UserID                uuid.UUID
+	TenantID              uuid.UUID
+	TokenHash             []byte
+	StytchMemberSessionID sql.NullString
+	CreatedAt             time.Time
+	ExpiresAt             time.Time
+	RevokedAt             sql.NullTime
+}
+
+type OnboardingTicket struct {
+	ID                  uuid.UUID
+	PendingOnboardingID uuid.UUID
+	TicketHash          []byte
+	EncryptedIst        []byte
+	UsedAt              sql.NullTime
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
+}
+
+type PendingOnboarding struct {
+	ID                      uuid.UUID
+	VerifiedEmailNormalized string
+	Status                  string
+	CurrentStep             string
+	FormData                json.RawMessage
+	StytchOrganizationID    uuid.NullUUID
+	StytchMemberID          uuid.NullUUID
+	TenantID                uuid.NullUUID
+	SchoolName              sql.NullString
+	IdempotencyKey          sql.NullString
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	LastActivityAt          time.Time
+}

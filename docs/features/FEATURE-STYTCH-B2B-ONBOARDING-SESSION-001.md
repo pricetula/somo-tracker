@@ -25,6 +25,41 @@ Enable B2B authentication via Stytch Discovery magic links, allow users to start
 - docs/adr/0002-auth-and-roles.md — Auth and Roles, server-side role checks
 - docs/product/brief.md — Role checks enforced server-side on every request, mobile-first intermittent connectivity
 
+## Entities
+**PendingOnboarding** – resumable onboarding state before tenant provisioning
+- verified_email_normalized `text` PK-ish, unique
+- status `enum(pending, provisioning, completed, failed_retryable)`
+- current_step `text`
+- form_data `jsonb`
+- stytch_organization_id `uuid` nullable
+- stytch_member_id `uuid` nullable
+- tenant_id `uuid` nullable
+- school_name `text` nullable
+- created_at `timestamptz`, updated_at `timestamptz`, last_activity_at `timestamptz`
+- idempotency_key `text` nullable, unique
+
+**AppSession** – opaque application session
+- id `uuid`
+- user_id `uuid`
+- tenant_id `uuid`
+- token_hash `bytea` unique
+- stytch_member_session_id `text` nullable
+- created_at `timestamptz`, expires_at `timestamptz`, revoked_at `timestamptz` nullable
+
+**OnboardingTicket** – short-lived binding for IST to pending record
+- id `uuid`
+- pending_onboarding_id `uuid` FK
+- ticket_hash `bytea` unique
+- encrypted_ist `bytea` nullable (encrypted at rest)
+- used_at `timestamptz` nullable, expires_at `timestamptz`
+
+**PKCECode** – per-auth PKCE verifier
+- pending_onboarding_id `uuid` FK
+- code_verifier `text` (hashed at rest)
+- expires_at `timestamptz`
+
+Notes: No IST, magic-link token or raw session token is stored in PendingOnboarding. Token hashes only. RLS: all queries tenant-scoped where applicable.
+
 ## Acceptance criteria
 - AC-1: POST /api/v1/auth/request-magic-link requests a Stytch Discovery magic link, applies rate limiting, and returns generic success without revealing account existence
 - AC-2: Frontend callback page extracts one-time token, removes it from URL via history.replaceState, sets Referrer-Policy:no-referrer, and POSTs it to Go
@@ -80,6 +115,32 @@ Update openapi.yaml and run `make generate` when defined.
 - Verify AC-11, AC-12: opaque session generation, hash storage, backend validation on protected requests
 - Verify AC-14: no secrets logged; token not in URL after callback
 - Run `make compliance` and `/review` before status change
+
+## Test plan
+**Unit tests**
+- Stytch discovery authenticate mock: valid token → pending record upsert; invalid/expired token → 401
+- Token generator: ≥256 bits entropy, hash storage, raw token never persisted
+- Idempotency: duplicate provisioning request with same idempotency key returns same tenant/user
+- Route policy: cookie presence only, no secret exposure
+
+**Integration tests**
+- End-to-end magic-link → authenticate-token → session cookie set with correct attributes
+- Resume after 30 days: new magic link finds existing PendingOnboarding, preserves current_step and form_data
+- Partial failure recovery: Stytch success + DB failure → reconciliation job creates pending record; DB success + cookie failure → re-auth succeeds without duplicate
+- Logout revokes AppSession and Stytch member session, clears cookie
+- Tenant isolation: session scoped to tenant, cross-tenant queries return 404
+
+**Security tests**
+- Token reuse rejected
+- IST never logged, never stored in PendingOnboarding
+- CSRF: mutations without Origin header rejected unless Sec-Fetch-Site same-origin
+- Rate limiting on request-magic-link
+
+## User acceptance scenarios
+- **First-time onboarding**: User enters email → receives magic link → clicks → provides school name → tenant provisioned → opaque session cookie issued → redirected to dashboard. No session existed before tenant naming.
+- **Abandoned onboarding**: User starts onboarding, closes browser. After 3 weeks, clicks new magic link → sees saved form data and resumes at same step.
+- **Existing tenant login**: Authenticated user with existing tenant returns via magic link → Go inspects discovered_organizations → returns authenticated → session issued immediately, no onboarding screens.
+- **Logout**: User clicks logout → session revoked server-side and in Stytch, cookie cleared, next API call returns 401 → redirected to login.
 
 ## Decisions
 - Session lifetime policy: application-managed opaque session adopted for now. Stytch-bound revalidation can be added later.

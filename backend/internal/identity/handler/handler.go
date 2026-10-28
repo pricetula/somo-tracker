@@ -52,3 +52,11 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 	// TODO: revoke session from context, call svc.Logout, clear cookie
 	return c.SendStatus(fiber.StatusOK)
 }
+
+// RegisterRoutes registers identity routes under /auth
+func (h *Handler) RegisterRoutes(api fiber.Router) {
+	auth := api.Group("/auth")
+	auth.Post("/request-magic-link", h.RequestMagicLink)
+	auth.Post("/authenticate-token", h.AuthenticateToken)
+	auth.Post("/logout", h.Logout)
+}

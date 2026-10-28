@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
+	"somotracker/internal/identity/handler"
 )
 
 // Server wraps Fiber app configured per BE-022.
@@ -32,10 +33,9 @@ func (s *Server) App() *fiber.App {
 
 // RegisterRoutes registers domain handlers (thin, BE-006).
 func (s *Server) RegisterRoutes() {
-	// TODO: register domain routes
-	// Example:
-	// identityHandler := handler.New(identityService)
-	// identityHandler.RegisterRoutes(s.app.Group("/api/v1"))
+	// TODO: wire services with real dependencies
+	// For now, handler is scaffolded; real wiring happens in internal/app
+	_ = handler.New
 }
 
 // Start listens on addr.

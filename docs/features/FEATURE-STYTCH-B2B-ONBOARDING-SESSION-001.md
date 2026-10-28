@@ -172,11 +172,12 @@ Update openapi.yaml and run `make generate` when defined.
 - **Logout**: User clicks logout → session revoked server-side and in Stytch, cookie cleared, next API call returns 401 → redirected to login.
 
 ## Decisions
-- Session lifetime policy: application-managed opaque session adopted for now. Stytch-bound revalidation can be added later.
+- Session lifetime policy: application-managed opaque session adopted for now. Session Max-Age and expires_at are set to match Stytch member session expires_at; Stytch-bound revalidation can be added later.
+- PKCE: deferred for now; decision pending security review.
 - Redis miss policy for session lookups: fallback to PostgreSQL adopted for now.
 - Cleanup/retention for abandoned pending onboarding records: soft expire after 90 days of no activity, retain for audit, purge after 180 days.
 - Email change / account linking: email change requires fresh Stytch verification and admin approval; no automatic merge of pending records.
 - CSRF Origin missing behavior: mutations require Origin header. If Origin is missing, allow only when Sec-Fetch-Site is 'same-origin'. Otherwise reject. Harden later with double-submit token.
 
 ## Open questions
-- Exact Stytch Go SDK Discovery method names and payload fields for pinned SDK version – verify against pinned SDK before implementation
+- Exact Stytch Go SDK Discovery method names and payload fields: use latest Stytch B2B docs; verify against pinned SDK version before implementation.

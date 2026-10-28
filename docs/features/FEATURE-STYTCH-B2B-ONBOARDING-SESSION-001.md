@@ -146,6 +146,23 @@ Update openapi.yaml and run `make generate` when defined.
 - Run `make compliance` and `/review` before status change
 
 ## Test plan
+**AC → Test mapping**
+- AC-1: POST /api/v1/auth/request-magic-link returns 200 generic success, rate limited, no account enumeration
+- AC-2: Callback extracts one-time token, removes from URL via history.replaceState, Referrer-Policy:no-referrer, POSTs token to backend
+- AC-3: Valid Stytch token creates/updates PendingOnboarding with status pending and current_step
+- AC-4: Pending record created with verified_email_normalized only, school_name/tenant_id/stytch_* all NULL
+- AC-5: Leaving onboarding preserves PendingOnboarding, no tenant created
+- AC-6: Re-auth after 30 days finds same PendingOnboarding and resumes step
+- AC-7: Email normalized consistently, uniqueness enforced, fresh auth required for resume
+- AC-8: Discovered organizations inspected → returns onboarding_required / organization_selection_required / authenticated
+- AC-9: Provisioning creates Stytch org/member, saves IDs, creates local tenant/user/membership atomically
+- AC-10: Idempotency key prevents duplicate tenant/user on retry
+- AC-11: Opaque session ≥256 bits, hash stored, cookie __Secure-session_token with correct attributes, no cookie pre-tenant
+- AC-12: Protected API validates token hash, expiry/revocation, tenant membership, RBAC per RULE-001
+- AC-13: Logout revokes AppSession and Stytch member session, clears cookie with matching attributes
+- AC-14: IST/magic-link token/raw session never logged, stored or exposed to JS
+- AC-15: Partial failures recoverable, no duplicate tenant on re-auth
+
 **Unit tests**
 - Stytch discovery authenticate mock: valid token → pending record upsert; invalid/expired token → 401
 - Token generator: ≥256 bits entropy, hash storage, raw token never persisted

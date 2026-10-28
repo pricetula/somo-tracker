@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"somotracker/internal/platform/stytch"
 )
 
 // SessionContext holds validated session data for request context.
@@ -14,9 +15,18 @@ type SessionContext struct {
 	Role     string
 }
 
+// DiscoveryAuthResponse mirrors Stytch discovery authenticate.
+type DiscoveryAuthResponse struct {
+	Email                      string
+	IntermediateSessionToken   string
+	ExpiresAt                  string
+	DiscoveredOrganizations    []string
+}
+
 // Service defines business logic for identity domain (BE-002).
 type Service struct {
-	repo Repository
+	repo  Repository
+	stytch stytch.Client
 }
 
 // Repository is domain repository interface, defined by consumer (BE-005).
@@ -28,8 +38,8 @@ type Repository interface {
 }
 
 // New creates service.
-func New(repo Repository) *Service {
-	return &Service{repo: repo}
+func New(repo Repository, stytch stytch.Client) *Service {
+	return &Service{repo: repo, stytch: stytch}
 }
 
 // RequestMagicLink initiates Stytch Discovery magic link flow.

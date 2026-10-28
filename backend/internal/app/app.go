@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"time"
@@ -11,11 +12,17 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/helmet"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/recover"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	redisPkg "somotracker/internal/platform/redis"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/db"
 	"somotracker/internal/platform/httpserver"
+	"somotracker/internal/platform/stytch"
+	identityHandler "somotracker/internal/identity/handler"
+	identityService "somotracker/internal/identity/service"
+	identityStore "somotracker/internal/identity/store"
+	storegen "somotracker/internal/identity/store/gen"
 )
 
 // App is the HTTP API composition root.
@@ -91,12 +98,20 @@ func (a *App) Start(ctx context.Context) error {
 	})
 
 	// Wire identity domain
-	// TODO: stytchClient := stytch.NewSDKClient()
-	// TODO: queries := store.NewQueries(a.dbPool)
-	// TODO: identityStore := store.New(queries)
-	// TODO: identitySvc := service.New(identityStore)
-	// TODO: identityHandler := handler.New(identitySvc)
-	// TODO: identityHandler.RegisterRoutes(a.server.App().Group("/api/v1"))
+	baseURL := "https://test.stytch.com"
+	if a.cfg.StytchEnv == "live" {
+		baseURL = "https://api.stytch.com"
+	}
+	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret, baseURL)
+	sqlDB, err := sql.Open("pgx", a.cfg.PostgresDSN)
+	if err != nil {
+		slog.Error("failed to open sql db for sqlc", "err", err)
+	}
+	queries := storegen.New(sqlDB)
+	identityStore := identityStore.New(queries)
+	identitySvc := identityService.New(identityStore, stytchClient)
+	identityHandler := identityHandler.New(identitySvc)
+	identityHandler.RegisterRoutes(a.server.App().Group("/api/v1"))
 
 	// Register API routes
 	a.server.RegisterRoutes()

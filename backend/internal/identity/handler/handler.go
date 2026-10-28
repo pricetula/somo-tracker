@@ -7,11 +7,11 @@ import (
 
 // Handler is HTTP handler for identity domain (thin, BE-006).
 type Handler struct {
-	svc service.Service
+	svc *service.Service
 }
 
 // New creates handler.
-func New(svc service.Service) *Handler {
+func New(svc *service.Service) *Handler {
 	return &Handler{svc: svc}
 }
 

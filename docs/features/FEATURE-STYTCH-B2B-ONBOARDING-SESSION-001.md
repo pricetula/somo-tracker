@@ -26,7 +26,7 @@ Enable B2B authentication via Stytch Discovery magic links, allow users to start
 - docs/product/brief.md — Role checks enforced server-side on every request, mobile-first intermittent connectivity
 
 ## Acceptance criteria
-- AC-1: POST /api/v1/auth/magic-link/send requests a Stytch Discovery magic link, applies rate limiting, and returns generic success without revealing account existence
+- AC-1: POST /api/v1/auth/request-magic-link requests a Stytch Discovery magic link, applies rate limiting, and returns generic success without revealing account existence
 - AC-2: Frontend callback page extracts one-time token, removes it from URL via history.replaceState, sets Referrer-Policy:no-referrer, and POSTs it to Go
 - AC-3: Go authenticates Discovery magic link with Stytch, uses verified email only, creates or updates pending onboarding record with status pending and current_step
 - AC-4: Pending onboarding record can exist with verified_email_normalized only, with school_name, tenant_id, stytch_organization_id and stytch_member_id all NULL
@@ -44,7 +44,7 @@ Enable B2B authentication via Stytch Discovery magic links, allow users to start
 
 ## API changes
 Pointer to docs/api/openapi.yaml diff: TODO — define
-- POST /api/v1/auth/magic-link/send
+- POST /api/v1/auth/request-magic-link
 - POST /api/v1/auth/authenticate-token
 - GET /api/v1/onboarding/current
 - PUT /api/v1/onboarding/current

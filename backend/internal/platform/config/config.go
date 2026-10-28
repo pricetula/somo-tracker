@@ -9,10 +9,14 @@ import (
 // Config holds typed application configuration loaded from environment.
 // Secrets are injected via Doppler, never from .env files (BE-033).
 type Config struct {
-	Env        string
-	PostgresDSN string
-	RedisAddr   string
-	ServerPort  string
+	Env           string
+	PostgresDSN   string
+	RedisAddr     string
+	ServerPort    string
+	LogLevel      string
+	StytchEnv     string
+	StytchProjectID string
+	StytchSecret  string
 }
 
 // Load reads configuration from environment variables with Doppler aliases.
@@ -32,12 +36,20 @@ func Load() (*Config, error) {
 	}
 
 	serverPort := firstNonEmpty("PORT", "SERVER_PORT", "8080")
+	logLevel := firstNonEmpty("LOG_LEVEL", "info")
+	stytchEnv := firstNonEmpty("STYTCH_ENV", "test")
+	stytchProjectID := firstNonEmpty("STYTCH_PROJECT_ID", "")
+	stytchSecret := firstNonEmpty("STYTCH_SECRET", "")
 
 	return &Config{
-		Env:         env,
-		PostgresDSN: postgresDSN,
-		RedisAddr:   redisAddr,
-		ServerPort:  serverPort,
+		Env:            env,
+		PostgresDSN:    postgresDSN,
+		RedisAddr:      redisAddr,
+		ServerPort:     serverPort,
+		LogLevel:       logLevel,
+		StytchEnv:      stytchEnv,
+		StytchProjectID: stytchProjectID,
+		StytchSecret:   stytchSecret,
 	}, nil
 }
 

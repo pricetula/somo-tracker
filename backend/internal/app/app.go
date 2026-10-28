@@ -90,6 +90,14 @@ func (a *App) Start(ctx context.Context) error {
 		return c.SendString("Ready")
 	})
 
+	// Wire identity domain
+	// TODO: stytchClient := stytch.NewSDKClient()
+	// TODO: queries := store.NewQueries(a.dbPool)
+	// TODO: identityStore := store.New(queries)
+	// TODO: identitySvc := service.New(identityStore)
+	// TODO: identityHandler := handler.New(identitySvc)
+	// TODO: identityHandler.RegisterRoutes(a.server.App().Group("/api/v1"))
+
 	// Register API routes
 	a.server.RegisterRoutes()
 

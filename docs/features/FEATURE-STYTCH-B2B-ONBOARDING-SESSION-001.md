@@ -38,7 +38,7 @@ Enable B2B authentication via Stytch Discovery magic links, allow users to start
 - AC-10: Provisioning is idempotent with application idempotency key, unique constraints on Stytch IDs, and state tracking pending/provisioning/completed/failed_retryable
 - AC-11: Opaque application session token is generated with ≥256 bits entropy after tenant is named and Stytch organization/member is created, hash stored in PostgreSQL, raw token issued in __Secure-session_token cookie with Domain=domain.com, Path=/, HttpOnly, Secure, SameSite=Lax, Max-Age aligned to session policy, per-environment cookie name; no session cookie is issued during pre-tenant onboarding steps
 - AC-12: Backend validates every protected API request: token hash lookup, expiry/revocation, user and tenant resolution, tenant membership and RBAC per RULE-001
-- AC-13: Logout revokes server session and clears cookie with same name/Domain/Path; clearing cookie alone is insufficient
+- AC-13: Logout revokes server session, revokes Stytch member session, and clears cookie with same name/Domain/Path; clearing cookie alone is insufficient
 - AC-14: No IST, magic-link token or raw session token is logged, stored in pending onboarding, or exposed to browser JavaScript
 - AC-15: Cross-system partial failures are recoverable; Stytch success with DB failure is reconciled, DB success with cookie delivery failure allows re-authentication without duplicate tenant
 

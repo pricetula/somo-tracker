@@ -37,7 +37,7 @@ Provide a consistent, tenant-aware authentication guard for the TanStack Start f
 - AC-5: Middleware does not redirect server function calls, static assets, favicon, fonts, images, or framework internals
 - AC-6: Public routes, assets and framework internals never enter redirect loops
 - AC-7: No flash on full page load or client-side navigation; redirects happen before HTML render or before route commit
-- AC-8: TODO Login callback strips Stytch credential from URL via history.replaceState, sets Referrer-Policy:no-referrer, and keeps credential out of logs/analytics – Stytch flow is out of scope for this feature
+- AC-8: (Out of scope) Login callback stripping of Stytch credential, Referrer-Policy, and credential removal from logs/analytics is handled by FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001; this feature does not implement or test Stytch callback handling
 - AC-9: Stale cookie passes navigation guard intentionally; frontend handles 401 from first protected API call by redirecting to /login without loops
 - AC-10: Logout is POST with JSON body via button onClick fetch, credentials:'include', never triggered by TanStack Router preloading
 
@@ -52,15 +52,14 @@ No backend changes are introduced by this feature. Existing Go session validatio
 - routePolicy(pathname, hasCookie) returns allow or redirect. Central pure function used by middleware and beforeLoad.
 - Layer A: TanStack Start request middleware for document requests with Accept:text/html and Sec-Fetch-Dest:document. Allowlist paths only; do not redirect server functions, static assets, API requests, /auth/callback, /onboarding/tenant-name, /logout, /unauthorized, health endpoints.
 - Layer B: root route beforeLoad calls server function getAuthState that reads Cookie header on TanStack server and returns { hasSession: boolean }. Result placed in router context; child guards use routePolicy.
-- Login callback: TODO Stytch integration – read temporary Stytch credential, remove from URL, POST to api.domain.com/auth/session with credentials:'include', then full navigation or router.invalidate().
-- Set Referrer-Policy:no-referrer on callback, avoid token in logs/analytics. Stytch flow is TODO.
+- Login callback handling (Stytch credential extraction, URL stripping, Referrer-Policy:no-referrer) is out of scope for this feature and is covered by FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001.
 - Global API client uses credentials:'include' for all protected calls. Global 401 handler triggers logout, debounced.
 - No flash: server redirect on full load, beforeLoad before route commit on client navigation. Avoid useEffect guards.
 
 ## Verification
 - Verify AC-1, AC-4: unit tests for routePolicy covering route categories with cookie present/absent
 - Verify AC-2, AC-3, AC-5, AC-6, AC-7: integration tests for middleware redirect decisions and beforeLoad context propagation; ensure server functions, assets and framework internals are not redirected
-- Verify AC-8: callback page tests for URL stripping, referrer policy, and credential removal from logs
+- Verify AC-8 is out of scope; callback page tests for URL stripping, referrer policy, and credential removal from logs are covered by FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001
 - Verify AC-9: simulated stale cookie flow results in 401 handling and redirect to /login without loops
 - Verify AC-10: logout link cannot be triggered by link preloading; router behavior validated
 - Run `make compliance` and `/review` before status change
@@ -71,5 +70,5 @@ No backend changes are introduced by this feature. Existing Go session validatio
 - Local development: use app.local.domain.com over HTTPS or a dev proxy to avoid Domain/Secure issues on localhost.
 
 ## Open questions
-- TODO Stytch integration is a separate large feature. Is Stytch PKCE enabled to prevent login-CSRF?
-- Should same-origin proxy under app.domain.com/api/* be adopted to enable __Host- cookie and reduce CSRF surface? Proposed for future hardening.
+- Stytch PKCE enablement to prevent login-CSRF — decision pending verification against pinned Stytch Go SDK (see FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001).
+- Same-origin proxy under app.domain.com/api/* to enable __Host- cookie is deferred; current design uses __Secure-session_token with Domain=domain.com per ADR-0002.

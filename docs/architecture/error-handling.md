@@ -1,7 +1,7 @@
 ---
 id: ARCH-ERROR-HANDLING
 title: Error Handling, Request ID & Logging Contract
-status: draft
+status: approved
 depends_on: []
 touches: [backend, frontend]
 ---

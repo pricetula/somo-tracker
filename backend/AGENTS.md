@@ -21,7 +21,7 @@ Rules are enforced by lint, CI and tests where possible. Run `go vet`, `golangci
 
 - **BE-009** SQL lives only in `store/queries/*.sql`, compiled by sqlc into `store/gen/` (never hand-edited). No ORM, no query builder, no SQL in Go strings.
 - **BE-010** Stores map sqlc rows to domain types and Postgres errors to `apperr` errors. Store methods map 1:1 to queries and hold no business logic.
-- **BE-011** Migrations are Goose SQL files only. Never edit an applied migration. RLS policies and DB roles live in migrations. Migrations never run at app startup.
+
 - **BE-012** One transaction per service call via `TxManager.Run`; stores take their connection from the context, and services never touch a raw connection. An orchestrating service owns the transaction for multi-domain atomic operations. Never hold a transaction across a network call (Stytch, email, PDF, Redis). Enqueue jobs after commit.
 - **BE-013** Types: UUID primary keys (UUIDv7 for new rows; client-generated is allowed for offline-written records). Timestamps are `timestamptz` (UTC). School-day dates are `date`, interpreted in Africa/Nairobi. Money is `bigint` minor units (KES), never floats.
 - **BE-014** All lists use keyset pagination: request `limit`, `cursor`, `sort`; response `{ items, nextCursor }`. `sort` is a whitelisted name that includes direction (e.g. `name_asc`); `limit` defaults to 50, and above 100 returns 400. Fetch `limit + 1`, use a unique `id` tiebreaker and row comparison, and one named sqlc query per whitelisted sort. The cursor is opaque and bound to the sort and filters; a mismatch returns 400. No OFFSET and no total count (use a dedicated count endpoint if needed).

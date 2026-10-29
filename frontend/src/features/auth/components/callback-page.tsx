@@ -1,6 +1,7 @@
 /**
  * Auth callback page - Handles Stytch redirect
- * Extracts token, removes from URL, POSTs to backend
+ * Extracts token, removes from URL via history.replaceState,
+ * sets Referrer-Policy:no-referrer, POSTs to backend
  */
 
 'use client';
@@ -26,12 +27,12 @@ export function AuthCallbackPage() {
     async function handleCallback() {
       const token = search.token;
 
-      // Remove token from URL immediately to prevent leakage
+      // Remove token from URL immediately to prevent leakage (AC-2)
       if (token) {
         window.history.replaceState(null, '', '/auth/callback');
       }
 
-      // Set Referrer-Policy to no-referrer
+      // Set Referrer-Policy to no-referrer (AC-2)
       const meta = document.createElement('meta');
       meta.name = 'referrer';
       meta.content = 'no-referrer';
@@ -46,7 +47,10 @@ export function AuthCallbackPage() {
       try {
         const response = await authenticateToken(token);
 
-        switch (response.status) {
+        // Use auth_state from backend (AC-8)
+        const authState = response.auth_state || response.status;
+
+        switch (authState) {
           case 'authenticated': {
             setStatus('success');
             // Redirect to dashboard or intended destination
@@ -68,7 +72,7 @@ export function AuthCallbackPage() {
           }
           default: {
             setStatus('error');
-            setErrorMessage('Unknown authentication status');
+            setErrorMessage(`Unknown authentication status: ${authState}`);
             break;
           }
         }

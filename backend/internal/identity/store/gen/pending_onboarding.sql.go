@@ -69,6 +69,33 @@ func (q *Queries) GetPendingOnboardingByID(ctx context.Context, id uuid.UUID) (P
 	return i, err
 }
 
+const updatePendingOnboardingProvisioning = `-- name: UpdatePendingOnboardingProvisioning :exec
+UPDATE pending_onboarding
+SET stytch_organization_id = $2,
+    stytch_member_id = $3,
+    status = $4,
+    updated_at = NOW(),
+    last_activity_at = NOW()
+WHERE id = $1
+`
+
+type UpdatePendingOnboardingProvisioningParams struct {
+	ID                   uuid.UUID
+	StytchOrganizationID uuid.NullUUID
+	StytchMemberID       uuid.NullUUID
+	Status               string
+}
+
+func (q *Queries) UpdatePendingOnboardingProvisioning(ctx context.Context, arg UpdatePendingOnboardingProvisioningParams) error {
+	_, err := q.db.ExecContext(ctx, updatePendingOnboardingProvisioning,
+		arg.ID,
+		arg.StytchOrganizationID,
+		arg.StytchMemberID,
+		arg.Status,
+	)
+	return err
+}
+
 const updatePendingOnboardingStep = `-- name: UpdatePendingOnboardingStep :exec
 UPDATE pending_onboarding
 SET current_step = $2, form_data = $3, updated_at = NOW(), last_activity_at = NOW()

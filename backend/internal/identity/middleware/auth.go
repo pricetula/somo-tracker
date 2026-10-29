@@ -8,24 +8,35 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"somotracker/internal/identity/service"
+	"somotracker/internal/platform/config"
 )
 
 // AuthMiddleware validates session token on protected routes
 // Per ADR-0002: Go is sole security authority, validates every protected request
 type AuthMiddleware struct {
 	svc *service.Service
+	cfg *config.Config
 }
 
 // NewAuthMiddleware creates auth middleware.
-func NewAuthMiddleware(svc *service.Service) *AuthMiddleware {
-	return &AuthMiddleware{svc: svc}
+func NewAuthMiddleware(svc *service.Service, cfg *config.Config) *AuthMiddleware {
+	return &AuthMiddleware{svc: svc, cfg: cfg}
+}
+
+// sessionCookieName returns the cookie name with environment suffix per ADR-0002
+func (m *AuthMiddleware) sessionCookieName() string {
+	base := "__Secure-session_token"
+	if m.cfg.Env != "" && m.cfg.Env != "production" {
+		return base + "_" + m.cfg.Env
+	}
+	return base
 }
 
 // RequireAuth middleware validates session token from cookie
 func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// Get session token from cookie
-		cookieName := "__Secure-session_token"
+		cookieName := m.sessionCookieName()
 		token := c.Cookies(cookieName)
 		if token == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -70,7 +81,7 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 // OptionalAuth middleware validates session if present, but doesn't require it
 func (m *AuthMiddleware) OptionalAuth() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		cookieName := "__Secure-session_token"
+		cookieName := m.sessionCookieName()
 		token := c.Cookies(cookieName)
 		if token == "" {
 			return c.Next()

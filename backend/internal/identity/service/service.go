@@ -53,6 +53,7 @@ type OnboardingState struct {
 	PendingID     uuid.UUID
 	SchoolName    *string
 	TenantID      *uuid.UUID
+	AuthState     string // AC-8: discovered organizations state
 }
 
 // ProvisionResult holds the result of provisioning.
@@ -83,6 +84,7 @@ type Repository interface {
 	GetPendingOnboardingByID(ctx context.Context, id uuid.UUID) (storegen.PendingOnboarding, error)
 	UpsertPendingOnboarding(ctx context.Context, arg storegen.UpsertPendingOnboardingParams) (storegen.PendingOnboarding, error)
 	UpdatePendingOnboardingStep(ctx context.Context, arg storegen.UpdatePendingOnboardingStepParams) error
+	UpdatePendingOnboardingProvisioning(ctx context.Context, id uuid.UUID, stytchOrgID, stytchMemberID uuid.UUID, status string) error
 	CreateAppSession(ctx context.Context, arg storegen.CreateAppSessionParams) (storegen.AppSession, error)
 	GetAppSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.AppSession, error)
 	GetAppSessionByID(ctx context.Context, id uuid.UUID) (storegen.AppSession, error)
@@ -196,13 +198,14 @@ func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier
 	}
 
 	// 5. Determine state based on discovered organizations
-	_ = determineAuthState(resp.DiscoveredOrganizations)
+	authState := determineAuthState(resp.DiscoveredOrganizations)
 
 	return ticketToken, &OnboardingState{
 		VerifiedEmail: normalizedEmail,
 		CurrentStep:   "tenant-name",
 		FormData:      map[string]interface{}{},
 		PendingID:     pending.ID,
+		AuthState:     authState,
 	}, nil
 }
 
@@ -260,7 +263,29 @@ func (s *Service) ProvisionTenant(ctx context.Context, ticketToken string, data 
 }
 
 // provisionInTransaction runs the full provisioning in a database transaction.
+// Reuses existing Stytch IDs if present (retry after partial failure).
 func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.OnboardingTicket, pending storegen.PendingOnboarding, data ProvisionData) (*ProvisionResult, error) {
+	var orgID, memberID uuid.UUID
+
+	// CHECK: Reuse existing Stytch IDs from a previous failed attempt
+	if pending.StytchOrganizationID.Valid && pending.StytchMemberID.Valid {
+		orgID = pending.StytchOrganizationID.UUID
+		memberID = pending.StytchMemberID.UUID
+	} else {
+		// FIRST ATTEMPT: Create Stytch organization and member
+		orgMember, err := s.stytch.CreateOrganizationAndMember(ctx, data.SchoolName, pending.VerifiedEmailNormalized)
+		if err != nil {
+			return nil, fmt.Errorf("create org/member: %w", err)
+		}
+		orgID = uuid.MustParse(orgMember.OrganizationID)
+		memberID = uuid.MustParse(orgMember.MemberID)
+
+		// Persist Stytch IDs immediately so retries can reuse them
+		if err := s.repo.UpdatePendingOnboardingProvisioning(ctx, pending.ID, orgID, memberID, "provisioning"); err != nil {
+			return nil, fmt.Errorf("persist stytch ids: %w", err)
+		}
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -277,19 +302,10 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 		return nil, fmt.Errorf("exchange discovery session: %w", err)
 	}
 
-	// Create Stytch organization and member
-	orgMember, err := s.stytch.CreateOrganizationAndMember(ctx, data.SchoolName, pending.VerifiedEmailNormalized)
-	if err != nil {
-		return nil, fmt.Errorf("create org/member: %w", err)
-	}
-
-	tenantID := uuid.MustParse(orgMember.OrganizationID)
-	memberID := uuid.MustParse(orgMember.MemberID)
-
 	// Create local Tenant
 	tenant, err := txRepo.CreateTenant(ctx, storegen.CreateTenantParams{
 		Name:                   data.SchoolName,
-		StytchOrganizationID:   uuid.NullUUID{UUID: tenantID, Valid: true},
+		StytchOrganizationID:   uuid.NullUUID{UUID: orgID, Valid: true},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create tenant: %w", err)
@@ -329,13 +345,13 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 		return nil, fmt.Errorf("create membership: %w", err)
 	}
 
-	// Update PendingOnboarding to completed
+	// Update PendingOnboarding to completed within transaction
 	_, err = txRepo.UpsertPendingOnboarding(ctx, storegen.UpsertPendingOnboardingParams{
 		VerifiedEmailNormalized: pending.VerifiedEmailNormalized,
 		Status:                  "completed",
 		CurrentStep:             "complete",
 		FormData:                pending.FormData,
-		StytchOrganizationID:    uuid.NullUUID{UUID: tenantID, Valid: true},
+		StytchOrganizationID:    uuid.NullUUID{UUID: orgID, Valid: true},
 		StytchMemberID:          uuid.NullUUID{UUID: memberID, Valid: true},
 		TenantID:                uuid.NullUUID{UUID: tenant.ID, Valid: true},
 		SchoolName:              sqlNullString(data.SchoolName),

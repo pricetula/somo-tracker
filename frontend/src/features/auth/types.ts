@@ -17,6 +17,8 @@ export interface AuthenticateTokenRequest {
 
 export interface AuthenticateTokenResponse {
   status: 'onboarding_required' | 'organization_selection_required' | 'authenticated';
+  auth_state: 'onboarding_required' | 'organization_selection_required' | 'authenticated';
+  ticket_token?: string;
   onboarding?: OnboardingState;
 }
 

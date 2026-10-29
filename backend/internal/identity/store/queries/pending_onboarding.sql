@@ -30,3 +30,12 @@ LIMIT 1;
 UPDATE pending_onboarding
 SET current_step = $2, form_data = $3, updated_at = NOW(), last_activity_at = NOW()
 WHERE id = $1;
+
+-- name: UpdatePendingOnboardingProvisioning :exec
+UPDATE pending_onboarding
+SET stytch_organization_id = $2,
+    stytch_member_id = $3,
+    status = $4,
+    updated_at = NOW(),
+    last_activity_at = NOW()
+WHERE id = $1;

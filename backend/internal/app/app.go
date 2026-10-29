@@ -126,10 +126,10 @@ func (a *App) Start(ctx context.Context) error {
 	queries := storegen.New(a.sqlDB)
 	identityStore := identityStore.New(queries)
 	identitySvc := identityService.New(identityStore, stytchClient, a.sqlDB)
-	identityHandler := identityHandler.New(identitySvc)
+	identityHandler := identityHandler.New(identitySvc, a.cfg)
 
 	// Create auth middleware
-	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc)
+	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg)
 
 	// Public routes (no auth required)
 	publicAPI := a.server.App().Group("/api/v1")

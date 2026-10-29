@@ -36,6 +36,15 @@ func (s *Store) UpdatePendingOnboardingStep(ctx context.Context, arg storegen.Up
 	return s.q.UpdatePendingOnboardingStep(ctx, arg)
 }
 
+func (s *Store) UpdatePendingOnboardingProvisioning(ctx context.Context, id uuid.UUID, stytchOrgID, stytchMemberID uuid.UUID, status string) error {
+	return s.q.UpdatePendingOnboardingProvisioning(ctx, storegen.UpdatePendingOnboardingProvisioningParams{
+		ID:                  id,
+		StytchOrganizationID: uuid.NullUUID{UUID: stytchOrgID, Valid: true},
+		StytchMemberID:      uuid.NullUUID{UUID: stytchMemberID, Valid: true},
+		Status:              status,
+	})
+}
+
 // App session
 func (s *Store) CreateAppSession(ctx context.Context, arg storegen.CreateAppSessionParams) (storegen.AppSession, error) {
 	return s.q.CreateAppSession(ctx, arg)

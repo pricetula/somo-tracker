@@ -9,16 +9,18 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"somotracker/internal/identity/service"
+	"somotracker/internal/platform/config"
 )
 
 // Handler is HTTP handler for identity domain (thin, BE-006).
 type Handler struct {
-	svc *service.Service
+	svc   *service.Service
+	cfg   *config.Config
 }
 
 // New creates handler.
-func New(svc *service.Service) *Handler {
-	return &Handler{svc: svc}
+func New(svc *service.Service, cfg *config.Config) *Handler {
+	return &Handler{svc: svc, cfg: cfg}
 }
 
 // DTOs are defined per endpoint, not domain structs (BE-007).
@@ -36,9 +38,10 @@ type AuthenticateTokenRequest struct {
 }
 
 type AuthenticateTokenResponse struct {
-	Status        string            `json:"status"`
-	TicketToken   string            `json:"ticket_token,omitempty"`
-	Onboarding    *OnboardingState  `json:"onboarding,omitempty"`
+	Status      string            `json:"status"`
+	AuthState   string            `json:"auth_state"`
+	TicketToken string            `json:"ticket_token,omitempty"`
+	Onboarding  *OnboardingState  `json:"onboarding,omitempty"`
 }
 
 type OnboardingState struct {
@@ -174,6 +177,7 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 	// Build response
 	resp := AuthenticateTokenResponse{
 		Status:      onboardingState.CurrentStep,
+		AuthState:   onboardingState.AuthState,
 		TicketToken: ticketToken,
 	}
 
@@ -266,7 +270,7 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 	}
 
 	// Set session cookie
-	setSessionCookie(c, sessionToken, expiresAt)
+	h.setSessionCookie(c, sessionToken, expiresAt)
 
 	return c.Status(fiber.StatusOK).JSON(ProvisionTenantResponse{Success: true})
 }
@@ -288,7 +292,7 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 	}
 
 	// Clear session cookie
-	clearSessionCookie(c)
+	h.clearSessionCookie(c)
 
 	return c.Status(fiber.StatusOK).JSON(LogoutResponse{Success: true})
 }
@@ -398,11 +402,27 @@ func (h *Handler) RegisterRoutes(api fiber.Router) {
 	onboarding.Post("/complete", h.ProvisionTenant)
 }
 
+// sessionCookieName returns the cookie name with environment suffix per ADR-0002
+func (h *Handler) sessionCookieName() string {
+	base := "__Secure-session_token"
+	if h.cfg.Env != "" && h.cfg.Env != "production" {
+		return base + "_" + h.cfg.Env
+	}
+	return base
+}
+
+// sessionCookieDomain returns the cookie domain from config
+func (h *Handler) sessionCookieDomain() string {
+	// In production, set to shared domain (e.g., "example.com")
+	// For now, return empty string (no Domain attribute = host-only)
+	// TODO: Add cookie domain to config when production domain is known
+	return ""
+}
+
 // setSessionCookie sets the session cookie with proper attributes
-func setSessionCookie(c fiber.Ctx, token string, expiresAt time.Time) {
-	// Cookie name per ADR-0002: __Secure-session_token with env suffix
-	cookieName := "__Secure-session_token"
-	// TODO: Add env suffix (e.g., __Secure-session_token_stg)
+func (h *Handler) setSessionCookie(c fiber.Ctx, token string, expiresAt time.Time) {
+	cookieName := h.sessionCookieName()
+	cookieDomain := h.sessionCookieDomain()
 
 	maxAge := int(time.Until(expiresAt).Seconds())
 	if maxAge < 0 {
@@ -413,7 +433,7 @@ func setSessionCookie(c fiber.Ctx, token string, expiresAt time.Time) {
 		Name:     cookieName,
 		Value:    token,
 		Path:     "/",
-		Domain:   "", // Will be set to shared domain in production
+		Domain:   cookieDomain,
 		HTTPOnly: true,
 		Secure:   true,
 		SameSite: "Lax",
@@ -422,13 +442,14 @@ func setSessionCookie(c fiber.Ctx, token string, expiresAt time.Time) {
 }
 
 // clearSessionCookie clears the session cookie
-func clearSessionCookie(c fiber.Ctx) {
-	cookieName := "__Secure-session_token"
+func (h *Handler) clearSessionCookie(c fiber.Ctx) {
+	cookieName := h.sessionCookieName()
+	cookieDomain := h.sessionCookieDomain()
 	c.Cookie(&fiber.Cookie{
 		Name:     cookieName,
 		Value:    "",
 		Path:     "/",
-		Domain:   "",
+		Domain:   cookieDomain,
 		HTTPOnly: true,
 		Secure:   true,
 		SameSite: "Lax",

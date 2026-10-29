@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"strings"
@@ -17,6 +19,12 @@ type Config struct {
 	StytchEnv     string
 	StytchProjectID string
 	StytchSecret  string
+	// Security
+	EmailHMACKey  string
+	// Rate limits - configurable via env, defaults per spec
+	RateLimitMagicLinkIPPerMin      int
+	RateLimitMagicLinkEmailPer15Min int
+	RateLimitTokenExchangeIPPerMin  int
 }
 
 // Load reads configuration from environment variables with Doppler aliases.
@@ -41,7 +49,13 @@ func Load() (*Config, error) {
 	stytchProjectID := firstNonEmpty("STYTCH_PROJECT_ID", "")
 	stytchSecret := firstNonEmpty("STYTCH_SECRET", "")
 
-	return &Config{
+	emailHMACKey := firstNonEmpty("EMAIL_HMAC_KEY", "")
+	// Rate limits with defaults per spec
+	ipPerMin := parseIntEnv("RATE_LIMIT_MAGIC_LINK_IP_PER_MIN", 10)
+	emailPer15Min := parseIntEnv("RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN", 3)
+	tokenIPPerMin := parseIntEnv("RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN", 10)
+
+	cfg := &Config{
 		Env:            env,
 		PostgresDSN:    postgresDSN,
 		RedisAddr:      redisAddr,
@@ -50,7 +64,57 @@ func Load() (*Config, error) {
 		StytchEnv:      stytchEnv,
 		StytchProjectID: stytchProjectID,
 		StytchSecret:   stytchSecret,
-	}, nil
+		EmailHMACKey:   emailHMACKey,
+		RateLimitMagicLinkIPPerMin:      ipPerMin,
+		RateLimitMagicLinkEmailPer15Min: emailPer15Min,
+		RateLimitTokenExchangeIPPerMin:  tokenIPPerMin,
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// Validate checks required configuration for the current environment.
+func (c *Config) Validate() error {
+	if c.Env != "development" && c.Env != "test" && c.Env != "production" {
+		return errors.New("APP_ENV must be development, test, or production")
+	}
+	if c.PostgresDSN == "" {
+		return errors.New("DATABASE_URL/POSTGRES_DSN is required")
+	}
+	if c.RedisAddr == "" {
+		return errors.New("REDIS_ADDR/REDIS_URL is required")
+	}
+	if c.StytchProjectID == "" {
+		return errors.New("STYTCH_PROJECT_ID is required")
+	}
+	if c.StytchSecret == "" {
+		return errors.New("STYTCH_SECRET is required")
+	}
+	if c.Env == "production" {
+		// Production must not use insecure defaults
+		if c.RedisAddr == "localhost:6379" {
+			return errors.New("REDIS_ADDR must be set to a managed Redis endpoint in production")
+		}
+		if c.EmailHMACKey == "" {
+			return errors.New("EMAIL_HMAC_KEY is required in production")
+		}
+	}
+	return nil
+}
+
+func parseIntEnv(key string, defaultVal int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	var i int
+	_, err := fmt.Sscanf(v, "%d", &i)
+	if err != nil || i <= 0 {
+		return defaultVal
+	}
+	return i
 }
 
 func firstNonEmpty(keys ...string) string {

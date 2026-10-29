@@ -11,17 +11,19 @@ import (
 	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/logger"
+	"somotracker/internal/platform/ratelimit"
 )
 
 // Handler is HTTP handler for identity domain (thin, BE-006).
 type Handler struct {
-	svc   *service.Service
-	cfg   *config.Config
+	svc     *service.Service
+	cfg     *config.Config
+	rl      *ratelimit.Limiter
 }
 
 // New creates handler.
-func New(svc *service.Service, cfg *config.Config) *Handler {
-	return &Handler{svc: svc, cfg: cfg}
+func New(svc *service.Service, cfg *config.Config, rl *ratelimit.Limiter) *Handler {
+	return &Handler{svc: svc, cfg: cfg, rl: rl}
 }
 
 // DTOs are defined per endpoint, not domain structs (BE-007).
@@ -94,6 +96,28 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 	// Basic email validation
 	if req.Email == "" || !contains(req.Email, "@") {
 		return apperr.New(apperr.INVALID_EMAIL, "invalid email address")
+	}
+
+	// IP rate limit
+	ip := c.IP()
+	allowed, err := h.rl.AllowIP(c.Context(), "magic-link", ip, h.cfg.RateLimitMagicLinkIPPerMin, time.Minute)
+	if err != nil {
+		logger.Error(c.Context(), err, "rate limit check failed")
+		// Fail closed for abuse protection
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+	}
+	if !allowed {
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
+	}
+
+	// Email rate limit
+	allowed, err = h.rl.AllowEmail(c.Context(), "magic-link", req.Email, h.cfg.RateLimitMagicLinkEmailPer15Min, 15*time.Minute)
+	if err != nil {
+		logger.Error(c.Context(), err, "email rate limit check failed")
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+	}
+	if !allowed {
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
 	}
 
 	// Call service - returns PKCE verifier to store in cookie

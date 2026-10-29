@@ -19,6 +19,7 @@ import (
 	"somotracker/internal/platform/db"
 	"somotracker/internal/platform/httpserver"
 	"somotracker/internal/platform/migrator"
+	"somotracker/internal/platform/ratelimit"
 	"somotracker/internal/platform/stytch"
 	identityHandler "somotracker/internal/identity/handler"
 	identityMiddleware "somotracker/internal/identity/middleware"
@@ -126,7 +127,8 @@ func (a *App) Start(ctx context.Context) error {
 	queries := storegen.New(a.sqlDB)
 	identityStore := identityStore.New(queries)
 	identitySvc := identityService.New(identityStore, stytchClient, a.sqlDB)
-	identityHandler := identityHandler.New(identitySvc, a.cfg)
+	rl := ratelimit.New(a.redisClient.Client, a.cfg.EmailHMACKey)
+	identityHandler := identityHandler.New(identitySvc, a.cfg, rl)
 
 	// Create auth middleware
 	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg)

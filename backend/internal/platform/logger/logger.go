@@ -139,6 +139,17 @@ func ErrorLogger(ctx context.Context, err error, attrs ...slog.Attr) *slog.Logge
 	return base.With(allAttrs...)
 }
 
+// Error logs an error at Error level with the given message
+func Error(ctx context.Context, err error, msg string, attrs ...slog.Attr) {
+	logger := LoggerFrom(ctx)
+	args := make([]any, 0, len(attrs)+1)
+	args = append(args, slog.String("error", err.Error()))
+	for _, a := range attrs {
+		args = append(args, a)
+	}
+	logger.Log(ctx, slog.LevelError, msg, args...)
+}
+
 // RedactedString returns a redacted string for logging
 func RedactedString(s string) string {
 	if len(s) <= 8 {

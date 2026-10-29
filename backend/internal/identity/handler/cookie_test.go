@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,8 +13,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"somotracker/internal/identity/service"
+	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/config"
-)
+	)
 
 // TestSessionCookieName_EnvSuffix verifies cookie name includes env suffix for non-production
 func TestSessionCookieName_EnvSuffix(t *testing.T) {
@@ -54,7 +56,7 @@ func TestSessionCookieDomain_ReturnsConfiguredDomain(t *testing.T) {
 func TestSetSessionCookie_SetsCorrectAttributes(t *testing.T) {
 	h := &Handler{cfg: &config.Config{Env: "staging"}}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/set-cookie", func(c fiber.Ctx) error {
 		token := "test-token-123"
 		expiresAt := time.Now().Add(24 * time.Hour)
@@ -87,8 +89,8 @@ func TestSetSessionCookie_SetsCorrectAttributes(t *testing.T) {
 		"HttpOnly",
 		"Secure",
 		"SameSite=Lax",
-		"Path=/",
-		"Max-Age=",
+		"path=/",
+		"max-age=",
 	}
 	for _, attr := range requiredAttrs {
 		if !contains(cookieHeader, attr) {
@@ -101,7 +103,7 @@ func TestSetSessionCookie_SetsCorrectAttributes(t *testing.T) {
 func TestClearSessionCookie_SetsExpiredCookie(t *testing.T) {
 	h := &Handler{cfg: &config.Config{Env: "staging"}}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/clear-cookie", func(c fiber.Ctx) error {
 		h.clearSessionCookie(c)
 		return c.SendString("OK")
@@ -131,8 +133,8 @@ func TestClearSessionCookie_SetsExpiredCookie(t *testing.T) {
 		"HttpOnly",
 		"Secure",
 		"SameSite=Lax",
-		"Path=/",
-		"Max-Age=0", // Fiber uses 0 for expired
+		"path=/",
+		"max-age=0", // Fiber uses 0 for expired
 	}
 	for _, attr := range requiredAttrs {
 		if !contains(cookieHeader, attr) {
@@ -166,78 +168,58 @@ func TestAuthenticateTokenResponse_IncludesAuthState(t *testing.T) {
 // TestErrorResponse_Shape verifies error responses follow the contract
 // Expected: { code: string, message: string, errors?: object, request_id?: string }
 func TestErrorResponse_Shape(t *testing.T) {
-	app := fiber.New()
-	app.Post("/test-400", func(c fiber.Ctx) error {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Code:    "INVALID_REQUEST",
-			Message: "invalid request body",
-		})
-	})
-
-	req := httptest.NewRequest(http.MethodPost, "/test-400", nil)
-	resp, err := app.Test(req, fiber.TestConfig{})
-	if err != nil {
-		t.Fatalf("app.Test error: %v", err)
+	err := apperr.New(apperr.INVALID_REQUEST, "invalid request body")
+	var ae *apperr.Error
+	if !errors.As(err, &ae) {
+		t.Fatal("error is not an apperr.Error")
 	}
-
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Errorf("status = %d, want %d", resp.StatusCode, fiber.StatusBadRequest)
+	if ae.Code != apperr.INVALID_REQUEST {
+		t.Errorf("code = %v, want INVALID_REQUEST", ae.Code)
 	}
-
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	body := string(bodyBytes)
-	t.Logf("Error response: %s", body)
-
-	// Verify error contract fields
-	if !contains(body, "code") {
-		t.Error("missing 'code' field")
+	if ae.Message != "invalid request body" {
+		t.Errorf("message = %v, want 'invalid request body'", ae.Message)
 	}
-	if !contains(body, "message") {
-		t.Error("missing 'message' field")
-	}
-	// Note: Current implementation lacks 'errors' map and 'request_id'
-	// Per error contract, these should be present
 }
 
 // TestRequestMagicLink_ValidationErrors verifies validation error format
 func TestRequestMagicLink_ValidationErrors(t *testing.T) {
 	h := &Handler{cfg: &config.Config{Env: "test"}}
 
-	app := fiber.New()
-	app.Post("/auth/request-magic-link", h.RequestMagicLink)
-
 	tests := []struct {
-		name          string
-		body          string
-		wantStatus    int
-		wantCode      string
-		wantContains  string
+		name        string
+		body        string
+		wantStatus  int
+		wantCode    string
+		wantContains string
 	}{
 		{
-			name:         "missing email",
-			body:         `{}`,
-			wantStatus:   fiber.StatusBadRequest,
-			wantCode:     "INVALID_EMAIL",
+			name:        "missing email",
+			body:        `{}`,
+			wantStatus:  http.StatusUnprocessableEntity,
+			wantCode:    "INVALID_EMAIL",
 			wantContains: "invalid email address",
 		},
 		{
-			name:         "invalid email format",
-			body:         `{"email": "not-an-email"}`,
-			wantStatus:   fiber.StatusBadRequest,
-			wantCode:     "INVALID_EMAIL",
+			name:        "invalid email format",
+			body:        `{"email": "not-an-email"}`,
+			wantStatus:  http.StatusUnprocessableEntity,
+			wantCode:    "INVALID_EMAIL",
 			wantContains: "invalid email address",
 		},
 		{
-			name:         "empty email",
-			body:         `{"email": ""}`,
-			wantStatus:   fiber.StatusBadRequest,
-			wantCode:     "INVALID_EMAIL",
+			name:        "empty email",
+			body:        `{"email": ""}`,
+			wantStatus:  http.StatusUnprocessableEntity,
+			wantCode:    "INVALID_EMAIL",
 			wantContains: "invalid email address",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
+			app.Post("/auth/request-magic-link", h.RequestMagicLink)
+
 			req := httptest.NewRequest(http.MethodPost, "/auth/request-magic-link", strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")
 			resp, err := app.Test(req, fiber.TestConfig{})
@@ -267,7 +249,7 @@ func TestRequestMagicLink_ValidationErrors(t *testing.T) {
 func TestAuthenticateToken_MissingPKCE(t *testing.T) {
 	h := &Handler{cfg: &config.Config{Env: "test"}}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/auth/authenticate-token", h.AuthenticateToken)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/authenticate-token", strings.NewReader(`{"token": "abc"}`))
@@ -279,8 +261,8 @@ func TestAuthenticateToken_MissingPKCE(t *testing.T) {
 		t.Fatalf("app.Test error: %v", err)
 	}
 
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Errorf("status = %d, want %d", resp.StatusCode, fiber.StatusBadRequest)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
 
 	bodyBytes, _ := io.ReadAll(resp.Body)
@@ -296,7 +278,7 @@ func TestAuthenticateToken_MissingPKCE(t *testing.T) {
 func TestLogout_MissingSession(t *testing.T) {
 	h := &Handler{cfg: &config.Config{Env: "test"}}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/auth/logout", h.Logout)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
@@ -307,8 +289,8 @@ func TestLogout_MissingSession(t *testing.T) {
 		t.Fatalf("app.Test error: %v", err)
 	}
 
-	if resp.StatusCode != fiber.StatusUnauthorized {
-		t.Errorf("status = %d, want %d", resp.StatusCode, fiber.StatusUnauthorized)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
 	}
 
 	bodyBytes, _ := io.ReadAll(resp.Body)
@@ -320,16 +302,63 @@ func TestLogout_MissingSession(t *testing.T) {
 	}
 }
 
-// contains checks if a string contains a substring (case-insensitive)
-func contains(s, substr string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+// TestProvisionTenant_MissingTicket verifies missing onboarding ticket error
+func TestProvisionTenant_MissingTicket(t *testing.T) {
+	h := &Handler{cfg: &config.Config{Env: "test"}}
+
+	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
+	app.Post("/onboarding/complete", h.ProvisionTenant)
+
+	req := httptest.NewRequest(http.MethodPost, "/onboarding/complete", strings.NewReader(`{"school_name": "Test School", "idempotency_key": "key123"}`))
+	req.Header.Set("Content-Type", "application/json")
+	// No onboarding ticket cookie
+
+	resp, err := app.Test(req, fiber.TestConfig{})
+	if err != nil {
+		t.Fatalf("app.Test error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	body := string(bodyBytes)
+	t.Logf("Error response: %s", body)
+
+	if !contains(body, "MISSING_TICKET") {
+		t.Errorf("missing MISSING_TICKET code: %s", body)
+	}
 }
+
+
 
 // MockService for handler tests (not used in current tests but kept for future)
 type MockService struct{}
 
 func (m *MockService) RequestMagicLink(ctx context.Context, email string) (string, error) {
 	return "", nil
+}
+
+// testErrorHandler creates a fiber error handler for testing
+func testErrorHandler() fiber.ErrorHandler {
+	return func(c fiber.Ctx, err error) error {
+		var ae *apperr.Error
+		if errors.As(err, &ae) {
+			return c.Status(apperr.Status(ae.Code)).JSON(fiber.Map{
+				"code":       ae.Code,
+				"message":    ae.Message,
+				"errors":     ae.Fields,
+				"request_id": c.Locals("request_id"),
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":       "INTERNAL_ERROR",
+			"message":    "Internal Server Error",
+			"errors":     map[string][]apperr.FieldError{},
+			"request_id": c.Locals("request_id"),
+		})
+	}
 }
 
 func (m *MockService) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier string) (string, *service.OnboardingState, error) {

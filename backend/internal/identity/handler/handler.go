@@ -2,14 +2,15 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"somotracker/internal/identity/service"
+	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/config"
+	"somotracker/internal/platform/logger"
 )
 
 // Handler is HTTP handler for identity domain (thin, BE-006).
@@ -70,27 +71,29 @@ type LogoutResponse struct {
 	Success bool `json:"success"`
 }
 
-type ErrorResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+type GetOnboardingCurrentResponse struct {
+	VerifiedEmail string                 `json:"verified_email"`
+	CurrentStep   string                 `json:"current_step"`
+	FormData      map[string]interface{} `json:"form_data"`
+	PendingID     string                 `json:"pending_id"`
+	SchoolName    *string                `json:"school_name,omitempty"`
+	TenantID      *string                `json:"tenant_id,omitempty"`
+}
+
+type UpdateOnboardingResponse struct {
+	Success bool `json:"success"`
 }
 
 // RequestMagicLink handles POST /api/v1/auth/request-magic-link
 func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 	var req RequestMagicLinkRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Code:    "INVALID_REQUEST",
-			Message: "invalid request body",
-		})
+		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
 	}
 
 	// Basic email validation
-	if req.Email == "" || !strings.Contains(req.Email, "@") {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Code:    "INVALID_EMAIL",
-			Message: "invalid email address",
-		})
+	if req.Email == "" || !contains(req.Email, "@") {
+		return apperr.New(apperr.INVALID_EMAIL, "invalid email address")
 	}
 
 	// Call service - returns PKCE verifier to store in cookie
@@ -98,7 +101,7 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 	if err != nil {
 		// Don't reveal if email exists (generic success per spec)
 		// Log error internally
-		fmt.Printf("RequestMagicLink error: %v\n", err)
+		logger.Error(c.Context(), err, "RequestMagicLink failed")
 		return c.Status(fiber.StatusOK).JSON(RequestMagicLinkResponse{Success: true})
 	}
 
@@ -108,7 +111,7 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 		Value:    pkceVerifier,
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   h.cfg.Env == "production",
 		SameSite: "Lax",
 		MaxAge:   int(10 * time.Minute / time.Second),
 	})
@@ -121,35 +124,23 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 	var req AuthenticateTokenRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Code:    "INVALID_REQUEST",
-			Message: "invalid request body",
-		})
+		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
 	}
 
 	// Get PKCE verifier from cookie
 	pkceVerifier := c.Cookies("__Host-pkce_verifier")
 	if pkceVerifier == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Code:    "MISSING_PKCE",
-			Message: "PKCE verifier missing, please restart login flow",
-		})
+		return apperr.New(apperr.MISSING_PKCE, "PKCE verifier missing, please restart login flow")
 	}
 
 	// Call service
 	ticketToken, onboardingState, err := h.svc.AuthenticateToken(c.Context(), req.Token, pkceVerifier)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrRateLimited) {
-			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-				Code:    "INVALID_TOKEN",
-				Message: "invalid or expired magic link",
-			})
+			return apperr.New(apperr.INVALID_TOKEN, "invalid or expired magic link")
 		}
-		fmt.Printf("AuthenticateToken error: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Code:    "INTERNAL_ERROR",
-			Message: "authentication failed",
-		})
+		logger.Error(c.Context(), err, "AuthenticateToken failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "authentication failed")
 	}
 
 	// Clear PKCE cookie
@@ -158,7 +149,7 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 		Value:    "",
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   h.cfg.Env == "production",
 		SameSite: "Lax",
 		MaxAge:   -1,
 	})
@@ -169,7 +160,7 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 		Value:    ticketToken,
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   h.cfg.Env == "production",
 		SameSite: "Lax",
 		MaxAge:   int(10 * time.Minute / time.Second),
 	})
@@ -205,18 +196,12 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 	// Get ticket token from cookie (set by callback page)
 	ticketToken := c.Cookies("__Host-onboarding")
 	if ticketToken == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Code:    "MISSING_TICKET",
-			Message: "onboarding ticket missing, please restart login flow",
-		})
+		return apperr.New(apperr.MISSING_TICKET, "onboarding ticket missing, please restart login flow")
 	}
 
 	var req ProvisionTenantRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Code:    "INVALID_REQUEST",
-			Message: "invalid request body",
-		})
+		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
 	}
 
 	// Call service
@@ -228,22 +213,13 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 	result, err := h.svc.ProvisionTenant(c.Context(), ticketToken, data)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidToken) {
-			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-				Code:    "INVALID_TICKET",
-				Message: "invalid or expired onboarding ticket",
-			})
+			return apperr.New(apperr.INVALID_TICKET, "invalid or expired onboarding ticket")
 		}
 		if errors.Is(err, service.ErrIdempotencyConflict) {
-			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
-				Code:    "IDEMPOTENCY_CONFLICT",
-				Message: "onboarding already completed with this key",
-			})
+			return apperr.New(apperr.IDEMPOTENCY_CONFLICT, "onboarding already completed with this key")
 		}
-		fmt.Printf("ProvisionTenant error: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Code:    "PROVISIONING_FAILED",
-			Message: "tenant provisioning failed",
-		})
+		logger.Error(c.Context(), err, "ProvisionTenant failed")
+		return apperr.New(apperr.PROVISIONING_FAILED, "tenant provisioning failed")
 	}
 
 	// Clear onboarding ticket cookie
@@ -252,7 +228,7 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 		Value:    "",
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   h.cfg.Env == "production",
 		SameSite: "Lax",
 		MaxAge:   -1,
 	})
@@ -262,11 +238,8 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 	expiresAt := time.Now().Add(30 * 24 * time.Hour)
 	sessionToken, err := h.svc.CreateSession(c.Context(), *result.UserID, *result.TenantID, "", expiresAt)
 	if err != nil {
-		fmt.Printf("CreateSession error: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Code:    "SESSION_CREATE_FAILED",
-			Message: "failed to create session",
-		})
+		logger.Error(c.Context(), err, "CreateSession failed")
+		return apperr.New(apperr.SESSION_CREATE_FAILED, "failed to create session")
 	}
 
 	// Set session cookie
@@ -280,15 +253,12 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 	// Get session from context (set by auth middleware)
 	sessionID, ok := c.Locals("session_id").(uuid.UUID)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-			Code:    "UNAUTHENTICATED",
-			Message: "no active session",
-		})
+		return apperr.New(apperr.UNAUTHENTICATED, "no active session")
 	}
 
 	// Call service to revoke session
 	if err := h.svc.Logout(c.Context(), sessionID); err != nil {
-		fmt.Printf("Logout error: %v\n", err)
+		logger.Error(c.Context(), err, "Logout failed")
 	}
 
 	// Clear session cookie
@@ -301,38 +271,28 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 func (h *Handler) GetOnboardingCurrent(c fiber.Ctx) error {
 	ticketToken := c.Cookies("__Host-onboarding")
 	if ticketToken == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-			Code:    "UNAUTHENTICATED",
-			Message: "no onboarding session",
-		})
+		return apperr.New(apperr.UNAUTHENTICATED, "no onboarding session")
 	}
 
 	state, err := h.svc.GetOnboardingCurrent(c.Context(), ticketToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrPendingOnboardingNotFound) {
-			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-				Code:    "INVALID_TICKET",
-				Message: "invalid or expired onboarding ticket",
-			})
+			return apperr.New(apperr.INVALID_TICKET, "invalid or expired onboarding ticket")
 		}
-		fmt.Printf("GetOnboardingCurrent error: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Code:    "INTERNAL_ERROR",
-			Message: "failed to load onboarding state",
-		})
+		logger.Error(c.Context(), err, "GetOnboardingCurrent failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to load onboarding state")
 	}
 
-	resp := fiber.Map{
-		"verified_email": state.VerifiedEmail,
-		"current_step":   state.CurrentStep,
-		"form_data":      state.FormData,
-		"pending_id":     state.PendingID.String(),
-	}
-	if state.SchoolName != nil {
-		resp["school_name"] = *state.SchoolName
+	resp := GetOnboardingCurrentResponse{
+		VerifiedEmail: state.VerifiedEmail,
+		CurrentStep:   state.CurrentStep,
+		FormData:      state.FormData,
+		PendingID:     state.PendingID.String(),
+		SchoolName:    state.SchoolName,
 	}
 	if state.TenantID != nil {
-		resp["tenant_id"] = state.TenantID.String()
+		id := state.TenantID.String()
+		resp.TenantID = &id
 	}
 	return c.Status(fiber.StatusOK).JSON(resp)
 }
@@ -341,10 +301,7 @@ func (h *Handler) GetOnboardingCurrent(c fiber.Ctx) error {
 func (h *Handler) UpdateOnboardingCurrent(c fiber.Ctx) error {
 	ticketToken := c.Cookies("__Host-onboarding")
 	if ticketToken == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-			Code:    "UNAUTHENTICATED",
-			Message: "no onboarding session",
-		})
+		return apperr.New(apperr.UNAUTHENTICATED, "no onboarding session")
 	}
 
 	var req struct {
@@ -353,25 +310,16 @@ func (h *Handler) UpdateOnboardingCurrent(c fiber.Ctx) error {
 		SchoolName  string                 `json:"school_name,omitempty"`
 	}
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Code:    "INVALID_REQUEST",
-			Message: "invalid request body",
-		})
+		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
 	}
 
 	state, err := h.svc.GetOnboardingCurrent(c.Context(), ticketToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrPendingOnboardingNotFound) {
-			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-				Code:    "INVALID_TICKET",
-				Message: "invalid or expired onboarding ticket",
-			})
+			return apperr.New(apperr.INVALID_TICKET, "invalid or expired onboarding ticket")
 		}
-		fmt.Printf("UpdateOnboardingCurrent error: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Code:    "INTERNAL_ERROR",
-			Message: "failed to load onboarding state",
-		})
+		logger.Error(c.Context(), err, "UpdateOnboardingCurrent failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to load onboarding state")
 	}
 
 	if req.SchoolName != "" {
@@ -379,14 +327,11 @@ func (h *Handler) UpdateOnboardingCurrent(c fiber.Ctx) error {
 	}
 
 	if err := h.svc.UpdateOnboardingStep(c.Context(), state.PendingID, req.CurrentStep, req.FormData); err != nil {
-		fmt.Printf("UpdateOnboardingStep error: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Code:    "INTERNAL_ERROR",
-			Message: "failed to update onboarding step",
-		})
+		logger.Error(c.Context(), err, "UpdateOnboardingStep failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to update onboarding step")
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success": true})
+	return c.Status(fiber.StatusOK).JSON(UpdateOnboardingResponse{Success: true})
 }
 
 // RegisterRoutes registers identity routes under /api/v1
@@ -435,7 +380,7 @@ func (h *Handler) setSessionCookie(c fiber.Ctx, token string, expiresAt time.Tim
 		Path:     "/",
 		Domain:   cookieDomain,
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   h.cfg.Env == "production",
 		SameSite: "Lax",
 		MaxAge:   maxAge,
 	})
@@ -451,8 +396,13 @@ func (h *Handler) clearSessionCookie(c fiber.Ctx) {
 		Path:     "/",
 		Domain:   cookieDomain,
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   h.cfg.Env == "production",
 		SameSite: "Lax",
 		MaxAge:   -1,
 	})
+}
+
+// contains checks if a string contains a substring
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }

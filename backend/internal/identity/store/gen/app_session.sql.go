@@ -49,6 +49,28 @@ func (q *Queries) CreateAppSession(ctx context.Context, arg CreateAppSessionPara
 	return i, err
 }
 
+const getAppSessionByID = `-- name: GetAppSessionByID :one
+SELECT id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at
+FROM app_session
+WHERE id = $1
+`
+
+func (q *Queries) GetAppSessionByID(ctx context.Context, id uuid.UUID) (AppSession, error) {
+	row := q.db.QueryRowContext(ctx, getAppSessionByID, id)
+	var i AppSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TenantID,
+		&i.TokenHash,
+		&i.StytchMemberSessionID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const getAppSessionByTokenHash = `-- name: GetAppSessionByTokenHash :one
 SELECT id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at
 FROM app_session

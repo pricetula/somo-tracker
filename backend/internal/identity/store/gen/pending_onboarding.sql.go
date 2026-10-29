@@ -41,6 +41,34 @@ func (q *Queries) GetPendingOnboardingByEmail(ctx context.Context, verifiedEmail
 	return i, err
 }
 
+const getPendingOnboardingByID = `-- name: GetPendingOnboardingByID :one
+SELECT id, verified_email_normalized, status, current_step, form_data, stytch_organization_id, stytch_member_id, tenant_id, school_name, idempotency_key, created_at, updated_at, last_activity_at
+FROM pending_onboarding
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetPendingOnboardingByID(ctx context.Context, id uuid.UUID) (PendingOnboarding, error) {
+	row := q.db.QueryRowContext(ctx, getPendingOnboardingByID, id)
+	var i PendingOnboarding
+	err := row.Scan(
+		&i.ID,
+		&i.VerifiedEmailNormalized,
+		&i.Status,
+		&i.CurrentStep,
+		&i.FormData,
+		&i.StytchOrganizationID,
+		&i.StytchMemberID,
+		&i.TenantID,
+		&i.SchoolName,
+		&i.IdempotencyKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastActivityAt,
+	)
+	return i, err
+}
+
 const updatePendingOnboardingStep = `-- name: UpdatePendingOnboardingStep :exec
 UPDATE pending_onboarding
 SET current_step = $2, form_data = $3, updated_at = NOW(), last_activity_at = NOW()

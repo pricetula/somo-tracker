@@ -23,6 +23,14 @@ type AppSession struct {
 	RevokedAt             sql.NullTime
 }
 
+type Membership struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	SchoolID  uuid.UUID
+	Role      string
+	CreatedAt time.Time
+}
+
 type OnboardingTicket struct {
 	ID                  uuid.UUID
 	PendingOnboardingID uuid.UUID
@@ -47,4 +55,39 @@ type PendingOnboarding struct {
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 	LastActivityAt          time.Time
+}
+
+type PkceCode struct {
+	PendingOnboardingID uuid.UUID
+	CodeVerifierHash    []byte
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
+}
+
+type School struct {
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	Name      string
+	Code      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Tenant struct {
+	ID                   uuid.UUID
+	Name                 string
+	StytchOrganizationID uuid.NullUUID
+	Status               string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+type User struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	EmailNormalized string
+	StytchMemberID  uuid.NullUUID
+	Name            string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }

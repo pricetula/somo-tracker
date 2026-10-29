@@ -1,0 +1,102 @@
+/**
+ * Onboarding tenant name step - School name input
+ * No cookie required, but redirects if cookie present
+ */
+
+'use client';
+
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, Building2, ArrowRight } from 'lucide-react';
+import { tenantNameFormSchema, type TenantNameFormInput } from '../schemas';
+import { useCompleteOnboarding } from '../hooks/use-onboarding';
+
+export function OnboardingTenantName() {
+  const { mutate: completeOnboarding, isPending } = useCompleteOnboarding();
+
+  const form = useForm<TenantNameFormInput>({
+    resolver: zodResolver(tenantNameFormSchema),
+    defaultValues: { schoolName: '' },
+  });
+
+  const onSubmit = (data: TenantNameFormInput) => {
+    // Generate idempotency key for this submission
+    const idempotencyKey = `onboarding-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    completeOnboarding({
+      schoolName: data.schoolName,
+      idempotencyKey,
+    });
+  };
+
+  return (
+    <Card className="w-full max-w-md mx-auto mt-20">
+      <CardHeader className="space-y-4">
+        <div className="mx-auto h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Building2 className="h-6 w-6 text-primary" />
+        </div>
+        <CardTitle className="text-2xl text-center">Name your school</CardTitle>
+        <CardDescription className="text-center">
+          This will be your organization name in Somotracker
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="schoolName">School Name</Label>
+            <Input
+              id="schoolName"
+              type="text"
+              placeholder="e.g., Sunshine Primary School"
+              autoComplete="organization"
+              {...form.register('schoolName')}
+              disabled={isPending}
+              aria-describedby={form.formState.errors.schoolName ? 'schoolName-error' : undefined}
+            />
+            {form.formState.errors.schoolName && (
+              <p id="schoolName-error" className="text-sm text-destructive" role="alert">
+                {form.formState.errors.schoolName.message}
+              </p>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isPending}
+            size="default"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating your school...
+              </>
+            ) : (
+              <>
+                Create School
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </form>
+
+        <Separator className="my-6" />
+
+        <p className="text-center text-sm text-muted-foreground">
+          By creating a school, you agree to our{' '}
+          <a href="/terms" className="underline hover:text-foreground">
+            Terms of Service
+          </a>{' '}
+          and{' '}
+          <a href="/privacy" className="underline hover:text-foreground">
+            Privacy Policy
+          </a>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}

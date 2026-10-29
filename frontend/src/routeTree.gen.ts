@@ -10,33 +10,89 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as UnauthorizedRouteImport } from './routes/unauthorized'
+import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as OnboardingTenantNameRouteImport } from './routes/onboarding/tenant-name'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnauthorizedRoute = UnauthorizedRouteImport.update({
+  id: '/unauthorized',
+  path: '/unauthorized',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingTenantNameRoute = OnboardingTenantNameRouteImport.update({
+  id: '/onboarding/tenant-name',
+  path: '/onboarding/tenant-name',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/unauthorized': typeof UnauthorizedRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/onboarding/tenant-name': typeof OnboardingTenantNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/unauthorized': typeof UnauthorizedRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/onboarding/tenant-name': typeof OnboardingTenantNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/unauthorized': typeof UnauthorizedRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/onboarding/tenant-name': typeof OnboardingTenantNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/unauthorized'
+    | '/auth/callback'
+    | '/onboarding/tenant-name'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/unauthorized'
+    | '/auth/callback'
+    | '/onboarding/tenant-name'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/unauthorized'
+    | '/auth/callback'
+    | '/onboarding/tenant-name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  UnauthorizedRoute: typeof UnauthorizedRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  OnboardingTenantNameRoute: typeof OnboardingTenantNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +104,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unauthorized': {
+      id: '/unauthorized'
+      path: '/unauthorized'
+      fullPath: '/unauthorized'
+      preLoaderRoute: typeof UnauthorizedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/tenant-name': {
+      id: '/onboarding/tenant-name'
+      path: '/onboarding/tenant-name'
+      fullPath: '/onboarding/tenant-name'
+      preLoaderRoute: typeof OnboardingTenantNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  UnauthorizedRoute: UnauthorizedRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  OnboardingTenantNameRoute: OnboardingTenantNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

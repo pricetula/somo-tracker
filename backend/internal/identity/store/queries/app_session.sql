@@ -9,6 +9,11 @@ FROM app_session
 WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()
 LIMIT 1;
 
+-- name: GetAppSessionByID :one
+SELECT id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at
+FROM app_session
+WHERE id = $1;
+
 -- name: RevokeAppSession :exec
 UPDATE app_session
 SET revoked_at = NOW()

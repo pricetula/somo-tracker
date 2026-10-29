@@ -21,6 +21,7 @@ import (
 	"somotracker/internal/platform/migrator"
 	"somotracker/internal/platform/stytch"
 	identityHandler "somotracker/internal/identity/handler"
+	identityMiddleware "somotracker/internal/identity/middleware"
 	identityService "somotracker/internal/identity/service"
 	identityStore "somotracker/internal/identity/store"
 	storegen "somotracker/internal/identity/store/gen"
@@ -87,9 +88,9 @@ func (a *App) Start(ctx context.Context) error {
 	app.Use(recover.New())
 	app.Use(helmet.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:3000"},
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
 	}))
 	app.Use(logger.New(logger.Config{
@@ -124,11 +125,31 @@ func (a *App) Start(ctx context.Context) error {
 	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret, baseURL)
 	queries := storegen.New(a.sqlDB)
 	identityStore := identityStore.New(queries)
-	identitySvc := identityService.New(identityStore, stytchClient)
+	identitySvc := identityService.New(identityStore, stytchClient, a.sqlDB)
 	identityHandler := identityHandler.New(identitySvc)
-	identityHandler.RegisterRoutes(a.server.App().Group("/api/v1"))
 
-	// Register API routes
+	// Create auth middleware
+	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc)
+
+	// Public routes (no auth required)
+	publicAPI := a.server.App().Group("/api/v1")
+	identityHandler.RegisterRoutes(publicAPI)
+
+	// Protected routes (require authentication)
+	protectedAPI := a.server.App().Group("/api/v1")
+	protectedAPI.Use(authMiddleware.RequireAuth())
+	protectedAPI.Use(authMiddleware.TenantMiddleware())
+	// TODO: Register protected domain handlers here
+	// e.g., studentsHandler.RegisterRoutes(protectedAPI)
+
+	// Mutations require CSRF protection
+	mutationAPI := a.server.App().Group("/api/v1")
+	mutationAPI.Use(authMiddleware.RequireAuth())
+	mutationAPI.Use(authMiddleware.TenantMiddleware())
+	mutationAPI.Use(authMiddleware.CSRFMiddleware())
+	// TODO: Register mutation handlers here
+
+	// Register API routes (legacy)
 	a.server.RegisterRoutes()
 
 	slog.Info("starting API", "port", a.cfg.ServerPort)

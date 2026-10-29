@@ -18,6 +18,7 @@ import (
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/db"
 	"somotracker/internal/platform/httpserver"
+	"somotracker/internal/platform/migrator"
 	"somotracker/internal/platform/stytch"
 	identityHandler "somotracker/internal/identity/handler"
 	identityService "somotracker/internal/identity/service"
@@ -29,6 +30,7 @@ import (
 type App struct {
 	cfg         *config.Config
 	dbPool      *db.Pool
+	sqlDB       *sql.DB
 	redisClient *redisPkg.Client
 	server      *httpserver.Server
 }
@@ -37,15 +39,31 @@ type App struct {
 func New(cfg *config.Config) (*App, error) {
 	ctx := context.Background()
 
-	// Database pool
+	// Database pool for Fiber
 	dbPool, err := db.New(ctx, cfg.PostgresDSN)
 	if err != nil {
+		return nil, err
+	}
+
+	// SQL DB for migrations and sqlc queries
+	sqlDB, err := sql.Open("pgx", cfg.PostgresDSN)
+	if err != nil {
+		dbPool.Close()
+		return nil, err
+	}
+
+	// Migrator runs Goose migrations on startup
+	m := migrator.New(sqlDB, cfg.PostgresDSN)
+	if _, err := m.Up(ctx); err != nil {
+		_ = sqlDB.Close()
+		dbPool.Close()
 		return nil, err
 	}
 
 	// Redis client
 	redisClient, err := redisPkg.New(ctx, cfg.RedisAddr)
 	if err != nil {
+		_ = sqlDB.Close()
 		dbPool.Close()
 		return nil, err
 	}
@@ -56,6 +74,7 @@ func New(cfg *config.Config) (*App, error) {
 	return &App{
 		cfg:         cfg,
 		dbPool:      dbPool,
+		sqlDB:       sqlDB,
 		redisClient: redisClient,
 		server:      server,
 	}, nil
@@ -103,11 +122,7 @@ func (a *App) Start(ctx context.Context) error {
 		baseURL = "https://api.stytch.com"
 	}
 	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret, baseURL)
-	sqlDB, err := sql.Open("pgx", a.cfg.PostgresDSN)
-	if err != nil {
-		slog.Error("failed to open sql db for sqlc", "err", err)
-	}
-	queries := storegen.New(sqlDB)
+	queries := storegen.New(a.sqlDB)
 	identityStore := identityStore.New(queries)
 	identitySvc := identityService.New(identityStore, stytchClient)
 	identityHandler := identityHandler.New(identitySvc)

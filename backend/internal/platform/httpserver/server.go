@@ -318,12 +318,17 @@ type Server struct {
 }
 
 // New creates Fiber app with /api/v1 route group and middleware chain.
-func New() *Server {
-	app := fiber.New(fiber.Config{
+func New(env string) *Server {
+	cfg := fiber.Config{
 		AppName:      "Somotracker",
 		ServerHeader: "Somotracker",
 		ErrorHandler: ErrorHandler,
-	})
+	}
+	if env == "production" {
+		cfg.TrustProxy = true
+		cfg.ProxyHeader = fiber.HeaderXForwardedFor
+	}
+	app := fiber.New(cfg)
 
 	// Middleware order (section 7.1):
 	// 1. RequestID - first, always

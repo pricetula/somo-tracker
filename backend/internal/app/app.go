@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -71,7 +72,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	// HTTP server
-	server := httpserver.New()
+	server := httpserver.New(cfg.Env)
 
 	return &App{
 		cfg:         cfg,
@@ -88,8 +89,23 @@ func (a *App) Start(ctx context.Context) error {
 	app := a.server.App()
 	app.Use(recover.New())
 	app.Use(helmet.New())
+	// Security headers middleware
+	app.Use(func(c fiber.Ctx) error {
+		c.Set("X-Content-Type-Options", "nosniff")
+		c.Set("X-Frame-Options", "DENY")
+		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+		if a.cfg.Env == "production" && c.Secure() {
+			c.Set("Strict-Transport-Security", "max-age=31536000")
+		}
+		return c.Next()
+	})
+	origins := strings.Split(a.cfg.CORSOrigins, ",")
+	for i, o := range origins {
+		origins[i] = strings.TrimSpace(o)
+	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     origins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,

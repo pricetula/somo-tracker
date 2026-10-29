@@ -21,6 +21,7 @@ type Config struct {
 	StytchSecret  string
 	// Security
 	EmailHMACKey  string
+	CORSOrigins   string
 	// Rate limits - configurable via env, defaults per spec
 	RateLimitMagicLinkIPPerMin      int
 	RateLimitMagicLinkEmailPer15Min int
@@ -50,6 +51,7 @@ func Load() (*Config, error) {
 	stytchSecret := firstNonEmpty("STYTCH_SECRET", "")
 
 	emailHMACKey := firstNonEmpty("EMAIL_HMAC_KEY", "")
+	corsOrigins := firstNonEmpty("CORS_ORIGINS", "http://localhost:3000")
 	// Rate limits with defaults per spec
 	ipPerMin := parseIntEnv("RATE_LIMIT_MAGIC_LINK_IP_PER_MIN", 10)
 	emailPer15Min := parseIntEnv("RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN", 3)
@@ -65,6 +67,7 @@ func Load() (*Config, error) {
 		StytchProjectID: stytchProjectID,
 		StytchSecret:   stytchSecret,
 		EmailHMACKey:   emailHMACKey,
+		CORSOrigins:    corsOrigins,
 		RateLimitMagicLinkIPPerMin:      ipPerMin,
 		RateLimitMagicLinkEmailPer15Min: emailPer15Min,
 		RateLimitTokenExchangeIPPerMin:  tokenIPPerMin,

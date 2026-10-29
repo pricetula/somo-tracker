@@ -98,26 +98,43 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 		return apperr.New(apperr.INVALID_EMAIL, "invalid email address")
 	}
 
-	// IP rate limit
-	ip := c.IP()
-	allowed, err := h.rl.AllowIP(c.Context(), "magic-link", ip, h.cfg.RateLimitMagicLinkIPPerMin, time.Minute)
-	if err != nil {
-		logger.Error(c.Context(), err, "rate limit check failed")
-		// Fail closed for abuse protection
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
-	}
-	if !allowed {
-		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
-	}
+	// Rate limiting and provider quotas
+	if h.rl != nil {
+		ip := c.IP()
+		allowed, err := h.rl.AllowIP(c.Context(), "magic-link", ip, h.cfg.RateLimitMagicLinkIPPerMin, time.Minute)
+		if err != nil {
+			logger.Error(c.Context(), err, "rate limit check failed")
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+		}
+		if !allowed {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
+		}
 
-	// Email rate limit
-	allowed, err = h.rl.AllowEmail(c.Context(), "magic-link", req.Email, h.cfg.RateLimitMagicLinkEmailPer15Min, 15*time.Minute)
-	if err != nil {
-		logger.Error(c.Context(), err, "email rate limit check failed")
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
-	}
-	if !allowed {
-		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
+		allowed, err = h.rl.AllowEmail(c.Context(), "magic-link", req.Email, h.cfg.RateLimitMagicLinkEmailPer15Min, 15*time.Minute)
+		if err != nil {
+			logger.Error(c.Context(), err, "email rate limit check failed")
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+		}
+		if !allowed {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
+		}
+
+		allowed, err = h.rl.AllowGlobal(c.Context(), "email-provider-hourly", h.cfg.EmailProviderHourlyCap, time.Hour)
+		if err != nil {
+			logger.Error(c.Context(), err, "email provider hourly quota check failed")
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+		}
+		if !allowed {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+		}
+		allowed, err = h.rl.AllowGlobal(c.Context(), "email-provider-daily", h.cfg.EmailProviderDailyCap, 24*time.Hour)
+		if err != nil {
+			logger.Error(c.Context(), err, "email provider daily quota check failed")
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+		}
+		if !allowed {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+		}
 	}
 
 	// Call service - returns PKCE verifier to store in cookie
@@ -149,6 +166,19 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 	var req AuthenticateTokenRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
+	}
+
+	// IP rate limit for token exchange
+	if h.rl != nil {
+		ip := c.IP()
+		allowed, err := h.rl.AllowIP(c.Context(), "token-exchange", ip, h.cfg.RateLimitTokenExchangeIPPerMin, time.Minute)
+		if err != nil {
+			logger.Error(c.Context(), err, "token exchange rate limit check failed")
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "authentication failed"})
+		}
+		if !allowed {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
+		}
 	}
 
 	// Get PKCE verifier from cookie

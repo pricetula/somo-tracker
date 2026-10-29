@@ -44,6 +44,12 @@ func (l *Limiter) AllowEmail(ctx context.Context, prefix, email string, limit in
 	return l.check(ctx, key, limit, window)
 }
 
+// AllowGlobal checks a global counter, e.g., email provider quota.
+func (l *Limiter) AllowGlobal(ctx context.Context, name string, limit int, window time.Duration) (bool, error) {
+	key := fmt.Sprintf("somotracker:ratelimit:global:%s", name)
+	return l.check(ctx, key, limit, window)
+}
+
 // check performs atomic INCR + EXPIRE.
 func (l *Limiter) check(ctx context.Context, key string, limit int, window time.Duration) (bool, error) {
 	// Use Lua for atomicity

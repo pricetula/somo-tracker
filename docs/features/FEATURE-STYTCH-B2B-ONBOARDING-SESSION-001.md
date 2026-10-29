@@ -1,7 +1,7 @@
 ---
 id: FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001
 title: Stytch B2B Magic-Link Authentication, Resumable Onboarding and Opaque Sessions
-status: approved
+status: implemented
 depends_on:
   - ADR-0002
 touches:

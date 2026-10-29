@@ -1,4 +1,6 @@
 -- +goose Up
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 CREATE TABLE IF NOT EXISTS pending_onboarding (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     verified_email_normalized TEXT NOT NULL UNIQUE,

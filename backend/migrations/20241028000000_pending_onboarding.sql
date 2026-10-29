@@ -1,11 +1,6 @@
 -- +goose Up
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-CREATE OR REPLACE FUNCTION gen_uuid_v7()
-RETURNS uuid AS $$
-SELECT gen_random_uuid();
-$$ LANGUAGE sql IMMUTABLE;
-
 CREATE TABLE IF NOT EXISTS pending_onboarding (
     id UUID PRIMARY KEY DEFAULT gen_uuid_v7(),
     verified_email_normalized TEXT NOT NULL UNIQUE,

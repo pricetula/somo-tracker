@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -159,6 +160,163 @@ func TestAuthenticateTokenResponse_IncludesAuthState(t *testing.T) {
 	}
 	if resp.TicketToken != "ticket-123" {
 		t.Errorf("TicketToken not set correctly: %s", resp.TicketToken)
+	}
+}
+
+// TestErrorResponse_Shape verifies error responses follow the contract
+// Expected: { code: string, message: string, errors?: object, request_id?: string }
+func TestErrorResponse_Shape(t *testing.T) {
+	app := fiber.New()
+	app.Post("/test-400", func(c fiber.Ctx) error {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Code:    "INVALID_REQUEST",
+			Message: "invalid request body",
+		})
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/test-400", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	if err != nil {
+		t.Fatalf("app.Test error: %v", err)
+	}
+
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("status = %d, want %d", resp.StatusCode, fiber.StatusBadRequest)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	body := string(bodyBytes)
+	t.Logf("Error response: %s", body)
+
+	// Verify error contract fields
+	if !contains(body, "code") {
+		t.Error("missing 'code' field")
+	}
+	if !contains(body, "message") {
+		t.Error("missing 'message' field")
+	}
+	// Note: Current implementation lacks 'errors' map and 'request_id'
+	// Per error contract, these should be present
+}
+
+// TestRequestMagicLink_ValidationErrors verifies validation error format
+func TestRequestMagicLink_ValidationErrors(t *testing.T) {
+	h := &Handler{cfg: &config.Config{Env: "test"}}
+
+	app := fiber.New()
+	app.Post("/auth/request-magic-link", h.RequestMagicLink)
+
+	tests := []struct {
+		name          string
+		body          string
+		wantStatus    int
+		wantCode      string
+		wantContains  string
+	}{
+		{
+			name:         "missing email",
+			body:         `{}`,
+			wantStatus:   fiber.StatusBadRequest,
+			wantCode:     "INVALID_EMAIL",
+			wantContains: "invalid email address",
+		},
+		{
+			name:         "invalid email format",
+			body:         `{"email": "not-an-email"}`,
+			wantStatus:   fiber.StatusBadRequest,
+			wantCode:     "INVALID_EMAIL",
+			wantContains: "invalid email address",
+		},
+		{
+			name:         "empty email",
+			body:         `{"email": ""}`,
+			wantStatus:   fiber.StatusBadRequest,
+			wantCode:     "INVALID_EMAIL",
+			wantContains: "invalid email address",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/auth/request-magic-link", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := app.Test(req, fiber.TestConfig{})
+			if err != nil {
+				t.Fatalf("app.Test error: %v", err)
+			}
+
+			if resp.StatusCode != tc.wantStatus {
+				t.Errorf("status = %d, want %d", resp.StatusCode, tc.wantStatus)
+			}
+
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			body := string(bodyBytes)
+			t.Logf("Error response: %s", body)
+
+			if !contains(body, tc.wantCode) {
+				t.Errorf("missing code %q in response: %s", tc.wantCode, body)
+			}
+			if !contains(body, tc.wantContains) {
+				t.Errorf("missing expected message %q in response: %s", tc.wantContains, body)
+			}
+		})
+	}
+}
+
+// TestAuthenticateToken_MissingPKCE verifies PKCE cookie validation error
+func TestAuthenticateToken_MissingPKCE(t *testing.T) {
+	h := &Handler{cfg: &config.Config{Env: "test"}}
+
+	app := fiber.New()
+	app.Post("/auth/authenticate-token", h.AuthenticateToken)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/authenticate-token", strings.NewReader(`{"token": "abc"}`))
+	req.Header.Set("Content-Type", "application/json")
+	// No PKCE cookie
+
+	resp, err := app.Test(req, fiber.TestConfig{})
+	if err != nil {
+		t.Fatalf("app.Test error: %v", err)
+	}
+
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("status = %d, want %d", resp.StatusCode, fiber.StatusBadRequest)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	body := string(bodyBytes)
+	t.Logf("Error response: %s", body)
+
+	if !contains(body, "MISSING_PKCE") {
+		t.Errorf("missing MISSING_PKCE code: %s", body)
+	}
+}
+
+// TestLogout_MissingSession verifies logout without session
+func TestLogout_MissingSession(t *testing.T) {
+	h := &Handler{cfg: &config.Config{Env: "test"}}
+
+	app := fiber.New()
+	app.Post("/auth/logout", h.Logout)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	// No session cookie
+
+	resp, err := app.Test(req, fiber.TestConfig{})
+	if err != nil {
+		t.Fatalf("app.Test error: %v", err)
+	}
+
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", resp.StatusCode, fiber.StatusUnauthorized)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	body := string(bodyBytes)
+	t.Logf("Error response: %s", body)
+
+	if !contains(body, "UNAUTHENTICATED") {
+		t.Errorf("missing UNAUTHENTICATED code: %s", body)
 	}
 }
 

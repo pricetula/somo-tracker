@@ -11,15 +11,21 @@ import (
 	"somotracker/internal/platform/config"
 )
 
+// SessionValidator defines the interface needed by auth middleware.
+// Allows testing with mock implementations.
+type SessionValidator interface {
+	ValidateSession(ctx context.Context, tokenHash []byte) (*service.SessionContext, error)
+}
+
 // AuthMiddleware validates session token on protected routes
 // Per ADR-0002: Go is sole security authority, validates every protected request
 type AuthMiddleware struct {
-	svc *service.Service
+	svc SessionValidator
 	cfg *config.Config
 }
 
 // NewAuthMiddleware creates auth middleware.
-func NewAuthMiddleware(svc *service.Service, cfg *config.Config) *AuthMiddleware {
+func NewAuthMiddleware(svc SessionValidator, cfg *config.Config) *AuthMiddleware {
 	return &AuthMiddleware{svc: svc, cfg: cfg}
 }
 

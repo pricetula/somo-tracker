@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS onboarding_ticket (
-    id UUID PRIMARY KEY DEFAULT gen_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     pending_onboarding_id UUID NOT NULL REFERENCES pending_onboarding(id) ON DELETE CASCADE,
     ticket_hash BYTEA NOT NULL UNIQUE,
     encrypted_ist BYTEA,

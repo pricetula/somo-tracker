@@ -11,7 +11,6 @@ export type RoutePolicyDecision =
 
 // Public routes that never require authentication
 const PUBLIC_ROUTES = new Set<string>([
-  '/',
   '/login',
   '/signup',
   '/auth/callback',

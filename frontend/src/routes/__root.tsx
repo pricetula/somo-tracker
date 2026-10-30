@@ -35,7 +35,13 @@ async function authBeforeLoad({ location }: { location: { pathname: string } }) 
         headers: { Location: decision.to },
       });
     case 'redirect-with-next': {
-      const redirectUrl = new URL(decision.to, window.location.origin);
+      let redirectUrl: URL;
+      if (typeof window !== 'undefined') {
+        redirectUrl = new URL(decision.to, window.location.origin);
+      } else {
+        const hostHeader = (await import('@tanstack/react-start/server')).getRequestHeaders?.()?.get('host');
+        redirectUrl = new URL(decision.to, `http://${hostHeader ?? 'localhost:3000'}`);
+      }
       redirectUrl.searchParams.set('next', decision.next);
       throw new Response(null, {
         status: 302,

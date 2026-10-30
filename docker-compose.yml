@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_DB: somotracker
       POSTGRES_USER: somotracker
@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U somotracker -d somotracker"]
       interval: 5s
@@ -31,10 +31,22 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     environment:
-      ENV: development
+      APP_ENV: development
+      LOG_LEVEL: debug
+      CORS_ORIGINS: http://localhost:3000
+      CSP_REPORT_ONLY_ENABLED: "false"
+      CSP_REPORT_ONLY_POLICY: default-src 'self'
       POSTGRES_DSN: postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable
       REDIS_ADDR: redis:6379
       SERVER_PORT: 8080
+      EMAIL_PROVIDER_HOURLY_CAP: "1000"
+      EMAIL_PROVIDER_DAILY_CAP: "10000"
+      RATE_LIMIT_MAGIC_LINK_IP_PER_MIN: "10"
+      RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN: "3"
+      RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN: "10"
+      STYTCH_PROJECT_ID: project-test-00000000-2f3a-4ff
+      STYTCH_SECRET: secret-test-S0jjJq6DDPH3Z637Ih
+      STYTCH_ENV: test
     ports:
       - "8080:8080"
     volumes:

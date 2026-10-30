@@ -56,7 +56,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	// Migrator runs Goose migrations on startup
-	m := migrator.New(sqlDB, cfg.PostgresDSN)
+	m := migrator.New(sqlDB, "migrations")
 	if _, err := m.Up(ctx); err != nil {
 		_ = sqlDB.Close()
 		dbPool.Close()

@@ -9,7 +9,6 @@ import { routePolicy, isPublicRoute, isGuestOnlyRoute } from '../route-policy';
 describe('routePolicy', () => {
   describe('Truly public routes - always allow (even with cookie)', () => {
     const publicRoutes = [
-      '/',
       '/auth/callback',
       '/unauthorized',
     ];
@@ -22,6 +21,15 @@ describe('routePolicy', () => {
       it(`allows ${route} with cookie`, () => {
         expect(routePolicy(route, true)).toEqual({ type: 'allow' });
       });
+    });
+  });
+
+  describe('Protected root route', () => {
+    it('protects / when no cookie', () => {
+      expect(routePolicy('/', false).type).toBe('redirect-with-next');
+    });
+    it('allows / when cookie present', () => {
+      expect(routePolicy('/', true)).toEqual({ type: 'allow' });
     });
   });
 

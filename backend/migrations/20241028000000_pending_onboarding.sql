@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS pending_onboarding (
-    id UUID PRIMARY KEY DEFAULT gen_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     verified_email_normalized TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL CHECK (status IN ('pending','provisioning','completed','failed_retryable')),
     current_step TEXT NOT NULL DEFAULT '',

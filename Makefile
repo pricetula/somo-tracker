@@ -71,7 +71,7 @@ help:
 
 # Full docker dev stack with HMR (frontend: vite, backend: air)
 dev:
-	docker compose up --build
+	doppler run -- docker compose up --build
 
 # Local dev: DBs in docker, backend/frontend run natively
 # Requires: go, air, pnpm, node installed locally
@@ -205,7 +205,7 @@ docker-build:
 	docker compose build
 
 docker-up:
-	docker compose up -d
+	doppler run -- docker compose up -d
 
 docker-down:
 	docker compose down -v

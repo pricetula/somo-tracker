@@ -36,7 +36,7 @@ services:
       CORS_ORIGINS: http://localhost:3000
       CSP_REPORT_ONLY_ENABLED: "false"
       CSP_REPORT_ONLY_POLICY: default-src 'self'
-      POSTGRES_DSN: postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable
+      POSTGRES_DSN: ${POSTGRES_DSN:-postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable}
       REDIS_ADDR: redis:6379
       SERVER_PORT: 8080
       EMAIL_PROVIDER_HOURLY_CAP: "1000"
@@ -44,9 +44,9 @@ services:
       RATE_LIMIT_MAGIC_LINK_IP_PER_MIN: "10"
       RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN: "3"
       RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN: "10"
-      STYTCH_PROJECT_ID: project-test-00000000-2f3a-4ff
-      STYTCH_SECRET: secret-test-S0jjJq6DDPH3Z637Ih
-      STYTCH_ENV: test
+      STYTCH_PROJECT_ID: ${STYTCH_PROJECT_ID}
+      STYTCH_SECRET: ${STYTCH_SECRET}
+      STYTCH_ENV: ${STYTCH_ENV:-test}
     ports:
       - "8080:8080"
     volumes:

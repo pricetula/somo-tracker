@@ -9,8 +9,9 @@ import {
   Outlet,
   HeadContent,
   Scripts,
+  redirect,
 } from '@tanstack/react-router';
-import { TanStackRouterDevtools } from '@tanstack/router-devtools';
+import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import { getAuthState } from '@/features/auth/api/get-auth-state';
 import { routePolicy } from '@/features/auth/utils/route-policy';
 import '../styles/globals.css';
@@ -30,24 +31,9 @@ async function authBeforeLoad({ location }: { location: { pathname: string } }) 
     case 'allow':
       return { hasSession };
     case 'redirect':
-      throw new Response(null, {
-        status: 302,
-        headers: { Location: decision.to },
-      });
-    case 'redirect-with-next': {
-      let redirectUrl: URL;
-      if (typeof window !== 'undefined') {
-        redirectUrl = new URL(decision.to, window.location.origin);
-      } else {
-        const hostHeader = (await import('@tanstack/react-start/server')).getRequestHeaders?.()?.get('host');
-        redirectUrl = new URL(decision.to, `http://${hostHeader ?? 'localhost:3000'}`);
-      }
-      redirectUrl.searchParams.set('next', decision.next);
-      throw new Response(null, {
-        status: 302,
-        headers: { Location: redirectUrl.toString() },
-      });
-    }
+      throw redirect({ to: decision.to });
+    case 'redirect-with-next':
+      throw redirect({ to: decision.to, search: { next: decision.next } });
   }
 }
 

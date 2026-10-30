@@ -412,10 +412,7 @@ func (h *Handler) sessionCookieName() string {
 
 // sessionCookieDomain returns the cookie domain from config
 func (h *Handler) sessionCookieDomain() string {
-	// In production, set to shared domain (e.g., "example.com")
-	// For now, return empty string (no Domain attribute = host-only)
-	// TODO: Add cookie domain to config when production domain is known
-	return ""
+	return h.cfg.CookieDomain
 }
 
 // setSessionCookie sets the session cookie with proper attributes

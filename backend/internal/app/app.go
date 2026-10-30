@@ -98,6 +98,14 @@ func (a *App) Start(ctx context.Context) error {
 		if a.cfg.Env == "production" && c.Secure() {
 			c.Set("Strict-Transport-Security", "max-age=31536000")
 		}
+		// CSP Report-Only rollout
+		if a.cfg.CSPReportOnlyEnabled {
+			policy := a.cfg.CSPReportOnlyPolicy
+			if a.cfg.CSPReportOnlyURI != "" {
+				policy += "; report-uri " + a.cfg.CSPReportOnlyURI
+			}
+			c.Set("Content-Security-Policy-Report-Only", policy)
+		}
 		return c.Next()
 	})
 	origins := strings.Split(a.cfg.CORSOrigins, ",")

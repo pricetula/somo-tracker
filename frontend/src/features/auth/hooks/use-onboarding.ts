@@ -10,6 +10,7 @@ import { authQueryKeys, authMutationKeys } from '../query-keys';
 import { updateOnboardingSchema, completeOnboardingSchema } from '../schemas';
 import { toast } from 'sonner';
 import { useActiveSchool } from '@/lib/hooks/use-active-school';
+import { isApiError } from '@/lib/api/errors';
 
 export function useOnboardingCurrent() {
   const { schoolId } = useActiveSchool();
@@ -42,8 +43,13 @@ export function useUpdateOnboarding() {
       }
       toast.success('Progress saved');
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save progress');
+    onError: (error: unknown) => {
+      if (isApiError(error)) {
+        const extra = error.requestId ? ` Ref: ${error.requestId}` : '';
+        toast.error((error.fieldErrors && Object.keys(error.fieldErrors).length ? 'Please fix the highlighted fields' : error.message) + extra);
+        return;
+      }
+      toast.error((error as Error)?.message || 'Failed to save progress');
     },
   });
 }
@@ -66,8 +72,17 @@ export function useCompleteOnboarding() {
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
       toast.success('Onboarding complete! Welcome to Somotracker.');
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to complete onboarding');
+    onError: (error: unknown) => {
+      if (isApiError(error)) {
+        // Map field errors to form if needed; fallback to generic toast with request id
+        const msg = error.fieldErrors && Object.keys(error.fieldErrors).length > 0
+          ? 'Please fix the highlighted fields'
+          : error.message;
+        const extra = error.requestId ? ` Ref: ${error.requestId}` : '';
+        toast.error(msg + extra);
+        return;
+      }
+      toast.error((error as Error)?.message || 'Failed to complete onboarding');
     },
   });
 }

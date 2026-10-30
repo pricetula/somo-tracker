@@ -1,7 +1,7 @@
 ---
 id: FEATURE-PROD-SEC-BASELINE-001
 title: Production Security Baseline for Go Fiber API
-status: draft
+status: approved
 depends_on: []
 touches: []
 ---

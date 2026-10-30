@@ -15,22 +15,39 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, Building2, ArrowRight } from 'lucide-react';
 import { tenantNameFormSchema, type TenantNameFormInput } from '../schemas';
 import { useCompleteOnboarding } from '../hooks/use-onboarding';
+import { isApiError } from '@/lib/api/errors';
 
 export function OnboardingTenantName() {
-  const { mutate: completeOnboarding, isPending } = useCompleteOnboarding();
+  const { mutateAsync: completeOnboarding, isPending } = useCompleteOnboarding();
 
   const form = useForm<TenantNameFormInput>({
     resolver: zodResolver(tenantNameFormSchema),
     defaultValues: { schoolName: '' },
   });
 
-  const onSubmit = (data: TenantNameFormInput) => {
-    // Generate idempotency key for this submission
+  const onSubmit = async (data: TenantNameFormInput) => {
     const idempotencyKey = `onboarding-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-    completeOnboarding({
-      schoolName: data.schoolName,
-      idempotencyKey,
-    });
+    try {
+      await completeOnboarding({
+        schoolName: data.schoolName,
+        idempotencyKey,
+      });
+    } catch (err) {
+      if (isApiError(err) && err.fieldErrors) {
+        // Map server field errors to react-hook-form
+        for (const [field, errs] of Object.entries(err.fieldErrors)) {
+          form.setError(field as keyof TenantNameFormInput, {
+            type: 'server',
+            message: errs[0]?.message ?? 'Invalid value',
+          });
+        }
+        // Show generic form error if present
+        if (err.fieldErrors._form) {
+          form.setError('schoolName', { type: 'server', message: err.fieldErrors._form[0]?.message });
+        }
+      }
+      // toast is handled by hook for non-field errors
+    }
   };
 
   return (

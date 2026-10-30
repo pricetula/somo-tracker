@@ -22,6 +22,10 @@ type Config struct {
 	// Security
 	EmailHMACKey  string
 	CORSOrigins   string
+	CookieDomain  string
+	CSPReportOnlyEnabled bool
+	CSPReportOnlyURI   string
+	CSPReportOnlyPolicy string
 	// Email provider quotas
 	EmailProviderHourlyCap int
 	EmailProviderDailyCap  int
@@ -55,6 +59,10 @@ func Load() (*Config, error) {
 
 	emailHMACKey := firstNonEmpty("EMAIL_HMAC_KEY", "")
 	corsOrigins := firstNonEmpty("CORS_ORIGINS", "http://localhost:3000")
+	cookieDomain := firstNonEmpty("COOKIE_DOMAIN", "")
+	cspReportOnlyEnabled := firstNonEmpty("CSP_REPORT_ONLY_ENABLED", "false")
+	cspReportOnlyURI := firstNonEmpty("CSP_REPORT_ONLY_URI", "")
+	cspReportOnlyPolicy := firstNonEmpty("CSP_REPORT_ONLY_POLICY", "default-src 'self'")
 	// Email provider quotas
 	hourlyCap := parseIntEnv("EMAIL_PROVIDER_HOURLY_CAP", 1000)
 	dailyCap := parseIntEnv("EMAIL_PROVIDER_DAILY_CAP", 10000)
@@ -74,6 +82,10 @@ func Load() (*Config, error) {
 		StytchSecret:   stytchSecret,
 		EmailHMACKey:   emailHMACKey,
 		CORSOrigins:    corsOrigins,
+		CookieDomain:   cookieDomain,
+		CSPReportOnlyEnabled: cspReportOnlyEnabled == "true" || cspReportOnlyEnabled == "1",
+		CSPReportOnlyURI: cspReportOnlyURI,
+		CSPReportOnlyPolicy: cspReportOnlyPolicy,
 		EmailProviderHourlyCap: hourlyCap,
 		EmailProviderDailyCap:  dailyCap,
 		RateLimitMagicLinkIPPerMin:      ipPerMin,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -135,11 +136,19 @@ func (m *AuthMiddleware) CSRFMiddleware() fiber.Handler {
 			})
 		}
 
-		// Validate origin against allowed origins
-		// In production, check against configured allowed origins
-		allowedOrigins := []string{
-			"https://app.example.com",
-			"http://localhost:3000",
+		// Validate origin against allowed origins from config
+		allowedOrigins := []string{}
+		if m.cfg.CORSOrigins != "" {
+			parts := strings.Split(m.cfg.CORSOrigins, ",")
+			for _, p := range parts {
+				if v := strings.TrimSpace(p); v != "" {
+					allowedOrigins = append(allowedOrigins, v)
+				}
+			}
+		}
+		// Fallback defaults
+		if len(allowedOrigins) == 0 {
+			allowedOrigins = []string{"https://app.example.com", "http://localhost:3000"}
 		}
 
 		allowed := false

@@ -11,9 +11,11 @@ import {
   Scripts,
   redirect,
 } from '@tanstack/react-router';
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
+import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 import { getAuthState } from '@/features/auth/api/get-auth-state';
 import { routePolicy } from '@/features/auth/utils/route-policy';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/query-client';
 import '../styles/globals.css';
 
 // ============================================================================
@@ -65,7 +67,9 @@ function RootComponent() {
           </nav>
         </header>
         <main className="p-6">
-          <Outlet />
+          <QueryClientProvider client={queryClient}>
+            <Outlet />
+          </QueryClientProvider>
         </main>
       </div>
       <TanStackRouterDevtools />

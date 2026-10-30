@@ -73,6 +73,11 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
   `/api/*` proxied via `vite.config.ts` `server.proxy` to the private backend. Real client IP is forwarded in the agreed header. Body-size and timeout limits are set to allow CSV import/exports/PDF downloads. No internal backend endpoints
   /healthz /readyz /metrics /spec are exposed or referenced under /api. Authenticated responses set Cache-Control: no-store.
 
+## Auth guard and server-only imports (addendum from 2026-10-30)
+- **FE-AUTH-01** `beforeLoad` redirect must use `redirect()` from `@tanstack/react-router`; never throw native `Response` (breaks `seroval` SSR serialization).
+- **FE-AUTH-02** Client code (`src/lib/api/client.ts`) must never import `@tanstack/react-start/server` or `*.server.*` files via dynamic import; TanStack import-protection denies them. Use middleware (`entry.server.tsx`) or `createServerOnlyFn()` for server-only logic.
+- **FE-AUTH-03** `QueryClientProvider` must wrap `<Outlet />` in root component (`routes/__root.tsx`) so SSR renders without `No QueryClient` errors.
+
 ## Definition of done
 
 Typecheck, lint and tests pass. New routes and role-gated screens have the tests required by FE-027. Requirement IDs are referenced per FE-026.

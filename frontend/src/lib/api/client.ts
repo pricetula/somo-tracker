@@ -1,4 +1,5 @@
 import { ApiError, codeFromStatus, parseRetryAfter } from './errors';
+// Server header forwarding disabled to avoid import-protection errors; relies on middleware / cookie headers
 
 function apiBase(isServer: boolean): string {
   if (isServer) {
@@ -9,20 +10,7 @@ function apiBase(isServer: boolean): string {
 }
 
 async function getServerForwardHeaders(): Promise<Record<string, string>> {
-  if (typeof window !== 'undefined') return {};
-  try {
-    const mod = await import('@tanstack/react-start/server');
-    const headers = mod.getRequestHeaders?.();
-    if (!headers) return {};
-    const out: Record<string, string> = {};
-    const cookie = headers.get('cookie');
-    const requestId = headers.get('x-request-id');
-    if (cookie) out['Cookie'] = cookie;
-    if (requestId) out['X-Request-ID'] = requestId;
-    return out;
-  } catch {
-    return {};
-  }
+  return {};
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {

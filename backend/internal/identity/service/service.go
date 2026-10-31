@@ -124,7 +124,7 @@ func (s *Service) RequestMagicLink(ctx context.Context, email string) (string, e
 	// Build login URL for Stytch callback from PUBLIC_APP_URL
 	appURL := os.Getenv("PUBLIC_APP_URL")
 	if appURL == "" {
-		appURL = "http://localhost:3000"
+		return "", fmt.Errorf("PUBLIC_APP_URL is required for Stytch magic link callback")
 	}
 	loginURL := strings.TrimRight(appURL, "/") + "/auth/callback"
 

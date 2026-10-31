@@ -25,7 +25,7 @@ export const updateOnboardingSchema = z.object({
 export type UpdateOnboardingInput = z.infer<typeof updateOnboardingSchema>;
 
 export const completeOnboardingSchema = z.object({
-  schoolName: z.string().min(1, 'School name is required').max(255),
+  schoolName: z.string().min(1, 'School name is required').max(255).transform((val) => val.trim()).refine((val) => val.length > 0, 'School name is required'),
   idempotencyKey: z.string().min(1, 'Idempotency key is required'),
 });
 
@@ -38,7 +38,7 @@ export const loginFormSchema = z.object({
 export type LoginFormInput = z.infer<typeof loginFormSchema>;
 
 export const tenantNameFormSchema = z.object({
-  schoolName: z.string().min(1, 'School name is required').max(255),
+  schoolName: z.string().min(1, 'School name is required').max(255).transform((val) => val.trim()).refine((val) => val.length > 0, 'School name is required'),
 });
 
 export type TenantNameFormInput = z.infer<typeof tenantNameFormSchema>;

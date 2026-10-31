@@ -25,6 +25,7 @@ export default defineConfig({
       '/api/v1': {
         target: process.env.PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
+        cookieDomainRewrite: 'localhost',
         timeout: 300_000, // 5 minutes for CSV/PDF downloads
         proxyTimeout: 300_000,
       },

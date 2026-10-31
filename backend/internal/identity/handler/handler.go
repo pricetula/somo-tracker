@@ -285,15 +285,16 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 	}
 
 	// Validate required fields
-	if req.SchoolName == "" {
+	schoolName := strings.TrimSpace(req.SchoolName)
+	if schoolName == "" {
 		return apperr.New(apperr.INVALID_REQUEST, "school name is required")
 	}
 
 	// Call service
 	data := service.ProvisionData{
-		SchoolName:     req.SchoolName,
+		SchoolName:     schoolName,
 		IdempotencyKey: req.IdempotencyKey,
-		AdminName:      req.SchoolName, // Use school name as admin name for now
+		AdminName:      schoolName, // Use school name as admin name for now
 	}
 	result, err := h.svc.ProvisionTenant(c.Context(), ticketToken, data)
 	if err != nil {

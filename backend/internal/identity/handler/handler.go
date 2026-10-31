@@ -284,6 +284,11 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
 	}
 
+	// Validate required fields
+	if req.SchoolName == "" {
+		return apperr.New(apperr.INVALID_REQUEST, "school name is required")
+	}
+
 	// Call service
 	data := service.ProvisionData{
 		SchoolName:     req.SchoolName,

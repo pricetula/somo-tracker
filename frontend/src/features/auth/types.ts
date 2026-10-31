@@ -3,61 +3,21 @@
  * Generated from backend OpenAPI spec - do not edit manually
  */
 
-export interface RequestMagicLinkRequest {
-  email: string;
-}
+// Generated from OpenAPI spec - do not edit manually
+import type { components } from './api/generated/types';
 
-export interface RequestMagicLinkResponse {
-  success: boolean;
-}
-
-export interface AuthenticateTokenRequest {
-  token: string;
-}
-
-export interface AuthenticateTokenResponse {
-  status: 'onboarding_required' | 'organization_selection_required' | 'authenticated';
-  auth_state: 'onboarding_required' | 'organization_selection_required' | 'authenticated';
-  ticket_token?: string;
-  onboarding?: OnboardingState;
-}
-
-export interface OnboardingState {
-  verifiedEmail: string;
-  currentStep: string;
-  formData: Record<string, unknown>;
-  schoolName?: string;
-  tenantId?: string;
-}
-
-export interface GetOnboardingResponse {
-  verifiedEmail: string;
-  currentStep: string;
-  formData: Record<string, unknown>;
-  schoolName?: string;
-  tenantId?: string;
-}
-
-export interface UpdateOnboardingRequest {
-  current_step: string;
-  form_data: Record<string, unknown>;
-  school_name?: string;
-}
-
-export interface CompleteOnboardingRequest {
-  school_name: string;
-  idempotency_key: string;
-}
-
-export interface CompleteOnboardingResponse {
-  success: boolean;
-}
-
+export type RequestMagicLinkRequest = components['schemas']['RequestMagicLinkRequest'];
+export type RequestMagicLinkResponse = components['schemas']['RequestMagicLinkResponse'];
+export type AuthenticateTokenRequest = components['schemas']['AuthenticateTokenRequest'];
+export type AuthenticateTokenResponse = components['schemas']['AuthenticateTokenResponse'];
+export type OnboardingState = components['schemas']['OnboardingState'];
+export type GetOnboardingResponse = components['schemas']['OnboardingStateResponse'];
+export type UpdateOnboardingRequest = components['schemas']['UpdateOnboardingRequest'];
+export type CompleteOnboardingRequest = components['schemas']['ProvisionTenantRequest'];
+export type CompleteOnboardingResponse = components['schemas']['ProvisionTenantResponse'];
 export type LogoutRequest = Record<string, never>;
-
-export interface LogoutResponse {
-  success: boolean;
-}
+export type LogoutResponse = components['schemas']['LogoutResponse'];
+export type ErrorResponse = components['schemas']['ErrorResponse'];
 
 export interface AuthState {
   hasSession: boolean;

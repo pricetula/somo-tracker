@@ -23,6 +23,9 @@ export const updateOnboardingSchema = z.object({
 });
 
 export type UpdateOnboardingInput = z.infer<typeof updateOnboardingSchema>;
+// Compile-time check: ensure schema matches generated API type
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _updateOnboardingTypeCheck: UpdateOnboardingInput extends import('./types').UpdateOnboardingRequest ? true : false = true;
 
 export const completeOnboardingSchema = z.object({
   school_name: z.string().min(1, 'School name is required').max(255).transform((val) => val.trim()).refine((val) => val.length > 0, 'School name is required'),
@@ -30,6 +33,9 @@ export const completeOnboardingSchema = z.object({
 });
 
 export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;
+// Compile-time check: ensure schema matches generated API type
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _completeOnboardingTypeCheck: CompleteOnboardingInput extends import('./types').CompleteOnboardingRequest ? true : false = true;
 
 export const loginFormSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -38,7 +44,7 @@ export const loginFormSchema = z.object({
 export type LoginFormInput = z.infer<typeof loginFormSchema>;
 
 export const tenantNameFormSchema = z.object({
-  schoolName: z.string().min(1, 'School name is required').max(255).transform((val) => val.trim()).refine((val) => val.length > 0, 'School name is required'),
+  school_name: z.string().min(1, 'School name is required').max(255).transform((val) => val.trim()).refine((val) => val.length > 0, 'School name is required'),
 });
 
 export type TenantNameFormInput = z.infer<typeof tenantNameFormSchema>;

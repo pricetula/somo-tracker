@@ -18,8 +18,7 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
    All HTTP uses native fetch, wrapped once in src/lib/api/client.ts. Base path is /api/v1, e.g. /api/v1/me. Paths start with /api/v1. Never hardcode /backend. No axios. Never send a school identifier or
    X-Active-School header; the backend resolves it. No [school] route segments.
 - FE-008 Types generation
-   API types and Zod schemas are generated from the backend swag-generated Swagger 2.0 spec into src/lib/api/generated/. Generator must accept Swagger 2.0, nullable fields, generic page wrapper { items,
-   nextCursor } and error code enum. Spec location/URL is documented and CI regenerates and diffs on each build. Generate types/schemas only, never a client/SDK.
+   API types and Zod schemas are generated from the backend OpenAPI 3.1 spec (docs/api/openapi.yaml) into src/features/auth/api/generated/. Run `pnpm generate:api` after any API contract change. Generator must accept OpenAPI 3.1, nullable fields, and snake_case field names. Spec location is docs/api/openapi.yaml. CI regenerates and diffs on each build. Generate types only, never a client/SDK. Frontend MUST use generated types (snake_case) - backend is the contract authority.
 - FE-009 / FE-019 Pagination
   List screens use useInfiniteQuery with getNextPageParam reading nextCursor, null means last page, plus @tanstack/react-virtual. Request params: limit default 50 max 100, cursor, sort whitelisted e.g.
   name_asc, q and filters. No page numbers, no total counts, no OFFSET. Query key includes sort and filters so change resets cursor. maxPages is set, row heights are fixed. Sensitive lists

@@ -14,7 +14,7 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
-    "generate:api": "echo 'TODO: generate API types from swagger'"
+    "generate:api": "openapi-typescript ../docs/api/openapi.yaml -o ./src/features/auth/api/generated/types.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@hey-api/openapi-ts": "^0.99.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-devtools": "^1.167.2",
     "@tanstack/router-plugin": "^1.168.48",
@@ -58,6 +59,7 @@
     "eslint": "^10.13.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.2.0",
+    "openapi-typescript": "^7.13.0",
     "postcss": "^8.5.32",
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",

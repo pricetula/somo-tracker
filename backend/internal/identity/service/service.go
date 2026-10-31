@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -120,8 +121,12 @@ func (s *Service) RequestMagicLink(ctx context.Context, email string) (string, e
 	// Compute code_challenge S256
 	challenge := pkceCodeChallenge(verifier)
 
-	// Build login URL for Stytch callback
-	loginURL := "https://app.example.com/auth/callback" // TODO: from config
+	// Build login URL for Stytch callback from PUBLIC_APP_URL
+	appURL := os.Getenv("PUBLIC_APP_URL")
+	if appURL == "" {
+		appURL = "http://localhost:3000"
+	}
+	loginURL := strings.TrimRight(appURL, "/") + "/auth/callback"
 
 	// Call Stytch B2B Discovery magic_links/email
 	if err := s.stytch.SendDiscoveryMagicLink(ctx, email, loginURL, challenge); err != nil {

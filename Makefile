@@ -1,148 +1,262 @@
-.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api sqlc-gen generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help migrated migrate-down migrate-range migrate-verify
+# Somotracker Makefile
 
-# ─── Docker Compose shortcuts ────────────────────────────────────────────────
+# Ensure go bin is on PATH for tools like swag
+PATH := $(PATH):$(shell go env GOPATH)/bin
 
-up:    ## Start all services (detached)
-	doppler run -p somotracker-backend -c dev -- \
-	doppler run -p somotracker-frontend -c dev -- \
-	docker compose up -d
+.PHONY: help \
+	dev dev-local dev-stop dev-logs \
+	build build-backend build-frontend build-marketing \
+	test test-backend test-frontend test-marketing test-coverage test-integration \
+	generate generate-sqlc generate-swag generate-frontend-types \
+	compliance lint vet fmt typecheck typecheck-marketing \
+	docker-build docker-up docker-down docker-logs docker-ps \
+	db-migrate-up db-migrate-down db-migrate-create db-seed \
+	clean clean-all
 
-up-d:  ## Start all services (foreground, live logs)
-	doppler run -p somotracker-backend -c dev -- \
-	doppler run -p somotracker-frontend -c dev -- \
-	docker compose up
+# Default target
+help:
+	@echo "Somotracker - Development Commands"
+	@echo ""
+	@echo "Development:"
+	@echo "  make dev           - Start full dev stack (docker compose with HMR)"
+	@echo "  make dev-local     - Start DBs in docker, run backend/frontend locally"
+	@echo "  make dev-stop      - Stop dev stack"
+	@echo "  make dev-logs      - Follow dev stack logs"
+	@echo ""
+	@echo "Build:"
+	@echo "  make build         - Build backend + frontend"
+	@echo "  make build-backend - Build backend binary"
+	@echo "  make build-frontend- Build frontend for production"
+	@echo ""
+	@echo "Test:"
+	@echo "  make test              - Run all tests"
+	@echo "  make test-backend      - Run backend tests"
+	@echo "  make test-frontend     - Run frontend tests"
+	@echo "  make test-coverage     - Run tests with coverage"
+	@echo "  make test-integration  - Run integration tests (requires DB)"
+	@echo ""
+	@echo "Generate:"
+	@echo "  make generate               - Generate all code"
+	@echo "  make generate-sqlc          - Generate sqlc code"
+	@echo "  make generate-swag          - Generate Swagger docs"
+	@echo "  make generate-frontend-types- Generate frontend API types"
+	@echo ""
+	@echo "Quality:"
+	@echo "  make compliance    - Run all compliance checks (vet, lint, typecheck, test)"
+	@echo "  make lint          - Run linters (backend + frontend)"
+	@echo "  make vet           - Run go vet"
+	@echo "  make fmt           - Format code (backend + frontend)"
+	@echo "  make typecheck     - Run TypeScript typecheck (frontend)"
+	@echo ""
+	@echo "Docker:"
+	@echo "  make docker-build  - Build docker images"
+	@echo "  make docker-up     - Start docker stack (detached)"
+	@echo "  make docker-down   - Stop docker stack (with volumes)"
+	@echo "  make docker-logs   - Follow docker logs"
+	@echo "  make docker-ps     - Show docker containers"
+	@echo ""
+	@echo "Database:"
+	@echo "  make db-migrate-up      - Run migrations up"
+	@echo "  make db-migrate-down    - Run migrations down"
+	@echo "  make db-migrate-create  - Create new migration (name=xxx)"
+	@echo "  make db-seed            - Seed development data"
+	@echo ""
+	@echo "Clean:"
+	@echo "  make clean      - Clean build artifacts"
+	@echo "  make clean-all  - Clean everything including node_modules, docker volumes"
 
-down:  ## Stop and remove all containers
+# =============================================================================
+# Development
+# =============================================================================
+
+# Full docker dev stack with HMR (frontend: vite, backend: air)
+dev:
+	doppler run -- docker compose up --build
+
+# Local dev: DBs in docker, backend/frontend run natively
+# Requires: go, air, pnpm, node installed locally
+dev-local:
+	docker compose up -d postgres redis
+	@echo "Waiting for DBs to be ready..."
+	@sleep 3
+	@echo "Starting backend (air)..."
+	@cd backend && air -c .air.toml & \
+	echo $$! > /tmp/somotracker-backend.pid
+	@echo "Starting frontend (vite)..."
+	@cd frontend && pnpm dev & \
+	echo $$! > /tmp/somotracker-frontend.pid
+	@echo ""
+	@echo "Backend PID: $$(cat /tmp/somotracker-backend.pid)"
+	@echo "Frontend PID: $$(cat /tmp/somotracker-frontend.pid)"
+	@echo "Stop with: make dev-stop"
+
+dev-stop:
+	@if [ -f /tmp/somotracker-backend.pid ]; then kill $$(cat /tmp/somotracker-backend.pid) 2>/dev/null; rm /tmp/somotracker-backend.pid; fi
+	@if [ -f /tmp/somotracker-frontend.pid ]; then kill $$(cat /tmp/somotracker-frontend.pid) 2>/dev/null; rm /tmp/somotracker-frontend.pid; fi
 	docker compose down
 
-ps:    ## Show running service status
-	docker compose ps
-
-# ─── Logs ────────────────────────────────────────────────────────────────────
-
-logs-down:  ## Tail logs for all services
+dev-logs:
 	docker compose logs -f
 
-logs-api:   ## Tail API (Go/Fiber) logs
-	docker compose logs -f somotracker_api
+# =============================================================================
+# Build
+# =============================================================================
 
-logs-postgres: ## Tail Postgres logs
-	docker compose logs -f somotracker_postgres
+build: build-backend build-frontend build-marketing
 
-logs-redis: ## Tail Redis logs
-	docker compose logs -f somotracker_redis
+build-backend:
+	cd backend && CGO_ENABLED=0 go build -o bin/api ./cmd/api
+	@if [ -d ./backend/cmd/worker ]; then \
+		cd backend && CGO_ENABLED=0 go build -o bin/worker ./cmd/worker; \
+	fi
 
-logs-frontend: ## Tail Next.js frontend logs
-	docker compose logs -f somotracker_frontend
+build-frontend:
+	cd frontend && pnpm build
 
-# ─── Service lifecycle ────────────────────────────────────────────────────────
+build-marketing:
+	cd marketing && pnpm build
 
-restart-api:  ## Restart the API service (triggers Air hot-reload)
-	docker compose restart somotracker_api
+# =============================================================================
+# Test
+# =============================================================================
 
-rebuild-api:  ## Rebuild and recreate the API container
-	docker compose up -d --force-recreate --no-deps somotracker_api
+test: test-backend test-frontend test-marketing
 
-build-api:    ## Build the API service (no start)
-	docker compose build somotracker_api
+test-backend:
+	cd backend && go test -v ./...
 
-# ─── Quality ────────────────────────────────────────────────────────────────
+test-frontend:
+	cd frontend && pnpm test
 
-lint:  ## Run golangci-lint (backend)
-	cd backend && golangci-lint run
+test-marketing:
+	cd marketing && pnpm lint
 
-lint-frontend:  ## Run ESLint (frontend)
-	cd frontend && pnpm lint
+test-coverage:
+	cd backend && go test -coverprofile=coverage.out ./...
+	@cd backend && go tool cover -html=coverage.out -o coverage.html
+	@echo "Backend coverage: backend/coverage.html"
+	cd frontend && pnpm test -- --coverage
 
-lint-public:  ## Run lint (public)
-	cd public && pnpm run lint
+test-integration:
+	@if [ -z "$$POSTGRES_DSN" ]; then \
+		echo "POSTGRES_DSN not set. Using docker compose DB..."; \
+		export POSTGRES_DSN="postgres://somotracker:somotracker@localhost:5432/somotracker?sslmode=disable"; \
+	fi
+	cd backend && go test -tags=integration -v ./...
 
-lint-all: lint lint-frontend lint-public  ## Run all lints (backend + frontend + public)
+# =============================================================================
+# Generate
+# =============================================================================
 
-vet:   ## Run go vet (backend)
-	cd backend && go vet ./...
+generate: generate-sqlc generate-swag generate-frontend-types
 
-# ─── Tests ───────────────────────────────────────────────────────────────────
-
-GOTESTSUM := go run gotest.tools/gotestsum@latest
-
-test: test-short  ## Run unit tests (short mode, skips integration)
-
-test-short:  ## Run unit tests only, race-detected, junit output
-	cd backend && $(GOTESTSUM) --junitfile ../test-results/unit.xml -- -race -short -count=1 ./...
-
-test-integration:  ## Run integration tests with testcontainers (each test gets own DB)
-	cd backend && $(GOTESTSUM) --junitfile ../test-results/integration.xml -- -race -count=1 -parallel=1 -tags=integration ./internal/testdb/... ./internal/database/...
-
-test-verbose:  ## Run all tests with verbose output
-	cd backend && $(GOTESTSUM) --format standard-verbose -- -race -count=1 ./...
-
-test-coverage:  ## Run tests with coverage report
-	cd backend && go test -race -short -count=1 -coverprofile=../coverage.out -covermode=atomic ./...
-	cd backend && go tool cover -html=../coverage.out -o ../coverage.html
-	@echo "Coverage report: coverage.html"
-
-test-all: test-short test-integration  ## Run unit + integration tests (testcontainers)
-
-# ─── Code generation ─────────────────────────────────────────────────────────
-
-sqlc-gen:  ## Run sqlc code generation (requires queries in db/queries/)
+generate-sqlc:
 	cd backend && sqlc generate
 
-generate-swagger:  ## Generate Swagger/OpenAPI docs from Go annotations
-	cd backend && swag init -g cmd/api/main.go --output docs --parseDependency --parseInternal
+generate-swag:
+	cd backend && swag init -g cmd/api/main.go -o docs
 
-generate-api-types: generate-swagger  ## Generate TypeScript types from swagger.json
+generate-frontend-types:
 	cd frontend && pnpm generate:api
 
-docs:  ## Doc-led workflow: lint + build docs + audit
-	cd frontend && pnpm docs:lint
-	@echo "Docs audit passed. See docs/openapi.yaml, docs/adr/, docs/features/"
+# =============================================================================
+# Quality / Compliance
+# =============================================================================
 
-compliance:  ## Run AGENTS.md compliance checks via bot scripts
-	./scripts/compliance.sh
+compliance: vet lint typecheck typecheck-marketing test-backend generate-check
 
-bots:  ## Run all bot audits
-	./scripts/bots/run-all.sh
+vet:
+	cd backend && go vet ./...
 
-generate: sqlc-gen generate-api-types  ## Run all code generation (sqlc + swagger + TS types)
+lint:
+	@echo "=== Backend lint ==="
+	cd backend && golangci-lint run ./...
+	@echo "=== Frontend lint ==="
+	cd frontend && pnpm lint
+	@echo "=== Marketing lint ==="
+	cd marketing && pnpm lint
 
-# ─── Help ─────────────────────────────────────────────────────────────────────
+fmt:
+	@echo "=== Backend fmt ==="
+	cd backend && go fmt ./...
+	@echo "=== Frontend fmt ==="
+	cd frontend && pnpm format
+	@echo "=== Marketing fmt ==="
+	cd marketing && pnpm format
 
-help:  ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
-		| sort \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+typecheck:
+	cd frontend && pnpm typecheck
 
-setup-hooks:
-	lefthook install
+typecheck-marketing:
+	cd marketing && pnpm typecheck
 
-# ─── Database migrations (golang-migrate) ───────────────────────────────────
+generate-check: generate
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Generated files have changes. Commit them."; \
+		git diff --stat; \
+		exit 1; \
+	fi
 
-MIGRATE_DIR := backend/db/migrations
-MIGRATE_URL := postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable
+# =============================================================================
+# Docker
+# =============================================================================
 
-migrated:  ## Apply pending migrations against the dev/postgres database
-	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) up
+docker-build:
+	docker compose build
 
-migrate-down:  ## Roll back one migration
-	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) down 1
+docker-up:
+	doppler run -- docker compose up -d
 
-migrate-range:  ## Migrate to a specific version (e.g. 1, 2, ...)
-	@migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) goto $(VERSION)
+docker-down:
+	docker compose down -v
 
-migrate-verify:  ## Force version check / status
-	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) version
+docker-logs:
+	docker compose logs -f
 
-prometheus:
-	docker run -d \
-		--name prometheus \
-		-p 9090:9090 \
-		-v $$(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
-		prom/prometheus
+docker-ps:
+	docker compose ps
 
-prometheus-stop:
-	docker rm -f prometheus
+# =============================================================================
+# Database
+# =============================================================================
 
-prometheus-logs:
-	docker logs -f prometheus
+# Requires goose: go install github.com/pressly/goose/v3/cmd/goose@latest
+db-migrate-up:
+	@if [ -z "$$POSTGRES_DSN" ]; then \
+		echo "POSTGRES_DSN not set. Using default..."; \
+		export POSTGRES_DSN="postgres://somotracker:somotracker@localhost:5432/somotracker?sslmode=disable"; \
+	fi
+	cd backend && goose -dir migrations postgres "$$POSTGRES_DSN" up
+
+db-migrate-down:
+	@if [ -z "$$POSTGRES_DSN" ]; then \
+		echo "POSTGRES_DSN not set. Using default..."; \
+		export POSTGRES_DSN="postgres://somotracker:somotracker@localhost:5432/somotracker?sslmode=disable"; \
+	fi
+	cd backend && goose -dir migrations postgres "$$POSTGRES_DSN" down
+
+db-migrate-create:
+	@if [ -z "$(name)" ]; then echo "Usage: make db-migrate-create name=add_users_table"; exit 1; fi
+	cd backend && goose -dir migrations create $(name) sql
+
+db-seed:
+	@if [ -z "$$POSTGRES_DSN" ]; then \
+		echo "POSTGRES_DSN not set. Using default..."; \
+		export POSTGRES_DSN="postgres://somotracker:somotracker@localhost:5432/somotracker?sslmode=disable"; \
+	fi
+	@echo "Seeding database..."
+	@cd backend && go run ./cmd/seed
+
+# =============================================================================
+# Clean
+# =============================================================================
+
+clean:
+	rm -rf backend/bin backend/coverage.out backend/coverage.html
+	rm -rf frontend/dist
+	docker compose down
+
+clean-all: clean
+	rm -rf frontend/node_modules
+	docker compose down -v
+	docker system prune -f

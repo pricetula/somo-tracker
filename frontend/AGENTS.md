@@ -1,378 +1,82 @@
-# Somotracker Frontend — Agent Architecture Contract
-
-Next.js (App Router), TypeScript, Feature-Module architecture.
-
----
-
-## 1. Core Architecture
-
-`src/app/` is routing only — no custom components or business logic live there.
-
-```
-src/
-├── app/                        # Next.js routing layer — keep lean
-│   ├── layout.tsx
-│   ├── page.tsx                # Imports and renders feature containers
-│   └── dashboard/
-│       └── page.tsx            # Imports <DashboardContainer />
-│
-├── features/                   # Feature-Module layer — core business logic
-│   └── analytics/              # Example feature
-│       ├── components/         # Presentational UI (feature-scoped)
-│       ├── hooks/               # Data fetching and local state
-│       ├── services/           # API clients, server actions, SDK wrappers
-│       ├── types/               # TypeScript interfaces for this feature
-│       └── index.ts            # Public API — the only import entry point
-│
-├── components/                 # Global, generic UI only (e.g. shadcn primitives)
-└── lib/                        # Global utilities (e.g. tailwind-merge, auth config)
-```
-
-- Each feature is self-contained: logic, UI, and state all live within its folder.
-- External code imports a feature only through its `index.ts` — never internal paths.
-- Cross-feature imports are allowed for now. Avoid circular dependencies. Shared logic that is truly generic belongs in `lib/`.
-- Route handlers live in `app/api/…/route.ts` — never in `features/`.
-- Page files (`page.tsx`) render a single feature container. No logic in page files.
-- Do not define multiple components in one `.tsx` file — one component per file.
-- Avoid div bloat — no wrapper `<div>` that serves no layout/semantic purpose.
-
----
-
-## 2. Page Creation — No Headers or Back Navigation
-
-When scaffolding a new page, the app shell (top bar, back navigation, global navigation) is
-owned by `src/app/layout.tsx` and the feature container's root layout — not by
-individual page or feature components.
-
-- **Do not** add a `<header>`, `<nav>`, back button, "Back to" link, or any breadcrumb
-  component inside a page file (`page.tsx`) or a feature container rendered by one.
-  Navigation is the shell's responsibility.
-- **"Back to" links are forbidden everywhere.** No `<Link>` or `<button>` with the text
-  "Back to" anything, and no icon-only back buttons (`ArrowLeft` from lucide-react or similar).
-  If you need to put them anywhere else, stop and think of a UX that doesn't require the user to backtrack.
-- **No back navigation icons in feature containers or pages.** Never include `<ArrowLeft>` as a back button in any `components/`, `page.tsx`, or `@modal/` file. Navigation is handled by the app shell (`layout.tsx`) or browser back.
-- **Do not** replicate the top app bar or any global navigation element. The shell
-  layout is inherited; pages are content panes only.
-- If a page needs a heading (e.g. a page title), use `h1` rendered as plain text —
-  never wrap it in a header/nav element or style it to look like a navigation bar.
-- Exception: standalone marketing pages under `public/` (separate project) may have
-  their own headers; this rule applies only to the `frontend/` Next.js app.
-
----
-
-## 3. Package Manager
-
-Use **pnpm** exclusively — including for one-off/codemod commands (`pnpm dlx`) and
-npm-scripts (`pnpm run <script>`). Never invoke `npm` or `npx` directly.
-
-- `pnpm install` / `pnpm install --frozen-lockfile` (CI/Docker)
-- `pnpm add <pkg>` / `pnpm add -D <pkg>` / `pnpm remove <pkg>`
-- `pnpm dlx <tool>` for one-off commands (never global installs)
-- Use `--ignore-scripts` in CI/Docker unless a postinstall script is explicitly required.
-
----
-
-## 4. React State-in-Effect Policy
-
-1. Never call `setState` inside `useEffect`. Derive values with `useMemo` or compute
-   inline during render.
-2. Use event handlers for reactive updates (e.g. auto-filling end time when start time
-   changes) — not effects.
-3. Prefer `useMemo` over `useEffect + setState` for any value computable from existing
-   state or props.
-
-Run `pnpm lint` before pushing — the `react-hooks/set-state-in-effect` rule enforces this.
-
----
-
-## 5. Documentation & Tooltip Synchronization
-
-All contextual inline UI help must derive from `content/docs/*.mdx` frontmatter via
-`<FeatureHelp slug="filename" anchorId="heading-anchor" />`.
-
-- Never hardcode descriptive text inside UI markup or labels.
-- Every doc file must declare a `tooltipSummary` string under 160 characters — plain
-  text, no Markdown.
-- Before completing any task touching routing, settings UI, or backend flag
-  configuration, run `pnpm run audit:docs` and fix misalignments before pushing.
-
----
-
-## 6. Routing — `proxy.ts`
-
-As of Next.js 16, `middleware.ts` is deprecated in favor of `proxy.ts`. For anything not
-covered below, check the current [Next.js proxy.js docs](https://nextjs.org/docs/app/api-reference/file-conventions/proxy) rather than relying on memory — behavior here is
-still being finalized upstream.
-
-- **Location:** Since this project uses `frontend/src/app/`, proxy must live at
-  `frontend/src/proxy.ts` (adjacent to `app/`), not `frontend/proxy.ts`.
-- **Export:** **Default export only** (Next.js 16.2 loads via `middlewareModule.default`;
-  named exports cause `adapterFn is not a function`). Named export `proxy` is not
-  supported in this version. Do NOT use `middleware()`.
-- **Signature:** `export default function proxy(request: NextRequest, event?: NextFetchEvent)`
-- **Runtime:** Node.js only — the `runtime` config option is not available in proxy
-  files and will throw if set.
-- **Matcher is required.** Without it, proxy runs on every request including static
-  files. Use negative matches to exclude assets:
-
-```ts
-export const config = {
-    matcher: ["/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.png$).*)"],
-};
-```
-
-- **State:** Proxy runs separately from render code — no shared modules/globals. Pass
-  data via headers, cookies, rewrites, or redirects only.
-- **Server Functions are not separate routes** in the execution chain — a matcher that
-  excludes a path also skips Server Function calls on that path. Verify auth inside
-  each Server Function; don't rely on proxy alone.
-- Do not recreate `middleware.ts`.
-
-**Migrating an existing `middleware.ts`:** run the official codemod —
-`pnpm dlx @next/codemod@canary middleware-to-proxy .` — it renames the file and export
-automatically.
-
----
-
-## 7. Listing
-
-Use TanStack virtualized lists for any list where the query may return large result
-sets.
-
----
-
-## 8. Page Layout — no tabs, prefer simple stacking
-
-Use vertical stacking of sections with `space-y-*` gap to organise page content.
-**Do not use `<Tabs>` or tab navigation components** to split page content.
-Every section gets an `<h2>` / `<h3>` heading and stacks naturally down the page.
-Sub-navigation belongs in the sidebar or in dedicated feature-level route pages.
-
----
-
-## 9. Visual Guidance — reduce borders and cards
-
-- Avoid excessive borders unless necessary or requested. Separate sections with
-  margin/padding (`space-y-*`, `gap-*`, `p-*`) instead.
-- Avoid excessive card/`shadow` styling.
-- Build tables flat against the background — no cell borders or row outlines. Use
-  clean vertical alignment instead.
-- Avoid excessive `<Separator />` / `<hr />` dividers; prefer spatial grouping unless
-  a divider is explicitly needed.
-
----
-
-## 9.5 Form Implementation — Onboarding / Registration
-
-Standard for school registration / onboarding forms (e.g., `features/school/components/onboarding-form.tsx`):
-
-- **Compound form only**: shadcn `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage`. No raw `<form>` + `useState` replacements.
-- **Validation**: `zod` schema + `zodResolver`; `useForm` with typed `defaultValues`.
-- **Submit handler**: wrapped in `useCallback`; calls mutation directly (`mutate` from feature hook like `useRegisterSchool`). No `onSuccess` prop required when mutation handles its own toast / redirect.
-- **Layout**: flat vertical stack (`space-y-5` or `space-y-4`). No card/widget wrapper, no border isolation, no custom hex colors. Semantic CSS vars only.
-- **Errors**: mutation-level error surfacing only (`useRegisterSchool` `onError` → `toast.error`). Forbidden: duplicate `useEffect` watching `isError` / `error` to call `toast.error` again. Field-level 400 errors drive `form.setError`; never generic toasts for validation failures.
-- **Pending state**: `disabled={isPending}` on `Input` and `Button`; loader inside button (`Loader2` + `animate-spin`).
-- **Success step**: handled by mutation `onSuccess` (toast / redirect), never by `useEffect` watching `isSuccess`. Forbidden: `useEffect` that calls `router.push()` or `setState` on `isSuccess`. If redirect required, pass `onSuccess` to `mutate` or configure the feature hook. `router.push()` must include a destination path; empty calls are invalid.
-- **Error / success duplication**: mutation hook (`useRegisterSchool`) surfaces errors via `onError` and success via `onSuccess`; do not duplicate either with `useEffect` watching `isError` / `isSuccess`. `mutate` may pass `onSuccess` / `onError` directly (e.g., redirect in `onSuccess`, toast in `onError`) — never via reactive effects.
-
-Reference file: `frontend/src/features/school/components/onboarding-form.tsx`.
-
----
-
-## 9. Shadcn UI Components — never modify, never add by hand
-
-Files under `src/components/ui/` are auto-generated shadcn primitives.
-
-- The only way to add or change one is `pnpm dlx shadcn@latest add <component>`.
-- Bugs, type errors, or Tailwind warnings in these files are fixed by re-adding or
-  upgrading via the shadcn CLI — never by hand.
-- If a shadcn component has a type mismatch with its underlying library (e.g.
-  `react-day-picker`), update the library or re-add the component.
-- **Base UI render prop:** Base UI primitives in the current shadcn set (DropdownMenu,
-  SidebarMenuButton, etc.) use a `render` prop for composition, not the legacy `asChild`
-  pattern. Always use `render={<Component />}` instead of `asChild`. Do not use `asChild`.
-
----
-
-## 10. Error Handling
-
-### `ApiError` (`src/lib/api/client.ts`)
-
-- Defined only here. Properties: `status: number`, `code: string`, `message: string`,
-  `errors?: Record<string, string[]>`.
-- Every non-2xx response throws `ApiError`; unparseable bodies throw with fallback
-  message "Unexpected error".
-- On any 401, the client forces a redirect to `/logout` unless
-  `skipGlobal401Handler: true` is set.
-- Backend contract reference: `backend/internal/api/errors.go`.
-
-### `getErrorMessage` (`src/lib/errors.ts`)
-
-- `getErrorMessage(err: unknown): string` handles `ApiError`, `Error`, string, and
-  unknown throws. Never throws, never returns `undefined`.
-- All catch blocks use `getErrorMessage(err)` — `(err as Error).message` is forbidden.
-
-### React Query
-
-- `useQuery`: every call site handles `isError` — rendering nothing on error is
-  forbidden; at minimum render an `<Alert>`.
-- `useMutation`: every data-modifying mutation (create/update/delete/import/upload)
-  includes an `onError` that at minimum calls `toast.error(getErrorMessage(err))`.
-
-### Async handlers and hooks
-
-- Every async function not called through React Query needs a `try/catch`.
-- Forbidden: `void someAsyncFn()`, `fetch().then(r => r.json())` with no `.catch()`,
-  empty catch blocks.
-- Background/polling async: retry up to a defined max, then surface a non-intrusive
-  status indicator — never silently drop the error.
-
-### Error boundaries
-
-- Every major route/feature is wrapped in `src/components/error-boundary.tsx`.
-- `ApiError` (operational) → show `error.message` gracefully. Other errors
-  (programming) → report to error tracker, show generic "Something went wrong".
-- `src/app/error.tsx` follows the same distinction and reports to the error tracker.
-
-### Form validation (400 responses)
-
-- A mutation receiving `ApiError` with `status === 400` and an `errors` map drives
-  field-level errors via `form.setError` — not a generic toast. Canonical pattern:
-  `src/features/auth/components/register-form.tsx`.
-
-### Web Workers (`src/workers/`)
-
-- Every worker has `self.onerror` posting a structured error back to the main thread.
-- The main thread handler shows a visible error state to the user.
-
----
-
-## 11. API Mutations — pass IDs in the request body
-
-For POST, PATCH, and DELETE API calls, always pass resource IDs inside the
-request body — never rely on extracting them from URL path params alone.
-
-This keeps the mutation function signature consistent and avoids fragile
-URL-construction logic in call sites.
-
-```ts
-// ✅ Good — ID in the body
-mutationFn: ({ parentId, data }: { parentId: string; data: LinkStudentPayload }) =>
-    api.post(`/api/v1/parents/${parentId}/students`, data);
-
-// ✅ Good — multiple IDs in the body
-mutationFn: ({ parentId, studentId }: { parentId: string; studentId: string }) =>
-    api.delete(`/api/v1/parents/${parentId}/students/${studentId}`);
-```
-
----
-
-## 12. Simplicity & References
-
-- Don't overcomplicate. For standard patterns (virtualized list, form, table), start
-  from the library's canonical docs example and adapt — don't reverse-engineer or add
-  speculative layers.
-- When stuck, fetch the current version's official docs/API reference before
-  debugging assumptions about library behavior.
-
----
-
-## 13. Guard Against Null/Undefined on Nested Property Access
-
-Never assume a deeply nested property is defined. Every chained access through
-`var.a.b.c` must be protected with one of:
-
-- **Optional chaining (`?.`):** `data?.items?.map(...)`
-- **Null guard + early return:** `if (!data?.items) return []; data.items.map(...)`
-- **Nullish coalescing (`??`):** `detail.linked_students?.length ?? 0`
-- **Error/loading state guard:** Components receiving query data must return an
-  `isLoading` skeleton or `isError` alert **before** accessing response properties.
-  Never render a partially-loaded state that accesses nested fields.
-
-### Forbidden patterns
-
-```ts
-// ❌ Unsafe — crashes if data or data.items is null/undefined
-data.items.map(...)
-
-// ❌ Unsafe — crashes if detail or detail.linked_students is null
-detail.linked_students.map(...)
-
-// ❌ Unsafe — crashes if error.extra is undefined
-error.extra.active_job_id
-```
-
-### Required patterns
-
-```ts
-// ✅ Optional chaining
-const items = data?.items?.map(...) ?? [];
-
-// ✅ Guard + access
-if (!data?.items) return [];
-return data.items.map(...);
-
-// ✅ Error/loading guard
-if (isLoading) return <Skeleton ... />;
-if (isError || !response?.data) return <ErrorState />;
-return <Main data={response.data} />;
-```
-
-This applies to **all** `.ts` and `.tsx` files under `src/` — including render
-code, hooks, optimistic updaters, and utility functions.
-
----
-
-## 14. API Base URL — use the client, never hardcode /backend
-
-All frontend HTTP calls must go through `src/lib/api/client.ts` (`api.get/post/…`).
-
-- Call paths are always backend-relative, e.g. `/api/admins`, `/api/me`.
-- `api` resolves the correct base at call time: browser → `NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend"`, server → `API_URL ?? "http://somotracker_api:3030"`.
-- Never hardcode `/backend` or the full backend host in components/hooks. The client handles the proxy prefix automatically.
-- Hardcoding the proxy prefix causes double-prefixing or breaks when the proxy changes. Always call `api.get('/api/...')`.
-- **Do not use `fetch('/api/...')` directly.** Direct fetch bypasses `getApiBase()` and the Next.js rewrite, resulting in 404s against localhost:3000. Always use the `api` client, e.g. `api.get('/api/students')`, which correctly proxies to `/backend/api/students`. See `src/lib/api/students.ts` as the canonical example.
-
-## 15. Time Formatting — date-fns only
-
-All date/time formatting in UI code must use **date-fns** functions (`format`,
-`formatDistanceToNow`, `formatRelative`, etc.).
-
-- Never create custom date formatting components, hooks, or utility wrappers.
-- Never use `Intl.DateTimeFormat` directly in UI code — date-fns provides a
-  consistent, tree-shakeable API.
-- Use date-fns's `format` with explicit format strings — avoid locale-dependent
-  defaults to ensure consistent display across environments.
-- Install date-fns if not already present: `pnpm add date-fns`.
-
-```ts
-// ✅ Good — date-fns format
-import { format } from "date-fns";
-format(new Date(started_at), "MMM d, yyyy h:mm a");
-
-// ❌ Bad — custom component or raw Intl
-formatDate(started_at);         // custom utility
-new Intl.DateTimeFormat(...);   // raw Intl in UI
-```
-
----
-
----
-
-## 19. AI Skill Integration (Late 2026)
-
-Before making frontend changes, load the matching skill:
-
-- **New UI component:** Load `/skill:pure-shadcn` → use semantic CSS vars only, no arbitrary styles
-- **Feature creation:** Load `/skill:feature-module` → enforce directory structure and import rules
-- **Form UI:** Load `/skill:pure-shadcn` → use compound components, no custom wrappers
-- **Error handling:** Load `/skill:error-contract` → validate canonical error responses
-- **Review:** Load `/skill:agendas-compliance` → cross-check against frontend contracts
-- **Context:** Load `/skill:project-context` → ensure consistency with backend API shapes
-
----
-
-## 20. Version & Ownership (Late 2026)
-
-- **Standard version:** 1.0.0 (June 2026) — AI coding optimized with `.pi/skills/` integration
-- **Owner:** Platform team
+# Somotracker Frontend: Agent Rules
+
+Scope: TanStack Start + shadcn/ui (Base UI). Root AGENTS.md covers commit policy and the document-led workflow. Library versions: see package.json.
+Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before finishing.
+
+## Architecture
+
+- **FE-001** Outside a feature, import only from `features/<name>/index.ts` (components, hooks, types; explicit named exports, no `export *`). Never import a feature's `api/` or internals. Inside a feature use relative imports and never import the feature's own `index.ts`. Features never import other features.
+- **FE-002** `routes/` files export a TanStack Router `Route` with `loader` for server data and `component` that renders a page component from `src/components/pages/`. Pages compose features via `index.ts` and hold no business logic or data access. Cross-feature data is composed in the page via props; if that isn't possible, raise an Open Question. `components/ui/` and `components/shared/` never import from `features/` or `components/pages/`.
+- **FE-003** No back buttons or "Back to" links. Navigation belongs to the app shell. Closing a modal is not back navigation.
+- **FE-004** `entry.server.tsx` and `routes/$server.ts` replace Next.js middleware: session check only, never the sole authorization check. Root loader provides session.
+- **FE-005** Never call `setState` in an effect to mirror props or state. Compute during render or use event handlers. Subscriptions and `useSyncExternalStore` are fine.
+- **FE-006** One component per `.tsx` file, named after the file. No second component inside it, even a private one; extract it. Hooks and helpers go in `.ts` files. Column definitions and style maps are not components.
+
+## Data layer
+
+- FE-007 Base path and client
+   All HTTP uses native fetch, wrapped once in src/lib/api/client.ts. Base path is /api/v1, e.g. /api/v1/me. Paths start with /api/v1. Never hardcode /backend. No axios. Never send a school identifier or
+   X-Active-School header; the backend resolves it. No [school] route segments.
+- FE-008 Types generation
+   API types and Zod schemas are generated from the backend OpenAPI 3.1 spec (docs/api/openapi.yaml) into src/features/auth/api/generated/. Run `pnpm generate:api` after any API contract change. Generator must accept OpenAPI 3.1, nullable fields, and snake_case field names. Spec location is docs/api/openapi.yaml. CI regenerates and diffs on each build. Generate types only, never a client/SDK. Frontend MUST use generated types (snake_case) - backend is the contract authority.
+- FE-009 / FE-019 Pagination
+  List screens use useInfiniteQuery with getNextPageParam reading nextCursor, null means last page, plus @tanstack/react-virtual. Request params: limit default 50 max 100, cursor, sort whitelisted e.g.
+  name_asc, q and filters. No page numbers, no total counts, no OFFSET. Query key includes sort and filters so change resets cursor. maxPages is set, row heights are fixed. Sensitive lists
+  health/behavior/fees use staleTime:0 gcTime:0.
+- FE-010 Errors
+  ApiError is built from HTTP status + body { code, message, errors?, requestId }. Status is not read from body. One global MutationCache.onError shows a sonner toast. UI copy comes from a code→message map
+  with backend message as English fallback. errors[].field is a dotted path and is fed to react-hook-form setError. 404 is handled identically for missing and cross-tenant records. 204 responses are not
+  parsed as JSON. 401 UNAUTHENTICATED triggers login; no client-side role caching beyond /api/v1/me.
+- **FE-011** The active school is backend state. URLs never contain a school segment (`/students`, never `/[school]/students`). Read it only via `useActiveSchool()`. Query keys are prefixed with its `schoolId` for cache isolation only, and the cache is cleared when it changes.
+- **FE-012** Health, vaccination, behavior and fee queries use `staleTime: 0` and `gcTime: 0` and are never persisted. No PII or secrets in logs, URLs, query strings or analytics.
+
+## Layout and routing
+
+- **FE-013** The app shell is shadcn `sidebar-07`. The header contains only `SidebarTrigger`, a vertical `Separator` and a dynamic `Breadcrumb`. Page title and primary actions go in the shared `<PageHeader>` in the content area.
+- **FE-014** Add, edit and view use intercepting + parallel routes rendered in `Dialog`/`Sheet`, never inline on list views: `<resource>/@modal/(.)add`, `(.)[id]`, `(.)[id]/edit`. Each also has a real full-page route rendering the same page component, and every `@modal` slot has `default.tsx` returning `null`.
+
+## UI
+
+- **FE-015** No native controls (`select`, `input`, `textarea`, `button`, `dialog`, `table`, `input[type=date]`); use shadcn counterparts. Dates use `Popover` + `Calendar`.
+- **FE-016** Semantic Tailwind tokens only (`bg-background`, `text-foreground`, `bg-muted`, `text-destructive`, `border-border`). No hex or palette colors. Status colors (success, warning, attendance, EE/ME/AE/BE) come from `globals.css` tokens through one style map and never rely on color alone. Separate sections with spacing, not cards or borders.
+- **FE-017** No wrapper elements without a layout or semantic purpose; use fragments.
+- **FE-018** This project uses Base UI: compose with `render={<Component/>}`. Never use `asChild`; convert pasted snippets that do.
+- **FE-019** All tables use the shared `<DataTable>` (`@tanstack/react-table` + shadcn `Table`) with server-side pagination, sorting and filtering. No custom div/ul grids. Only exemption: `RollCallList`.
+- **FE-020** Forms use `react-hook-form` + `zodResolver` + shadcn `Form` parts (`FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage`). No `useState` form bindings.
+- **FE-021** Never hand-edit `src/components/ui/`; add via `pnpm dlx shadcn@latest add`. Shared composites live in `src/components/shared/` and never fetch data.
+- **FE-022** Charts use shadcn `ChartContainer`, `ChartTooltip`, `ChartTooltipContent` and `ChartConfig` over Recharts, loaded via React.lazy/Suspense for code-splitting. No raw SVG/canvas, Chart.js or D3.
+
+## Domain and quality
+
+- **FE-023** Dates use `date-fns` + `@date-fns/tz` with Africa/Nairobi. Date-only fields are `yyyy-MM-dd` strings, never `Date` objects.
+- **FE-024** Performance levels come from the generated enum with one label map. Use CBC terms exactly (learning area, strand, sub-strand). Money is integer minor units, formatted only via `formatKes()`.
+- **FE-025** Mobile-first; touch targets at least 44px. No new heavy dependencies on attendance or dashboard routes.
+- **FE-026** Reference FR/NFR IDs in PRs, commits and tests. Don't build requirements without Given/When/Then AC, or Phase 2/Later features. Unstated behavior becomes an Open Question, not an assumption.
+- **FE-027** Every role-gated screen has a test per role. Every modal route has soft-nav and hard-load tests.
+
+## Conventions
+
+- **Feature layout:** `features/<name>/{index.ts, types.ts, schemas.ts, query-keys.ts, api/, hooks/, components/}`.
+- **Naming:** files and folders are kebab-case. Components are PascalCase, matching the file (`student-form.tsx` exports `StudentForm`). Hooks are `use-<name>.ts` exporting `use<Name>`. API functions are verb-first (`get-students.ts`, `create-student.ts`).
+- **Exports:** named exports only. Default exports only where required by framework entry points (e.g., `main.tsx`).
+- **Query keys:** `[schoolId, '<feature>', '<scope>', params]`, built only in the feature's `query-keys.ts`.
+- **TypeScript:** strict. No `any`; use `unknown` and narrow. Use `type` for aliases and `interface` only when extending. Use `undefined` for absent values; `null` only where the API sends it.
+- **Icons:** `lucide-react` only.
+- **Dependencies:** add none without approval. Prefer what is already installed.
+- **Scope:** change only what the task requires. Don't refactor unrelated code.
+-  Naming: camelCase everywhere, no manual snake_case mapping. Money is integer with Minor suffix, formatted only via formatKes(). Timestamps RFC3339 UTC displayed Africa/Nairobi. Enums are SCREAMING_SNAKE
+  with one label map each and UI safe fallback for unknown values. Updates use PUT with full editable body; no PATCH. Responses are bare objects except lists; declared fields are always present with no null values, arrays are [] never null. Creates
+  expect 201 with body, queued work 202, deletes 204.
+
+- Vite proxy
+  `/api/*` proxied via `vite.config.ts` `server.proxy` to the private backend. Real client IP is forwarded in the agreed header. Body-size and timeout limits are set to allow CSV import/exports/PDF downloads. No internal backend endpoints
+  /healthz /readyz /metrics /spec are exposed or referenced under /api. Authenticated responses set Cache-Control: no-store.
+
+## Auth guard and server-only imports (addendum from 2026-10-30)
+- **FE-AUTH-01** `beforeLoad` redirect must use `redirect()` from `@tanstack/react-router`; never throw native `Response` (breaks `seroval` SSR serialization).
+- **FE-AUTH-02** Client code (`src/lib/api/client.ts`) must never import `@tanstack/react-start/server` or `*.server.*` files via dynamic import; TanStack import-protection denies them. Use middleware (`entry.server.tsx`) or `createServerOnlyFn()` for server-only logic.
+- **FE-AUTH-03** `QueryClientProvider` must wrap `<Outlet />` in root component (`routes/__root.tsx`) so SSR renders without `No QueryClient` errors.
+
+## Definition of done
+
+Typecheck, lint and tests pass. New routes and role-gated screens have the tests required by FE-027. Requirement IDs are referenced per FE-026.

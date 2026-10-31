@@ -1,7 +1,22 @@
-packages:
-    - "."
-
 allowBuilds:
-    msw: false
-    sharp: true
-    unrs-resolver: true
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@tanstack/query-core@5.105.0'
+  - '@tanstack/react-query@5.105.0'
+  - '@tanstack/react-virtual@3.14.23'
+  - '@tanstack/virtual-core@3.19.8'
+  - autoprefixer@10.6.2
+  - postcss@8.5.32
+permissions:
+  '@parcel/watcher':
+    build: true
+  '@tanstack/react-router':
+    skills: true
+  '@tanstack/react-start':
+    skills: true
+  '@tanstack/react-table':
+    skills: true
+  '@tanstack/router-plugin':
+    skills: true
+  unrs-resolver:
+    build: true

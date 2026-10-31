@@ -1,39 +1,32 @@
-/**
- * Error handling utilities for the frontend.
- *
- * All catch blocks must use getErrorMessage(err) instead of (err as Error).message.
- *
- * Location documented in:
- *   - frontend/AGENTS.md (Error Handling section)
- *   - root AGENTS.md (Error Handling section)
- */
+import { ApiError, isApiError, type FieldError } from './api/errors';
 
-import { ApiError } from "./api/client";
-
-/**
- * Safely extracts a human-readable error message from any thrown value.
- * - ApiError instances: returns err.message
- * - plain Error instances: returns err.message
- * - unknown throws (strings, objects, null): returns a safe fallback
- *
- * Never throws. Never returns undefined.
- */
 export function getErrorMessage(err: unknown): string {
-    if (err instanceof ApiError) {
-        return err.message;
+  if (isApiError(err)) {
+    // For 5xx and network errors, surface generic message with request id in UI
+    // Here we return the server message for 4xx, generic otherwise
+    if (err.status >= 500 || err.status === 0) {
+      return 'Something went wrong. Please try again.';
     }
-    if (err instanceof Error) {
-        return err.message;
-    }
-    if (typeof err === "string") {
-        return err;
-    }
-    return "An unexpected error occurred";
+    return err.message;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return 'An unknown error occurred';
 }
 
-/**
- * Type guard for ApiError.
- */
-export function isApiError(err: unknown): err is ApiError {
-    return err instanceof ApiError;
+export function getApiError(err: unknown): ApiError | null {
+  if (isApiError(err)) return err;
+  if (err instanceof Error) {
+    return new ApiError({ status: 0, code: 'UNKNOWN_ERROR', message: err.message, cause: err });
+  }
+  return null;
+}
+
+export function formatFieldErrors(fieldErrors: Record<string, FieldError[]>): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [field, errs] of Object.entries(fieldErrors)) {
+    out[field] = errs.map(e => e.message);
+  }
+  return out;
 }

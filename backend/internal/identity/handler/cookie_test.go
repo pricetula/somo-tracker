@@ -367,6 +367,42 @@ func TestProvisionTenant_EmptySchoolName(t *testing.T) {
 	}
 }
 
+// TestProvisionTenant_WhitespaceSchoolName verifies whitespace-only school name returns validation error
+func TestProvisionTenant_WhitespaceSchoolName(t *testing.T) {
+	h := &Handler{cfg: &config.Config{Env: "test"}}
+
+	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
+	app.Post("/onboarding/complete", h.ProvisionTenant)
+
+	// Valid ticket cookie
+	req := httptest.NewRequest(http.MethodPost, "/onboarding/complete", strings.NewReader(`{"school_name": "   ", "idempotency_key": "key123"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{
+		Name:  "onboarding",
+		Value: "test-ticket-token",
+	})
+
+	resp, err := app.Test(req, fiber.TestConfig{})
+	if err != nil {
+		t.Fatalf("app.Test error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	body := string(bodyBytes)
+	t.Logf("Error response: %s", body)
+
+	if !contains(body, "INVALID_REQUEST") {
+		t.Errorf("missing INVALID_REQUEST code: %s", body)
+	}
+	if !contains(body, "school name is required") {
+		t.Errorf("missing expected message: %s", body)
+	}
+}
+
 // TestAuthenticateToken_DevOnboardingCookie verifies onboarding cookie attributes in dev env
 func TestAuthenticateToken_DevOnboardingCookie(t *testing.T) {
 	h := &Handler{cfg: &config.Config{Env: "development"}}

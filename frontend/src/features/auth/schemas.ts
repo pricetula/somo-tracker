@@ -17,16 +17,16 @@ export const authenticateTokenSchema = z.object({
 export type AuthenticateTokenInput = z.infer<typeof authenticateTokenSchema>;
 
 export const updateOnboardingSchema = z.object({
-  currentStep: z.string().min(1, 'Current step is required'),
-  formData: z.record(z.string(), z.unknown()),
-  schoolName: z.string().optional(),
+  current_step: z.string().min(1, 'Current step is required'),
+  form_data: z.record(z.string(), z.unknown()),
+  school_name: z.string().optional(),
 });
 
 export type UpdateOnboardingInput = z.infer<typeof updateOnboardingSchema>;
 
 export const completeOnboardingSchema = z.object({
-  schoolName: z.string().min(1, 'School name is required').max(255).transform((val) => val.trim()).refine((val) => val.length > 0, 'School name is required'),
-  idempotencyKey: z.string().min(1, 'Idempotency key is required'),
+  school_name: z.string().min(1, 'School name is required').max(255).transform((val) => val.trim()).refine((val) => val.length > 0, 'School name is required'),
+  idempotency_key: z.string().min(1, 'Idempotency key is required'),
 });
 
 export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;

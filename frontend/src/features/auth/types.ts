@@ -39,14 +39,14 @@ export interface GetOnboardingResponse {
 }
 
 export interface UpdateOnboardingRequest {
-  currentStep: string;
-  formData: Record<string, unknown>;
-  schoolName?: string;
+  current_step: string;
+  form_data: Record<string, unknown>;
+  school_name?: string;
 }
 
 export interface CompleteOnboardingRequest {
-  schoolName: string;
-  idempotencyKey: string;
+  school_name: string;
+  idempotency_key: string;
 }
 
 export interface CompleteOnboardingResponse {

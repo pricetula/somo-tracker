@@ -36,15 +36,15 @@ export function OnboardingTenantName() {
 
   const form = useForm<TenantNameFormInput>({
     resolver: zodResolver(tenantNameFormSchema),
-    defaultValues: { schoolName: '' },
+    defaultValues: { school_name: '' },
   });
 
   const onSubmit = async (data: TenantNameFormInput) => {
     const idempotencyKey = `onboarding-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     try {
       await completeOnboarding({
-        schoolName: data.schoolName,
-        idempotencyKey,
+        school_name: data.school_name,
+        idempotency_key: idempotencyKey,
       });
     } catch (err) {
       if (isApiError(err) && err.fieldErrors) {
@@ -57,7 +57,7 @@ export function OnboardingTenantName() {
         }
         // Show generic form error if present
         if (err.fieldErrors._form) {
-          form.setError('schoolName', { type: 'server', message: err.fieldErrors._form[0]?.message });
+          form.setError('school_name', { type: 'server', message: err.fieldErrors._form[0]?.message });
         }
       }
       // toast is handled by hook for non-field errors
@@ -78,19 +78,19 @@ export function OnboardingTenantName() {
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="schoolName">School Name</Label>
+            <Label htmlFor="school_name">School Name</Label>
             <Input
-              id="schoolName"
+              id="school_name"
               type="text"
               placeholder="e.g., Sunshine Primary School"
               autoComplete="organization"
-              {...form.register('schoolName')}
+              {...form.register('school_name')}
               disabled={isPending}
-              aria-describedby={form.formState.errors.schoolName ? 'schoolName-error' : undefined}
+              aria-describedby={form.formState.errors.school_name ? 'school_name-error' : undefined}
             />
-            {form.formState.errors.schoolName && (
-              <p id="schoolName-error" className="text-sm text-destructive" role="alert">
-                {form.formState.errors.schoolName.message}
+            {form.formState.errors.school_name && (
+              <p id="school_name-error" className="text-sm text-destructive" role="alert">
+                {form.formState.errors.school_name.message}
               </p>
             )}
           </div>

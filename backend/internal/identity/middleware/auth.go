@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
-	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -115,6 +114,9 @@ func (m *AuthMiddleware) OptionalAuth() fiber.Handler {
 	}
 }
 
+// Default allowed origin for production when CORSOrigins is not configured
+const defaultProductionOrigin = "https://app.example.com"
+
 // CSRFMiddleware validates Origin header for mutations
 func (m *AuthMiddleware) CSRFMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
@@ -147,9 +149,9 @@ func (m *AuthMiddleware) CSRFMiddleware() fiber.Handler {
 				}
 			}
 		}
-		// Fallback defaults
+		// Fallback for production when CORSOrigins not configured
 		if len(allowedOrigins) == 0 {
-			allowedOrigins = []string{"https://app.example.com", os.Getenv("PUBLIC_APP_URL")}
+			allowedOrigins = append(allowedOrigins, defaultProductionOrigin)
 		}
 		// Development fallback: allow localhost:3000
 		if m.cfg.Env == "development" || m.cfg.Env == "test" {

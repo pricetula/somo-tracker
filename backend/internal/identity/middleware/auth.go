@@ -151,6 +151,10 @@ func (m *AuthMiddleware) CSRFMiddleware() fiber.Handler {
 		if len(allowedOrigins) == 0 {
 			allowedOrigins = []string{"https://app.example.com", os.Getenv("PUBLIC_APP_URL")}
 		}
+		// Development fallback: allow localhost:3000
+		if m.cfg.Env == "development" || m.cfg.Env == "test" {
+			allowedOrigins = append(allowedOrigins, "http://localhost:3000")
+		}
 
 		allowed := false
 		for _, allowedOrigin := range allowedOrigins {

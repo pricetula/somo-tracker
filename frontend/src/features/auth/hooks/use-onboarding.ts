@@ -9,28 +9,23 @@ import { completeOnboarding } from '../api/complete-onboarding';
 import { authQueryKeys, authMutationKeys } from '../query-keys';
 import { updateOnboardingSchema, completeOnboardingSchema } from '../schemas';
 import { toast } from 'sonner';
-import { useActiveSchool } from '@/lib/hooks/use-active-school';
 import { isApiError } from '@/lib/api/errors';
 
 export function useOnboardingCurrent() {
-  const { schoolId } = useActiveSchool();
   return useQuery({
-    queryKey: schoolId ? authQueryKeys.onboardingCurrent(schoolId) : ['auth', 'onboarding', 'no-school'],
+    queryKey: authQueryKeys.onboardingCurrent(),
     queryFn: getOnboardingCurrent,
-    enabled: !!schoolId,
     staleTime: 0,
     gcTime: 0,
   });
 }
 
 export function useUpdateOnboarding() {
-  const { schoolId } = useActiveSchool();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: schoolId ? authMutationKeys.updateOnboarding(schoolId) : ['auth', 'update-onboarding', 'no-school'],
+    mutationKey: authMutationKeys.updateOnboarding(),
     mutationFn: async (data: unknown) => {
-      if (!schoolId) throw new Error('No active school');
       const parsed = updateOnboardingSchema.safeParse(data);
       if (!parsed.success) {
         throw new Error(parsed.error.issues[0].message);
@@ -38,9 +33,7 @@ export function useUpdateOnboarding() {
       return updateOnboarding(parsed.data);
     },
     onSuccess: () => {
-      if (schoolId) {
-        queryClient.invalidateQueries({ queryKey: authQueryKeys.onboardingCurrent(schoolId) });
-      }
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.onboardingCurrent() });
       toast.success('Progress saved');
     },
     onError: (error: unknown) => {
@@ -55,13 +48,11 @@ export function useUpdateOnboarding() {
 }
 
 export function useCompleteOnboarding() {
-  const { schoolId } = useActiveSchool();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: schoolId ? authMutationKeys.completeOnboarding(schoolId) : ['auth', 'complete-onboarding', 'no-school'],
+    mutationKey: authMutationKeys.completeOnboarding(),
     mutationFn: async (data: unknown) => {
-      if (!schoolId) throw new Error('No active school');
       const parsed = completeOnboardingSchema.safeParse(data);
       if (!parsed.success) {
         throw new Error(parsed.error.issues[0].message);

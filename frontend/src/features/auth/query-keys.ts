@@ -8,19 +8,19 @@ import type { OnboardingStep } from './types';
 
 export const authQueryKeys = {
   all: ['auth'] as const,
-  onboarding: (schoolId: string) => [...authQueryKeys.all, schoolId, 'onboarding'] as const,
-  onboardingCurrent: (schoolId: string) =>
-    [...authQueryKeys.onboarding(schoolId), 'current'] as const,
+  onboarding: () => [...authQueryKeys.all, 'onboarding'] as const,
+  onboardingCurrent: () =>
+    [...authQueryKeys.onboarding(), 'current'] as const,
   session: (schoolId: string) => [...authQueryKeys.all, schoolId, 'session'] as const,
 } as const;
 
 export const authMutationKeys = {
   requestMagicLink: () => [...authQueryKeys.all, 'request-magic-link'] as const,
   authenticateToken: () => [...authQueryKeys.all, 'authenticate-token'] as const,
-  updateOnboarding: (schoolId: string) =>
-    [...authQueryKeys.all, schoolId, 'update-onboarding'] as const,
-  completeOnboarding: (schoolId: string) =>
-    [...authQueryKeys.all, schoolId, 'complete-onboarding'] as const,
+  updateOnboarding: () =>
+    [...authQueryKeys.all, 'update-onboarding'] as const,
+  completeOnboarding: () =>
+    [...authQueryKeys.all, 'complete-onboarding'] as const,
   logout: (schoolId: string) => [...authQueryKeys.all, schoolId, 'logout'] as const,
 } as const;
 

@@ -1,10 +1,12 @@
 /**
  * Onboarding tenant name step - School name input
- * No cookie required, but redirects if cookie present
+ * Guards access by checking onboarding session validity on mount
  */
 
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -15,10 +17,22 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, Building2, ArrowRight } from 'lucide-react';
 import { tenantNameFormSchema, type TenantNameFormInput } from '../schemas';
 import { useCompleteOnboarding } from '../hooks/use-onboarding';
+import { useOnboardingCurrent } from '../hooks/use-onboarding';
 import { isApiError } from '@/lib/api/errors';
+import { toast } from 'sonner';
 
 export function OnboardingTenantName() {
+  const router = useRouter();
   const { mutateAsync: completeOnboarding, isPending } = useCompleteOnboarding();
+  const { data, isError, isLoading } = useOnboardingCurrent();
+
+  // Guard: redirect to login if onboarding session is invalid or expired
+  useEffect(() => {
+    if (!isLoading && (isError || !data)) {
+      toast.error('Onboarding session expired, please sign in again');
+      router.navigate({ to: '/login' });
+    }
+  }, [isLoading, isError, data, router]);
 
   const form = useForm<TenantNameFormInput>({
     resolver: zodResolver(tenantNameFormSchema),
@@ -84,7 +98,7 @@ export function OnboardingTenantName() {
           <Button
             type="submit"
             className="w-full"
-            disabled={isPending}
+            disabled={isPending || isLoading}
             size="default"
           >
             {isPending ? (

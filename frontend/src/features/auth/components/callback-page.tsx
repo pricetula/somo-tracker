@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { authenticateToken } from '../api/authenticate-token';
 import { Button } from '@/components/ui/button';
@@ -22,10 +22,17 @@ export function AuthCallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<CallbackStatus>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const handledRef = useRef(false);
 
   useEffect(() => {
+    if (handledRef.current) return;
+    handledRef.current = true;
+
     async function handleCallback() {
-      const token = search.token;
+      // Read token directly from URL to avoid router re-render race after replaceState
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const redirect = params.get('redirect') || search.redirect;
 
       // Remove token from URL immediately to prevent leakage (AC-2)
       if (token) {
@@ -54,8 +61,8 @@ export function AuthCallbackPage() {
           case 'authenticated': {
             setStatus('success');
             // Redirect to dashboard or intended destination
-            const redirect = search.redirect || '/';
-            navigate({ to: redirect, replace: true });
+            const redirectTarget = redirect || '/';
+            navigate({ to: redirectTarget, replace: true });
             break;
           }
           case 'onboarding_required': {

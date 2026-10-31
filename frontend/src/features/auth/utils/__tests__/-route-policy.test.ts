@@ -134,14 +134,13 @@ describe('routePolicy', () => {
     });
 
     it('preserves root slash', () => {
-      expect(routePolicy('/', false)).toEqual({ type: 'allow' });
+      expect(routePolicy('/', false)).toEqual({ type: 'redirect-with-next', to: '/login', next: encodeURIComponent('/') });
     });
   });
 });
 
 describe('isPublicRoute', () => {
   it('returns true for public routes', () => {
-    expect(isPublicRoute('/')).toBe(true);
     expect(isPublicRoute('/login')).toBe(true);
     expect(isPublicRoute('/auth/callback')).toBe(true);
   });

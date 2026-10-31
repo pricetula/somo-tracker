@@ -147,13 +147,19 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 	}
 
 	// Store PKCE verifier in HttpOnly cookie for callback
+	pkceCookieName := "__Host-pkce_verifier"
+	pkceSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+	if h.cfg.Env != "production" {
+		pkceCookieName = "pkce_verifier"
+		pkceSecure = false
+	}
 	c.Cookie(&fiber.Cookie{
-		Name:     "__Host-pkce_verifier",
+		Name:     pkceCookieName,
 		Value:    pkceVerifier,
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   h.cfg.Env == "production",
-		SameSite: "Lax",
+		Secure:   pkceSecure,
+		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   int(10 * time.Minute / time.Second),
 	})
 
@@ -182,7 +188,11 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 	}
 
 	// Get PKCE verifier from cookie
-	pkceVerifier := c.Cookies("__Host-pkce_verifier")
+	pkceCookieName := "__Host-pkce_verifier"
+	if h.cfg.Env != "production" {
+		pkceCookieName = "pkce_verifier"
+	}
+	pkceVerifier := c.Cookies(pkceCookieName)
 	if pkceVerifier == "" {
 		return apperr.New(apperr.MISSING_PKCE, "PKCE verifier missing, please restart login flow")
 	}
@@ -198,24 +208,36 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 	}
 
 	// Clear PKCE cookie
+	pkceCookieName = "__Host-pkce_verifier"
+	pkceSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+	if h.cfg.Env != "production" {
+		pkceCookieName = "pkce_verifier"
+		pkceSecure = false
+	}
 	c.Cookie(&fiber.Cookie{
-		Name:     "__Host-pkce_verifier",
+		Name:     pkceCookieName,
 		Value:    "",
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   h.cfg.Env == "production",
-		SameSite: "Lax",
+		Secure:   pkceSecure,
+		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   -1,
 	})
 
 	// Set onboarding ticket cookie (host-only, short-lived) per AC-3/AC-9
+	onboardingCookieName := "__Host-onboarding"
+	onboardingSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+	if h.cfg.Env != "production" {
+		onboardingCookieName = "onboarding"
+		onboardingSecure = false
+	}
 	c.Cookie(&fiber.Cookie{
-		Name:     "__Host-onboarding",
+		Name:     onboardingCookieName,
 		Value:    ticketToken,
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   h.cfg.Env == "production",
-		SameSite: "Lax",
+		Secure:   onboardingSecure,
+		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   int(10 * time.Minute / time.Second),
 	})
 
@@ -248,7 +270,11 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 // ProvisionTenant handles POST /api/v1/onboarding/complete
 func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 	// Get ticket token from cookie (set by callback page)
-	ticketToken := c.Cookies("__Host-onboarding")
+	onboardingCookieName := "__Host-onboarding"
+	if h.cfg.Env != "production" {
+		onboardingCookieName = "onboarding"
+	}
+	ticketToken := c.Cookies(onboardingCookieName)
 	if ticketToken == "" {
 		return apperr.New(apperr.MISSING_TICKET, "onboarding ticket missing, please restart login flow")
 	}
@@ -277,13 +303,19 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 	}
 
 	// Clear onboarding ticket cookie
+	onboardingCookieName = "__Host-onboarding"
+	onboardingSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+	if h.cfg.Env != "production" {
+		onboardingCookieName = "onboarding"
+		onboardingSecure = false
+	}
 	c.Cookie(&fiber.Cookie{
-		Name:     "__Host-onboarding",
+		Name:     onboardingCookieName,
 		Value:    "",
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   h.cfg.Env == "production",
-		SameSite: "Lax",
+		Secure:   onboardingSecure,
+		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   -1,
 	})
 
@@ -323,7 +355,11 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 
 // GetOnboardingCurrent handles GET /api/v1/onboarding/current
 func (h *Handler) GetOnboardingCurrent(c fiber.Ctx) error {
-	ticketToken := c.Cookies("__Host-onboarding")
+	onboardingCookieName := "__Host-onboarding"
+	if h.cfg.Env != "production" {
+		onboardingCookieName = "onboarding"
+	}
+	ticketToken := c.Cookies(onboardingCookieName)
 	if ticketToken == "" {
 		return apperr.New(apperr.UNAUTHENTICATED, "no onboarding session")
 	}
@@ -353,7 +389,11 @@ func (h *Handler) GetOnboardingCurrent(c fiber.Ctx) error {
 
 // UpdateOnboardingCurrent handles PUT /api/v1/onboarding/current
 func (h *Handler) UpdateOnboardingCurrent(c fiber.Ctx) error {
-	ticketToken := c.Cookies("__Host-onboarding")
+	onboardingCookieName := "__Host-onboarding"
+	if h.cfg.Env != "production" {
+		onboardingCookieName = "onboarding"
+	}
+	ticketToken := c.Cookies(onboardingCookieName)
 	if ticketToken == "" {
 		return apperr.New(apperr.UNAUTHENTICATED, "no onboarding session")
 	}
@@ -425,14 +465,17 @@ func (h *Handler) setSessionCookie(c fiber.Ctx, token string, expiresAt time.Tim
 		maxAge = 0
 	}
 
+	// Session cookie always uses __Secure- prefix, so Secure must be true for https
+	// In development (http), the cookie name won't have __Secure- prefix
+	secure := c.Scheme() == "https"
 	c.Cookie(&fiber.Cookie{
 		Name:     cookieName,
 		Value:    token,
 		Path:     "/",
 		Domain:   cookieDomain,
 		HTTPOnly: true,
-		Secure:   h.cfg.Env == "production",
-		SameSite: "Lax",
+		Secure:   secure,
+		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   maxAge,
 	})
 }
@@ -441,14 +484,15 @@ func (h *Handler) setSessionCookie(c fiber.Ctx, token string, expiresAt time.Tim
 func (h *Handler) clearSessionCookie(c fiber.Ctx) {
 	cookieName := h.sessionCookieName()
 	cookieDomain := h.sessionCookieDomain()
+	secure := c.Scheme() == "https"
 	c.Cookie(&fiber.Cookie{
 		Name:     cookieName,
 		Value:    "",
 		Path:     "/",
 		Domain:   cookieDomain,
 		HTTPOnly: true,
-		Secure:   h.cfg.Env == "production",
-		SameSite: "Lax",
+		Secure:   secure,
+		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   -1,
 	})
 }

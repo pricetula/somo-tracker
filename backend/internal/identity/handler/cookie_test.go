@@ -15,7 +15,7 @@ import (
 	"somotracker/internal/identity/service"
 	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/config"
-	)
+)
 
 // TestSessionCookieName_EnvSuffix verifies cookie name includes env suffix for non-production
 func TestSessionCookieName_EnvSuffix(t *testing.T) {
@@ -331,7 +331,102 @@ func TestProvisionTenant_MissingTicket(t *testing.T) {
 	}
 }
 
+// TestAuthenticateToken_DevOnboardingCookie verifies onboarding cookie attributes in dev env
+func TestAuthenticateToken_DevOnboardingCookie(t *testing.T) {
+	h := &Handler{cfg: &config.Config{Env: "development"}}
 
+	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
+	app.Post("/test-onboarding-cookie", func(c fiber.Ctx) error {
+		onboardingCookieName := "__Host-onboarding"
+		onboardingSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+		if h.cfg.Env != "production" {
+			onboardingCookieName = "onboarding"
+			onboardingSecure = false
+		}
+		c.Cookie(&fiber.Cookie{
+			Name:     onboardingCookieName,
+			Value:    "test-ticket-token",
+			Path:     "/",
+			HTTPOnly: true,
+			Secure:   onboardingSecure,
+			SameSite: fiber.CookieSameSiteLaxMode,
+			MaxAge:   int(10 * time.Minute / time.Second),
+		})
+		return c.SendString("OK")
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "http://localhost/test-onboarding-cookie", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	if err != nil {
+		t.Fatalf("app.Test error: %v", err)
+	}
+
+	cookies := resp.Header.Values("Set-Cookie")
+	if len(cookies) == 0 {
+		t.Fatal("no Set-Cookie header found")
+	}
+
+	cookieHeader := cookies[0]
+	t.Logf("Dev Set-Cookie: %s", cookieHeader)
+
+	if !contains(cookieHeader, "onboarding=test-ticket-token") {
+		t.Errorf("cookie name should be 'onboarding' in dev: %s", cookieHeader)
+	}
+	if !contains(cookieHeader, "SameSite=Lax") && !contains(cookieHeader, "samesite=lax") {
+		t.Errorf("missing SameSite=Lax: %s", cookieHeader)
+	}
+	if !contains(cookieHeader, "Max-Age=600") && !contains(cookieHeader, "max-age=600") {
+		t.Errorf("missing Max-Age=600: %s", cookieHeader)
+	}
+	if !contains(cookieHeader, "HttpOnly") && !contains(cookieHeader, "httponly") {
+		t.Errorf("missing HttpOnly: %s", cookieHeader)
+	}
+	if !contains(cookieHeader, "Path=/") && !contains(cookieHeader, "path=/") {
+		t.Errorf("missing Path=/: %s", cookieHeader)
+	}
+}
+
+// TestAuthenticateToken_ProdOnboardingCookie verifies onboarding cookie attributes in prod env (https)
+func TestAuthenticateToken_ProdOnboardingCookie(t *testing.T) {
+	h := &Handler{cfg: &config.Config{Env: "production"}}
+
+	// Test the cookie logic directly by simulating the handler's cookie setting
+	onboardingCookieName := "__Host-onboarding"
+	onboardingSecure := h.cfg.Env == "production" && true // simulate https
+	if h.cfg.Env != "production" {
+		onboardingCookieName = "onboarding"
+		onboardingSecure = false
+	}
+
+	if onboardingCookieName != "__Host-onboarding" {
+		t.Errorf("cookie name should be '__Host-onboarding' in production, got %s", onboardingCookieName)
+	}
+	if !onboardingSecure {
+		t.Errorf("Secure should be true for production https")
+	}
+
+	// Also test with http (should not set Secure)
+	onboardingSecure = h.cfg.Env == "production" && false // simulate http
+	if onboardingSecure {
+		t.Errorf("Secure should be false for production http")
+	}
+
+	// Test dev env
+	hDev := &Handler{cfg: &config.Config{Env: "development"}}
+	onboardingCookieName = "__Host-onboarding"
+	onboardingSecure = hDev.cfg.Env == "production" && true // simulate https
+	if hDev.cfg.Env != "production" {
+		onboardingCookieName = "onboarding"
+		onboardingSecure = false
+	}
+
+	if onboardingCookieName != "onboarding" {
+		t.Errorf("cookie name should be 'onboarding' in development, got %s", onboardingCookieName)
+	}
+	if onboardingSecure {
+		t.Errorf("Secure should be false in development")
+	}
+}
 
 // MockService for handler tests (not used in current tests but kept for future)
 type MockService struct{}

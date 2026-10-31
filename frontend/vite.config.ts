@@ -23,7 +23,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api/v1': {
-        target: process.env.BACKEND_URL || 'http://localhost:8080',
+        target: process.env.PUBLIC_API_URL || process.env.BACKEND_URL || '',
         changeOrigin: true,
         timeout: 300_000, // 5 minutes for CSV/PDF downloads
         proxyTimeout: 300_000,

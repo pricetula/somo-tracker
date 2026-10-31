@@ -1,0 +1,3 @@
+setup:
+  project: somotracker
+  config: dev

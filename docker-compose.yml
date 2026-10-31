@@ -33,7 +33,7 @@ services:
     environment:
       APP_ENV: development
       LOG_LEVEL: debug
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: ${PUBLIC_APP_URL}
       CSP_REPORT_ONLY_ENABLED: "false"
       CSP_REPORT_ONLY_POLICY: default-src 'self'
       POSTGRES_DSN: ${POSTGRES_DSN:-postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable}
@@ -47,6 +47,9 @@ services:
       STYTCH_PROJECT_ID: ${STYTCH_PROJECT_ID}
       STYTCH_SECRET: ${STYTCH_SECRET}
       STYTCH_ENV: ${STYTCH_ENV:-test}
+      EMAIL_HMAC_KEY: ${EMAIL_HMAC_KEY}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
+      PUBLIC_API_URL: ${PUBLIC_API_URL}
     ports:
       - "8080:8080"
     volumes:
@@ -63,7 +66,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     environment:
-      BACKEND_URL: http://backend:8080
+      BACKEND_URL: ${PUBLIC_API_URL}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
     ports:
       - "3000:3000"
     volumes:

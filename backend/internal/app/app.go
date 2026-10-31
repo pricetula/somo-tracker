@@ -15,18 +15,18 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	redisPkg "somotracker/internal/platform/redis"
-	"somotracker/internal/platform/config"
-	"somotracker/internal/platform/db"
-	"somotracker/internal/platform/httpserver"
-	"somotracker/internal/platform/migrator"
-	"somotracker/internal/platform/ratelimit"
-	"somotracker/internal/platform/stytch"
 	identityHandler "somotracker/internal/identity/handler"
 	identityMiddleware "somotracker/internal/identity/middleware"
 	identityService "somotracker/internal/identity/service"
 	identityStore "somotracker/internal/identity/store"
 	storegen "somotracker/internal/identity/store/gen"
+	"somotracker/internal/platform/config"
+	"somotracker/internal/platform/db"
+	"somotracker/internal/platform/httpserver"
+	"somotracker/internal/platform/migrator"
+	"somotracker/internal/platform/ratelimit"
+	redisPkg "somotracker/internal/platform/redis"
+	"somotracker/internal/platform/stytch"
 )
 
 // App is the HTTP API composition root.
@@ -142,12 +142,7 @@ func (a *App) Start(ctx context.Context) error {
 		return c.SendString("Ready")
 	})
 
-	// Wire identity domain
-	baseURL := "https://test.stytch.com"
-	if a.cfg.StytchEnv == "live" {
-		baseURL = "https://api.stytch.com"
-	}
-	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret, baseURL)
+	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret)
 	queries := storegen.New(a.sqlDB)
 	identityStore := identityStore.New(queries)
 	identitySvc := identityService.New(identityStore, stytchClient, a.sqlDB)

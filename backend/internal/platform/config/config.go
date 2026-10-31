@@ -58,7 +58,7 @@ func Load() (*Config, error) {
 	stytchSecret := firstNonEmpty("STYTCH_SECRET", "")
 
 	emailHMACKey := firstNonEmpty("EMAIL_HMAC_KEY", "")
-	corsOrigins := firstNonEmpty("CORS_ORIGINS", "http://localhost:3000")
+	corsOrigins := firstNonEmpty("CORS_ORIGINS", "PUBLIC_APP_URL", "")
 	cookieDomain := firstNonEmpty("COOKIE_DOMAIN", "")
 	cspReportOnlyEnabled := firstNonEmpty("CSP_REPORT_ONLY_ENABLED", "false")
 	cspReportOnlyURI := firstNonEmpty("CSP_REPORT_ONLY_URI", "")
@@ -70,7 +70,6 @@ func Load() (*Config, error) {
 	ipPerMin := parseIntEnv("RATE_LIMIT_MAGIC_LINK_IP_PER_MIN", 10)
 	emailPer15Min := parseIntEnv("RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN", 3)
 	tokenIPPerMin := parseIntEnv("RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN", 10)
-
 	cfg := &Config{
 		Env:            env,
 		PostgresDSN:    postgresDSN,

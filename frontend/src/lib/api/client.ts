@@ -4,7 +4,7 @@ import { ApiError, codeFromStatus, parseRetryAfter } from './errors';
 function apiBase(isServer: boolean): string {
   if (isServer) {
     // Server-side calls must use absolute URL
-    return process.env.API_URL ?? process.env.API_INTERNAL_URL ?? 'http://localhost:8080/api/v1';
+    return process.env.PUBLIC_API_URL ?? process.env.API_URL ?? process.env.API_INTERNAL_URL ?? '';
   }
   return '/api/v1';
 }

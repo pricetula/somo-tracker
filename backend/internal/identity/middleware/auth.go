@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -148,7 +149,7 @@ func (m *AuthMiddleware) CSRFMiddleware() fiber.Handler {
 		}
 		// Fallback defaults
 		if len(allowedOrigins) == 0 {
-			allowedOrigins = []string{"https://app.example.com", "http://localhost:3000"}
+			allowedOrigins = []string{"https://app.example.com", os.Getenv("PUBLIC_APP_URL")}
 		}
 
 		allowed := false

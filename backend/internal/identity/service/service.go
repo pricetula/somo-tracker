@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -282,8 +283,14 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 		if err != nil {
 			return nil, fmt.Errorf("create org/member: %w", err)
 		}
-		orgID = uuid.MustParse(orgMember.OrganizationID)
-		memberID = uuid.MustParse(orgMember.MemberID)
+		orgID, err = parseUUID(orgMember.OrganizationID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid organization ID from Stytch: %w", err)
+		}
+		memberID, err = parseUUID(orgMember.MemberID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid member ID from Stytch: %w", err)
+		}
 
 		// Persist Stytch IDs immediately so retries can reuse them
 		if err := s.repo.UpdatePendingOnboardingProvisioning(ctx, pending.ID, orgID, memberID, "provisioning"); err != nil {
@@ -529,4 +536,17 @@ func sqlNullString(s string) sql.NullString {
 		return sql.NullString{Valid: false}
 	}
 	return sql.NullString{String: s, Valid: true}
+}
+
+// parseUUID attempts to parse a UUID string, falling back to extracting a UUID pattern from prefixed strings.
+func parseUUID(s string) (uuid.UUID, error) {
+	if u, err := uuid.Parse(s); err == nil {
+		return u, nil
+	}
+	// Fallback: extract UUID pattern from string (e.g., prefixed IDs like organization-test-<uuid>)
+	re := regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
+	if m := re.FindString(s); m != "" {
+		return uuid.Parse(m)
+	}
+	return uuid.Nil, fmt.Errorf("invalid UUID string: %s", s)
 }

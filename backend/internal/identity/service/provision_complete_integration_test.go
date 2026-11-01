@@ -270,6 +270,133 @@ func sha256Sum(data []byte) []byte {
 }
 
 // Helper for cleanup
+func TestProvisionTenant_CompletedPendingBlocked(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	db, err := sql.Open("pgx", "postgres://somotracker:somotracker@localhost:5432/somotracker?sslmode=disable")
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := db.Ping(); err != nil {
+		t.Skipf("postgres not available, skipping integration test: %v", err)
+	}
+
+	ctx := context.Background()
+	_ = cleanupTestData(ctx, db)
+
+	queries := storegen.New(db)
+	repo := store.New(queries)
+	mockStytch := &mockStytchClientComplete{orgID: uuid.New().String(), memberID: uuid.New().String()}
+	svc := New(repo, mockStytch, db)
+
+	email := "test-completed-pending@example.com"
+	tenantID := uuid.New()
+
+	pending, err := repo.UpsertPendingOnboarding(ctx, storegen.UpsertPendingOnboardingParams{
+		VerifiedEmailNormalized: email,
+		Status:                  "completed",
+		CurrentStep:             "complete",
+		FormData:                []byte(`{}`),
+		StytchOrganizationID:    uuid.NullUUID{UUID: uuid.New(), Valid: true},
+		StytchMemberID:          uuid.NullUUID{UUID: uuid.New(), Valid: true},
+		TenantID:                uuid.NullUUID{UUID: tenantID, Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("upsert pending: %v", err)
+	}
+
+	ticketToken := "token-completed"
+	ticketHash := sha256Sum([]byte(ticketToken))
+	_, err = repo.CreateOnboardingTicket(ctx, storegen.CreateOnboardingTicketParams{
+		PendingOnboardingID: pending.ID,
+		TicketHash:          ticketHash,
+		EncryptedIst:        []byte("ist"),
+		ExpiresAt:           time.Now().Add(10 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	_, err = svc.ProvisionTenant(ctx, ticketToken, ProvisionData{SchoolName: "Blocked", IdempotencyKey: "idem-1", AdminName: "Blocked"})
+	if err == nil {
+		t.Fatal("expected error when pending status is completed")
+	}
+
+	_ = cleanupTestData(ctx, db)
+}
+
+func TestProvisionTenant_ExistingUserBlocked(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	db, err := sql.Open("pgx", "postgres://somotracker:somotracker@localhost:5432/somotracker?sslmode=disable")
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := db.Ping(); err != nil {
+		t.Skipf("postgres not available, skipping integration test: %v", err)
+	}
+
+	ctx := context.Background()
+	_ = cleanupTestData(ctx, db)
+
+	queries := storegen.New(db)
+	repo := store.New(queries)
+
+	email := "test-existing-user@example.com"
+
+	// Create a tenant and existing user globally for this email
+	tenant, err := repo.CreateTenant(ctx, storegen.CreateTenantParams{Name: "Existing Tenant", StytchOrganizationID: uuid.NullUUID{UUID: uuid.New(), Valid: true}})
+	if err != nil {
+		t.Fatalf("create tenant: %v", err)
+	}
+
+	_, err = repo.CreateUser(ctx, storegen.CreateUserParams{
+		TenantID:        tenant.ID,
+		EmailNormalized: email,
+		StytchMemberID:  uuid.NullUUID{UUID: uuid.New(), Valid: true},
+		Name:            "Existing User",
+	})
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	mockStytch := &mockStytchClientComplete{orgID: uuid.New().String(), memberID: uuid.New().String()}
+	svc := New(repo, mockStytch, db)
+
+	pending, err := repo.UpsertPendingOnboarding(ctx, storegen.UpsertPendingOnboardingParams{
+		VerifiedEmailNormalized: email,
+		Status:                  "pending",
+		CurrentStep:             "tenant-name",
+		FormData:                []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatalf("upsert pending: %v", err)
+	}
+
+	ticketToken := "token-existing-user"
+	ticketHash := sha256Sum([]byte(ticketToken))
+	_, err = repo.CreateOnboardingTicket(ctx, storegen.CreateOnboardingTicketParams{
+		PendingOnboardingID: pending.ID,
+		TicketHash:          ticketHash,
+		EncryptedIst:        []byte("ist"),
+		ExpiresAt:           time.Now().Add(10 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	_, err = svc.ProvisionTenant(ctx, ticketToken, ProvisionData{SchoolName: "Blocked", IdempotencyKey: "idem-2", AdminName: "Blocked"})
+	if err == nil {
+		t.Fatal("expected error when user already exists for email")
+	}
+
+	_ = cleanupTestData(ctx, db)
+}
+
 func cleanupTestData(ctx context.Context, db *sql.DB) error {
 	// Delete test emails
 	_, _ = db.ExecContext(ctx, `DELETE FROM membership WHERE user_id IN (SELECT id FROM "user" WHERE email_normalized LIKE 'test-%')`)

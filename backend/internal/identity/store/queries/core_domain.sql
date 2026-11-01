@@ -32,6 +32,12 @@ FROM "user"
 WHERE tenant_id = $1 AND email_normalized = $2
 LIMIT 1;
 
+-- name: GetUserByEmail :one
+SELECT id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
+FROM "user"
+WHERE email_normalized = $1
+LIMIT 1;
+
 -- name: GetUserByStytchMemberID :one
 SELECT id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
 FROM "user"

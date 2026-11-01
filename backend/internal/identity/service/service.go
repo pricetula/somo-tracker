@@ -100,6 +100,7 @@ type Repository interface {
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID uuid.NullUUID) (storegen.Tenant, error)
 	CreateUser(ctx context.Context, arg storegen.CreateUserParams) (storegen.User, error)
 	GetUserByStytchMemberID(ctx context.Context, stytchMemberID uuid.NullUUID) (storegen.User, error)
+	GetUserByEmail(ctx context.Context, email string) (storegen.User, error)
 	GetUserByEmailAndTenant(ctx context.Context, tenantID uuid.UUID, email string) (storegen.User, error)
 	CreateSchool(ctx context.Context, arg storegen.CreateSchoolParams) (storegen.School, error)
 	CreateMembership(ctx context.Context, arg storegen.CreateMembershipParams) (storegen.Membership, error)
@@ -297,6 +298,17 @@ func (s *Service) ProvisionTenant(ctx context.Context, ticketToken string, data 
 // provisionInTransaction runs the full provisioning in a database transaction.
 // Reuses existing Stytch IDs if present (retry after partial failure).
 func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.OnboardingTicket, pending storegen.PendingOnboarding, data ProvisionData) (*ProvisionResult, error) {
+	// GUARD: prevent duplicate tenant/user if this email already completed
+	if pending.Status == "completed" && pending.TenantID.Valid {
+		return nil, fmt.Errorf("already provisioned for email %s (tenant %s): %w", pending.VerifiedEmailNormalized, pending.TenantID.UUID, ErrProvisioningFailed)
+	}
+
+	// GUARD: DB-level - reject if any user exists for this email globally
+	existingUser, err := s.repo.GetUserByEmail(ctx, pending.VerifiedEmailNormalized)
+	if err == nil && existingUser.ID != uuid.Nil {
+		return nil, fmt.Errorf("user already exists for email %s (user %s, tenant %s): %w", pending.VerifiedEmailNormalized, existingUser.ID, existingUser.TenantID, ErrProvisioningFailed)
+	}
+
 	var orgID, memberID uuid.UUID
 
 	// CHECK: Reuse existing Stytch IDs from a previous failed attempt

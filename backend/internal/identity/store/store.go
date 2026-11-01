@@ -107,6 +107,10 @@ func (s *Store) GetUserByStytchMemberID(ctx context.Context, stytchMemberID uuid
 	return s.q.GetUserByStytchMemberID(ctx, stytchMemberID)
 }
 
+func (s *Store) GetUserByEmail(ctx context.Context, email string) (storegen.User, error) {
+	return s.q.GetUserByEmail(ctx, email)
+}
+
 func (s *Store) CreateSchool(ctx context.Context, arg storegen.CreateSchoolParams) (storegen.School, error) {
 	return s.q.CreateSchool(ctx, arg)
 }

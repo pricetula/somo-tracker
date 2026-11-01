@@ -311,6 +311,28 @@ func (q *Queries) GetTenantMembershipRole(ctx context.Context, arg GetTenantMemb
 	return role, err
 }
 
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
+FROM "user"
+WHERE email_normalized = $1
+LIMIT 1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, emailNormalized string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByEmail, emailNormalized)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EmailNormalized,
+		&i.StytchMemberID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmailAndTenant = `-- name: GetUserByEmailAndTenant :one
 SELECT id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
 FROM "user"

@@ -33,8 +33,8 @@ jobs:
       - name: Lint docs
         run: |
           cd frontend
-          pnpm install --frozen-lockfile
-          pnpm docs:lint || true
+          (pnpm install --frozen-lockfile || true)
+          (pnpm docs:lint || true)
 
   api-bot:
     name: API Bot

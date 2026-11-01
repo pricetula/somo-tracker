@@ -267,12 +267,12 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 
 	// Build response
 	resp := AuthenticateTokenResponse{
-		Status:      onboardingState.CurrentStep,
-		AuthState:   onboardingState.AuthState,
 		TicketToken: ticketToken,
 	}
 
 	if onboardingState != nil {
+		resp.Status = onboardingState.CurrentStep
+		resp.AuthState = onboardingState.AuthState
 		resp.Onboarding = &OnboardingState{
 			VerifiedEmail: onboardingState.VerifiedEmail,
 			CurrentStep:   onboardingState.CurrentStep,
@@ -286,6 +286,9 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 			id := onboardingState.TenantID.String()
 			resp.Onboarding.TenantID = &id
 		}
+	} else {
+		resp.Status = ""
+		resp.AuthState = ""
 	}
 
 	return c.Status(fiber.StatusOK).JSON(resp)

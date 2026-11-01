@@ -122,6 +122,9 @@ build-marketing:
 
 test: test-backend test-frontend test-marketing
 
+test-short:
+	cd backend && go test -short -v ./...
+
 test-backend:
 	cd backend && go test -v ./...
 

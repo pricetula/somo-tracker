@@ -27,7 +27,9 @@ const authHandler = async (ctx: any) => {
 
     // Read session cookie from request headers
     const cookieHeader = request.headers.get('cookie') || '';
-    const hasSession = cookieHeader.includes('__Secure-session_token');
+    const hasSession = cookieHeader ? (
+      cookieHeader.includes('__Secure-session_token') || cookieHeader.includes('session_token_')
+    ) : false;
 
     // Apply route policy
     const decision = routePolicy(pathname, hasSession);

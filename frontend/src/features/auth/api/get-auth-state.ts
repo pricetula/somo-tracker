@@ -16,7 +16,9 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(
       ?.get('cookie');
 
     // Check for session cookie presence (name per ADR-0002: __Secure-session_token with env suffix)
-    const hasSession = cookieHeader?.includes('__Secure-session_token') ?? false;
+    const hasSession = cookieHeader ? (
+      cookieHeader.includes('__Secure-session_token') || cookieHeader.includes('session_token_')
+    ) : false;
 
     return { hasSession };
   }

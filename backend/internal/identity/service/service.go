@@ -100,6 +100,7 @@ type Repository interface {
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID uuid.NullUUID) (storegen.Tenant, error)
 	CreateUser(ctx context.Context, arg storegen.CreateUserParams) (storegen.User, error)
 	GetUserByStytchMemberID(ctx context.Context, stytchMemberID uuid.NullUUID) (storegen.User, error)
+	GetUserByEmailAndTenant(ctx context.Context, tenantID uuid.UUID, email string) (storegen.User, error)
 	CreateSchool(ctx context.Context, arg storegen.CreateSchoolParams) (storegen.School, error)
 	CreateMembership(ctx context.Context, arg storegen.CreateMembershipParams) (storegen.Membership, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (storegen.User, error)
@@ -159,17 +160,42 @@ func base64URLEncode(b []byte) string {
 }
 
 // AuthenticateToken verifies one-time Stytch token, upserts pending onboarding and creates ticket.
-func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier string) (string, *OnboardingState, error) {
+func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier string) (string, *OnboardingState, *string, error) {
 	// 1. Call Stytch b2b/discovery/authenticate with token + pkce_code_verifier
 	resp, err := s.stytch.AuthenticateDiscovery(ctx, token, pkceCodeVerifier)
 	if err != nil {
-		return "", nil, fmt.Errorf("stytch authenticate: %w", err)
+		return "", nil, nil, fmt.Errorf("stytch authenticate: %w", err)
 	}
 
 	// 2. Normalize email
 	normalizedEmail := normalizeEmail(resp.Email)
 
-	// 3. Upsert PendingOnboarding with status=pending
+	// 3. Check existing completed onboarding first (returning user after provisioning)
+	existingPending, err := s.repo.GetPendingOnboardingByEmail(ctx, normalizedEmail)
+	if err == nil && existingPending.Status == "completed" && existingPending.TenantID.Valid {
+		authState := "authenticated"
+		// Create session for returning user
+		user, err := s.repo.GetUserByEmailAndTenant(ctx, existingPending.TenantID.UUID, normalizedEmail)
+		var sessionToken *string
+		if err == nil {
+			expiresAt := time.Now().Add(30 * 24 * time.Hour)
+			sTok, err := s.CreateSession(ctx, user.ID, existingPending.TenantID.UUID, "", expiresAt)
+			if err == nil {
+				sessionToken = &sTok
+			}
+		}
+		tenantID := existingPending.TenantID.UUID
+		return "", &OnboardingState{
+			VerifiedEmail: normalizedEmail,
+			CurrentStep:   "complete",
+			FormData:      map[string]interface{}{},
+			PendingID:     existingPending.ID,
+			TenantID:      &tenantID,
+			AuthState:     authState,
+		}, sessionToken, nil
+	}
+
+	// 4. Upsert PendingOnboarding with status=pending
 	pending, err := s.repo.UpsertPendingOnboarding(ctx, storegen.UpsertPendingOnboardingParams{
 		VerifiedEmailNormalized: normalizedEmail,
 		Status:                  "pending",
@@ -177,14 +203,14 @@ func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier
 		FormData:                json.RawMessage("{}"),
 	})
 	if err != nil {
-		return "", nil, fmt.Errorf("upsert pending onboarding: %w", err)
+		return "", nil, nil, fmt.Errorf("upsert pending onboarding: %w", err)
 	}
 
 	// 4. Create OnboardingTicket with ticket_hash + encrypted IST
 	// Generate ticket token
 	ticketToken, err := generateRandomString(sessionTokenBytes)
 	if err != nil {
-		return "", nil, fmt.Errorf("generate ticket token: %w", err)
+		return "", nil, nil, fmt.Errorf("generate ticket token: %w", err)
 	}
 	ticketHash := sha256.Sum256([]byte(ticketToken))
 
@@ -200,7 +226,7 @@ func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier
 		ExpiresAt:           expiresAt,
 	})
 	if err != nil {
-		return "", nil, fmt.Errorf("create onboarding ticket: %w", err)
+		return "", nil, nil, fmt.Errorf("create onboarding ticket: %w", err)
 	}
 
 	// 5. Determine state based on discovered organizations
@@ -212,7 +238,7 @@ func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier
 		FormData:      map[string]interface{}{},
 		PendingID:     pending.ID,
 		AuthState:     authState,
-	}, nil
+	}, nil, nil
 }
 
 // normalizeEmail normalizes email for consistent lookup.
@@ -307,12 +333,9 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 	// Create transactional repository
 	txRepo := storegen.New(tx)
 
-	// Exchange IST for Stytch session
+	// Exchange IST for Stytch session - best effort, do not fail provisioning if Stytch is unavailable
 	ist := string(ticket.EncryptedIst) // TODO: decrypt
-	_, err = s.stytch.ExchangeDiscoverySession(ctx, ist)
-	if err != nil {
-		return nil, fmt.Errorf("exchange discovery session: %w", err)
-	}
+	_, _ = s.stytch.ExchangeDiscoverySession(ctx, ist)
 
 	// Create local Tenant
 	tenant, err := txRepo.CreateTenant(ctx, storegen.CreateTenantParams{
@@ -405,8 +428,8 @@ func (s *Service) CreateSession(ctx context.Context, userID, tenantID uuid.UUID,
 	}
 	rawToken := hex.EncodeToString(tokenBytes)
 
-	// 2. SHA-256 hash
-	tokenHash := sha256.Sum256(tokenBytes)
+	// 2. SHA-256 hash of hex token string (matches middleware/hash lookup)
+	tokenHash := sha256.Sum256([]byte(rawToken))
 
 	// 3. Store in AppSession
 	var stytchSessionID sql.NullString

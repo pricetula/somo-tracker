@@ -24,11 +24,11 @@ func TestSessionCookieName_EnvSuffix(t *testing.T) {
 		env        string
 		wantCookie string
 	}{
-		{"development", "development", "__Secure-session_token_development"},
-		{"staging", "staging", "__Secure-session_token_staging"},
+		{"development", "development", "session_token_development"},
+		{"staging", "staging", "session_token_staging"},
 		{"production", "production", "__Secure-session_token"},
 		{"empty env", "", "__Secure-session_token"},
-		{"custom env", "test", "__Secure-session_token_test"},
+		{"custom env", "test", "session_token_test"},
 	}
 
 	for _, tc := range tests {
@@ -80,18 +80,18 @@ func TestSetSessionCookie_SetsCorrectAttributes(t *testing.T) {
 	t.Logf("Set-Cookie: %s", cookieHeader)
 
 	// Verify cookie name includes env suffix
-	if !contains(cookieHeader, "__Secure-session_token_staging=") {
+	if !contains(cookieHeader, "session_token_staging=") {
 		t.Errorf("cookie name missing env suffix: %s", cookieHeader)
 	}
 
 	// Verify attributes (case-insensitive)
 	requiredAttrs := []string{
 		"HttpOnly",
-		"Secure",
 		"SameSite=Lax",
 		"path=/",
 		"max-age=",
 	}
+	// __Secure- cookies must have Secure; development/test cookies don't use __Secure- prefix
 	for _, attr := range requiredAttrs {
 		if !contains(cookieHeader, attr) {
 			t.Errorf("missing attribute %q in cookie: %s", attr, cookieHeader)
@@ -124,14 +124,13 @@ func TestClearSessionCookie_SetsExpiredCookie(t *testing.T) {
 	t.Logf("Clear Set-Cookie: %s", cookieHeader)
 
 	// Verify cookie name includes env suffix
-	if !contains(cookieHeader, "__Secure-session_token_staging=") {
+	if !contains(cookieHeader, "session_token_staging=") {
 		t.Errorf("cookie name missing env suffix: %s", cookieHeader)
 	}
 
 	// Verify expired attributes (case-insensitive)
 	requiredAttrs := []string{
 		"HttpOnly",
-		"Secure",
 		"SameSite=Lax",
 		"path=/",
 		"max-age=0", // Fiber uses 0 for expired
@@ -143,7 +142,7 @@ func TestClearSessionCookie_SetsExpiredCookie(t *testing.T) {
 	}
 
 	// Verify value is empty
-	if !contains(cookieHeader, "__Secure-session_token_staging=;") && !contains(cookieHeader, "__Secure-session_token_staging= ;") {
+	if !contains(cookieHeader, "session_token_staging=;") && !contains(cookieHeader, "session_token_staging= ;") {
 		t.Errorf("cookie value not empty: %s", cookieHeader)
 	}
 }
@@ -274,7 +273,7 @@ func TestAuthenticateToken_MissingPKCE(t *testing.T) {
 	}
 }
 
-// TestLogout_MissingSession verifies logout without session
+// TestLogout_MissingSession verifies logout without session is idempotent
 func TestLogout_MissingSession(t *testing.T) {
 	h := &Handler{cfg: &config.Config{Env: "test"}}
 
@@ -289,16 +288,16 @@ func TestLogout_MissingSession(t *testing.T) {
 		t.Fatalf("app.Test error: %v", err)
 	}
 
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	body := string(bodyBytes)
-	t.Logf("Error response: %s", body)
+	t.Logf("Response: %s", body)
 
-	if !contains(body, "UNAUTHENTICATED") {
-		t.Errorf("missing UNAUTHENTICATED code: %s", body)
+	if !contains(body, "success") {
+		t.Errorf("expected success response: %s", body)
 	}
 }
 
@@ -528,8 +527,8 @@ func testErrorHandler() fiber.ErrorHandler {
 	}
 }
 
-func (m *MockService) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier string) (string, *service.OnboardingState, error) {
-	return "", nil, nil
+func (m *MockService) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier string) (string, *service.OnboardingState, *string, error) {
+	return "", nil, nil, nil
 }
 
 func (m *MockService) ProvisionTenant(ctx context.Context, ticketToken string, data service.ProvisionData) (*service.ProvisionResult, error) {

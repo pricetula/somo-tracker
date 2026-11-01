@@ -34,7 +34,7 @@ func NewAuthMiddleware(svc SessionValidator, cfg *config.Config) *AuthMiddleware
 func (m *AuthMiddleware) sessionCookieName() string {
 	base := "__Secure-session_token"
 	if m.cfg.Env != "" && m.cfg.Env != "production" {
-		return base + "_" + m.cfg.Env
+		return "session_token" + "_" + m.cfg.Env
 	}
 	return base
 }

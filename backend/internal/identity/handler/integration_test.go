@@ -516,7 +516,7 @@ func TestProvisionTenant_Success(t *testing.T) {
 			MaxAge:   -1,
 		})
 
-		sessionCookieName := "__Secure-session_token_development"
+		sessionCookieName := "session_token_development"
 		c.Cookie(&fiber.Cookie{
 			Name:     sessionCookieName,
 			Value:    "test-session-token-abc",
@@ -558,7 +558,7 @@ func TestProvisionTenant_Success(t *testing.T) {
 		if contains(cookieHeader, "onboarding=") && contains(cookieHeader, "max-age=0") {
 			foundOnboardingCleared = true
 		}
-		if contains(cookieHeader, "__Secure-session_token_development=test-session-token-abc") {
+		if contains(cookieHeader, "session_token_development=test-session-token-abc") {
 			foundSession = true
 			if !contains(cookieHeader, "HttpOnly") {
 				t.Errorf("session cookie missing HttpOnly")
@@ -1139,14 +1139,14 @@ func TestCookieNames_PerEnvironment(t *testing.T) {
 			env:             "development",
 			onboardingName:  "onboarding",
 			pkceName:        "pkce_verifier",
-			sessionName:     "__Secure-session_token_development",
+			sessionName:     "session_token_development",
 		},
 		{
 			name:            "staging",
 			env:             "staging",
 			onboardingName:  "onboarding",
 			pkceName:        "pkce_verifier",
-			sessionName:     "__Secure-session_token_staging",
+			sessionName:     "session_token_staging",
 		},
 		{
 			name:            "production",
@@ -1160,7 +1160,7 @@ func TestCookieNames_PerEnvironment(t *testing.T) {
 			env:             "test",
 			onboardingName:  "onboarding",
 			pkceName:        "pkce_verifier",
-			sessionName:     "__Secure-session_token_test",
+			sessionName:     "session_token_test",
 		},
 	}
 
@@ -1275,7 +1275,7 @@ func TestLogout_Success(t *testing.T) {
 	app.Post("/auth/logout", func(c fiber.Ctx) error {
 		c.Locals("session_id", uuid.New())
 
-		sessionCookieName := "__Secure-session_token_development"
+		sessionCookieName := "session_token_development"
 		c.Cookie(&fiber.Cookie{
 			Name:     sessionCookieName,
 			Value:    "",
@@ -1291,7 +1291,7 @@ func TestLogout_Success(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "http://localhost/auth/logout", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "__Secure-session_token_development",
+		Name:  "session_token_development",
 		Value: "valid-session-token",
 	})
 
@@ -1312,7 +1312,7 @@ func TestLogout_Success(t *testing.T) {
 	foundCleared := false
 	for _, cookieHeader := range cookies {
 		t.Logf("Logout Set-Cookie: %s", cookieHeader)
-		if contains(cookieHeader, "__Secure-session_token_development=") && contains(cookieHeader, "max-age=0") {
+		if contains(cookieHeader, "session_token_development=") && contains(cookieHeader, "max-age=0") {
 			foundCleared = true
 		}
 	}

@@ -107,14 +107,11 @@ export function routePolicy(
     return { type: 'allow' };
   }
 
-  // Protected routes
+  // Protected routes - require cookie
   if (!hasCookie) {
-    // No cookie - redirect to login with next parameter
-    const nextPath = encodeURIComponent(path);
-    return { type: 'redirect-with-next', to: '/login', next: nextPath };
+    return { type: 'redirect-with-next', to: '/login', next: encodeURIComponent(path) };
   }
 
-  // Has cookie - allow (backend will validate on API calls)
   return { type: 'allow' };
 }
 

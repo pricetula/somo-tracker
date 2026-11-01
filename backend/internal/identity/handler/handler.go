@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"crypto/sha256"
 	"errors"
 	"strings"
 	"time"
@@ -198,7 +199,7 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 	}
 
 	// Call service
-	ticketToken, onboardingState, err := h.svc.AuthenticateToken(c.Context(), req.Token, pkceVerifier)
+	ticketToken, onboardingState, sessionToken, err := h.svc.AuthenticateToken(c.Context(), req.Token, pkceVerifier)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrRateLimited) {
 			return apperr.New(apperr.INVALID_TOKEN, "invalid or expired magic link")
@@ -224,22 +225,45 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 		MaxAge:   -1,
 	})
 
-	// Set onboarding ticket cookie (host-only, short-lived) per AC-3/AC-9
-	onboardingCookieName := "__Host-onboarding"
-	onboardingSecure := h.cfg.Env == "production" && c.Scheme() == "https"
-	if h.cfg.Env != "production" {
-		onboardingCookieName = "onboarding"
-		onboardingSecure = false
+	// If session was created for returning user, set session cookie
+	if sessionToken != nil {
+		// Session cookie expires in 30 days (matches service creation)
+		expiresAt := time.Now().Add(30 * 24 * time.Hour)
+		h.setSessionCookie(c, *sessionToken, expiresAt)
+		// Clear onboarding ticket cookie if set
+		onboardingCookieName := "__Host-onboarding"
+		onboardingSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+		if h.cfg.Env != "production" {
+			onboardingCookieName = "onboarding"
+			onboardingSecure = false
+		}
+		c.Cookie(&fiber.Cookie{
+			Name:     onboardingCookieName,
+			Value:    "",
+			Path:     "/",
+			HTTPOnly: true,
+			Secure:   onboardingSecure,
+			SameSite: fiber.CookieSameSiteLaxMode,
+			MaxAge:   -1,
+		})
+	} else {
+		// Set onboarding ticket cookie (host-only, short-lived) per AC-3/AC-9
+		onboardingCookieName := "__Host-onboarding"
+		onboardingSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+		if h.cfg.Env != "production" {
+			onboardingCookieName = "onboarding"
+			onboardingSecure = false
+		}
+		c.Cookie(&fiber.Cookie{
+			Name:     onboardingCookieName,
+			Value:    ticketToken,
+			Path:     "/",
+			HTTPOnly: true,
+			Secure:   onboardingSecure,
+			SameSite: fiber.CookieSameSiteLaxMode,
+			MaxAge:   int(10 * time.Minute / time.Second),
+		})
 	}
-	c.Cookie(&fiber.Cookie{
-		Name:     onboardingCookieName,
-		Value:    ticketToken,
-		Path:     "/",
-		HTTPOnly: true,
-		Secure:   onboardingSecure,
-		SameSite: fiber.CookieSameSiteLaxMode,
-		MaxAge:   int(10 * time.Minute / time.Second),
-	})
 
 	// Build response
 	resp := AuthenticateTokenResponse{
@@ -304,6 +328,11 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 		if errors.Is(err, service.ErrIdempotencyConflict) {
 			return apperr.New(apperr.IDEMPOTENCY_CONFLICT, "onboarding already completed with this key")
 		}
+		// Surface Stytch slug conflict as a more actionable error
+		if strings.Contains(err.Error(), "organization_slug_already_used") {
+			logger.Error(c.Context(), err, "ProvisionTenant failed: slug conflict")
+			return apperr.New(apperr.PROVISIONING_FAILED, "organization slug already in use, please try again")
+		}
 		logger.Error(c.Context(), err, "ProvisionTenant failed")
 		return apperr.New(apperr.PROVISIONING_FAILED, "tenant provisioning failed")
 	}
@@ -342,15 +371,35 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 
 // Logout handles POST /api/v1/auth/logout
 func (h *Handler) Logout(c fiber.Ctx) error {
-	// Get session from context (set by auth middleware)
-	sessionID, ok := c.Locals("session_id").(uuid.UUID)
-	if !ok {
-		return apperr.New(apperr.UNAUTHENTICATED, "no active session")
+	// Read session cookie directly (not protected by middleware)
+	sessionToken := c.Cookies(h.sessionCookieName())
+	if sessionToken == "" {
+		// Clear cookie regardless and return success
+		h.clearSessionCookie(c)
+		return c.Status(fiber.StatusOK).JSON(LogoutResponse{Success: true})
+	}
+
+	tokenHash := sha256.Sum256([]byte(sessionToken))
+	sessionCtx, err := h.svc.ValidateSession(c.Context(), tokenHash[:])
+	if err != nil {
+		if errors.Is(err, service.ErrSessionNotFound) {
+			// Session not found; clear cookie anyway
+			h.clearSessionCookie(c)
+			return c.Status(fiber.StatusOK).JSON(LogoutResponse{Success: true})
+		}
+		logger.Error(c.Context(), err, "session validation failed on logout")
+	}
+
+	var sessionID uuid.UUID
+	if sessionCtx != nil {
+		sessionID = sessionCtx.SessionID
 	}
 
 	// Call service to revoke session
-	if err := h.svc.Logout(c.Context(), sessionID); err != nil {
-		logger.Error(c.Context(), err, "Logout failed")
+	if sessionID != (uuid.UUID{}) {
+		if err := h.svc.Logout(c.Context(), sessionID); err != nil {
+			logger.Error(c.Context(), err, "Logout failed")
+		}
 	}
 
 	// Clear session cookie
@@ -360,36 +409,67 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 }
 
 // GetOnboardingCurrent handles GET /api/v1/onboarding/current
+// Returns ticket-based onboarding state while pending,
+// falling back to session-based final state after provisioning
+// completes (ticket cookie is cleared, see ProvisionTenant).
 func (h *Handler) GetOnboardingCurrent(c fiber.Ctx) error {
 	onboardingCookieName := "__Host-onboarding"
 	if h.cfg.Env != "production" {
 		onboardingCookieName = "onboarding"
 	}
 	ticketToken := c.Cookies(onboardingCookieName)
-	if ticketToken == "" {
-		return apperr.New(apperr.UNAUTHENTICATED, "no onboarding session")
-	}
 
-	state, err := h.svc.GetOnboardingCurrent(c.Context(), ticketToken)
-	if err != nil {
-		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrPendingOnboardingNotFound) {
-			return apperr.New(apperr.INVALID_TICKET, "invalid or expired onboarding ticket")
+	if ticketToken != "" {
+		state, err := h.svc.GetOnboardingCurrent(c.Context(), ticketToken)
+		if err != nil {
+			if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrPendingOnboardingNotFound) {
+				return apperr.New(apperr.INVALID_TICKET, "invalid or expired onboarding ticket")
+			}
+			logger.Error(c.Context(), err, "GetOnboardingCurrent failed")
+			return apperr.New(apperr.INTERNAL_ERROR, "failed to load onboarding state")
 		}
-		logger.Error(c.Context(), err, "GetOnboardingCurrent failed")
-		return apperr.New(apperr.INTERNAL_ERROR, "failed to load onboarding state")
+
+		resp := GetOnboardingCurrentResponse{
+			VerifiedEmail: state.VerifiedEmail,
+			CurrentStep:   state.CurrentStep,
+			FormData:      state.FormData,
+			PendingID:     state.PendingID.String(),
+			SchoolName:    state.SchoolName,
+		}
+		if state.TenantID != nil {
+			id := state.TenantID.String()
+			resp.TenantID = &id
+		}
+		return c.Status(fiber.StatusOK).JSON(resp)
 	}
 
+	// Fall back to session-based state (after provisioning, ticket cookie is cleared)
+	sessionToken := c.Cookies(h.sessionCookieName())
+	if sessionToken == "" {
+		return apperr.New(apperr.UNAUTHENTICATED, "no session or ticket cookie")
+	}
+
+	tokenHash := sha256.Sum256([]byte(sessionToken))
+	sessionCtx, err := h.svc.ValidateSession(c.Context(), tokenHash[:])
+	if err != nil {
+		if errors.Is(err, service.ErrSessionNotFound) {
+			return apperr.New(apperr.UNAUTHENTICATED, "session not found or expired")
+		}
+		logger.Error(c.Context(), err, "session validation failed")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "INTERNAL_ERROR",
+			"message": "session validation failed",
+		})
+	}
+
+	// Build final onboarding state from session user/tenant
 	resp := GetOnboardingCurrentResponse{
-		VerifiedEmail: state.VerifiedEmail,
-		CurrentStep:   state.CurrentStep,
-		FormData:      state.FormData,
-		PendingID:     state.PendingID.String(),
-		SchoolName:    state.SchoolName,
+		VerifiedEmail: "",
+		CurrentStep:   "complete",
+		FormData:      map[string]interface{}{},
 	}
-	if state.TenantID != nil {
-		id := state.TenantID.String()
-		resp.TenantID = &id
-	}
+	id := sessionCtx.TenantID.String()
+	resp.TenantID = &id
 	return c.Status(fiber.StatusOK).JSON(resp)
 }
 
@@ -448,10 +528,12 @@ func (h *Handler) RegisterRoutes(api fiber.Router) {
 }
 
 // sessionCookieName returns the cookie name with environment suffix per ADR-0002
+// In production (HTTPS), always use __Secure- prefix for security.
+// In development/test (HTTP), do NOT use __Secure- prefix as browsers reject these cookies over HTTP.
 func (h *Handler) sessionCookieName() string {
 	base := "__Secure-session_token"
 	if h.cfg.Env != "" && h.cfg.Env != "production" {
-		return base + "_" + h.cfg.Env
+		return "session_token" + "_" + h.cfg.Env
 	}
 	return base
 }

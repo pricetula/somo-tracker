@@ -10,6 +10,7 @@ import { authQueryKeys, authMutationKeys } from '../query-keys';
 import { updateOnboardingSchema, completeOnboardingSchema } from '../schemas';
 import { toast } from 'sonner';
 import { isApiError } from '@/lib/api/errors';
+import { useRouter } from '@tanstack/react-router';
 
 export function useOnboardingCurrent() {
   return useQuery({
@@ -49,6 +50,7 @@ export function useUpdateOnboarding() {
 
 export function useCompleteOnboarding() {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   return useMutation({
     mutationKey: authMutationKeys.completeOnboarding(),
@@ -62,10 +64,11 @@ export function useCompleteOnboarding() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
       toast.success('Onboarding complete! Welcome to Somotracker.');
+      // Redirect to home/dashboard after successful provisioning
+      router.navigate({ to: '/' });
     },
     onError: (error: unknown) => {
       if (isApiError(error)) {
-        // Map field errors to form if needed; fallback to generic toast with request id
         const msg = error.fieldErrors && Object.keys(error.fieldErrors).length > 0
           ? 'Please fix the highlighted fields'
           : error.message;

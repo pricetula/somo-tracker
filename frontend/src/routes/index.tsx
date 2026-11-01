@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
+import { LogoutButton } from '@/features/auth/components/logout-button';
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -13,6 +14,7 @@ export function Home() {
       <Button variant="default" size="default">
         Test Button
       </Button>
+      <LogoutButton />
     </div>
   );
 }

@@ -38,7 +38,7 @@ func TestRequireAuth_CookieNamePerEnv(t *testing.T) {
 		{
 			name:       "valid cookie with correct env suffix",
 			env:        "staging",
-			cookieName: "__Secure-session_token_staging",
+			cookieName: "session_token_staging",
 			wantStatus: http.StatusOK,
 			setupMock: func(m *MockSessionValidator) {
 				m.validateSessionFunc = func(ctx context.Context, tokenHash []byte) (*service.SessionContext, error) {
@@ -186,7 +186,7 @@ func TestRequireAuth_ValidatesExpiryRevocation(t *testing.T) {
 			token := "valid-token-123"
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			req.AddCookie(&http.Cookie{
-				Name:  "__Secure-session_token_test",
+				Name:  "session_token_test",
 				Value: token,
 			})
 
@@ -252,7 +252,7 @@ func TestRequireAuth_SetsLocals(t *testing.T) {
 	token := "valid-token-123"
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "__Secure-session_token_test",
+		Name:  "session_token_test",
 		Value: token,
 	})
 
@@ -366,7 +366,7 @@ func TestCSRFMiddleware_RejectsMissingOrigin(t *testing.T) {
 			token := "valid-token-123"
 			req := httptest.NewRequest(tc.method, "/test", nil)
 			req.AddCookie(&http.Cookie{
-				Name:  "__Secure-session_token_test",
+				Name:  "session_token_test",
 				Value: token,
 			})
 			if tc.origin != "" {
@@ -433,7 +433,7 @@ func TestOptionalAuth_ValidatesCookieIfPresent(t *testing.T) {
 	token := "invalid-token"
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "__Secure-session_token_test",
+		Name:  "session_token_test",
 		Value: token,
 	})
 
@@ -454,8 +454,8 @@ func TestSessionCookieName_EnvSuffix(t *testing.T) {
 		env        string
 		wantCookie string
 	}{
-		{"development", "development", "__Secure-session_token_development"},
-		{"staging", "staging", "__Secure-session_token_staging"},
+		{"development", "development", "session_token_development"},
+		{"staging", "staging", "session_token_staging"},
 		{"production", "production", "__Secure-session_token"},
 		{"empty", "", "__Secure-session_token"},
 	}

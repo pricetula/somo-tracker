@@ -349,7 +349,8 @@ func TestProvisionTenant_ExistingUserBlocked(t *testing.T) {
 	email := "test-existing-user@example.com"
 
 	// Create a tenant and existing user globally for this email
-	tenant, err := repo.CreateTenant(ctx, storegen.CreateTenantParams{Name: "Existing Tenant", StytchOrganizationID: uuid.NullUUID{UUID: uuid.New(), Valid: true}})
+	existingName := "Existing " + uuid.New().String()[:8]
+	tenant, err := repo.CreateTenant(ctx, storegen.CreateTenantParams{Name: existingName, StytchOrganizationID: uuid.NullUUID{UUID: uuid.New(), Valid: true}})
 	if err != nil {
 		t.Fatalf("create tenant: %v", err)
 	}

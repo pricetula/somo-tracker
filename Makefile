@@ -174,7 +174,6 @@ vet:
 
 lint:
 	@echo "=== Backend lint ==="
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found, skipping"; exit 0; }
 	cd backend && golangci-lint run ./...
 	@echo "=== Frontend lint ==="
 	cd frontend && pnpm lint

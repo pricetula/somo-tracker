@@ -1,4 +1,156 @@
+definitions:
+  handler.AuthenticateTokenRequest:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
+  handler.AuthenticateTokenResponse:
+    properties:
+      auth_state:
+        type: string
+      onboarding:
+        $ref: '#/definitions/handler.OnboardingState'
+      status:
+        type: string
+      ticket_token:
+        type: string
+    type: object
+  handler.OnboardingState:
+    properties:
+      current_step:
+        type: string
+      form_data:
+        additionalProperties: true
+        type: object
+      pending_id:
+        type: string
+      school_name:
+        type: string
+      tenant_id:
+        type: string
+      verified_email:
+        type: string
+    type: object
+  handler.ProvisionTenantRequest:
+    properties:
+      idempotency_key:
+        type: string
+      school_name:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - idempotency_key
+    - school_name
+    type: object
+  handler.ProvisionTenantResponse:
+    properties:
+      success:
+        type: boolean
+    type: object
+  handler.RequestMagicLinkRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  handler.RequestMagicLinkResponse:
+    properties:
+      success:
+        type: boolean
+    type: object
 info:
   contact: {}
-paths: {}
+paths:
+  /api/v1/auth/authenticate-token:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.AuthenticateTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AuthenticateTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Authenticate Stytch Discovery magic link token
+      tags:
+      - Authentication
+  /api/v1/auth/request-magic-link:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RequestMagicLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.RequestMagicLinkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Request a Stytch Discovery magic link
+      tags:
+      - Authentication
+  /api/v1/onboarding/complete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ProvisionTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ProvisionTenantResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Complete onboarding and provision tenant
+      tags:
+      - Onboarding
 swagger: "2.0"

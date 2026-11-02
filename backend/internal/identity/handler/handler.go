@@ -88,6 +88,15 @@ type UpdateOnboardingResponse struct {
 }
 
 // RequestMagicLink handles POST /api/v1/auth/request-magic-link
+// @Summary Request a Stytch Discovery magic link
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body RequestMagicLinkRequest true "request"
+// @Success 200 {object} RequestMagicLinkResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 429 {object} map[string]interface{}
+// @Router /api/v1/auth/request-magic-link [post]
 func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 	var req RequestMagicLinkRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -105,36 +114,36 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 		allowed, err := h.rl.AllowIP(c.Context(), "magic-link", ip, h.cfg.RateLimitMagicLinkIPPerMin, time.Minute)
 		if err != nil {
 			logger.Error(c.Context(), err, "rate limit check failed")
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
 		}
 		if !allowed {
-			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
+			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
 		}
 
 		allowed, err = h.rl.AllowEmail(c.Context(), "magic-link", req.Email, h.cfg.RateLimitMagicLinkEmailPer15Min, 15*time.Minute)
 		if err != nil {
 			logger.Error(c.Context(), err, "email rate limit check failed")
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
 		}
 		if !allowed {
-			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
+			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
 		}
 
 		allowed, err = h.rl.AllowGlobal(c.Context(), "email-provider-hourly", h.cfg.EmailProviderHourlyCap, time.Hour)
 		if err != nil {
 			logger.Error(c.Context(), err, "email provider hourly quota check failed")
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
 		}
 		if !allowed {
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
 		}
 		allowed, err = h.rl.AllowGlobal(c.Context(), "email-provider-daily", h.cfg.EmailProviderDailyCap, 24*time.Hour)
 		if err != nil {
 			logger.Error(c.Context(), err, "email provider daily quota check failed")
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
 		}
 		if !allowed {
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "If the email address is eligible, a sign-in link will be sent."})
+			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
 		}
 	}
 
@@ -169,6 +178,15 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 }
 
 // AuthenticateToken handles POST /api/v1/auth/authenticate-token
+// @Summary Authenticate Stytch Discovery magic link token
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body AuthenticateTokenRequest true "request"
+// @Success 200 {object} AuthenticateTokenResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/auth/authenticate-token [post]
 func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 	var req AuthenticateTokenRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -181,10 +199,10 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 		allowed, err := h.rl.AllowIP(c.Context(), "token-exchange", ip, h.cfg.RateLimitTokenExchangeIPPerMin, time.Minute)
 		if err != nil {
 			logger.Error(c.Context(), err, "token exchange rate limit check failed")
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "authentication failed"})
+			return apperr.New(apperr.SERVICE_UNAVAILABLE, "authentication failed")
 		}
 		if !allowed {
-			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"message": "Too many requests"})
+			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
 		}
 	}
 

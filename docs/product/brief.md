@@ -1,7 +1,7 @@
 ---
 id: PRODUCT-BRIEF
 title: Product Brief
-status: draft
+status: approved
 depends_on: []
 touches: []
 ---

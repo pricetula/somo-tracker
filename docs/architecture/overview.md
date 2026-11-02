@@ -1,7 +1,7 @@
 ---
 id: ARCH-OVERVIEW
 title: Architecture Overview
-status: draft
+status: approved
 depends_on: []
 touches: []
 ---

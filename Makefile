@@ -195,6 +195,7 @@ typecheck-marketing:
 	cd marketing && pnpm typecheck
 
 generate-check: generate
+	@command -v sqlc >/dev/null 2>&1 || { echo "sqlc not found, skipping generate-check"; exit 0; }
 	@if [ -n "$$(git status --porcelain)" ]; then \
 		echo "Generated files have changes. Commit them."; \
 		git diff --stat; \

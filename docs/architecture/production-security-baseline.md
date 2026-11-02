@@ -1,7 +1,7 @@
 ---
 id: ARCH-SEC-BASELINE
 title: Production Security Baseline Assessment
-status: draft
+status: approved
 depends_on: []
 touches: []
 ---
@@ -107,3 +107,9 @@ Go Fiber v3 REST API security baseline covering rate limiting, multi-tenant isol
 - Do not trust client-supplied tenant ID
 - Local HTTP development must remain functional
 - Production security must not be weakened for dev
+
+## Production Redis hardening
+- Redis is not exposed publicly in docker-compose.yml
+- Production must use Redis AUTH and TLS with REDIS_URL, not REDIS_ADDR
+- Connection validation at startup; fail-closed on Redis connectivity loss
+- Rate-limit keys use HMAC for email hashing to avoid logging PII

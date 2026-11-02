@@ -1,7 +1,7 @@
 # Somotracker Makefile
 
 # Ensure go bin + pnpm are on PATH for tools like swag and lint
-PATH := $(PATH):$(shell go env GOPATH)/bin:/opt/homebrew/bin
+export PATH := $(PATH):$(shell go env GOPATH)/bin:/opt/homebrew/bin
 
 .PHONY: help \
 	dev dev-local dev-stop dev-logs \

@@ -313,6 +313,14 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 }
 
 // ProvisionTenant handles POST /api/v1/onboarding/complete
+// @Summary Complete onboarding and provision tenant
+// @Tags Onboarding
+// @Accept json
+// @Produce json
+// @Param request body ProvisionTenantRequest true "request"
+// @Success 200 {object} ProvisionTenantResponse
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/v1/onboarding/complete [post]
 func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 	// Get ticket token from cookie (set by callback page)
 	onboardingCookieName := "__Host-onboarding"

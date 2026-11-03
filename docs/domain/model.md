@@ -20,8 +20,8 @@ touches: []
 - **Student** -> has lifecycle states applicant, active, transferred out, withdrawn, graduated; linked to Guardian
 - **Enrollment** -> Student + ClassLevel + Stream + Term. Invariant: one active enrollment per student per term
 - **Attendance** -> daily mark per enrollment: Present, Late, Absent, Excused. Edits after day close require reason and audit
-- **LearningArea** -> per ClassLevel, contains **Strand**, contains **SubStrand**
-- **Assessment** -> learner + LearningArea/Strand/SubStrand + Term + Performance level EE/ME/AE/BE + optional numeric score + comment
+- **Subject** -> tied to EducationSystem + GradeLevel (global reference); contains **Topic**, contains **Subtopic**
+- **Assessment** -> learner + Subject + Topic + Subtopic + Term + Performance level EE/ME/AE/BE + optional numeric score + comment
 - **ReportCard** -> per learner per term, generated PDF from Assessment + attendance summary, standard table format
 - **FeeStructure** -> per School per ClassLevel per Term with categories tuition, boarding, transport, lunch, other
 - **Payment** -> per student, method, reference, date, amount, receipt issued

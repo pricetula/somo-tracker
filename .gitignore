@@ -22,7 +22,7 @@ docker-compose.override.yml
 # Astro static output
 marketing/dist
 marketing/.astro-cache
-marketing/.astro
+marketing/.astro/*
 marketing/.cache
 
 backend/tmp

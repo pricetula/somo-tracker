@@ -15,6 +15,7 @@ frontend/.next
 # Go
 backend/bin
 backend/vendor
+backend/coverage.*
 
 # Docker
 docker-compose.override.yml

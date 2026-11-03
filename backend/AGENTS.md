@@ -63,6 +63,18 @@ Rules are enforced by lint, CI and tests where possible. Run `go vet`, `golangci
 - **BE-035** Reference FR/NFR IDs in PRs, commits and tests. The PRD is a rough draft: when it is silent or ambiguous, raise an Open Question instead of assuming. Don't build Phase 2 or Later features in MVP work.
 - **BE-036** Every endpoint has tests for tenant isolation (cross-tenant returns 404) and for each role in the permission matrix (Guardian has no access in the MVP; its tests start with the Phase 2 portal). Store and RLS tests use a real PostgreSQL (testcontainers). Services are tested with fakes of their Repository interface. Contract tests validate real responses against the generated spec. Prefer table-driven tests.
 
+## Migrations and schema rules
+
+- **BE-037** New SQL requires `migrator_integration_test.go` verification: every migration must create its tables, indexes, enums, and FKs, and the insert test must succeed across tables (or omit new rows explicitly).
+- **BE-038** UUID defaults are always `uuidv7()` on latest PG; never `gen_random_uuid()`.
+- **BE-039** `updated_at` maintained via DB trigger (`trigger_set_timestamp`), not only app code.
+- **BE-040** Every multi-tenant table has `ENABLE ROW LEVEL SECURITY` plus an isolation policy; cross-tenant queries return identical 404s.
+- **BE-041** Soft delete via `deleted_at TIMESTAMPTZ` column + partial index `WHERE deleted_at IS NULL`; prefer hard delete only when domain allows.
+- **BE-042** Reference tables (`countries`, `education_systems`) use `ON DELETE RESTRICT`; never `CASCADE`.
+- **BE-043** Status/check fields use `ENUM`, not `TEXT CHECK`.
+- **BE-044** Composite indexes for frequent lookup pairs (e.g., `users(tenant_id, email_normalized)`).
+- **BE-045** No JSON schema validation unless specified; default `'{}'` is sufficient.
+
 ## Conventions
 
 - **Naming:** packages are lowercase single words; files are snake_case; constructors are `New<Type>`; interfaces have no `I` prefix; sqlc queries are verb-first PascalCase (`GetStudent`, `ListStudentsByName`, `CreateStudent`); migrations are `<timestamp>_<description>.sql`.

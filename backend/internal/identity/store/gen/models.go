@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 type AppSession struct {
@@ -21,6 +22,18 @@ type AppSession struct {
 	CreatedAt             time.Time
 	ExpiresAt             time.Time
 	RevokedAt             sql.NullTime
+}
+
+type LockedEditLog struct {
+	ID        uuid.UUID
+	SchoolID  uuid.UUID
+	TableName string
+	RowID     uuid.NullUUID
+	Action    string
+	ChangedBy uuid.NullUUID
+	ChangedAt time.Time
+	OldData   pqtype.NullRawMessage
+	NewData   pqtype.NullRawMessage
 }
 
 type Membership struct {
@@ -64,6 +77,44 @@ type PkceCode struct {
 	CreatedAt           time.Time
 }
 
+type ReportCard struct {
+	ID                  uuid.UUID
+	SchoolID            uuid.UUID
+	AcademicYearID      uuid.UUID
+	StudentEnrollmentID uuid.UUID
+	AcademicTermID      uuid.UUID
+	Status              string
+	DaysRecorded        int32
+	DaysPresent         int32
+	DaysLate            int32
+	DaysLeftEarly       int32
+	DaysAbsent          int32
+	DaysExcused         int32
+	AttendanceRate      sql.NullString
+	ClassTeacherRemarks sql.NullString
+	HeadRemarks         sql.NullString
+	GeneratedAt         sql.NullTime
+	GeneratedBy         uuid.NullUUID
+	PublishedAt         sql.NullTime
+	PublishedBy         uuid.NullUUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+type ReportCardSubject struct {
+	ID                 uuid.UUID
+	SchoolID           uuid.UUID
+	ReportCardID       uuid.UUID
+	CourseOfferingID   uuid.UUID
+	SubjectID          uuid.UUID
+	SubjectName        string
+	Percentage         sql.NullString
+	GradingBandID      uuid.NullUUID
+	GradeLabel         sql.NullString
+	AssessmentsCounted int16
+	TeacherRemarks     sql.NullString
+}
+
 type School struct {
 	ID        uuid.UUID
 	TenantID  uuid.UUID
@@ -71,6 +122,15 @@ type School struct {
 	Code      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type SchoolAcademicSetting struct {
+	SchoolID                 uuid.UUID
+	DefaultGradingScaleID    uuid.NullUUID
+	AbsentCountsAsZero       bool
+	NotSubmittedCountsAsZero bool
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }
 
 type Tenant struct {

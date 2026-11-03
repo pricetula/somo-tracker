@@ -27,3 +27,5 @@ marketing/.astro/*
 marketing/.cache
 
 backend/tmp
+
+.DS_Store

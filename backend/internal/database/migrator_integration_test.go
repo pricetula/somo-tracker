@@ -59,7 +59,9 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 	// Verify all migrations applied cleanly and schema integrity holds.
 	tables := []string{
 		"pending_onboarding", "app_session", "onboarding_ticket",
-		"tenant", "user", "school", "membership", "pkce_code",
+		"tenants", "users", "schools", "memberships", "pkce_codes",
+		"countries", "education_systems", "grade_levels",
+		"students", "guardian_student_links",
 	}
 	indexes := []string{
 		"idx_pending_onboarding_email", "idx_pending_onboarding_tenant",
@@ -69,6 +71,12 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		"idx_school_tenant",
 		"idx_membership_user", "idx_membership_school",
 		"idx_pkce_expires",
+		"students_school_id_idx",
+		"students_admission_number_idx",
+		"students_full_name_idx",
+		"guardian_student_links_membership_id_idx",
+		"guardian_student_links_student_id_idx",
+		"guardian_student_links_emergency_uniq_idx",
 	}
 	fkNames := []string{
 		"app_session_user_id_fkey", "app_session_tenant_id_fkey",
@@ -128,10 +136,12 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		insertSQL    string
 		expectOK     bool
 	}{
-		{"tenant", "INSERT INTO tenant (name) VALUES ('t1') ON CONFLICT DO NOTHING", true},
-		{"user",   "INSERT INTO \"user\" (tenant_id, email_normalized, name) SELECT id, 'a@b.c', 'U1' FROM tenant WHERE name='t1' ON CONFLICT DO NOTHING", true},
-		{"school", "INSERT INTO school (tenant_id, name, code) SELECT id, 'S', 'S' FROM tenant WHERE name='t1' ON CONFLICT DO NOTHING", true},
-		{"membership", "INSERT INTO membership (user_id, school_id, role) SELECT u.id, s.id, 'teacher' FROM \"user\" u JOIN school s ON s.tenant_id=u.tenant_id AND s.code='S' WHERE u.tenant_id=(SELECT id FROM tenant WHERE name='t1') ON CONFLICT DO NOTHING", true},
+		{"tenants", "INSERT INTO tenants (name) VALUES ('t1') ON CONFLICT DO NOTHING", true},
+		{"users",   "INSERT INTO users (tenant_id, email_normalized, name) SELECT id, 'a@b.c', 'U1' FROM tenants WHERE name='t1' ON CONFLICT DO NOTHING", true},
+		{"schools", "INSERT INTO schools (tenant_id, name, code) SELECT id, 'S', 'S' FROM tenants WHERE name='t1' ON CONFLICT DO NOTHING", true},
+		{"memberships", "INSERT INTO memberships (user_id, school_id, role) SELECT u.id, s.id, 'teacher' FROM users u JOIN schools s ON s.tenant_id=u.tenant_id AND s.code='S' WHERE u.tenant_id=(SELECT id FROM tenants WHERE name='t1') ON CONFLICT DO NOTHING", true},
+		{"students", "INSERT INTO students (school_id, admission_number, full_name, date_of_birth, gender) SELECT id, 'A001', 'Alice', '2010-01-01', 'F' FROM schools WHERE code='S' ON CONFLICT DO NOTHING", true},
+		{"guardian_student_links", "INSERT INTO guardian_student_links (guardian_id, student_id, relationship_type) SELECT m.id, s.student_id, 'Parent' FROM memberships m CROSS JOIN students s WHERE m.user_id IN (SELECT id FROM users WHERE email_normalized='a@b.c') ON CONFLICT DO NOTHING", true},
 	}
 	for _, r := range sampleRows {
 		if _, err := db.Exec(r.insertSQL); err != nil {

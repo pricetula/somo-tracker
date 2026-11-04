@@ -16,7 +16,7 @@ touches: []
 - **Membership** -> User + School + Role. Role is one of Platform Operator, Tenant Owner, Headteacher, School Administrator/Registrar, Teacher, Finance Officer, Guardian
 - **AcademicYear** -> contains three **Term**
 - **ClassLevel** -> PP1, PP2, Grade 1-9
-- **Stream** -> subdivision of ClassLevel within School
+- **Stream** -> subdivision of GradeLevel within School; used to group students of the same grade
 - **Student** -> has lifecycle states applicant, active, transferred out, withdrawn, graduated; linked to Guardian
 - **Enrollment** -> Student + ClassLevel + Stream + Term. Invariant: one active enrollment per student per term
 - **Attendance** -> daily mark per enrollment: Present, Late, Absent, Excused. Edits after day close require reason and audit

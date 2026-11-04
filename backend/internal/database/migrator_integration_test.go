@@ -63,6 +63,7 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		"countries", "education_systems", "grade_levels",
 		"students", "guardian_student_links",
 		"subjects", "topics", "subtopics",
+		"streams",
 	}
 	indexes := []string{
 		"idx_pending_onboarding_email", "idx_pending_onboarding_tenant",
@@ -88,6 +89,11 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		"subtopics_topic_id_idx",
 		"subtopics_name_idx",
 		"subtopics_deleted_at_idx",
+		"streams_school_id_idx",
+		"streams_grade_level_id_idx",
+		"streams_school_grade_idx",
+		"streams_name_idx",
+		"streams_deleted_at_idx",
 	}
 	fkNames := []string{
 		"app_session_user_id_fkey", "app_session_tenant_id_fkey",
@@ -146,7 +152,7 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		tableName    string
 		insertSQL    string
 		expectOK     bool
-	}{
+	 }{
 		{"tenants", "INSERT INTO tenants (name) VALUES ('t1') ON CONFLICT DO NOTHING", true},
 		{"users",   "INSERT INTO users (tenant_id, email_normalized, name) SELECT id, 'a@b.c', 'U1' FROM tenants WHERE name='t1' ON CONFLICT DO NOTHING", true},
 		{"schools", "INSERT INTO schools (tenant_id, name, code) SELECT id, 'S', 'S' FROM tenants WHERE name='t1' ON CONFLICT DO NOTHING", true},
@@ -156,7 +162,8 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		{"subjects", "INSERT INTO subjects (education_system_id, grade_level_id, name, code) SELECT es.id, gl.id, 'Mathematics', 'MATH' FROM education_systems es JOIN grade_levels gl ON gl.education_system_id = es.id ON CONFLICT DO NOTHING", true},
 		{"topics", "INSERT INTO topics (subject_id, name, sequence_index) SELECT s.id, 'Algebra', 1 FROM subjects s WHERE s.code = 'MATH' ON CONFLICT DO NOTHING", true},
 		{"subtopics", "INSERT INTO subtopics (topic_id, name, sequence_index) SELECT t.id, 'Linear Equations', 1 FROM topics t WHERE t.name = 'Algebra' ON CONFLICT DO NOTHING", true},
-	}
+		{"streams", "INSERT INTO streams (school_id, grade_level_id, name) SELECT s.id, gl.id, 'East' FROM schools s JOIN grade_levels gl ON gl.education_system_id = (SELECT education_system_id FROM education_systems WHERE name LIKE '%%') ON CONFLICT DO NOTHING", true},
+	 }
 	for _, r := range sampleRows {
 		if _, err := db.Exec(r.insertSQL); err != nil {
 			// Some inserts fail because rows already exist; that is fine.

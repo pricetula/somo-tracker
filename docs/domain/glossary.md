@@ -37,7 +37,7 @@ Entry format:
   - Context: school structure, CBC
   - References: FR-ONB-002
 
-- **Stream**: a subdivision of a class level e.g., Grade 4 East
+- **Stream**: a subdivision of GradeLevel within a School e.g., Grade 4 East; used to group students of the same grade
   - Context: class organization, timetable
   - References: FR-ONB-002
 

@@ -1,4 +1,4 @@
-Teacher_ID,First_Name,Last_Name,Email,Subject,Grade_Level
+Teacher_ID,First_Name,Last_Name,Email,Subject,Class_Level
 CBE1001,Amina,Mohamed,amina.mohamed@cbe-school.edu,Mathematics,Grade 4
 CBE1002,John,Kamau,john.kamau@cbe-school.edu,English Language Arts,Grade 5
 CBE1003,Grace,Wanjiku,grace.wanjiku@cbe-school.edu,Science & Technology,Grade 6

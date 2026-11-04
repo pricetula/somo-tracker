@@ -36,27 +36,56 @@ Columns:
 Unique enrollment_id, school_day.
 RLS via schools.
 
-## 3. assessments
-Learner performance per subject/topic/subtopic/term with both raw results and optional mapped performance level.
+## 2a. assessment_types
+School-defined exam/quiz types, education-system-agnostic.
 
 Columns:
 * id uuidv7 PK
-* student_id uuid FK students.id RESTRICT
+* school_id uuid FK schools.id RESTRICT
+* code varchar(32) NOT NULL
+* name varchar(128) NOT NULL
+* description text
+* weight numeric  -- e.g., 0.10 for 10% contribution
+* contributes_to_national boolean NOT NULL DEFAULT false
+* created_at/updated_at/deleted_at
+Unique school_id, code.
+
+## 2b. exam_sessions
+A scheduled assessment event for a class, subject and type within a term.
+
+Columns:
+* id uuidv7 PK
+* school_id uuid FK schools.id RESTRICT
+* term_id uuid FK terms.id RESTRICT
 * classroom_id uuid FK classrooms.id RESTRICT
 * subject_id uuid FK subjects.id RESTRICT
-* topic_id uuid FK topics.id RESTRICT
-* subtopic_id uuid FK subtopics.id RESTRICT
-* term_id uuid FK terms.id RESTRICT
-* assessment_date date NOT NULL
+* topic_id uuid FK topics.id RESTRICT  -- nullable
+* assessment_type_id uuid FK assessment_types.id RESTRICT
+* exam_date date NOT NULL
+* title varchar(256) NOT NULL
+* max_score numeric NOT NULL
+* contributes_to_national boolean NOT NULL DEFAULT false
+* created_at/updated_at/deleted_at
+Unique school_id, classroom_id, subject_id, assessment_type_id, exam_date.
+
+## 3. assessments
+Student results per exam session.
+
+Columns:
+* id uuidv7 PK
+* exam_session_id uuid FK exam_sessions.id RESTRICT
+* student_id uuid FK students.id RESTRICT
 * raw_score numeric
-* max_score numeric
 * performance_level_id uuid FK performance_levels.id RESTRICT  -- nullable, school-dependent
 * comment text
 * created_at/updated_at/deleted_at
-Unique student_id, subject_id, topic_id, subtopic_id, term_id, assessment_date.
+Unique exam_session_id, student_id.
 RLS via schools.
 
-Start order consideration: assessments depends on performance_levels for mapping, but assessments can be built first with nullable performance_level_id and raw_score only, then performance_levels added later.
+Assessment flow example:
+School has classes -> Classroom. For Term 1, a Classroom creates Exam Sessions: Quiz on 2026-01-20, CAT on 2026-02-12, End Term on 2026-03-20. Each session links to assessment_type, subject, topic, date and max_score. Students get an assessment row per session with raw_score and optional mapped performance level. Some sessions have contributes_to_national = true. Report cards will aggregate assessments per term, weighting by assessment_type.weight.
+
+Start order: assessment_types -> exam_sessions -> assessments -> performance_levels optional mapping.
 
 ## 4. report_cards
 Generated term report per student.

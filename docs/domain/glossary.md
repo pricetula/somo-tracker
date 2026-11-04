@@ -37,7 +37,7 @@ Entry format:
   - Context: school structure, CBC
   - References: FR-ONB-002
 
-- **Stream**: a subdivision of ClassLevel within a School e.g., Grade 4 East; used to group students of the same grade
+- **Stream**: pure color/group name scoped to a School (no ClassLevel); e.g., Grade 1 Blue; table `streams`
   - Context: class organization, timetable
   - References: FR-ONB-002
 
@@ -76,6 +76,10 @@ Entry format:
 
 - **ClassLevel**: PP1, PP2, Grade 1-9; scoped to education system; table = class_levels; entity = ClassLevel
   - Context: CBE/CBC structure, subject scope, stream grouping
+  - References: FR-ONB-002, DOMAIN-MODEL
+
+- **Classroom** (class room): School + ClassLevel + Stream; table = `classrooms`; RLS via schools. Example: Grade 1 Blue; logical classroom for attendance/assessment
+  - Context: class organization, attendance, assessment scoping
   - References: FR-ONB-002, DOMAIN-MODEL
 
 - **Subject**: global reference tied to EducationSystem and ClassLevel; contains Topics; replaces LearningArea

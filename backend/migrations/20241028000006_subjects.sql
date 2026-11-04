@@ -5,7 +5,7 @@
 CREATE TABLE subjects (
     id              UUID        NOT NULL    DEFAULT uuidv7() PRIMARY KEY,
     education_system_id UUID    NOT NULL    REFERENCES education_systems(id) ON DELETE RESTRICT,
-    grade_level_id  UUID        NOT NULL    REFERENCES grade_levels(id) ON DELETE RESTRICT,
+    class_level_id  UUID        NOT NULL    REFERENCES class_levels(id) ON DELETE RESTRICT,
     name            VARCHAR(255) NOT NULL,
     code            VARCHAR(64),
     description     TEXT,
@@ -13,11 +13,11 @@ CREATE TABLE subjects (
     updated_at      TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ,
 
-    CONSTRAINT subjects_education_grade_uniq UNIQUE (education_system_id, grade_level_id, name)
+    CONSTRAINT subjects_education_grade_uniq UNIQUE (education_system_id, class_level_id, name)
 );
 
 CREATE INDEX subjects_education_id_idx ON subjects (education_system_id);
-CREATE INDEX subjects_grade_level_id_idx ON subjects (grade_level_id);
+CREATE INDEX subjects_class_level_id_idx ON subjects (class_level_id);
 CREATE INDEX subjects_name_idx ON subjects (name);
 CREATE INDEX subjects_deleted_at_idx ON subjects (deleted_at) WHERE deleted_at IS NULL;
 
@@ -67,6 +67,6 @@ DROP INDEX IF EXISTS topics_name_idx;
 DROP TABLE IF EXISTS topics;
 DROP INDEX IF EXISTS subjects_deleted_at_idx;
 DROP INDEX IF EXISTS subjects_name_idx;
-DROP INDEX IF EXISTS subjects_grade_level_id_idx;
+DROP INDEX IF EXISTS subjects_class_level_id_idx;
 DROP INDEX IF EXISTS subjects_education_id_idx;
 DROP TABLE IF EXISTS subjects;

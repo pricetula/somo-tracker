@@ -43,7 +43,7 @@ ALTER TABLE education_systems ADD CONSTRAINT education_systems_country_name_uniq
 
 -- Grade levels scoped to a specific education system and country.
 -- Example: (CBE, Kenya) -> PP1, Grade 1..6, Grade 7..9 (Junior Sec), Grade 10..12 (Senior Sec).
-CREATE TABLE grade_levels (
+CREATE TABLE class_levels (
     id                  UUID        NOT NULL    DEFAULT gen_random_uuid() PRIMARY KEY,
     education_system_id UUID        NOT NULL    REFERENCES education_systems(id) ON DELETE CASCADE,
     tier_stage          VARCHAR(64)  NOT NULL,
@@ -54,14 +54,14 @@ CREATE TABLE grade_levels (
 
     -- A grade level's sequence position must be unique within a system+country
     -- to guarantee deterministic chronological ordering.
-    CONSTRAINT grade_levels_sys_country_seq_uniq UNIQUE (education_system_id, sequence_index)
+    CONSTRAINT class_levels_sys_country_seq_uniq UNIQUE (education_system_id, sequence_index)
 );
 
--- Index: grade_levels_education_system_id_idx supports system-scoped lookups.
-CREATE INDEX grade_levels_education_system_id_idx ON grade_levels (education_system_id);
--- Composite index: grade_levels_sys_seq_idx covers the primary
+-- Index: class_levels_education_system_id_idx supports system-scoped lookups.
+CREATE INDEX class_levels_education_system_id_idx ON class_levels (education_system_id);
+-- Composite index: class_levels_sys_seq_idx covers the primary
 -- ordered listing query (system + sequence_index).
-CREATE INDEX grade_levels_sys_seq_idx ON grade_levels (education_system_id, sequence_index);
+CREATE INDEX class_levels_sys_seq_idx ON class_levels (education_system_id, sequence_index);
 
 -- Tenant: organization boundary for data isolation
 CREATE TABLE IF NOT EXISTS tenants (
@@ -148,9 +148,9 @@ DROP INDEX IF EXISTS countries_country_code_idx;
 DROP INDEX IF EXISTS countries_created_at_idx;
 DROP INDEX IF EXISTS education_systems_country_id_idx;
 DROP INDEX IF EXISTS education_systems_system_name_idx;
-DROP INDEX IF EXISTS grade_levels_education_system_id_idx;
-DROP INDEX IF EXISTS grade_levels_sys_seq_idx;
-DROP TABLE IF EXISTS grade_levels;
+DROP INDEX IF EXISTS class_levels_education_system_id_idx;
+DROP INDEX IF EXISTS class_levels_sys_seq_idx;
+DROP TABLE IF EXISTS class_levels;
 DROP TABLE IF EXISTS education_systems;
 DROP TABLE IF EXISTS countries;
 DROP EXTENSION IF EXISTS "pgcrypto";

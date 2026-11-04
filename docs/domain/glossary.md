@@ -74,7 +74,7 @@ Entry format:
   - References: ADR-0002, FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001
 
 
-- **ClassLevel**: PP1, PP2, Grade 1-9; scoped to education system; table = grade_levels; entity = ClassLevel
+- **ClassLevel**: PP1, PP2, Grade 1-9; scoped to education system; table = class_levels; entity = ClassLevel
   - Context: CBE/CBC structure, subject scope, stream grouping
   - References: FR-ONB-002, DOMAIN-MODEL
 

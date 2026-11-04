@@ -34,7 +34,7 @@ DECLARE t TEXT[];
 BEGIN
     FOREACH t IN ARRAY ARRAY[
         'pending_onboarding','app_session','onboarding_ticket',
-        'countries','education_systems','grade_levels',
+        'countries','education_systems','class_levels',
         'tenants','users','schools','memberships','pkce_codes',
         'students','guardian_student_links'
     ] LOOP
@@ -87,7 +87,7 @@ DECLARE t TEXT[];
 BEGIN
     FOREACH t IN ARRAY ARRAY[
         'pending_onboarding','app_session','onboarding_ticket',
-        'countries','education_systems','grade_levels',
+        'countries','education_systems','class_levels',
         'tenants','users','schools','memberships','pkce_codes',
         'students','guardian_student_links'
     ] LOOP
@@ -122,7 +122,7 @@ DECLARE t TEXT[];
 BEGIN
     FOREACH t IN ARRAY ARRAY[
         'pending_onboarding','app_session','onboarding_ticket',
-        'countries','education_systems','grade_levels',
+        'countries','education_systems','class_levels',
         'tenants','users','schools','memberships','pkce_codes',
         'students','guardian_student_links'
     ] LOOP
@@ -137,7 +137,7 @@ DROP TRIGGER IF EXISTS trigger_set_timestamp ON app_session;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON onboarding_ticket;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON countries;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON education_systems;
-DROP TRIGGER IF EXISTS trigger_set_timestamp ON grade_levels;
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON class_levels;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON tenants;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON users;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON schools;

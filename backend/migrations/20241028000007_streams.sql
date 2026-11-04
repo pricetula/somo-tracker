@@ -5,7 +5,7 @@
 CREATE TABLE streams (
     id              UUID        NOT NULL    DEFAULT uuidv7() PRIMARY KEY,
     school_id       UUID        NOT NULL    REFERENCES schools(id) ON DELETE RESTRICT,
-    grade_level_id  UUID        NOT NULL    REFERENCES grade_levels(id) ON DELETE RESTRICT,
+    class_level_id  UUID        NOT NULL    REFERENCES class_levels(id) ON DELETE RESTRICT,
     name            VARCHAR(64) NOT NULL,
     code            VARCHAR(32),
     description     TEXT,
@@ -14,12 +14,12 @@ CREATE TABLE streams (
     updated_at      TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ,
 
-    CONSTRAINT streams_school_grade_name_uniq UNIQUE (school_id, grade_level_id, name)
+    CONSTRAINT streams_school_grade_name_uniq UNIQUE (school_id, class_level_id, name)
 );
 
 CREATE INDEX streams_school_id_idx ON streams (school_id);
-CREATE INDEX streams_grade_level_id_idx ON streams (grade_level_id);
-CREATE INDEX streams_school_grade_idx ON streams (school_id, grade_level_id);
+CREATE INDEX streams_class_level_id_idx ON streams (class_level_id);
+CREATE INDEX streams_school_grade_idx ON streams (school_id, class_level_id);
 CREATE INDEX streams_name_idx ON streams (name);
 CREATE INDEX streams_deleted_at_idx ON streams (deleted_at) WHERE deleted_at IS NULL;
 
@@ -49,7 +49,7 @@ ALTER TABLE streams DISABLE ROW LEVEL SECURITY;
 DROP INDEX IF EXISTS streams_deleted_at_idx;
 DROP INDEX IF EXISTS streams_name_idx;
 DROP INDEX IF EXISTS streams_school_grade_idx;
-DROP INDEX IF EXISTS streams_grade_level_id_idx;
+DROP INDEX IF EXISTS streams_class_level_id_idx;
 DROP INDEX IF EXISTS streams_school_id_idx;
 DROP TABLE IF EXISTS streams;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON streams;

@@ -16,11 +16,11 @@ touches: []
 - **Membership** -> User + School + Role. Role is one of Platform Operator, Tenant Owner, Headteacher, School Administrator/Registrar, Teacher, Finance Officer, Guardian
 - **AcademicYear** -> contains three **Term**
 - **ClassLevel** -> PP1, PP2, Grade 1-9
-- **Stream** -> subdivision of GradeLevel within School; used to group students of the same grade
+- **Stream** -> subdivision of ClassLevel within School; used to group students of the same grade
 - **Student** -> has lifecycle states applicant, active, transferred out, withdrawn, graduated; linked to Guardian
 - **Enrollment** -> Student + ClassLevel + Stream + Term. Invariant: one active enrollment per student per term
 - **Attendance** -> daily mark per enrollment: Present, Late, Absent, Excused. Edits after day close require reason and audit
-- **Subject** -> tied to EducationSystem + GradeLevel (global reference); contains **Topic**, contains **Subtopic**
+- **Subject** -> tied to EducationSystem + ClassLevel (global reference); contains **Topic**, contains **Subtopic**
 - **Assessment** -> learner + Subject + Topic + Subtopic + Term + Performance level EE/ME/AE/BE + optional numeric score + comment
 - **ReportCard** -> per learner per term, generated PDF from Assessment + attendance summary, standard table format
 - **FeeStructure** -> per School per ClassLevel per Term with categories tuition, boarding, transport, lunch, other

@@ -37,7 +37,7 @@ Entry format:
   - Context: school structure, CBC
   - References: FR-ONB-002
 
-- **Stream**: a subdivision of GradeLevel within a School e.g., Grade 4 East; used to group students of the same grade
+- **Stream**: a subdivision of ClassLevel within a School e.g., Grade 4 East; used to group students of the same grade
   - Context: class organization, timetable
   - References: FR-ONB-002
 
@@ -74,11 +74,11 @@ Entry format:
   - References: ADR-0002, FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001
 
 
-- **GradeLevel**: PP1, PP2, Grade 1-9; scoped to education system; table = grade_levels; entity = GradeLevel
-  - Context: CBE/CBC structure, subject scope
+- **ClassLevel**: PP1, PP2, Grade 1-9; scoped to education system; table = grade_levels; entity = ClassLevel
+  - Context: CBE/CBC structure, subject scope, stream grouping
   - References: FR-ONB-002, DOMAIN-MODEL
 
-- **Subject**: global reference tied to EducationSystem and GradeLevel; contains Topics; replaces LearningArea
+- **Subject**: global reference tied to EducationSystem and ClassLevel; contains Topics; replaces LearningArea
   - Context: CBE curriculum, assessment mapping
   - References: DOMAIN-MODEL
 

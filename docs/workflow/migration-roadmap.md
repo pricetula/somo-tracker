@@ -8,7 +8,7 @@ Status: planning. Do not implement until spec is approved.
 * Performance levels are per-school, not enum, to stay education-system-agnostic.
 
 ## 1. performance_levels
-Education-system-agnostic rating scale per school.
+Education-system-agnostic rating scale per school, used to map raw results to a qualitative level.
 
 Columns:
 * id uuidv7 PK
@@ -19,6 +19,7 @@ Columns:
 * sequence_index int NOT NULL
 * created_at/updated_at/deleted_at timestamptz
 Unique school_id, code. Unique school_id, sequence_index.
+Note: Some schools may use only raw scores. performance_level_id on assessments is therefore nullable and mapping is school-defined.
 
 ## 2. attendance
 Daily attendance per enrollment.
@@ -36,20 +37,26 @@ Unique enrollment_id, school_day.
 RLS via schools.
 
 ## 3. assessments
-Learner performance per subject/topic/subtopic/term.
+Learner performance per subject/topic/subtopic/term with both raw results and optional mapped performance level.
 
 Columns:
 * id uuidv7 PK
 * student_id uuid FK students.id RESTRICT
+* classroom_id uuid FK classrooms.id RESTRICT
 * subject_id uuid FK subjects.id RESTRICT
 * topic_id uuid FK topics.id RESTRICT
 * subtopic_id uuid FK subtopics.id RESTRICT
 * term_id uuid FK terms.id RESTRICT
-* performance_level_id uuid FK performance_levels.id RESTRICT
-* numeric_score numeric
+* assessment_date date NOT NULL
+* raw_score numeric
+* max_score numeric
+* performance_level_id uuid FK performance_levels.id RESTRICT  -- nullable, school-dependent
 * comment text
 * created_at/updated_at/deleted_at
+Unique student_id, subject_id, topic_id, subtopic_id, term_id, assessment_date.
 RLS via schools.
+
+Start order consideration: assessments depends on performance_levels for mapping, but assessments can be built first with nullable performance_level_id and raw_score only, then performance_levels added later.
 
 ## 4. report_cards
 Generated term report per student.

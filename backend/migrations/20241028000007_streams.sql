@@ -78,8 +78,6 @@ ALTER TABLE streams DISABLE ROW LEVEL SECURITY;
 DROP INDEX IF EXISTS streams_deleted_at_idx;
 DROP INDEX IF EXISTS streams_name_idx;
 DROP INDEX IF EXISTS streams_school_name_idx;
-DROP INDEX IF EXISTS streams_school_grade_idx;
-DROP INDEX IF EXISTS streams_class_level_id_idx;
 DROP INDEX IF EXISTS streams_school_id_idx;
 DROP TABLE IF EXISTS streams;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON streams;

@@ -9,9 +9,9 @@ CREATE TYPE tenant_status AS ENUM ('ACTIVE', 'SUSPENDED');
 -- Country: table of countries supported by the SIS. Country codes follow
 -- ISO 3166-1 alpha-2 (e.g., KE, TZ, UG, RW).
 CREATE TABLE countries (
-    id            UUID        NOT NULL    DEFAULT gen_random_uuid() PRIMARY KEY,
+    id            UUID        NOT NULL    DEFAULT uuidv7() PRIMARY KEY,
     country_name  VARCHAR(255) NOT NULL,
-    country_code  VARCHAR(3)   NOT NULL,
+    country_code  VARCHAR(2)   NOT NULL,
     created_at    TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
     updated_at    TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
 
@@ -26,7 +26,7 @@ CREATE INDEX countries_created_at_idx ON countries (created_at DESC);
 -- Reference table of education systems (e.g., Competency-Based Education / CBE).
 -- Each education system belongs to exactly one country.
 CREATE TABLE education_systems (
-    id            UUID        NOT NULL    DEFAULT gen_random_uuid() PRIMARY KEY,
+    id            UUID        NOT NULL    DEFAULT uuidv7() PRIMARY KEY,
     country_id    UUID        NOT NULL    REFERENCES countries(id) ON DELETE CASCADE,
     system_name   VARCHAR(255) NOT NULL,
     description   TEXT,
@@ -44,7 +44,7 @@ ALTER TABLE education_systems ADD CONSTRAINT education_systems_country_name_uniq
 -- Grade levels scoped to a specific education system and country.
 -- Example: (CBE, Kenya) -> PP1, Grade 1..6, Grade 7..9 (Junior Sec), Grade 10..12 (Senior Sec).
 CREATE TABLE class_levels (
-    id                  UUID        NOT NULL    DEFAULT gen_random_uuid() PRIMARY KEY,
+    id                  UUID        NOT NULL    DEFAULT uuidv7() PRIMARY KEY,
     education_system_id UUID        NOT NULL    REFERENCES education_systems(id) ON DELETE CASCADE,
     tier_stage          VARCHAR(64)  NOT NULL,
     local_label         VARCHAR(64)  NOT NULL,
@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS pkce_codes (
     code_verifier_hash BYTEA NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (pending_onboarding_id)
 );
 

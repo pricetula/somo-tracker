@@ -11,11 +11,13 @@ CREATE TABLE academic_years (
     is_current      BOOLEAN     NOT NULL    DEFAULT false,
     created_at      TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ,
     UNIQUE (school_id, year_label)
 );
 
 CREATE INDEX academic_years_school_id_idx ON academic_years (school_id);
 CREATE INDEX academic_years_is_current_idx ON academic_years (school_id, is_current) WHERE is_current = true;
+CREATE INDEX academic_years_deleted_at_idx ON academic_years (deleted_at) WHERE deleted_at IS NULL;
 
 -- terms: 1, 2, 3 per academic year
 CREATE TABLE terms (
@@ -27,11 +29,13 @@ CREATE TABLE terms (
     end_date        DATE           NOT NULL,
     created_at      TIMESTAMPTZ    NOT NULL    DEFAULT NOW(),
     updated_at      TIMESTAMPTZ    NOT NULL    DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ,
     UNIQUE (academic_year_id, sequence_index)
 );
 
 CREATE INDEX terms_academic_year_id_idx ON terms (academic_year_id);
 CREATE UNIQUE INDEX terms_year_seq_uniq ON terms (academic_year_id, sequence_index);
+CREATE INDEX terms_deleted_at_idx ON terms (deleted_at) WHERE deleted_at IS NULL;
 
 -- enrollments: one active per student per term (DB enforced)
 CREATE TABLE enrollments (
@@ -41,7 +45,8 @@ CREATE TABLE enrollments (
     term_id           UUID        NOT NULL    REFERENCES terms(id) ON DELETE RESTRICT,
     status            enrollment_status NOT NULL DEFAULT 'ACTIVE',
     created_at        TIMESTAMPTZ NOT NULL    DEFAULT NOW(),
-    updated_at        TIMESTAMPTZ NOT NULL    DEFAULT NOW()
+    updated_at        TIMESTAMPTZ NOT NULL    DEFAULT NOW(),
+    deleted_at        TIMESTAMPTZ
 );
 
 CREATE INDEX enrollments_student_id_idx ON enrollments (student_id);
@@ -52,6 +57,7 @@ CREATE INDEX enrollments_active_student_term_idx ON enrollments (student_id, ter
 -- DB enforcement: exactly one ACTIVE enrollment per (student, term)
 CREATE UNIQUE INDEX enrollments_active_student_term_uniq
     ON enrollments (student_id, term_id) WHERE status = 'ACTIVE';
+CREATE INDEX enrollments_deleted_at_idx ON enrollments (deleted_at) WHERE deleted_at IS NULL;
 
 -- updated_at triggers (applied per-table)
 CREATE OR REPLACE FUNCTION trigger_set_timestamp()

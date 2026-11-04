@@ -62,6 +62,7 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		"tenants", "users", "schools", "memberships", "pkce_codes",
 		"countries", "education_systems", "grade_levels",
 		"students", "guardian_student_links",
+		"subjects", "topics", "subtopics",
 	}
 	indexes := []string{
 		"idx_pending_onboarding_email", "idx_pending_onboarding_tenant",
@@ -77,6 +78,16 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		"guardian_student_links_membership_id_idx",
 		"guardian_student_links_student_id_idx",
 		"guardian_student_links_emergency_uniq_idx",
+		"subjects_education_id_idx",
+		"subjects_grade_level_id_idx",
+		"subjects_name_idx",
+		"subjects_deleted_at_idx",
+		"topics_subject_id_idx",
+		"topics_name_idx",
+		"topics_deleted_at_idx",
+		"subtopics_topic_id_idx",
+		"subtopics_name_idx",
+		"subtopics_deleted_at_idx",
 	}
 	fkNames := []string{
 		"app_session_user_id_fkey", "app_session_tenant_id_fkey",
@@ -142,6 +153,9 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		{"memberships", "INSERT INTO memberships (user_id, school_id, role) SELECT u.id, s.id, 'teacher' FROM users u JOIN schools s ON s.tenant_id=u.tenant_id AND s.code='S' WHERE u.tenant_id=(SELECT id FROM tenants WHERE name='t1') ON CONFLICT DO NOTHING", true},
 		{"students", "INSERT INTO students (school_id, admission_number, full_name, date_of_birth, gender) SELECT id, 'A001', 'Alice', '2010-01-01', 'F' FROM schools WHERE code='S' ON CONFLICT DO NOTHING", true},
 		{"guardian_student_links", "INSERT INTO guardian_student_links (guardian_id, student_id, relationship_type) SELECT m.id, s.student_id, 'Parent' FROM memberships m CROSS JOIN students s WHERE m.user_id IN (SELECT id FROM users WHERE email_normalized='a@b.c') ON CONFLICT DO NOTHING", true},
+		{"subjects", "INSERT INTO subjects (education_system_id, grade_level_id, name, code) SELECT es.id, gl.id, 'Mathematics', 'MATH' FROM education_systems es JOIN grade_levels gl ON gl.education_system_id = es.id ON CONFLICT DO NOTHING", true},
+		{"topics", "INSERT INTO topics (subject_id, name, sequence_index) SELECT s.id, 'Algebra', 1 FROM subjects s WHERE s.code = 'MATH' ON CONFLICT DO NOTHING", true},
+		{"subtopics", "INSERT INTO subtopics (topic_id, name, sequence_index) SELECT t.id, 'Linear Equations', 1 FROM topics t WHERE t.name = 'Algebra' ON CONFLICT DO NOTHING", true},
 	}
 	for _, r := range sampleRows {
 		if _, err := db.Exec(r.insertSQL); err != nil {

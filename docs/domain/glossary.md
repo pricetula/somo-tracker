@@ -30,7 +30,7 @@ Entry format:
   - References: FR-FND-007
 
 - **Academic Year / Term**: a school-defined year containing three terms
-  - Context: enrollment, assessment, fees
+  - Context: enrollment, fees
   - References: FR-ONB-002
 
 - **Class Level**: PP1, PP2, Grade 1 to 9
@@ -53,9 +53,7 @@ Entry format:
   - Context: attendance analytics
   - References: FR-DASH-004
 
-- **Performance level**: CBC rating EE, ME, AE, BE assigned to a learner per Subject / Topic / Subtopic
-  - Context: assessment
-  - References: FR-ASM-002
+
 
 - **UPI/NEMIS number**: optional unique pupil identifier
   - Context: identifiers
@@ -78,19 +76,19 @@ Entry format:
   - Context: CBE/CBC structure, subject scope, stream grouping
   - References: FR-ONB-002, DOMAIN-MODEL
 
-- **Classroom** (class room): School + ClassLevel + Stream; table = `classrooms`; RLS via schools. Example: Grade 1 Blue; logical classroom for attendance/assessment
-  - Context: class organization, attendance, assessment scoping
+- **Classroom** (class room): School + ClassLevel + Stream; table = `classrooms`; RLS via schools. Example: Grade 1 Blue; logical classroom for attendance
+  - Context: class organization, attendance
   - References: FR-ONB-002, DOMAIN-MODEL
 
 - **Subject**: global reference tied to EducationSystem and ClassLevel; contains Topics; replaces LearningArea
-  - Context: CBE curriculum, assessment mapping
+  - Context: CBE curriculum
   - References: DOMAIN-MODEL
 
 - **Topic**: belongs to a Subject; contains Subtopics; sequence_index for ordering
   - Context: CBE curriculum decomposition
   - References: DOMAIN-MODEL
 
-- **Subtopic**: belongs to a Topic; finest-grained CBE unit for assessment
-  - Context: CBE assessment mapping (FR-ASM-002)
+- **Subtopic**: belongs to a Topic; finest-grained CBE unit
+  - Context: CBE curriculum
   - References: DOMAIN-MODEL
 

@@ -12,7 +12,7 @@ touches: []
 
 ### Teacher
 - **Login:** Yes
-- **Goals:** Mark daily attendance in <60s, record CBC performance levels per learning area/strand/sub-strand, add behavior/health notes, view timetable
+- **Goals:** Mark daily attendance in <60s, add behavior/health notes, view timetable
 - **Pain points:** Paper registers, re-entry for reports, intermittent connectivity, time-consuming roll-call
 
 ### School Administrator / Registrar
@@ -32,7 +32,7 @@ touches: []
 
 ### Guardian
 - **Login:** Yes
-- **Goals:** View attendance, assessment/report cards, fee statement for linked children; receive absence and report availability notifications by email MVP
+- **Goals:** View attendance, fee statement for linked children; receive absence notifications by email MVP
 - **Pain points:** Lack of timely updates, unclear fees, difficulty contacting school
 
 ### Tenant Owner
@@ -48,6 +48,6 @@ touches: []
 - **Pain points:** Tenant isolation compliance, support escalation visibility
 
 ### Student
-- **Login:** No account; short-lived token only
-- **Goals:** Access assigned quizzes via system-generated token, auto-graded results linked to profile
-- **Pain points:** Needs reliable token delivery, no profile management needed
+- **Login:** No account
+- **Goals:** 
+- **Pain points:** 

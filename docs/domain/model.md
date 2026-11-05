@@ -22,8 +22,6 @@ touches: []
 - **Enrollment** -> Student + Classroom + Term. Invariant: one active enrollment per student per term
 - **Attendance** -> daily mark per enrollment: Present, Late, Absent, Excused. Edits after day close require reason and audit
 - **Subject** -> tied to EducationSystem + ClassLevel (global reference); contains **Topic**, contains **Subtopic**
-- **Assessment** -> learner + Subject + Topic + Subtopic + Term + Performance level EE/ME/AE/BE + optional numeric score + comment
-- **ReportCard** -> per learner per term, generated PDF from Assessment + attendance summary, standard table format
 - **FeeStructure** -> per School per ClassLevel per Term with categories tuition, boarding, transport, lunch, other
 - **Payment** -> per student, method, reference, date, amount, receipt issued
 - **AuditLog** -> create/update/delete/view events on health, behavior, fee records with actor, timestamp, record ID

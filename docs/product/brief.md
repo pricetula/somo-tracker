@@ -9,7 +9,7 @@ touches: []
 # Product Brief
 
 ## One-liner
-Give Kenyan schools PP1 to Grade 9 under CBC one fast, reliable system for attendance, assessment, welfare, and fees.
+Give Kenyan schools PP1 to Grade 9 under CBC one fast, reliable system for attendance, welfare, and fees.
 
 ## Target users
 - Kenyan primary and junior secondary schools, day and boarding, PP1 to Grade 9 under CBC
@@ -23,7 +23,7 @@ Give Kenyan schools PP1 to Grade 9 under CBC one fast, reliable system for atten
 - Student via short-lived quiz token, no account
 
 ## Core value proposition
-Mobile-first, intermittently-connected platform that consolidates attendance, CBC assessment and report cards, welfare notes, and fees into one tenant-scoped system. Reduces admin time on attendance reporting, report card preparation and fee statements while giving guardians timely visibility.
+Mobile-first, intermittently-connected platform that consolidates attendance, welfare notes, and fees into one tenant-scoped system. Reduces admin time on attendance reporting and fee statements while giving guardians timely visibility.
 
 ### Assumptions
 - A1: Most teachers and guardians use mobile phones with intermittent connectivity

@@ -23,7 +23,6 @@ Implement server-side role checks on every request per NFR-SEC-002. No teacher a
 | School settings | Full | Edit | View | Edit | None | None | None |
 | Student records | None | View (all schools) | View | Edit | View (own classes) | View basic (billing fields only) | View (own children) |
 | Attendance | None | View (all schools) | View | Edit | Edit (own classes) | None | View (own children) |
-| Assessment | None | View (all schools) | View | View | Edit (own subjects) | None | View (own children) |
 | Health and vaccination | None | View (all schools) | View | View | Edit (assigned role only) | None | View (own children) |
 | Behavior | None | View (all schools) | View | View | Create and edit own | None | View (own children) |
 | Fee structures | None | View (all schools) | View | Edit | None | Edit | None |

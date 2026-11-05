@@ -22,6 +22,21 @@ touches: []
 - **Enrollment** -> Student + Classroom + Term. Invariant: one active enrollment per student per term
 - **Attendance** -> daily mark per enrollment: Present, Late, Absent, Excused. Edits after day close require reason and audit
 - **Subject** -> tied to EducationSystem + ClassLevel (global reference); contains **Topic**, contains **Subtopic**
+- **EducationSystem** -> national education system (Kenya CBC, Tanzania NECTA) with display settings (show_rank); **existing global entity** (table `education_systems`)
+- **SchoolAssessmentSettings** -> per-school assessment configuration: working scale `percentage`/`level_points`, default grading scheme family, default computation policy family
+- **GradingSchemeTemplate** -> global read-only platform-managed template per education system; marked with `is_recommended_default`
+- **GradingSchemeTemplateBand** -> bands belonging to a template, tiling 0-100 without gaps/overlaps
+- **GradingScheme** -> tenant-scoped versioned working copy of a scheme, grouped by `family_id` and optionally linked to `template_id`
+- **GradingBand** -> row in a tenant scheme with label, min/max percentage, point value, description; powers percentage↔level↔points conversion
+- **ClassTeacherAssignment** -> assigns a teacher to a classroom for an academic year
+- **SubjectOffering** -> Subject taught in a Classroom for an AcademicYear with assigned Teacher; may override grading scheme family and computation policy family
+- **Assessment** -> one marked activity (test, quiz, project, exam) for a SubjectOffering in a Term; category (formative/summative), scoring mode (percentage/rubric), status (draft/open/finalized)
+- **AssessmentResult** -> one per Enrollment per Assessment; raw entry (mark or level), converted working value, derived grade, status (entered/absent/excused/not_marked), source ref for future quiz integration
+- **ComputationPolicy** -> versioned school-owned policy grouped by `family_id`; category weights, selection (all/last N), aggregation, rounding rule `nearest`/`down`, missing-data rule; default + per-subject override via family reference
+- **TermResult** -> computed per Enrollment per SubjectOffering per Term; working value, final grade, exact `computation_policy_id` and `grading_scheme_id` used, status `computed`/`incomplete`; recomputable until report card published
+- **TermResultInput** -> explanation rows linking TermResult to each AssessmentResult considered, with inclusion flag and drop reason
+- **ReportCard** -> per Enrollment per Term with lifecycle (draft/reviewed/approved/published/revised), remarks, version
+- **ReportCardLine** -> snapshot per subject at publication: final grade, working value, subject remark, grading labels as published
 - **FeeStructure** -> per School per ClassLevel per Term with categories tuition, boarding, transport, lunch, other
 - **Payment** -> per student, method, reference, date, amount, receipt issued
 - **AuditLog** -> create/update/delete/view events on health, behavior, fee records with actor, timestamp, record ID

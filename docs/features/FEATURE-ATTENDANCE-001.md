@@ -17,7 +17,6 @@ Per-class aggregate attendance, SMS notifications, guardian notifications in v1.
 ## Domain references
 docs/domain/glossary.md
 docs/domain/model.md
-docs/workflow/notes-calendar-timetable.md
 docs/features/FEATURE-SCHOOL-DATES-EVENTS-001.md
 docs/features/FEATURE-TIMETABLE-001.md
 

@@ -17,7 +17,6 @@ Per-period attendance, room booking, multiple teachers per subject offering, tim
 ## Domain references
 docs/domain/glossary.md
 docs/domain/model.md
-docs/workflow/notes-calendar-timetable.md
 docs/features/FEATURE-SCHOOL-DATES-EVENTS-001.md
 
 ## Acceptance criteria

@@ -17,8 +17,6 @@ Timetable, per-period attendance, SMS notifications, country holiday inheritance
 ## Domain references
 docs/domain/glossary.md
 docs/domain/model.md
-docs/workflow/notes-calendar-timetable.md
-docs/workflow/assessment-gaps-notes.md
 
 ## Acceptance criteria
 - AC-1: `school_off_dates` supports create/update/delete per school with fields `school_id, date, off_type, note`. Presence of row means date is off.

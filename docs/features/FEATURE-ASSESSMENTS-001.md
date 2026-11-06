@@ -49,7 +49,7 @@ Included:
 
 Excluded:
 
-- Attendance, fees, timetable, and school administration unrelated to assessment.
+- Attendance, timetable, and school administration unrelated to assessment.
 - Official KNEC/NECTA data exchange, uploads, or certification.
 - Class ranking/position calculation.
 - Strand/sub-strand assessment breakdowns.

@@ -37,9 +37,7 @@ touches: []
 - **TermResultInput** -> explanation rows linking TermResult to each AssessmentResult considered, with inclusion flag and drop reason
 - **ReportCard** -> per Enrollment per Term with lifecycle (draft/reviewed/approved/published/revised), remarks, version
 - **ReportCardLine** -> snapshot per subject at publication: final grade, working value, subject remark, grading labels as published
-- **FeeStructure** -> per School per ClassLevel per Term with categories tuition, boarding, transport, lunch, other
-- **Payment** -> per student, method, reference, date, amount, receipt issued
-- **AuditLog** -> create/update/delete/view events on health, behavior, fee records with actor, timestamp, record ID
+- **AuditLog** -> create/update/delete/view events on health, behavior records with actor, timestamp, record ID
 - **Invite** -> email invite to staff/guardian with status pending/accepted/expired, expires after 7 days
 - **NeedsAttention** -> system-generated tasks e.g., class attendance not marked by 10:00, timetable slot without teacher, invite pending >3 days
 - **PendingOnboarding** -> verified email, status, current_step, form_data, stytch_organization_id nullable, stytch_member_id nullable, tenant_id nullable. Created after successful Stytch Discovery authentication, before tenant provisioning. Never stores IST or magic-link token.

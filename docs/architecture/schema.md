@@ -67,13 +67,6 @@ This document is the single source of truth for the school management system sch
 | report_cards | Report card lifecycle | draft | FEATURE-ASSESSMENTS-001 |
 | report_card_lines | Snapshot lines at publication | draft | FEATURE-ASSESSMENTS-001 |
 
-## Finance
-| Table | Purpose | Status | Spec |
-|-------|---------|--------|------|
-| fee_structures | Fee categories per school/class/term | planned | DOMAIN-MODEL |
-| payments | Student payments & receipts | planned | DOMAIN-MODEL |
-| fee_waivers_discounts_write_offs | Waivers / discounts / write-offs | planned | DOMAIN-MODEL |
-
 ## Welfare
 | Table | Purpose | Status | Spec |
 |-------|---------|--------|------|

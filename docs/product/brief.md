@@ -9,7 +9,7 @@ touches: []
 # Product Brief
 
 ## One-liner
-Give Kenyan schools PP1 to Grade 9 under CBC one fast, reliable system for attendance, welfare, and fees.
+Give Kenyan schools PP1 to Grade 9 under CBC one fast, reliable system for attendance and welfare.
 
 ## Target users
 - Kenyan primary and junior secondary schools, day and boarding, PP1 to Grade 9 under CBC
@@ -18,12 +18,11 @@ Give Kenyan schools PP1 to Grade 9 under CBC one fast, reliable system for atten
 - Headteacher
 - School Administrator / Registrar
 - Teacher
-- Finance Officer
 - Guardian
 - Student via short-lived quiz token, no account
 
 ## Core value proposition
-Mobile-first, intermittently-connected platform that consolidates attendance, welfare notes, and fees into one tenant-scoped system. Reduces admin time on attendance reporting and fee statements while giving guardians timely visibility.
+Mobile-first, intermittently-connected platform that consolidates attendance and welfare notes into one tenant-scoped system. Reduces admin time on attendance reporting while giving guardians timely visibility.
 
 ### Assumptions
 - A1: Most teachers and guardians use mobile phones with intermittent connectivity
@@ -32,7 +31,7 @@ Mobile-first, intermittently-connected platform that consolidates attendance, we
 
 ## Success metrics
 - SM-1: Median time to complete daily class roll-call under 60 seconds on a mid-range phone
-- SM-2: Admin time on attendance reporting, report card preparation, and fee statements reduced by target percentage vs pilot baseline at onboarding and end of Term 1
+- SM-2: Admin time on attendance reporting and report card preparation reduced by target percentage vs pilot baseline at onboarding and end of Term 1
 - SM-3: 500-student CSV import completes in under 30 seconds with per-row error reporting
 - SM-4: At least 70% of active guardians view at least one update per term
 
@@ -52,4 +51,4 @@ PP1, PP2, Grades 1-6 Primary, Grades 7-9 Junior Secondary, day and boarding scho
 Senior School Grade 10+, payroll, library, inventory, M-Pesa gateway integration, NEMIS sync
 
 ### Non-goals
-Per-period attendance, per-school report card customization, billing in MVP, SMS notifications in MVP, Swahili launch, statistical at-risk prediction
+Per-period attendance, per-school report card customization, SMS notifications in MVP, Swahili launch, statistical at-risk prediction

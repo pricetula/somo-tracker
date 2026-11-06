@@ -25,15 +25,10 @@ touches: []
 - **Goals:** Oversight dashboards, approvals, reports by school/level/stream, address absenteeism hotspots
 - **Pain points:** Delayed visibility into attendance and performance, scattered records
 
-### Finance Officer
-- **Login:** Yes
-- **Goals:** Define fee structures per class/term, record payments manually or CSV, issue receipts, view per-student balance and collection rates, arrears list
-- **Pain points:** Reconciliation time, guardian queries, manual statements
-
 ### Guardian
 - **Login:** Yes
-- **Goals:** View attendance, fee statement for linked children; receive absence notifications by email MVP
-- **Pain points:** Lack of timely updates, unclear fees, difficulty contacting school
+- **Goals:** View attendance for linked children; receive absence notifications by email MVP
+- **Pain points:** Lack of timely updates, difficulty contacting school
 
 ### Tenant Owner
 - **Login:** Yes

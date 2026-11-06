@@ -36,34 +36,6 @@ Columns:
 * reason text
 Created in same transaction as change. RLS via schools.
 
-## 2. fee_structures
-Fee categories per school/class/term.
-
-Columns:
-* id uuidv7 PK
-* school_id uuid FK schools.id RESTRICT
-* class_level_id uuid FK class_levels.id RESTRICT
-* term_id uuid FK terms.id RESTRICT
-* category varchar(64) NOT NULL
-* amount_minor bigint NOT NULL
-* description text
-* created_at/updated_at/deleted_at
-Unique school_id, class_level_id, term_id, category.
-
-## 3. payments
-Student payments and receipts.
-
-Columns:
-* id uuidv7 PK
-* student_id uuid FK students.id RESTRICT
-* tenant_id uuid FK tenants.id
-* amount_minor bigint NOT NULL
-* method varchar(64)
-* reference varchar(128)
-* paid_at date NOT NULL
-* receipt_url text
-* created_at/updated_at/deleted_at
-
 ## 4. audit_logs
 Immutable audit trail.
 

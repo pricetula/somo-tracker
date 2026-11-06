@@ -17,7 +17,7 @@ Entry format:
   - Context: multi-tenancy, RBAC
   - References: FR-FND-001, ADR-0001 Tenancy Model
 
-- **School**: a single institution within a tenant, with its own classes, staff, students, and fees
+- **School**: a single institution within a tenant, with its own classes, staff, students
   - Context: school structure, onboarding
   - References: FR-ONB-001
 
@@ -30,7 +30,7 @@ Entry format:
   - References: FR-FND-007
 
 - **Academic Year / Term**: a school-defined year containing three terms
-  - Context: enrollment, fees
+  - Context: enrollment
   - References: FR-ONB-002
 
 - **Class Level**: PP1, PP2, Grade 1 to 9

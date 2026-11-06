@@ -16,6 +16,10 @@ Last updated: 2026-11-01
      * Do we need a per-school `school_calendar` table with `school_day` dates, `is_school_day`, `is_holiday` flags?
      * How to handle different calendars per school within the same tenant?
      * Does day close use calendar to define “today”? Africa/Nairobi time zone?
+   * Decisions:
+     * Yes, model `school_calendar` per school with `date` and `is_holiday` flag only. `is_school_day` is implied by `is_holiday = false` and date falling within an active term. This accommodates school trip days for certain classes via class-level overrides later if needed.
+     * Each school has its own calendar entries; calendars are scoped to `school_id`, not tenant.
+     * Day close is defined as the end of the Africa/Nairobi calendar day. Store timestamps in UTC in DB, convert to Africa/Nairobi for “today”/day-close logic.
 
 2. **Timetable**
    * Needed for: linking subject, teacher, classroom, and time slot per day; attendance is per class/day, but timetable defines which teacher is present and which subjects are scheduled.

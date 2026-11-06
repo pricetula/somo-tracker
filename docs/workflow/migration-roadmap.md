@@ -6,20 +6,35 @@ Status: planning. Do not implement until spec is approved.
 * All tables use `uuidv7()` PK, `created_at/updated_at/deleted_at`, soft delete partial index.
 * Every multi-tenant table gets RLS + tenant isolation policy.
 
-## 1. attendance
-Daily attendance per enrollment.
+## 1. attendance_marks
+Per-period attendance per enrollment.
 
 Columns:
 * id uuidv7 PK
+* timetable_assignment_id uuid FK timetable_assignments.id RESTRICT
 * enrollment_id uuid FK enrollments.id RESTRICT
-* school_day date NOT NULL
+* date date NOT NULL
 * status enum(PRESENT,LATE,ABSENT,EXCUSED) NOT NULL
 * marked_by uuid FK users.id
 * marked_at timestamptz NOT NULL DEFAULT NOW()
-* edit_reason text
+* reason text
+* updated_at timestamptz
 * created_at/updated_at/deleted_at
-Unique enrollment_id, school_day.
+Unique timetable_assignment_id, enrollment_id, date.
 RLS via schools.
+
+## 1a. attendance_audit_log
+Audit trail for attendance edits after day close.
+
+Columns:
+* id uuidv7 PK
+* attendance_marks_id uuid FK attendance_marks.id RESTRICT
+* old_status text
+* new_status text
+* changed_by uuid FK users.id
+* changed_at timestamptz NOT NULL DEFAULT NOW()
+* reason text
+Created in same transaction as change. RLS via schools.
 
 ## 2. fee_structures
 Fee categories per school/class/term.

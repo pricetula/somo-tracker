@@ -160,4 +160,8 @@ Entry format:
   - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
 
 
+- **Attendance Mark**: per-period attendance record for an enrollment tied to `timetable_assignment_id` + `date`. Status is Present, Late, Absent, Excused. Edits after day close require reason and create audit log.
+  - Context: attendance
+  - References: FEATURE-ATTENDANCE-001, DOMAIN-MODEL
+
 ---

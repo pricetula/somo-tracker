@@ -20,7 +20,7 @@ touches: []
 - **Classroom** -> logical classroom = School + ClassLevel + Stream; e.g., "Grade 1 Blue"; table `classrooms`; has RLS
 - **Student** -> has lifecycle states applicant, active, transferred out, withdrawn, graduated; linked to Guardian
 - **Enrollment** -> Student + Classroom + Term. Invariant: one active enrollment per student per term
-- **Attendance** -> daily mark per enrollment: Present, Late, Absent, Excused. Edits after day close require reason and audit
+- **Attendance** -> per-period mark per enrollment tied to `timetable_assignment_id` + `date`: Present, Late, Absent, Excused. Edits after day close require reason and audit
 - **Subject** -> tied to EducationSystem + ClassLevel (global reference); contains **Topic**, contains **Subtopic**
 - **EducationSystem** -> national education system (Kenya CBC, Tanzania NECTA) with display settings (show_rank); **existing global entity** (table `education_systems`)
 - **SchoolAssessmentSettings** -> per-school assessment configuration: working scale `percentage`/`level_points`, default grading scheme family, default computation policy family

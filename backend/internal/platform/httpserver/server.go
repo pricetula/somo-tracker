@@ -15,16 +15,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"somotracker/internal/identity/handler"
 	"somotracker/internal/platform/apperr"
-)
-
-// Context keys for request-scoped values
-type ctxKey int
-
-const (
-	requestIDKey ctxKey = iota
-	loggerKey
 )
 
 // requestIDPattern validates inbound X-Request-ID headers.
@@ -116,6 +109,48 @@ func LoggerFrom(ctx context.Context) *slog.Logger {
 		return l
 	}
 	return slog.Default()
+}
+
+// TenantIDFrom extracts the tenant ID from context.
+// Returns empty string if not set.
+func TenantIDFrom(ctx context.Context) string {
+	if id, ok := ctx.Value(TenantIDKey{}).(string); ok {
+		return id
+	}
+	return ""
+}
+
+// SessionContext holds validated session data for request context.
+type SessionContext struct {
+	UserID    uuid.UUID
+	TenantID  uuid.UUID
+	Role      string
+	SessionID uuid.UUID
+}
+
+// MembershipContext holds membership info for RBAC decisions
+type MembershipContext struct {
+	SchoolID uuid.UUID
+	Role     string
+	IsActive bool
+}
+
+// SessionContextFrom extracts the session context from context.
+// Returns nil if not set.
+func SessionContextFrom(ctx context.Context) *SessionContext {
+	if sc, ok := ctx.Value(SessionContextKey{}).(*SessionContext); ok {
+		return sc
+	}
+	return nil
+}
+
+// MembershipsFrom extracts the memberships from context.
+// Returns nil if not set.
+func MembershipsFrom(ctx context.Context) []MembershipContext {
+	if ms, ok := ctx.Value(MembershipsKey{}).([]MembershipContext); ok {
+		return ms
+	}
+	return nil
 }
 
 // ErrorHandler is the central error handler implementing the error contract.
@@ -323,6 +358,10 @@ func New(env string) *Server {
 		AppName:      "Somotracker",
 		ServerHeader: "Somotracker",
 		ErrorHandler: ErrorHandler,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+		BodyLimit:    4 * 1024 * 1024, // 4MB
 	}
 	if env == "production" {
 		cfg.TrustProxy = true
@@ -330,15 +369,8 @@ func New(env string) *Server {
 	}
 	app := fiber.New(cfg)
 
-	// Middleware order (section 7.1):
-	// 1. RequestID - first, always
-	// 2. AccessLog - one completion line per request
-	// 3. Recover - panics become errors handled by ErrorHandler
-	// 4. CORS, security headers, body limit (added by app composition)
-	// 5. Session/auth, tenant resolution (added by app composition)
-	// 6. Routes
-	app.Use(RequestID())
-	app.Use(AccessLog())
+	// Note: RequestID and AccessLog are added by app composition
+	// to allow custom ordering. They are NOT added here.
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: true,
 		StackTraceHandler: func(c fiber.Ctx, e interface{}) {

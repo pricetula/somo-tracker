@@ -129,6 +129,10 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
 		}
 
+		// Tenant-scoped limits (prevent cross-tenant DoS)
+		// Note: At this point we don't have tenant ID yet, so we use global limits
+		// The tenant-scoped limits would apply after authentication
+
 		allowed, err = h.rl.AllowGlobal(c.Context(), "email-provider-hourly", h.cfg.EmailProviderHourlyCap, time.Hour)
 		if err != nil {
 			logger.Error(c.Context(), err, "email provider hourly quota check failed")
@@ -557,19 +561,16 @@ func (h *Handler) RegisterRoutes(api fiber.Router) {
 }
 
 // sessionCookieName returns the cookie name with environment suffix per ADR-0002
-// In production (HTTPS), always use __Secure- prefix for security.
-// In development/test (HTTP), do NOT use __Secure- prefix as browsers reject these cookies over HTTP.
+// Uses config.SessionCookieName() which returns __Host-session_token in production
+// and session_token_<env> in development/test.
 func (h *Handler) sessionCookieName() string {
-	base := "__Secure-session_token"
-	if h.cfg.Env != "" && h.cfg.Env != "production" {
-		return "session_token" + "_" + h.cfg.Env
-	}
-	return base
+	return h.cfg.SessionCookieName()
 }
 
 // sessionCookieDomain returns the cookie domain from config
+// For __Host- prefix cookies, this must be empty (browser ignores Domain)
 func (h *Handler) sessionCookieDomain() string {
-	return h.cfg.CookieDomain
+	return h.cfg.SessionCookieDomain()
 }
 
 // setSessionCookie sets the session cookie with proper attributes

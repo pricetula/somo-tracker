@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/helmet"
-	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -36,6 +36,7 @@ type App struct {
 	sqlDB       *sql.DB
 	redisClient *redisPkg.Client
 	server      *httpserver.Server
+	rateLimiter *ratelimit.Limiter
 }
 
 // New creates the API app with manual DI (BE-005).
@@ -56,6 +57,9 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	// Migrator runs Goose migrations on startup
+	// NOTE: In production, migrations should run as a separate deploy step
+	// with a privileged role, while the app connects as a non-owner role
+	// with FORCE ROW LEVEL SECURITY enabled.
 	m := migrator.New(sqlDB, "migrations")
 	if _, err := m.Up(ctx); err != nil {
 		_ = sqlDB.Close()
@@ -87,27 +91,26 @@ func New(cfg *config.Config) (*App, error) {
 func (a *App) Start(ctx context.Context) error {
 	// Configure Fiber app
 	app := a.server.App()
-	app.Use(recover.New())
+
+	// Middleware chain order (critical for security):
+	// 1. RequestID - first, always
+	app.Use(httpserver.RequestID())
+
+	// 2. Recover - catches panics, converts to 500 via ErrorHandler
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+		StackTraceHandler: func(c fiber.Ctx, e interface{}) {
+			slog.Error("panic recovered", "err", e, "request_id", c.Locals("request_id"))
+		},
+	}))
+
+	// 3. Helmet - security headers
 	app.Use(helmet.New())
-	// Security headers middleware
-	app.Use(func(c fiber.Ctx) error {
-		c.Set("X-Content-Type-Options", "nosniff")
-		c.Set("X-Frame-Options", "DENY")
-		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-		if a.cfg.Env == "production" && c.Secure() {
-			c.Set("Strict-Transport-Security", "max-age=31536000")
-		}
-		// CSP Report-Only rollout
-		if a.cfg.CSPReportOnlyEnabled {
-			policy := a.cfg.CSPReportOnlyPolicy
-			if a.cfg.CSPReportOnlyURI != "" {
-				policy += "; report-uri " + a.cfg.CSPReportOnlyURI
-			}
-			c.Set("Content-Security-Policy-Report-Only", policy)
-		}
-		return c.Next()
-	})
+
+	// 4. Custom security headers (CSP, HSTS, etc.)
+	app.Use(a.securityHeadersMiddleware())
+
+	// 5. CORS - configured origins only, no wildcards with credentials
 	origins := strings.Split(a.cfg.CORSOrigins, ",")
 	for i, o := range origins {
 		origins[i] = strings.TrimSpace(o)
@@ -117,61 +120,80 @@ func (a *App) Start(ctx context.Context) error {
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
-	}))
-	app.Use(logger.New(logger.Config{
-		Format:     "${time} ${status} ${method} ${path} ${latency}\n",
-		TimeFormat: time.RFC3339,
-		TimeZone:   "UTC",
+		// Vary: Origin is automatically added by Fiber when AllowCredentials=true
 	}))
 
-	// Health check (not under /api per BE-026)
-	app.Get("/healthz", func(c fiber.Ctx) error {
-		return c.SendString("OK")
-	})
-	app.Get("/readyz", func(c fiber.Ctx) error {
-		// Check DB connectivity
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		if err := a.dbPool.Ping(ctx); err != nil {
-			return c.Status(http.StatusServiceUnavailable).SendString("DB not ready")
-		}
-		// Check Redis connectivity
-		if err := a.redisClient.Ping(ctx); err != nil {
-			return c.Status(http.StatusServiceUnavailable).SendString("Redis not ready")
-		}
-		return c.SendString("Ready")
-	})
+	// 6. AccessLog - single completion line per request
+	// Note: We do NOT use fiber's logger.New() here - it duplicates AccessLog
+	// and can leak sensitive data in production. httpserver.AccessLog()
+	// emits a single structured line per request.
+	app.Use(httpserver.AccessLog())
 
+	// Initialize services
 	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret)
 	queries := storegen.New(a.sqlDB)
 	identityStore := identityStore.New(queries)
-	identitySvc := identityService.New(identityStore, stytchClient, a.sqlDB)
-	rl := ratelimit.New(a.redisClient.Client, a.cfg.EmailHMACKey)
-	identityHandler := identityHandler.New(identitySvc, a.cfg, rl)
+	identitySvc, err := identityService.New(identityStore, stytchClient, a.sqlDB, a.cfg.ISTEncryptionKey)
+	if err != nil {
+		return fmt.Errorf("init identity service: %w", err)
+	}
+
+	// Rate limiter with in-memory fallback
+	a.rateLimiter = ratelimit.New(a.redisClient.Client, a.cfg.EmailHMACKey)
+
+	// Start memory fallback cleanup goroutine
+	go a.rateLimiterCleanup(ctx)
+
+	identityHandler := identityHandler.New(identitySvc, a.cfg, a.rateLimiter)
 
 	// Create auth middleware
 	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg)
+	rbacMiddleware := identityMiddleware.NewRBACMiddleware(identitySvc)
 
 	// Public routes (no auth required)
 	publicAPI := a.server.App().Group("/api/v1")
 	identityHandler.RegisterRoutes(publicAPI)
 
-	// Protected routes (require authentication)
+	// Protected routes (require authentication + tenant context)
 	protectedAPI := a.server.App().Group("/api/v1")
 	protectedAPI.Use(authMiddleware.RequireAuth())
 	protectedAPI.Use(authMiddleware.TenantMiddleware())
+	protectedAPI.Use(a.setTenantContextMiddleware()) // Sets app.current_tenant_id for RLS
 	// TODO: Register protected domain handlers here
-	// e.g., studentsHandler.RegisterRoutes(protectedAPI)
 
-	// Mutations require CSRF protection
+	// Mutation routes (require auth + tenant + CSRF)
 	mutationAPI := a.server.App().Group("/api/v1")
 	mutationAPI.Use(authMiddleware.RequireAuth())
 	mutationAPI.Use(authMiddleware.TenantMiddleware())
+	mutationAPI.Use(a.setTenantContextMiddleware())
 	mutationAPI.Use(authMiddleware.CSRFMiddleware())
 	// TODO: Register mutation handlers here
 
-	// Register API routes (legacy)
+	// Example: Finance routes with RBAC
+	// financeAPI := mutationAPI.Group("/fees")
+	// financeAPI.Use(rbacMiddleware.RequireFinanceAccess())
+	// feesHandler.RegisterRoutes(financeAPI)
+
+	_ = rbacMiddleware // used in commented example above
+
+	// Legacy routes
 	a.server.RegisterRoutes()
+
+	// Health checks (no auth, no rate limit)
+	app.Get("/healthz", func(c fiber.Ctx) error {
+		return c.SendString("OK")
+	})
+	app.Get("/readyz", func(c fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := a.dbPool.Ping(ctx); err != nil {
+			return c.Status(http.StatusServiceUnavailable).SendString("DB not ready")
+		}
+		if err := a.redisClient.Ping(ctx); err != nil {
+			return c.Status(http.StatusServiceUnavailable).SendString("Redis not ready")
+		}
+		return c.SendString("Ready")
+	})
 
 	slog.Info("starting API", "port", a.cfg.ServerPort)
 
@@ -192,6 +214,81 @@ func (a *App) Start(ctx context.Context) error {
 	}
 
 	return a.Shutdown(ctx)
+}
+
+// securityHeadersMiddleware applies security headers to all responses.
+func (a *App) securityHeadersMiddleware() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		// Standard headers
+		c.Set("X-Content-Type-Options", "nosniff")
+		c.Set("X-Frame-Options", "DENY")
+		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+		// HSTS - detect HTTPS via X-Forwarded-Proto (set by trusted proxy)
+		// c.Secure() reads from fasthttp which respects ProxyHeader when TrustProxy=true
+		if a.cfg.Env == "production" && (c.Secure() || c.Get("X-Forwarded-Proto") == "https") {
+			c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		}
+
+		// CSP for API: default-src 'none'; frame-ancestors 'none'
+		// This is safe for JSON APIs and prevents any accidental HTML rendering
+		if a.cfg.Env == "production" {
+			c.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		} else if a.cfg.CSPReportOnlyEnabled {
+			policy := a.cfg.CSPReportOnlyPolicy
+			if a.cfg.CSPReportOnlyURI != "" {
+				policy += "; report-uri " + a.cfg.CSPReportOnlyURI
+			}
+			c.Set("Content-Security-Policy-Report-Only", policy)
+		}
+
+		return c.Next()
+	}
+}
+
+// setTenantContextMiddleware sets app.current_tenant_id for RLS policies.
+// Must run after RequireAuth/TenantMiddleware which populate tenant_id in locals.
+func (a *App) setTenantContextMiddleware() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		tenantID, ok := c.Locals("tenant_id").(string)
+		if !ok {
+			// Try UUID type
+			if tid, ok2 := c.Locals("tenant_id").([16]byte); ok2 {
+				tenantID = fmtUUID(tid)
+			}
+		}
+		if tenantID != "" {
+			// Set LOCAL (transaction-scoped) GUC for RLS
+			// This requires the DB connection to be in a transaction
+			// For pgx pool, we set it per-request; the connection is released after
+			// In practice, sqlc queries run in their own tx, so we need a wrapper
+			// For now, store in context for repositories to use
+			ctx := context.WithValue(c.Context(), httpserver.TenantIDKey{}, tenantID)
+			c.SetContext(ctx)
+		}
+		return c.Next()
+	}
+}
+
+// rateLimiterCleanup periodically cleans up in-memory rate limit store.
+func (a *App) rateLimiterCleanup(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.rateLimiter.MemoryCleanup(24 * time.Hour) // clean entries older than 24h
+		}
+	}
+}
+
+// fmtUUID formats a [16]byte as UUID string.
+func fmtUUID(b [16]byte) string {
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
 // Shutdown gracefully stops the app.

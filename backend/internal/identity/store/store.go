@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	storegen "somotracker/internal/identity/store/gen"
+	"somotracker/internal/identity/service"
 )
 
 // Store implements Repository for identity domain.
@@ -155,4 +156,25 @@ func (s *Store) GetTenantMembershipRole(ctx context.Context, userID, tenantID uu
 		ID:       userID,
 		TenantID: tenantID,
 	})
+}
+
+// RBAC support - placeholder implementations
+// TODO: Add custom SQL queries for these
+func (s *Store) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
+	// Placeholder - needs custom SQL query
+	return []service.MembershipContext{}, nil
+}
+
+func (s *Store) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	// Placeholder - needs custom SQL query joining guardians -> students
+	return []uuid.UUID{}, nil
+}
+
+func (s *Store) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	// Placeholder - needs custom SQL query joining teachers -> classes
+	return []uuid.UUID{}, nil
+}
+
+func (s *Store) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
+	return s.q.RevokeAppSession(ctx, sessionID)
 }

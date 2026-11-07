@@ -30,13 +30,13 @@ const (
 )
 
 var (
-	ErrInvalidToken           = errors.New("invalid or expired token")
+	ErrInvalidToken            = errors.New("invalid or expired token")
 	ErrPendingOnboardingNotFound = errors.New("pending onboarding not found")
-	ErrOnboardingNotAllowed   = errors.New("onboarding not allowed at this stage")
-	ErrIdempotencyConflict    = errors.New("idempotency key already used")
-	ErrProvisioningFailed     = errors.New("tenant provisioning failed")
-	ErrSessionNotFound        = errors.New("session not found or expired")
-	ErrRateLimited            = errors.New("rate limit exceeded")
+	ErrOnboardingNotAllowed    = errors.New("onboarding not allowed at this stage")
+	ErrIdempotencyConflict     = errors.New("idempotency key already used")
+	ErrProvisioningFailed      = errors.New("tenant provisioning failed")
+	ErrSessionNotFound         = errors.New("session not found or expired")
+	ErrRateLimited             = errors.New("rate limit exceeded")
 )
 
 // SessionContext holds validated session data for request context.
@@ -45,6 +45,13 @@ type SessionContext struct {
 	TenantID  uuid.UUID
 	Role      string
 	SessionID uuid.UUID
+}
+
+// MembershipContext holds membership info for RBAC decisions
+type MembershipContext struct {
+	SchoolID uuid.UUID
+	Role     string
+	IsActive bool
 }
 
 // OnboardingState represents the onboarding state returned to frontend.
@@ -75,9 +82,10 @@ type ProvisionData struct {
 
 // Service defines business logic for identity domain.
 type Service struct {
-	repo  Repository
-	stytch stytch.Client
-	db    *sql.DB
+	repo           Repository
+	stytch         stytch.Client
+	db             *sql.DB
+	istEncryption  *ISTEncryption
 }
 
 // Repository is domain repository interface, using sqlc-generated types.
@@ -106,11 +114,25 @@ type Repository interface {
 	CreateMembership(ctx context.Context, arg storegen.CreateMembershipParams) (storegen.Membership, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (storegen.User, error)
 	GetTenantMembershipRole(ctx context.Context, userID, tenantID uuid.UUID) (string, error)
+
+	// RBAC support
+	GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]MembershipContext, error)
+	GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
+	GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
+	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
 }
 
 // New creates service.
-func New(repo Repository, stytchClient stytch.Client, db *sql.DB) *Service {
-	return &Service{repo: repo, stytch: stytchClient, db: db}
+func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionKey string) (*Service, error) {
+	var istEnc *ISTEncryption
+	if istEncryptionKey != "" {
+		var err error
+		istEnc, err = NewISTEncryption(istEncryptionKey)
+		if err != nil {
+			return nil, fmt.Errorf("init IST encryption: %w", err)
+		}
+	}
+	return &Service{repo: repo, stytch: stytchClient, db: db, istEncryption: istEnc}, nil
 }
 
 // RequestMagicLink initiates Stytch Discovery magic link flow.
@@ -215,15 +237,23 @@ func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier
 	}
 	ticketHash := sha256.Sum256([]byte(ticketToken))
 
-	// Encrypt IST (in production, use proper encryption)
-	// For now, store as-is with note that it should be encrypted
-	encryptedIST := []byte(resp.IntermediateSessionToken)
+	// Encrypt IST using AES-256-GCM
+	var encryptedIST string
+	if s.istEncryption != nil {
+		encryptedIST, err = s.istEncryption.Encrypt([]byte(resp.IntermediateSessionToken))
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("encrypt IST: %w", err)
+		}
+	} else {
+		// Fallback: store plaintext (dev only)
+		encryptedIST = resp.IntermediateSessionToken
+	}
 
 	expiresAt := time.Now().Add(onboardingTicketTTL)
 	_, err = s.repo.CreateOnboardingTicket(ctx, storegen.CreateOnboardingTicketParams{
 		PendingOnboardingID: pending.ID,
 		TicketHash:          ticketHash[:],
-		EncryptedIst:        encryptedIST,
+		EncryptedIst:        []byte(encryptedIST),
 		ExpiresAt:           expiresAt,
 	})
 	if err != nil {
@@ -346,7 +376,16 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 	txRepo := storegen.New(tx)
 
 	// Exchange IST for Stytch session - best effort, do not fail provisioning if Stytch is unavailable
-	ist := string(ticket.EncryptedIst) // TODO: decrypt
+	var ist string
+	if s.istEncryption != nil {
+		decrypted, err := s.istEncryption.Decrypt(string(ticket.EncryptedIst))
+		if err != nil {
+			return nil, fmt.Errorf("decrypt IST: %w", err)
+		}
+		ist = string(decrypted)
+	} else {
+		ist = string(ticket.EncryptedIst) // dev fallback
+	}
 	_, _ = s.stytch.ExchangeDiscoverySession(ctx, ist)
 
 	// Create local Tenant
@@ -509,6 +548,41 @@ func (s *Service) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// RevokeSession revokes a session by ID (for RBAC fail-closed)
+func (s *Service) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
+	return s.repo.RevokeAppSession(ctx, sessionID)
+}
+
+// GetUserMemberships returns all active memberships for a user in a tenant
+func (s *Service) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]MembershipContext, error) {
+	// This would typically be a custom query; for now we use the existing method
+	// In practice, you'd add a sqlc query for this
+	role, err := s.repo.GetTenantMembershipRole(ctx, userID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if role == "" {
+		return []MembershipContext{}, nil
+	}
+	// We don't have school_id from this method; need a custom query
+	// For now, return empty - this should be implemented with a proper query
+	return []MembershipContext{}, nil
+}
+
+// GetGuardianStudents returns student IDs that a guardian is authorized to access
+func (s *Service) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	// TODO: Implement with custom query joining guardians -> students
+	// For now, return empty - this should be implemented with a proper query
+	return []uuid.UUID{}, nil
+}
+
+// GetTeacherClasses returns class IDs that a teacher is authorized to access
+func (s *Service) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	// TODO: Implement with custom query joining teachers -> classes
+	// For now, return empty - this should be implemented with a proper query
+	return []uuid.UUID{}, nil
 }
 
 // UpdateOnboardingStep updates the current step and form data for pending onboarding.

@@ -16,7 +16,11 @@ import (
 
 // MockSessionValidator implements SessionValidator for testing
 type MockSessionValidator struct {
-	validateSessionFunc func(ctx context.Context, tokenHash []byte) (*service.SessionContext, error)
+	validateSessionFunc       func(ctx context.Context, tokenHash []byte) (*service.SessionContext, error)
+	getUserMembershipsFunc    func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error)
+	getGuardianStudentsFunc   func(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
+	getTeacherClassesFunc     func(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
+	revokeSessionFunc         func(ctx context.Context, sessionID uuid.UUID) error
 }
 
 func (m *MockSessionValidator) ValidateSession(ctx context.Context, tokenHash []byte) (*service.SessionContext, error) {
@@ -24,6 +28,34 @@ func (m *MockSessionValidator) ValidateSession(ctx context.Context, tokenHash []
 		return m.validateSessionFunc(ctx, tokenHash)
 	}
 	return nil, service.ErrSessionNotFound
+}
+
+func (m *MockSessionValidator) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
+	if m.getUserMembershipsFunc != nil {
+		return m.getUserMembershipsFunc(ctx, userID, tenantID)
+	}
+	return []service.MembershipContext{}, nil
+}
+
+func (m *MockSessionValidator) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	if m.getGuardianStudentsFunc != nil {
+		return m.getGuardianStudentsFunc(ctx, guardianUserID, tenantID)
+	}
+	return []uuid.UUID{}, nil
+}
+
+func (m *MockSessionValidator) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	if m.getTeacherClassesFunc != nil {
+		return m.getTeacherClassesFunc(ctx, teacherUserID, tenantID)
+	}
+	return []uuid.UUID{}, nil
+}
+
+func (m *MockSessionValidator) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
+	if m.revokeSessionFunc != nil {
+		return m.revokeSessionFunc(ctx, sessionID)
+	}
+	return nil
 }
 
 // TestRequireAuth_CookieNamePerEnv verifies middleware reads correct cookie name per env
@@ -49,6 +81,9 @@ func TestRequireAuth_CookieNamePerEnv(t *testing.T) {
 						Role:      "tenant_owner",
 					}, nil
 				}
+				m.getUserMembershipsFunc = func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
+					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+				}
 			},
 		},
 		{
@@ -61,14 +96,14 @@ func TestRequireAuth_CookieNamePerEnv(t *testing.T) {
 		{
 			name:       "wrong cookie name (no env suffix in staging)",
 			env:        "staging",
-			cookieName: "__Secure-session_token",
+			cookieName: "__Host-session_token",
 			wantStatus: http.StatusUnauthorized,
 			setupMock:  nil,
 		},
 		{
 			name:       "production env uses base name",
 			env:        "production",
-			cookieName: "__Secure-session_token",
+			cookieName: "__Host-session_token",
 			wantStatus: http.StatusOK,
 			setupMock: func(m *MockSessionValidator) {
 				m.validateSessionFunc = func(ctx context.Context, tokenHash []byte) (*service.SessionContext, error) {
@@ -78,6 +113,9 @@ func TestRequireAuth_CookieNamePerEnv(t *testing.T) {
 						SessionID: uuid.New(),
 						Role:      "tenant_owner",
 					}, nil
+				}
+				m.getUserMembershipsFunc = func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
+					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
 				}
 			},
 		},
@@ -173,6 +211,9 @@ func TestRequireAuth_ValidatesExpiryRevocation(t *testing.T) {
 						Role:      "tenant_owner",
 					}, nil
 				},
+				getUserMembershipsFunc: func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
+					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+				},
 			}
 
 			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
@@ -201,7 +242,7 @@ func TestRequireAuth_ValidatesExpiryRevocation(t *testing.T) {
 
 			if tc.wantCode != "" {
 				bodyBytes, _ := io.ReadAll(resp.Body)
-	body := string(bodyBytes)
+				body := string(bodyBytes)
 				if !contains(body, tc.wantCode) {
 					t.Errorf("response body missing code %q: %s", tc.wantCode, body)
 				}
@@ -226,6 +267,9 @@ func TestRequireAuth_SetsLocals(t *testing.T) {
 				Role:      role,
 			}, nil
 		},
+		getUserMembershipsFunc: func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
+			return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+		},
 	}
 
 	middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
@@ -243,8 +287,13 @@ func TestRequireAuth_SetsLocals(t *testing.T) {
 		if c.Locals("session_id") != sessionID {
 			return c.Status(http.StatusInternalServerError).SendString("session_id not set")
 		}
-		if c.Locals("role") != role {
-			return c.Status(http.StatusInternalServerError).SendString("role not set")
+		// Check roles (plural) and primary_role
+		roles, ok := c.Locals("roles").([]string)
+		if !ok || len(roles) == 0 || roles[0] != role {
+			return c.Status(http.StatusInternalServerError).SendString("roles not set correctly")
+		}
+		if c.Locals("primary_role") != role {
+			return c.Status(http.StatusInternalServerError).SendString("primary_role not set")
 		}
 		return c.SendString("OK")
 	})
@@ -351,8 +400,11 @@ func TestCSRFMiddleware_RejectsMissingOrigin(t *testing.T) {
 						Role:      "tenant_owner",
 					}, nil
 				},
+				getUserMembershipsFunc: func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
+					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+				},
 			}
-			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test", CORSOrigins: "https://app.example.com,http://localhost:3000"})
 
 			app := fiber.New()
 			app.Use(middleware.RequireAuth())
@@ -420,6 +472,9 @@ func TestOptionalAuth_ValidatesCookieIfPresent(t *testing.T) {
 		validateSessionFunc: func(ctx context.Context, tokenHash []byte) (*service.SessionContext, error) {
 			return nil, service.ErrSessionNotFound // Invalid session
 		},
+		getUserMembershipsFunc: func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
+			return []service.MembershipContext{}, nil
+		},
 	}
 	middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
 
@@ -456,8 +511,8 @@ func TestSessionCookieName_EnvSuffix(t *testing.T) {
 	}{
 		{"development", "development", "session_token_development"},
 		{"staging", "staging", "session_token_staging"},
-		{"production", "production", "__Secure-session_token"},
-		{"empty", "", "__Secure-session_token"},
+		{"production", "production", "__Host-session_token"},
+		{"empty", "", "__Host-session_token"},
 	}
 
 	for _, tc := range tests {
@@ -480,4 +535,3 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
-

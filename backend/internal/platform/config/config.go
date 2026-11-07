@@ -21,6 +21,7 @@ type Config struct {
 	StytchSecret  string
 	// Security
 	EmailHMACKey  string
+	ISTEncryptionKey string // 32-byte base64 key for AES-256-GCM encryption of IST
 	CORSOrigins   string
 	CookieDomain  string
 	CSPReportOnlyEnabled bool
@@ -33,6 +34,9 @@ type Config struct {
 	RateLimitMagicLinkIPPerMin      int
 	RateLimitMagicLinkEmailPer15Min int
 	RateLimitTokenExchangeIPPerMin  int
+	// Tenant-scoped rate limits
+	RateLimitTenantMagicLinkIPPerMin      int
+	RateLimitTenantMagicLinkEmailPer15Min int
 }
 
 // Load reads configuration from environment variables with Doppler aliases.
@@ -58,6 +62,7 @@ func Load() (*Config, error) {
 	stytchSecret := firstNonEmpty("STYTCH_SECRET", "")
 
 	emailHMACKey := firstNonEmpty("EMAIL_HMAC_KEY", "")
+	istEncryptionKey := firstNonEmpty("IST_ENCRYPTION_KEY", "")
 	corsOrigins := firstNonEmpty("CORS_ORIGINS", "PUBLIC_APP_URL", "")
 	cookieDomain := firstNonEmpty("COOKIE_DOMAIN", "")
 	cspReportOnlyEnabled := firstNonEmpty("CSP_REPORT_ONLY_ENABLED", "false")
@@ -70,6 +75,8 @@ func Load() (*Config, error) {
 	ipPerMin := parseIntEnv("RATE_LIMIT_MAGIC_LINK_IP_PER_MIN", 10)
 	emailPer15Min := parseIntEnv("RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN", 3)
 	tokenIPPerMin := parseIntEnv("RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN", 10)
+	tenantIPPerMin := parseIntEnv("RATE_LIMIT_TENANT_MAGIC_LINK_IP_PER_MIN", 5)
+	tenantEmailPer15Min := parseIntEnv("RATE_LIMIT_TENANT_MAGIC_LINK_EMAIL_PER_15_MIN", 2)
 	cfg := &Config{
 		Env:            env,
 		PostgresDSN:    postgresDSN,
@@ -80,6 +87,7 @@ func Load() (*Config, error) {
 		StytchProjectID: stytchProjectID,
 		StytchSecret:   stytchSecret,
 		EmailHMACKey:   emailHMACKey,
+		ISTEncryptionKey: istEncryptionKey,
 		CORSOrigins:    corsOrigins,
 		CookieDomain:   cookieDomain,
 		CSPReportOnlyEnabled: cspReportOnlyEnabled == "true" || cspReportOnlyEnabled == "1",
@@ -90,6 +98,8 @@ func Load() (*Config, error) {
 		RateLimitMagicLinkIPPerMin:      ipPerMin,
 		RateLimitMagicLinkEmailPer15Min: emailPer15Min,
 		RateLimitTokenExchangeIPPerMin:  tokenIPPerMin,
+		RateLimitTenantMagicLinkIPPerMin:      tenantIPPerMin,
+		RateLimitTenantMagicLinkEmailPer15Min: tenantEmailPer15Min,
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -122,8 +132,34 @@ func (c *Config) Validate() error {
 		if c.EmailHMACKey == "" {
 			return errors.New("EMAIL_HMAC_KEY is required in production")
 		}
+		if c.ISTEncryptionKey == "" {
+			return errors.New("IST_ENCRYPTION_KEY is required in production (32-byte base64)")
+		}
+		// Cookie domain should not be set for __Host- prefix cookies
+		// __Host- prefix ignores Domain attribute; warn in logs if set
+		_ = c.CookieDomain // explicitly unused
 	}
 	return nil
+}
+
+// SessionCookieName returns the cookie name for the current environment.
+// In production, uses __Host- prefix (requires Secure, Path=/, no Domain).
+// In development/test, uses session_token_<env>.
+func (c *Config) SessionCookieName() string {
+	base := "__Host-session_token"
+	if c.Env != "" && c.Env != "production" {
+		return "session_token_" + c.Env
+	}
+	return base
+}
+
+// SessionCookieDomain returns the cookie domain.
+// For __Host- prefix cookies, this must be empty (browser ignores Domain).
+func (c *Config) SessionCookieDomain() string {
+	if c.Env == "production" {
+		return "" // __Host- prefix requires no Domain attribute
+	}
+	return c.CookieDomain
 }
 
 func parseIntEnv(key string, defaultVal int) int {

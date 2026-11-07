@@ -1,2 +1,31 @@
+# Secrets
+.env
+.env.*
+*.env
+
+# IDE
+.idea
+.vscode
+
+# Node
+frontend/node_modules
+marketing/node_modules
+frontend/.next
+
+# Go
+backend/bin
+backend/vendor
+backend/coverage.*
+
+# Docker
+docker-compose.override.yml
+
+# Astro static output
+marketing/dist
+marketing/.astro-cache
+marketing/.astro/*
+marketing/.cache
+
+backend/tmp
+
 .DS_Store
-*.bak

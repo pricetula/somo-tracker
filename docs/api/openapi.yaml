@@ -1,0 +1,346 @@
+openapi: 3.1.0
+info:
+  title: Somotracker API
+  version: 0.1.0
+  description: Somotracker API for B2B Magic-Link Authentication, Resumable Onboarding and Opaque Sessions
+servers:
+  - url: https://api.example.com
+paths:
+  /api/v1/auth/request-magic-link:
+    post:
+      summary: Request a Stytch Discovery magic link
+      operationId: requestMagicLink
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestMagicLinkRequest'
+      responses:
+        '200':
+          description: Generic success (no account enumeration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestMagicLinkResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+            headers:
+              Retry-After:
+                schema:
+                  type: integer
+                description: Seconds until next allowed request
+  /api/v1/auth/authenticate-token:
+    post:
+      summary: Authenticate Stytch Discovery magic link token
+      operationId: authenticateToken
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticateTokenRequest'
+      responses:
+        '200':
+          description: Authentication result with onboarding state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticateTokenResponse'
+        '400':
+          description: Invalid request or missing PKCE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/onboarding/current:
+    get:
+      summary: Get current onboarding state
+      operationId: getOnboardingCurrent
+      tags:
+        - Onboarding
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current onboarding state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingStateResponse'
+        '401':
+          description: No onboarding session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Update current onboarding step and form data
+      operationId: updateOnboardingCurrent
+      tags:
+        - Onboarding
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOnboardingRequest'
+      responses:
+        '200':
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No onboarding session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/onboarding/complete:
+    post:
+      summary: Complete onboarding and provision tenant
+      operationId: provisionTenant
+      tags:
+        - Onboarding
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisionTenantRequest'
+      responses:
+        '200':
+          description: Tenant provisioned, session cookie issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisionTenantResponse'
+        '400':
+          description: Invalid request or missing ticket
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Provisioning failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/logout:
+    post:
+      summary: Logout and revoke session
+      operationId: logout
+      tags:
+        - Authentication
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Secure-session_token
+  schemas:
+    RequestMagicLinkRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+    RequestMagicLinkResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Always true (no account enumeration)
+    AuthenticateTokenRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: One-time Stytch Discovery token from URL
+    AuthenticateTokenResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Current onboarding step (deprecated, use auth_state)
+        auth_state:
+          type: string
+          enum:
+            - onboarding_required
+            - organization_selection_required
+            - authenticated
+          description: Authentication state based on discovered organizations
+        ticket_token:
+          type: string
+          description: Short-lived onboarding ticket token (also set in __Host-onboarding cookie)
+        onboarding:
+          $ref: '#/components/schemas/OnboardingState'
+    OnboardingState:
+      type: object
+      properties:
+        verified_email:
+          type: string
+          format: email
+        current_step:
+          type: string
+        form_data:
+          type: object
+          additionalProperties: true
+        pending_id:
+          type: string
+          format: uuid
+        school_name:
+          type: string
+          nullable: true
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+    OnboardingStateResponse:
+      type: object
+      properties:
+        verified_email:
+          type: string
+          format: email
+        current_step:
+          type: string
+        form_data:
+          type: object
+          additionalProperties: true
+        pending_id:
+          type: string
+          format: uuid
+        school_name:
+          type: string
+          nullable: true
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+    UpdateOnboardingRequest:
+      type: object
+      required:
+        - current_step
+      properties:
+        current_step:
+          type: string
+        form_data:
+          type: object
+          additionalProperties: true
+        school_name:
+          type: string
+    ProvisionTenantRequest:
+      type: object
+      required:
+        - school_name
+        - idempotency_key
+      properties:
+        school_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        idempotency_key:
+          type: string
+    ProvisionTenantResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    LogoutResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

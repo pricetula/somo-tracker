@@ -1,95 +1,82 @@
 services:
-  somotracker_postgres:
-    image: postgres:16-alpine
-    container_name: somotracker_postgres
+  postgres:
+    image: postgres:18
     environment:
-      POSTGRES_DB: somotracker_dev
-      POSTGRES_USER: somo_admin
-      POSTGRES_PASSWORD: somo_secure_password
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U somo_admin -d somotracker_dev"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      POSTGRES_DB: somotracker
+      POSTGRES_USER: somotracker
+      POSTGRES_PASSWORD: somotracker
     ports:
       - "5432:5432"
-    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U somotracker -d somotracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  somotracker_redis:
-    image: redis:7-alpine
-    container_name: somotracker_redis
+  redis:
+    image: redis:7
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    volumes:
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 5s
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
+      retries: 5
 
-  somotracker_api:
+  backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    container_name: somotracker_api
-    volumes:
-      - ./backend:/app
-    ports:
-      - "3030:3030"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      APP_ENV: "development"
-      PORT: "3030"
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
-      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      APP_ENV: development
+      LOG_LEVEL: debug
+      CORS_ORIGINS: ${PUBLIC_APP_URL}
+      CSP_REPORT_ONLY_ENABLED: "false"
+      CSP_REPORT_ONLY_POLICY: default-src 'self'
+      POSTGRES_DSN: ${POSTGRES_DSN:-postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable}
+      REDIS_ADDR: redis:6379
+      SERVER_PORT: 8080
+      EMAIL_PROVIDER_HOURLY_CAP: "1000"
+      EMAIL_PROVIDER_DAILY_CAP: "10000"
+      RATE_LIMIT_MAGIC_LINK_IP_PER_MIN: "10"
+      RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN: "3"
+      RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN: "10"
       STYTCH_PROJECT_ID: ${STYTCH_PROJECT_ID}
       STYTCH_SECRET: ${STYTCH_SECRET}
-      STYTCH_ENV: ${STYTCH_ENV}
-      STYTCH_REDIRECT_URL: ${STYTCH_REDIRECT_URL}
-      STYTCH_BASE_URL: ${STYTCH_BASE_URL}
-      BACKEND_URL: ${BACKEND_URL}
-      FRONTEND_URL: ${FRONTEND_URL}
-      COOKIE_SECRET: ${COOKIE_SECRET}
+      STYTCH_ENV: ${STYTCH_ENV:-test}
+      EMAIL_HMAC_KEY: ${EMAIL_HMAC_KEY}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
+      PUBLIC_API_URL: ${PUBLIC_API_URL}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+      - /app/bin
     depends_on:
-      somotracker_postgres:
+      postgres:
         condition: service_healthy
-      somotracker_redis:
+      redis:
         condition: service_healthy
-    restart: unless-stopped
 
-  somotracker_frontend:
-    image: node:20-alpine
-    container_name: somotracker_frontend
-    working_dir: /app
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      BACKEND_URL: ${PUBLIC_API_URL}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
+    ports:
+      - "3000:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
-    ports:
-      - "3000:3000"
-    environment:
-      NODE_ENV: development
-      # API configuration for server-side calls (direct to backend)
-      API_URL: ${API_URL:-http://somotracker_api:3030}
-      # Proxy prefix for client-side calls (via Next.js rewrite)
-      NEXT_PUBLIC_API_PROXY_PREFIX: ${NEXT_PUBLIC_API_PROXY_PREFIX:-/backend}
-      # Required for cookie handling
-      COOKIE_SECRET: ${COOKIE_SECRET}
-      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
-      # Required for CORS and redirects
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
-      FRONTEND_URL: ${FRONTEND_URL}
-    command: sh -c "npm install -g pnpm@9 && pnpm install --frozen-lockfile --ignore-scripts && pnpm run dev"
+      - /app/dist
     depends_on:
-      - somotracker_api
+      - backend
 
 volumes:
-  postgres_data:
-  redis_data:
+  pgdata:
+  redisdata:

@@ -73,6 +73,12 @@ func (l *Limiter) AllowTenantGlobal(ctx context.Context, tenantID, name string, 
 	return l.allow(ctx, "global", name, "", tenantID, limit, window)
 }
 
+// Allow exposes in-memory fallback for testing.
+// Only works when Redis client is nil (test mode).
+func (l *Limiter) Allow(key string, limit int, window time.Duration) bool {
+	return l.memFallback.Allow(key, limit, window)
+}
+
 // allow is the internal method that tries Redis first, falls back to memory.
 func (l *Limiter) allow(ctx context.Context, kind, prefix, identifier, tenantID string, limit int, window time.Duration) (bool, error) {
 	key := l.buildKey(kind, prefix, identifier, tenantID)

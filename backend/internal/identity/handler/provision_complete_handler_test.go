@@ -61,7 +61,7 @@ func TestProvisionTenant_Handler_CompleteFlow(t *testing.T) {
 	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)
 
-	normalizedEmail := "handler-test@example.com"
+	normalizedEmail := "handler-test-" + uuid.New().String() + "@example.com"
 	pending, err := repo.UpsertPendingOnboarding(ctx, storegen.UpsertPendingOnboardingParams{
 		VerifiedEmailNormalized: normalizedEmail,
 		Status:                  "pending",
@@ -86,7 +86,7 @@ func TestProvisionTenant_Handler_CompleteFlow(t *testing.T) {
 
 	// Test provisioning
 	reqBody := map[string]string{
-		"school_name":      "Handler Test School",
+		"school_name":      "Handler Test School " + uuid.New().String(),
 		"idempotency_key":  "idem-" + uuid.New().String(),
 	}
 	reqBytes, _ := json.Marshal(reqBody)
@@ -164,7 +164,7 @@ func TestProvisionTenant_StytchFailure(t *testing.T) {
 	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)
 
-	normalizedEmail := "handler-stytch-fail@example.com"
+	normalizedEmail := "handler-stytch-fail-" + uuid.New().String() + "@example.com"
 	pending, err := repo.UpsertPendingOnboarding(ctx, storegen.UpsertPendingOnboardingParams{
 		VerifiedEmailNormalized: normalizedEmail,
 		Status:                  "pending",
@@ -188,7 +188,7 @@ func TestProvisionTenant_StytchFailure(t *testing.T) {
 	}
 
 	reqBody := map[string]string{
-		"school_name":      "Stytch Fail School",
+		"school_name":      "Stytch Fail School " + uuid.New().String(),
 		"idempotency_key":  "idem-" + uuid.New().String(),
 	}
 	reqBytes, _ := json.Marshal(reqBody)
@@ -247,7 +247,7 @@ func TestProvisionTenant_CompletedPendingBlocked(t *testing.T) {
 	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)
 
-	normalizedEmail := "handler-completed@example.com"
+	normalizedEmail := "handler-completed-" + uuid.New().String() + "@example.com"
 	pending, err := repo.UpsertPendingOnboarding(ctx, storegen.UpsertPendingOnboardingParams{
 		VerifiedEmailNormalized: normalizedEmail,
 		Status:                  "completed",
@@ -272,7 +272,7 @@ func TestProvisionTenant_CompletedPendingBlocked(t *testing.T) {
 	}
 
 	reqBody := map[string]string{
-		"school_name":      "Completed Pending School",
+		"school_name":      "Completed Pending School " + uuid.New().String(),
 		"idempotency_key":  "idem-" + uuid.New().String(),
 	}
 	reqBytes, _ := json.Marshal(reqBody)
@@ -333,17 +333,16 @@ func TestProvisionTenant_ExistingUserBlocked(t *testing.T) {
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)
 
 	// First, create a user with this email
-	normalizedEmail := "handler-existing@example.com"
-	existingTenantID := uuid.New()
-	_, err = repo.CreateTenant(ctx, storegen.CreateTenantParams{
-		Name:                   "Existing Tenant",
+	normalizedEmail := "handler-existing-" + uuid.New().String() + "@example.com"
+	tenant, err := repo.CreateTenant(ctx, storegen.CreateTenantParams{
+		Name:                   "Existing Tenant " + uuid.New().String(),
 		StytchOrganizationID:   uuid.NullUUID{UUID: uuid.New(), Valid: true},
 	})
 	if err != nil {
 		t.Fatalf("create tenant: %v", err)
 	}
 	_, err = repo.CreateUser(ctx, storegen.CreateUserParams{
-		TenantID:           existingTenantID,
+		TenantID:           tenant.ID,
 		EmailNormalized:    normalizedEmail,
 		StytchMemberID:     uuid.NullUUID{UUID: uuid.New(), Valid: true},
 		Name:               "Existing User",
@@ -376,7 +375,7 @@ func TestProvisionTenant_ExistingUserBlocked(t *testing.T) {
 	}
 
 	reqBody := map[string]string{
-		"school_name":      "Existing User School",
+		"school_name":      "Existing User School " + uuid.New().String(),
 		"idempotency_key":  "idem-" + uuid.New().String(),
 	}
 	reqBytes, _ := json.Marshal(reqBody)
@@ -457,23 +456,20 @@ func testErrorHandler() fiber.ErrorHandler {
 }
 
 func cleanupHandlerTestData(ctx context.Context, db *sql.DB) error {
-	// Clean up test data
-	_, err := db.ExecContext(ctx, `
-		DELETE FROM onboarding_ticket WHERE pending_onboarding_id IN (
-			SELECT id FROM pending_onboarding WHERE verified_email_normalized LIKE 'handler-%'
-		);
-		DELETE FROM pending_onboarding WHERE verified_email_normalized LIKE 'handler-%';
-		DELETE FROM app_session WHERE user_id IN (
-			SELECT id FROM users WHERE email_normalized LIKE 'handler-%'
-		);
-		DELETE FROM users WHERE email_normalized LIKE 'handler-%';
-		DELETE FROM memberships WHERE user_id IN (
-			SELECT id FROM users WHERE email_normalized LIKE 'handler-%'
-		);
-		DELETE FROM schools WHERE tenant_id IN (
-			SELECT id FROM tenants WHERE name LIKE 'Handler%'
-		);
-		DELETE FROM tenants WHERE name LIKE 'Handler%' OR name LIKE 'Existing%';
-	`)
-	return err
+	// Clean up test data – execute statements individually for pgx compatibility
+	stmts := []string{
+		`DELETE FROM onboarding_ticket WHERE pending_onboarding_id IN (SELECT id FROM pending_onboarding WHERE verified_email_normalized LIKE 'handler-%')`,
+		`DELETE FROM pending_onboarding WHERE verified_email_normalized LIKE 'handler-%'`,
+		`DELETE FROM app_session WHERE user_id IN (SELECT id FROM users WHERE email_normalized LIKE 'handler-%')`,
+		`DELETE FROM memberships WHERE user_id IN (SELECT id FROM users WHERE email_normalized LIKE 'handler-%')`,
+		`DELETE FROM users WHERE email_normalized LIKE 'handler-%'`,
+		`DELETE FROM schools WHERE tenant_id IN (SELECT id FROM tenants WHERE name LIKE 'Handler%')`,
+		`DELETE FROM tenants WHERE name LIKE 'Handler%' OR name LIKE 'Existing%'`,
+	}
+	for _, s := range stmts {
+		if _, err := db.ExecContext(ctx, s); err != nil {
+			return err
+		}
+	}
+	return nil
 }

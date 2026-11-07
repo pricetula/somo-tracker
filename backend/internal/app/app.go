@@ -141,6 +141,9 @@ func (a *App) Start(ctx context.Context) error {
 	// Rate limiter with in-memory fallback
 	a.rateLimiter = ratelimit.New(a.redisClient.Client, a.cfg.EmailHMACKey)
 
+	// Initialize rate limit middleware
+	rateLimitMiddleware := httpserver.NewRateLimitMiddleware(a.rateLimiter)
+
 	// Start memory fallback cleanup goroutine
 	go a.rateLimiterCleanup(ctx)
 
@@ -152,6 +155,7 @@ func (a *App) Start(ctx context.Context) error {
 
 	// Public routes (no auth required)
 	publicAPI := a.server.App().Group("/api/v1")
+	publicAPI.Use(rateLimitMiddleware.PublicRateLimit())
 	identityHandler.RegisterRoutes(publicAPI)
 
 	// Protected routes (require authentication + tenant context)
@@ -159,6 +163,7 @@ func (a *App) Start(ctx context.Context) error {
 	protectedAPI.Use(authMiddleware.RequireAuth())
 	protectedAPI.Use(authMiddleware.TenantMiddleware())
 	protectedAPI.Use(a.setTenantContextMiddleware()) // Sets app.current_tenant_id for RLS
+	protectedAPI.Use(rateLimitMiddleware.ProtectedRateLimit())
 	// TODO: Register protected domain handlers here
 
 	// Mutation routes (require auth + tenant + CSRF)
@@ -166,6 +171,7 @@ func (a *App) Start(ctx context.Context) error {
 	mutationAPI.Use(authMiddleware.RequireAuth())
 	mutationAPI.Use(authMiddleware.TenantMiddleware())
 	mutationAPI.Use(a.setTenantContextMiddleware())
+	mutationAPI.Use(rateLimitMiddleware.MutationRateLimit())
 	mutationAPI.Use(authMiddleware.CSRFMiddleware())
 	// TODO: Register mutation handlers here
 

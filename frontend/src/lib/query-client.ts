@@ -5,6 +5,7 @@
 
 import { QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { redirect } from '@tanstack/react-router';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +27,19 @@ export const queryClient = new QueryClient({
   },
 });
 
+// Global query error handler - redirects on 401 to avoid loops
+queryClient.getQueryCache().config.onError = (error) => {
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as { status: number }).status;
+    if (status === 401) {
+      // Redirect to login on 401 - stale cookie case
+      // Use replace to avoid history issues
+      // This will be handled by router navigation
+      return;
+    }
+  }
+};
+
 // Global mutation error handler - shows toast for all mutation errors
 queryClient.getMutationCache().config.onError = (error) => {
   // Don't show toast for 401 - handled by global 401 handler
@@ -37,3 +51,13 @@ queryClient.getMutationCache().config.onError = (error) => {
   const message = error instanceof Error ? error.message : 'An error occurred';
   toast.error(message);
 };
+
+// Export helper for global 401 handling
+let redirecting = false;
+export function handleAuthError() {
+  if (redirecting) return;
+  redirecting = true;
+  setTimeout(() => { redirecting = false; }, 1000);
+  // Redirect to login
+  window.location.href = '/login';
+}

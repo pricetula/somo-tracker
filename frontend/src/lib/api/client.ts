@@ -35,6 +35,13 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
 
   if (!res.ok) {
+    // Handle 401 globally - redirect to login without loops
+    if (res.status === 401 && !isServer) {
+      // Avoid redirect loops: only redirect if not already on login
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
     let body: Partial<{ code: string; message: string; errors: Record<string, { code: string; message: string }[]>; request_id: string }> = {};
     try {
       body = await res.json();

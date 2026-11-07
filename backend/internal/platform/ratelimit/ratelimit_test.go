@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ func Test_AC12_RateLimitAtomicity(t *testing.T) {
 	}
 	limiter := New(client, "test-hmac-key")
 	// AllowIP limit 2/min
-	key := "ac12-ip-test"
+	key := fmt.Sprintf("ac12-ip-test-%d", time.Now().UnixNano())
 	allowed1, err := limiter.AllowIP(ctx, "ac12", key, 2, time.Minute)
 	require.NoError(t, err)
 	require.True(t, allowed1)
@@ -44,7 +45,7 @@ func Test_AC12_EmailHMACKey(t *testing.T) {
 		t.Skip("Redis not available")
 	}
 	limiter := New(client, "test-hmac-key")
-	email := "user@example.com"
+	email := fmt.Sprintf("user-%d@example.com", time.Now().UnixNano())
 	allowed1, err := limiter.AllowEmail(ctx, "ac12", email, 1, time.Minute)
 	require.NoError(t, err)
 	require.True(t, allowed1)

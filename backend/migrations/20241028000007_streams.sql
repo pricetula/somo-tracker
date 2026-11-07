@@ -21,13 +21,7 @@ CREATE INDEX streams_name_idx ON streams (name);
 CREATE INDEX streams_deleted_at_idx ON streams (deleted_at) WHERE deleted_at IS NULL;
 
 -- 3) updated_at trigger (applied per-table since migration 5 runs before streams exists)
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION trigger_set_timestamp() RETURNS TRIGGER LANGUAGE plpgsql AS $func$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $func$;
 
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON streams FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 

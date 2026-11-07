@@ -1,15 +1,10 @@
 -- +goose Up
 
 -- 10) pending_onboarding status as enum
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_type t JOIN pg_attribute a ON a.attrelid = t.typid
-        WHERE t.typname = 'pending_onboarding_status' AND a.attname = 'status'
-    ) THEN
-        CREATE TYPE pending_onboarding_status AS ENUM ('pending','provisioning','completed','failed_retryable');
-    END IF;
-END $$;
-ALTER TABLE pending_onboarding ALTER COLUMN status TYPE pending_onboarding_status;
+CREATE TYPE pending_onboarding_status AS ENUM ('pending','provisioning','completed','failed_retryable');
+-- Drop and recreate column with enum type
+ALTER TABLE pending_onboarding DROP COLUMN status;
+ALTER TABLE pending_onboarding ADD COLUMN status pending_onboarding_status NOT NULL DEFAULT 'pending';
 
 -- 2) All UUID defaults migrated to uuidv7 (already used in other migrations).
 --    Assumes latest PostgreSQL (17+) which ships pg_uuidv7 natively.
@@ -21,15 +16,9 @@ ALTER TABLE schools DROP CONSTRAINT IF EXISTS schools_education_system_id_fkey;
 ALTER TABLE schools ADD CONSTRAINT schools_education_system_id_fkey FOREIGN KEY (education_system_id) REFERENCES education_systems(id) ON DELETE RESTRICT;
 
 -- 3) updated_at trigger function + apply to all tables
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION trigger_set_timestamp() RETURNS TRIGGER LANGUAGE plpgsql AS $func$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $func$;
 
-DO $$
+DO $do3$
 DECLARE t TEXT[];
 BEGIN
     FOREACH t IN ARRAY ARRAY[
@@ -43,7 +32,8 @@ BEGIN
             'CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp()',
             t, t);
     END LOOP;
-END $$;
+END;
+$do3$;
 
 -- 4) Composite index users(tenant_id, email_normalized)
 CREATE INDEX IF NOT EXISTS idx_users_tenant_email ON users (tenant_id, email_normalized);
@@ -82,7 +72,7 @@ CREATE POLICY guardian_isolate ON guardian_student_links
 -- 13) No schema validation on JSONB columns.
 
 -- Soft delete (deleted_at) for all domain tables.
-DO $$
+DO $do$
 DECLARE t TEXT[];
 BEGIN
     FOREACH t IN ARRAY ARRAY[
@@ -97,7 +87,8 @@ BEGIN
             EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%I_deleted_at ON %I (deleted_at) WHERE deleted_at IS NULL', t, t);
         END IF;
     END LOOP;
-END $$;
+END;
+$do$;
 
 -- 9) Skills/strands/sub_strands deferred (see domain model: LearningArea hierarchy).
 
@@ -117,7 +108,7 @@ ALTER TABLE memberships DISABLE ROW LEVEL SECURITY;
 ALTER TABLE students   DISABLE ROW LEVEL SECURITY;
 ALTER TABLE guardian_student_links DISABLE ROW LEVEL SECURITY;
 
-DO $$
+DO $do2$
 DECLARE t TEXT[];
 BEGIN
     FOREACH t IN ARRAY ARRAY[
@@ -130,7 +121,8 @@ BEGIN
             EXECUTE format('ALTER TABLE %I DROP COLUMN deleted_at', t);
         END IF;
     END LOOP;
-END $$;
+END;
+$do2$;
 
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON pending_onboarding;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON app_session;

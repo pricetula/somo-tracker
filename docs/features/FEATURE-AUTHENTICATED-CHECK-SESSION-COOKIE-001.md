@@ -1,7 +1,7 @@
 ---
 id: FEATURE-AUTHENTICATED-CHECK-SESSION-COOKIE-001
 title: Authenticated Check Session Cookie
-status: approved
+status: implemented
 depends_on:
   - ADR-0002
   - FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001

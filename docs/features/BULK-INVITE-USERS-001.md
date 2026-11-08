@@ -81,23 +81,33 @@ Enable school administrators to bulk invite multiple users (admins, teachers, pa
 
 ### New endpoints:
 
-1. **POST /api/v1/schools/{school_id}/invite**
-   - Request body: array of invitee objects (email, role)
+1. **POST /api/v1/invites/bulk**
+   - Request body: `{ emails: [{email, role}], school_id?: string (optional) }`
    - Response: list of invitation IDs and status
    - Creates Stytch magic link invitations and database records
+   - **Security:** School ID resolved from active user's membership, never from frontend (see ARCH-INVITE-RESOLUTION-001)
 
-2. **GET /api/v1/schools/{school_id}/invites**
-   - Returns list of pending, accepted, and expired invites for the school
+2. **GET /api/v1/invites**
+   - Query params: `status`, `page`, `limit`
+   - Returns list of pending, accepted, and expired invites for the active user's school
    - Pagination support
+   - **Security:** School ID resolved from active user's membership
 
-3. **POST /api/v1/schools/{school_id}/invite/{invite_id}/resend**
+3. **POST /api/v1/invites/{invite_id}/resend**
    - Triggers Stytch to send a new magic link
    - Updates invite status and resend count
+   - **Security:** Invitation must belong to active user's school
 
 4. **POST /api/v1/auth/invite/accept** (Stytch webhook handler)
    - Receives Stytch invitation acceptance event
    - Creates user and membership on the school
    - Returns 200 OK on success
+   - **Note:** Internal endpoint, not exposed to frontend
+
+### API contract changes:
+- Add `invite` field to user creation response (optional)
+- Add `invite_status` field to user profile endpoints
+- Update `User` DTO to include `invite_status` and `invite_id` fields (optional)
 
 ### API contract changes:
 - Add `invite` field to user creation response (optional)
@@ -159,14 +169,15 @@ Enable school administrators to bulk invite multiple users (admins, teachers, pa
 
 ### New UI components:
 - **Invite Users Page**: 
-  - School selector dropdown
   - Bulk invite form (email list or CSV upload)
-  - Role selection per invitee (optional)
+  - Role selection per invitee (mandatory)
   - Submit button
+  - **Note:** School selector REMOVED - school is implicit from active session
 - **Invite Table**:
-  - Lists all invites for the school
+  - Lists all invites for the active user's school
   - Status indicators (color-coded)
   - Action buttons: Resend, Copy Link, Delete
+  - **Note:** No school_id in URLs - all data scoped to active user
 - **Resend Flow**:
   - Confirmation modal before resending
   - Success notification on resend completion
@@ -175,14 +186,30 @@ Enable school administrators to bulk invite multiple users (admins, teachers, pa
 - Stytch magic link flow (existing onboarding flow) used for invitees
 - Stytch webhook integration for invitation acceptance events
 - Stytch SDK already available in backend (`platform/stytch`)
+- **Security:** All API calls use active session - school_id never passed from frontend
 
 ### UX considerations:
 - Clear indication of invite expiration (e.g., "Expires in 5 days")
 - Resend button disabled after 3 attempts
 - Email template shows school name and logo
 - Success message after invite sent: "Invitation sent to X users. They will receive an email shortly."
+- No school switching in frontend - user can only see invites for their active school
 
 ## Testing & Verification
+
+### Security Requirements (ARCH-INVITE-RESOLUTION-001)
+
+**School ID Resolution**
+- **School ID NEVER passed from frontend**
+- Backend resolves school_id from active user's membership in session context
+- Frontend requests: `/api/v1/invites` (no school_id parameter)
+- Backend logic: Resolve school_id from `sessionCtx.UserID` → membership → school_id
+- This prevents frontend tampering and ensures tenant isolation
+
+**Tenant Isolation**
+- All invite queries scoped to `sessionCtx.TenantID`
+- Users cannot access invites from other schools
+- Cross-tenant access returns 404 (not found)
 
 ### Unit Tests (AC → Test mapping)
 
@@ -349,6 +376,40 @@ Enable school administrators to bulk invite multiple users (admins, teachers, pa
 - Docs updated in same change
 - `make compliance` passes
 - Status updated: implemented by agent, verified by human
+
+## Dependencies
+
+### ARCH-INVITE-RESOLUTION-001: Active User & School Resolution
+
+**Critical Security Requirement**
+
+The bulk invitation feature depends on a separate security architecture document that defines how tenant_id, school_id, and active user are resolved in backend:
+
+**Required Pattern:**
+1. **Frontend never sends school_id** - APIs use `/api/v1/invites` not `/api/v1/schools/{id}/invites`
+2. **Backend resolves school_id** from session context → membership → school_id
+3. **Tenant ID resolved** from session context
+4. **Active user validated** from session token
+
+**Why this matters:**
+- Prevents frontend tampering with school_id
+- Ensures users can only access invites for their active school
+- Maintains tenant isolation
+- Follows security best practice: "Never trust client input for authorization"
+
+**If not implemented:**
+- Feature cannot be implemented safely
+- Must create/architect `ARCH-INVITE-RESOLUTION-001` first
+- Deprecate all features with school_id in frontend URLs
+
+### Implementation Note:
+The project currently has NO logic for resolving active school from session context. All features with `schools/{school_id}` in URLs are insecure and must be reworked before implementing bulk invitations.
+
+**Recommended action:**
+1. Create `ARCH-INVITE-RESOLUTION-001` documenting the security pattern
+2. Implement session-based school resolution in backend middleware
+3. Update existing features to remove school_id from frontend URLs
+4. Then implement bulk invitations
 
 ## Open questions
 

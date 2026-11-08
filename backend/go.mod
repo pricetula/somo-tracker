@@ -9,7 +9,9 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/redis/go-redis/v9 v9.6.0
-	github.com/stytchauth/stytch-go/v16 v16.41.0
+	github.com/sqlc-dev/pqtype v0.3.0
+	github.com/stretchr/testify v1.12.1
+	github.com/stytchauth/stytch-go/v18 v18.1.0
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
@@ -81,8 +83,6 @@ require (
 	github.com/sethvargo/go-retry v0.5.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
-	github.com/sqlc-dev/pqtype v0.3.0 // indirect
-	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tinylib/msgp v1.6.3 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
@@ -105,5 +105,3 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 )
-
-replace github.com/stytchauth/stytch-go/v16 => github.com/stytchauth/stytch-go/v16 v16.41.0

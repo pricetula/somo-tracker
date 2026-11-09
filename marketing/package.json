@@ -11,18 +11,20 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --write .",
-    "typecheck": "astro check"
+    "typecheck": "astro check",
+    "generate-types": "wrangler types"
   },
   "dependencies": {
     "astro": "^7.4.7"
   },
   "devDependencies": {
     "@astrojs/check": "^0.5.10",
+    "@astrojs/cloudflare": "^14.4.6",
     "@eslint/js": "^9.39.5",
     "eslint": "^10.14.0",
     "eslint-plugin-astro": "^0.32.0",
     "prettier": "^3.9.10",
     "typescript": "^5.9.3",
-    "wrangler": "^4.158.0"
+    "wrangler": "^4.159.0"
   }
 }

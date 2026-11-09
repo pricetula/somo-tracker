@@ -48,7 +48,7 @@ type OnboardingTicket struct {
 	ID                  uuid.UUID
 	PendingOnboardingID uuid.UUID
 	TicketHash          []byte
-	EncryptedIst        []byte
+	IstCiphertext       []byte
 	UsedAt              sql.NullTime
 	ExpiresAt           time.Time
 	CreatedAt           time.Time

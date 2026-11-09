@@ -21,7 +21,7 @@ RETURNING id, pending_onboarding_id, ticket_hash, encrypted_ist, used_at, expire
 type CreateOnboardingTicketParams struct {
 	PendingOnboardingID uuid.UUID
 	TicketHash          []byte
-	EncryptedIst        []byte
+	IstCiphertext       []byte
 	ExpiresAt           time.Time
 }
 
@@ -29,7 +29,7 @@ func (q *Queries) CreateOnboardingTicket(ctx context.Context, arg CreateOnboardi
 	row := q.db.QueryRowContext(ctx, createOnboardingTicket,
 		arg.PendingOnboardingID,
 		arg.TicketHash,
-		arg.EncryptedIst,
+		arg.IstCiphertext,
 		arg.ExpiresAt,
 	)
 	var i OnboardingTicket
@@ -37,7 +37,7 @@ func (q *Queries) CreateOnboardingTicket(ctx context.Context, arg CreateOnboardi
 		&i.ID,
 		&i.PendingOnboardingID,
 		&i.TicketHash,
-		&i.EncryptedIst,
+		&i.IstCiphertext,
 		&i.UsedAt,
 		&i.ExpiresAt,
 		&i.CreatedAt,
@@ -46,7 +46,7 @@ func (q *Queries) CreateOnboardingTicket(ctx context.Context, arg CreateOnboardi
 }
 
 const getOnboardingTicketByHash = `-- name: GetOnboardingTicketByHash :one
-SELECT id, pending_onboarding_id, ticket_hash, encrypted_ist, used_at, expires_at, created_at
+SELECT id, pending_onboarding_id, ticket_hash, ist_ciphertext, used_at, expires_at, created_at
 FROM onboarding_ticket
 WHERE ticket_hash = $1 AND used_at IS NULL AND expires_at > NOW()
 LIMIT 1
@@ -59,7 +59,7 @@ func (q *Queries) GetOnboardingTicketByHash(ctx context.Context, ticketHash []by
 		&i.ID,
 		&i.PendingOnboardingID,
 		&i.TicketHash,
-		&i.EncryptedIst,
+		&i.IstCiphertext,
 		&i.UsedAt,
 		&i.ExpiresAt,
 		&i.CreatedAt,

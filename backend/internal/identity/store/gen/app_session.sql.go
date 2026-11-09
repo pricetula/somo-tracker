@@ -104,3 +104,47 @@ func (q *Queries) RevokeAppSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, revokeAppSession, id)
 	return err
 }
+
+const getSessionWithMemberships = `-- name: GetSessionWithMemberships :one
+SELECT s.id, s.user_id, s.tenant_id, s.token_hash, s.stytch_member_session_id, s.created_at, s.expires_at, s.revoked_at,
+       m.id as membership_id, m.school_id, m.role, m.is_active
+FROM app_session s
+LEFT JOIN memberships m ON m.user_id = s.user_id AND m.is_active = true
+WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > NOW()
+LIMIT 1
+`
+
+type GetSessionWithMembershipsRow struct {
+	ID                    uuid.UUID
+	UserID                uuid.UUID
+	TenantID              uuid.UUID
+	TokenHash             []byte
+	StytchMemberSessionID sql.NullString
+	CreatedAt             time.Time
+	ExpiresAt             time.Time
+	RevokedAt             sql.NullTime
+	MembershipID          sql.NullString
+	SchoolID              sql.NullString
+	Role                  sql.NullString
+	IsActive              sql.NullBool
+}
+
+func (q *Queries) GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (GetSessionWithMembershipsRow, error) {
+	row := q.db.QueryRowContext(ctx, getSessionWithMemberships, tokenHash)
+	var i GetSessionWithMembershipsRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TenantID,
+		&i.TokenHash,
+		&i.StytchMemberSessionID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.MembershipID,
+		&i.SchoolID,
+		&i.Role,
+		&i.IsActive,
+	)
+	return i, err
+}

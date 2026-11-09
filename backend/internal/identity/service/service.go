@@ -120,6 +120,9 @@ type Repository interface {
 	GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
+
+	// Session with memberships (one DB round-trip)
+	GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (storegen.GetSessionWithMembershipsRow, error)
 }
 
 // New creates service.
@@ -253,7 +256,7 @@ func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier
 	_, err = s.repo.CreateOnboardingTicket(ctx, storegen.CreateOnboardingTicketParams{
 		PendingOnboardingID: pending.ID,
 		TicketHash:          ticketHash[:],
-		EncryptedIst:        []byte(encryptedIST),
+		IstCiphertext:       []byte(encryptedIST),
 		ExpiresAt:           expiresAt,
 	})
 	if err != nil {
@@ -378,13 +381,13 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 	// Exchange IST for Stytch session - best effort, do not fail provisioning if Stytch is unavailable
 	var ist string
 	if s.istEncryption != nil {
-		decrypted, err := s.istEncryption.Decrypt(string(ticket.EncryptedIst))
+		decrypted, err := s.istEncryption.Decrypt(string(ticket.IstCiphertext))
 		if err != nil {
 			return nil, fmt.Errorf("decrypt IST: %w", err)
 		}
 		ist = string(decrypted)
 	} else {
-		ist = string(ticket.EncryptedIst) // dev fallback
+		ist = string(ticket.IstCiphertext) // dev fallback
 	}
 	_, _ = s.stytch.ExchangeDiscoverySession(ctx, ist)
 
@@ -524,6 +527,36 @@ func (s *Service) ValidateSession(ctx context.Context, tokenHash []byte) (*Sessi
 		SessionID: session.ID,
 		Role:      role,
 	}, nil
+}
+
+// ValidateSessionWithMemberships validates session and loads active memberships in one DB round-trip.
+func (s *Service) ValidateSessionWithMemberships(ctx context.Context, tokenHash []byte) (*SessionContext, []MembershipContext, error) {
+	row, err := s.repo.GetSessionWithMemberships(ctx, tokenHash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, ErrSessionNotFound
+		}
+		return nil, nil, fmt.Errorf("query session with memberships: %w", err)
+	}
+
+	memberships := []MembershipContext{}
+	if row.MembershipID.Valid && row.SchoolID.Valid && row.Role.Valid {
+		schoolUUID, err := uuid.Parse(row.SchoolID.String)
+		if err == nil {
+			memberships = append(memberships, MembershipContext{
+				SchoolID: schoolUUID,
+				Role:     row.Role.String,
+				IsActive: row.IsActive.Valid && row.IsActive.Bool,
+			})
+		}
+	}
+
+	return &SessionContext{
+		UserID:    row.UserID,
+		TenantID:  row.TenantID,
+		SessionID: row.ID,
+		Role:      "",
+	}, memberships, nil
 }
 
 // Logout revokes session and Stytch member session.

@@ -14,14 +14,15 @@
     "typecheck": "astro check"
   },
   "dependencies": {
-    "astro": "^7.4.2"
+    "astro": "^7.4.7"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.5.0",
-    "@eslint/js": "^9.25.0",
-    "eslint": "^10.13.0",
+    "@astrojs/check": "^0.5.10",
+    "@eslint/js": "^9.39.5",
+    "eslint": "^10.14.0",
     "eslint-plugin-astro": "^0.32.0",
     "prettier": "^3.9.10",
-    "typescript": "^5.7.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.158.0"
   }
 }

@@ -16,11 +16,12 @@ import (
 
 // MockSessionValidator implements SessionValidator for testing
 type MockSessionValidator struct {
-	validateSessionFunc       func(ctx context.Context, tokenHash []byte) (*service.SessionContext, error)
-	getUserMembershipsFunc    func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error)
-	getGuardianStudentsFunc   func(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
-	getTeacherClassesFunc     func(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
-	revokeSessionFunc         func(ctx context.Context, sessionID uuid.UUID) error
+	validateSessionFunc              func(ctx context.Context, tokenHash []byte) (*service.SessionContext, error)
+	validateSessionWithMembershipsFunc func(ctx context.Context, tokenHash []byte) (*service.SessionContext, []service.MembershipContext, error)
+	getUserMembershipsFunc           func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error)
+	getGuardianStudentsFunc          func(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
+	getTeacherClassesFunc            func(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
+	revokeSessionFunc                func(ctx context.Context, sessionID uuid.UUID) error
 }
 
 func (m *MockSessionValidator) ValidateSession(ctx context.Context, tokenHash []byte) (*service.SessionContext, error) {
@@ -28,6 +29,22 @@ func (m *MockSessionValidator) ValidateSession(ctx context.Context, tokenHash []
 		return m.validateSessionFunc(ctx, tokenHash)
 	}
 	return nil, service.ErrSessionNotFound
+}
+
+func (m *MockSessionValidator) ValidateSessionWithMemberships(ctx context.Context, tokenHash []byte) (*service.SessionContext, []service.MembershipContext, error) {
+	if m.validateSessionWithMembershipsFunc != nil {
+		return m.validateSessionWithMembershipsFunc(ctx, tokenHash)
+	}
+	// Fallback to old methods for backwards compatibility in tests
+	if m.validateSessionFunc != nil {
+		sess, err := m.validateSessionFunc(ctx, tokenHash)
+		if err != nil {
+			return nil, nil, err
+		}
+		mems, _ := m.GetUserMemberships(ctx, sess.UserID, sess.TenantID)
+		return sess, mems, nil
+	}
+	return nil, nil, service.ErrSessionNotFound
 }
 
 func (m *MockSessionValidator) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {

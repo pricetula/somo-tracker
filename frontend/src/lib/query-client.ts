@@ -5,7 +5,6 @@
 
 import { QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { redirect } from '@tanstack/react-router';
 
 export const queryClient = new QueryClient({
   defaultOptions: {

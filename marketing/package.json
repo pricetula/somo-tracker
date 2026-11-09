@@ -17,8 +17,11 @@
   "dependencies": {
     "astro": "^7.4.7"
   },
+  "overrides": {
+    "@emnapi/runtime": "1.11.3"
+  },
   "devDependencies": {
-    "@astrojs/check": "^0.5.10",
+    "@astrojs/check": "0.8.0",
     "@astrojs/cloudflare": "^14.4.6",
     "@eslint/js": "^9.39.5",
     "eslint": "^10.14.0",

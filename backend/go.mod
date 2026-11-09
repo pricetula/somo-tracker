@@ -3,10 +3,12 @@ module somotracker
 go 1.26.0
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/go-playground/validator/v10 v10.30.5
 	github.com/gofiber/fiber/v3 v3.0.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/lib/pq v1.10.9
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/redis/go-redis/v9 v9.6.0
 	github.com/sqlc-dev/pqtype v0.3.0

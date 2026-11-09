@@ -29,6 +29,12 @@ func (m *mockRBACValidator) ValidateSession(ctx context.Context, tokenHash []byt
 	}, nil
 }
 
+func (m *mockRBACValidator) ValidateSessionWithMemberships(ctx context.Context, tokenHash []byte) (*service.SessionContext, []service.MembershipContext, error) {
+	sess, _ := m.ValidateSession(ctx, tokenHash)
+	mems, _ := m.GetUserMemberships(ctx, sess.UserID, sess.TenantID)
+	return sess, mems, nil
+}
+
 func (m *mockRBACValidator) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
 	return m.memberships, nil
 }

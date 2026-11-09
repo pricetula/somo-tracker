@@ -7,13 +7,13 @@ import (
 	"regexp"
 	"strings"
 
-	stytchb2bapi "github.com/stytchauth/stytch-go/v16/stytch/b2b/b2bstytchapi"
-	magicEmailDisc "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/email/discovery"
-	magicDisc "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/discovery"
-	"github.com/stytchauth/stytch-go/v16/stytch/b2b/discovery/intermediatesessions"
-	"github.com/stytchauth/stytch-go/v16/stytch/b2b/organizations"
-	"github.com/stytchauth/stytch-go/v16/stytch/b2b/organizations/members"
-	"github.com/stytchauth/stytch-go/v16/stytch/b2b/sessions"
+	stytchb2bapi "github.com/stytchauth/stytch-go/v18/stytch/b2b/b2bstytchapi"
+	magicEmailDisc "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email/discovery"
+	magicDisc "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/discovery"
+	"github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/intermediatesessions"
+	"github.com/stytchauth/stytch-go/v18/stytch/b2b/organizations"
+	"github.com/stytchauth/stytch-go/v18/stytch/b2b/organizations/members"
+	"github.com/stytchauth/stytch-go/v18/stytch/b2b/sessions"
 )
 
 // SDKClient wraps the official Stytch Go SDK and implements the stytch.Client interface

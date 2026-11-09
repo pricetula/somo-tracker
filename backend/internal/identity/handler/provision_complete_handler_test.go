@@ -77,7 +77,7 @@ func TestProvisionTenant_Handler_CompleteFlow(t *testing.T) {
 	_, err = repo.CreateOnboardingTicket(ctx, storegen.CreateOnboardingTicketParams{
 		PendingOnboardingID: pending.ID,
 		TicketHash:          ticketHash[:],
-		EncryptedIst:        []byte("test-ist"),
+		IstCiphertext:       []byte("test-ist"),
 		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	})
 	if err != nil {
@@ -180,7 +180,7 @@ func TestProvisionTenant_StytchFailure(t *testing.T) {
 	_, err = repo.CreateOnboardingTicket(ctx, storegen.CreateOnboardingTicketParams{
 		PendingOnboardingID: pending.ID,
 		TicketHash:          ticketHash[:],
-		EncryptedIst:        []byte("test-ist"),
+		IstCiphertext:       []byte("test-ist"),
 		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	})
 	if err != nil {
@@ -264,7 +264,7 @@ func TestProvisionTenant_CompletedPendingBlocked(t *testing.T) {
 	_, err = repo.CreateOnboardingTicket(ctx, storegen.CreateOnboardingTicketParams{
 		PendingOnboardingID: pending.ID,
 		TicketHash:          ticketHash[:],
-		EncryptedIst:        []byte("test-ist"),
+		IstCiphertext:        []byte("test-ist"),
 		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	})
 	if err != nil {
@@ -367,7 +367,7 @@ func TestProvisionTenant_ExistingUserBlocked(t *testing.T) {
 	_, err = repo.CreateOnboardingTicket(ctx, storegen.CreateOnboardingTicketParams{
 		PendingOnboardingID: pending.ID,
 		TicketHash:          ticketHash[:],
-		EncryptedIst:        []byte("test-ist"),
+		IstCiphertext:        []byte("test-ist"),
 		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	})
 	if err != nil {

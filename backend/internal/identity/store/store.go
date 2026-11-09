@@ -63,6 +63,10 @@ func (s *Store) RevokeAppSession(ctx context.Context, id uuid.UUID) error {
 	return s.q.RevokeAppSession(ctx, id)
 }
 
+func (s *Store) GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (storegen.GetSessionWithMembershipsRow, error) {
+	return s.q.GetSessionWithMemberships(ctx, tokenHash)
+}
+
 // Onboarding ticket
 func (s *Store) CreateOnboardingTicket(ctx context.Context, arg storegen.CreateOnboardingTicketParams) (storegen.OnboardingTicket, error) {
 	return s.q.CreateOnboardingTicket(ctx, arg)

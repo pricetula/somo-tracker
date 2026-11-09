@@ -1,7 +1,7 @@
 ---
 id: FEATURE-ASSESSMENTS-001
 title: Assessment, Results Computation, and Report Cards
-status: implementation-ready
+status: draft
 version: 1.0.0
 scope: v1
 depends_on:

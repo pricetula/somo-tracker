@@ -23,6 +23,7 @@ type AuthMiddleware struct {
 // SessionValidator defines the interface needed by auth middleware.
 type SessionValidator interface {
 	ValidateSession(ctx context.Context, tokenHash []byte) (*service.SessionContext, error)
+	ValidateSessionWithMemberships(ctx context.Context, tokenHash []byte) (*service.SessionContext, []service.MembershipContext, error)
 	GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error)
 	GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
@@ -61,7 +62,7 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 		}
 
 		tokenHash := sha256.Sum256([]byte(token))
-		sessionCtx, err := m.svc.ValidateSession(c.Context(), tokenHash[:])
+		sessionCtx, memberships, err := m.svc.ValidateSessionWithMemberships(c.Context(), tokenHash[:])
 		if err != nil {
 			if errors.Is(err, service.ErrSessionNotFound) {
 				return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
@@ -72,15 +73,6 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 				Code:    "INTERNAL_ERROR",
 				Message: "session validation failed",
-			})
-		}
-
-		// Fetch active memberships for role-based checks
-		memberships, err := m.svc.GetUserMemberships(c.Context(), sessionCtx.UserID, sessionCtx.TenantID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-				Code:    "INTERNAL_ERROR",
-				Message: "failed to load memberships",
 			})
 		}
 
@@ -129,12 +121,7 @@ func (m *AuthMiddleware) OptionalAuth() fiber.Handler {
 		}
 
 		tokenHash := sha256.Sum256([]byte(token))
-		sessionCtx, err := m.svc.ValidateSession(c.Context(), tokenHash[:])
-		if err != nil {
-			return c.Next()
-		}
-
-		memberships, err := m.svc.GetUserMemberships(c.Context(), sessionCtx.UserID, sessionCtx.TenantID)
+		sessionCtx, memberships, err := m.svc.ValidateSessionWithMemberships(c.Context(), tokenHash[:])
 		if err != nil {
 			return c.Next()
 		}

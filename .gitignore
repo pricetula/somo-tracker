@@ -25,6 +25,7 @@ marketing/dist
 marketing/.astro-cache
 marketing/.astro/*
 marketing/.cache
+marketing/.wrangler
 
 backend/tmp
 

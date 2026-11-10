@@ -201,15 +201,7 @@ func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier
 	if err == nil && existingPending.Status == "completed" && existingPending.TenantID.Valid {
 		authState := "authenticated"
 		// Create session for returning user
-		user, err := s.repo.GetUserByEmailAndTenant(ctx, existingPending.TenantID.UUID, normalizedEmail)
 		var sessionToken *string
-		if err == nil {
-			expiresAt := time.Now().Add(30 * 24 * time.Hour)
-			sTok, err := s.CreateSession(ctx, user.ID, existingPending.TenantID.UUID, "", expiresAt)
-			if err == nil {
-				sessionToken = &sTok
-			}
-		}
 		tenantID := existingPending.TenantID.UUID
 		return "", &OnboardingState{
 			VerifiedEmail: normalizedEmail,
@@ -541,14 +533,11 @@ func (s *Service) ValidateSessionWithMemberships(ctx context.Context, tokenHash 
 
 	memberships := []MembershipContext{}
 	if row.MembershipID.Valid && row.SchoolID.Valid && row.Role.Valid {
-		schoolUUID, err := uuid.Parse(row.SchoolID.String)
-		if err == nil {
-			memberships = append(memberships, MembershipContext{
-				SchoolID: schoolUUID,
-				Role:     row.Role.String,
-				IsActive: row.IsActive.Valid && row.IsActive.Bool,
-			})
-		}
+		memberships = append(memberships, MembershipContext{
+			SchoolID: row.SchoolID.UUID,
+			Role:     string(row.Role.UserRole),
+			IsActive: row.IsActive.Valid && row.IsActive.Bool,
+		})
 	}
 
 	return &SessionContext{

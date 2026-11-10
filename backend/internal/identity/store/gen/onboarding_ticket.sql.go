@@ -7,15 +7,16 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 const createOnboardingTicket = `-- name: CreateOnboardingTicket :one
-INSERT INTO onboarding_ticket (pending_onboarding_id, ticket_hash, encrypted_ist, expires_at)
+INSERT INTO onboarding_ticket (pending_onboarding_id, ticket_hash, ist_ciphertext, expires_at)
 VALUES ($1, $2, $3, $4)
-RETURNING id, pending_onboarding_id, ticket_hash, encrypted_ist, used_at, expires_at, created_at
+RETURNING id, pending_onboarding_id, ticket_hash, ist_ciphertext, used_at, expires_at, created_at
 `
 
 type CreateOnboardingTicketParams struct {
@@ -25,14 +26,24 @@ type CreateOnboardingTicketParams struct {
 	ExpiresAt           time.Time
 }
 
-func (q *Queries) CreateOnboardingTicket(ctx context.Context, arg CreateOnboardingTicketParams) (OnboardingTicket, error) {
+type CreateOnboardingTicketRow struct {
+	ID                  uuid.UUID
+	PendingOnboardingID uuid.UUID
+	TicketHash          []byte
+	IstCiphertext       []byte
+	UsedAt              sql.NullTime
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
+}
+
+func (q *Queries) CreateOnboardingTicket(ctx context.Context, arg CreateOnboardingTicketParams) (CreateOnboardingTicketRow, error) {
 	row := q.db.QueryRowContext(ctx, createOnboardingTicket,
 		arg.PendingOnboardingID,
 		arg.TicketHash,
 		arg.IstCiphertext,
 		arg.ExpiresAt,
 	)
-	var i OnboardingTicket
+	var i CreateOnboardingTicketRow
 	err := row.Scan(
 		&i.ID,
 		&i.PendingOnboardingID,
@@ -52,9 +63,19 @@ WHERE ticket_hash = $1 AND used_at IS NULL AND expires_at > NOW()
 LIMIT 1
 `
 
-func (q *Queries) GetOnboardingTicketByHash(ctx context.Context, ticketHash []byte) (OnboardingTicket, error) {
+type GetOnboardingTicketByHashRow struct {
+	ID                  uuid.UUID
+	PendingOnboardingID uuid.UUID
+	TicketHash          []byte
+	IstCiphertext       []byte
+	UsedAt              sql.NullTime
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
+}
+
+func (q *Queries) GetOnboardingTicketByHash(ctx context.Context, ticketHash []byte) (GetOnboardingTicketByHashRow, error) {
 	row := q.db.QueryRowContext(ctx, getOnboardingTicketByHash, ticketHash)
-	var i OnboardingTicket
+	var i GetOnboardingTicketByHashRow
 	err := row.Scan(
 		&i.ID,
 		&i.PendingOnboardingID,

@@ -27,7 +27,18 @@ type CreateAppSessionParams struct {
 	ExpiresAt             time.Time
 }
 
-func (q *Queries) CreateAppSession(ctx context.Context, arg CreateAppSessionParams) (AppSession, error) {
+type CreateAppSessionRow struct {
+	ID                    uuid.UUID
+	UserID                uuid.UUID
+	TenantID              uuid.UUID
+	TokenHash             []byte
+	StytchMemberSessionID sql.NullString
+	CreatedAt             time.Time
+	ExpiresAt             time.Time
+	RevokedAt             sql.NullTime
+}
+
+func (q *Queries) CreateAppSession(ctx context.Context, arg CreateAppSessionParams) (CreateAppSessionRow, error) {
 	row := q.db.QueryRowContext(ctx, createAppSession,
 		arg.UserID,
 		arg.TenantID,
@@ -35,7 +46,7 @@ func (q *Queries) CreateAppSession(ctx context.Context, arg CreateAppSessionPara
 		arg.StytchMemberSessionID,
 		arg.ExpiresAt,
 	)
-	var i AppSession
+	var i CreateAppSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -55,9 +66,20 @@ FROM app_session
 WHERE id = $1
 `
 
-func (q *Queries) GetAppSessionByID(ctx context.Context, id uuid.UUID) (AppSession, error) {
+type GetAppSessionByIDRow struct {
+	ID                    uuid.UUID
+	UserID                uuid.UUID
+	TenantID              uuid.UUID
+	TokenHash             []byte
+	StytchMemberSessionID sql.NullString
+	CreatedAt             time.Time
+	ExpiresAt             time.Time
+	RevokedAt             sql.NullTime
+}
+
+func (q *Queries) GetAppSessionByID(ctx context.Context, id uuid.UUID) (GetAppSessionByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getAppSessionByID, id)
-	var i AppSession
+	var i GetAppSessionByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -78,9 +100,20 @@ WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()
 LIMIT 1
 `
 
-func (q *Queries) GetAppSessionByTokenHash(ctx context.Context, tokenHash []byte) (AppSession, error) {
+type GetAppSessionByTokenHashRow struct {
+	ID                    uuid.UUID
+	UserID                uuid.UUID
+	TenantID              uuid.UUID
+	TokenHash             []byte
+	StytchMemberSessionID sql.NullString
+	CreatedAt             time.Time
+	ExpiresAt             time.Time
+	RevokedAt             sql.NullTime
+}
+
+func (q *Queries) GetAppSessionByTokenHash(ctx context.Context, tokenHash []byte) (GetAppSessionByTokenHashRow, error) {
 	row := q.db.QueryRowContext(ctx, getAppSessionByTokenHash, tokenHash)
-	var i AppSession
+	var i GetAppSessionByTokenHashRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -92,17 +125,6 @@ func (q *Queries) GetAppSessionByTokenHash(ctx context.Context, tokenHash []byte
 		&i.RevokedAt,
 	)
 	return i, err
-}
-
-const revokeAppSession = `-- name: RevokeAppSession :exec
-UPDATE app_session
-SET revoked_at = NOW()
-WHERE id = $1
-`
-
-func (q *Queries) RevokeAppSession(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, revokeAppSession, id)
-	return err
 }
 
 const getSessionWithMemberships = `-- name: GetSessionWithMemberships :one
@@ -123,9 +145,9 @@ type GetSessionWithMembershipsRow struct {
 	CreatedAt             time.Time
 	ExpiresAt             time.Time
 	RevokedAt             sql.NullTime
-	MembershipID          sql.NullString
-	SchoolID              sql.NullString
-	Role                  sql.NullString
+	MembershipID          uuid.NullUUID
+	SchoolID              uuid.NullUUID
+	Role                  NullUserRole
 	IsActive              sql.NullBool
 }
 
@@ -147,4 +169,15 @@ func (q *Queries) GetSessionWithMemberships(ctx context.Context, tokenHash []byt
 		&i.IsActive,
 	)
 	return i, err
+}
+
+const revokeAppSession = `-- name: RevokeAppSession :exec
+UPDATE app_session
+SET revoked_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) RevokeAppSession(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, revokeAppSession, id)
+	return err
 }

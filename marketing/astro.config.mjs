@@ -6,4 +6,5 @@ export default defineConfig({
   adapter: cloudflare(),
   site: 'https://somotracker.app/',
   base: '/',
+  session: false
 })

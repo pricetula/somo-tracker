@@ -1,6 +1,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "somotracker-frontend",
+	"name": "somo-tracker-frontend",
+	"previews": {},
 	// Set this to today's date
 	"compatibility_date": "2026-11-10",
 	"main": "@tanstack/react-start/server-entry",

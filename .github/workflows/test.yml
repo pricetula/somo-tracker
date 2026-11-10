@@ -51,46 +51,4 @@ jobs:
           files: coverage.out
           fail_ci_if_error: false
 
-  # Run slower integration tests separately from unit test ones
-  integration:
-    if: false
-    runs-on: ubuntu-latest
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      postgres:
-        image: postgres:16-alpine
-        ports:
-          - 5433:5432
-        env:
-          POSTGRES_DB: somotracker_test
-          POSTGRES_USER: somo_admin
-          POSTGRES_PASSWORD: somo_secure_password
-        options: >-
-          --health-cmd "pg_isready -U somo_admin -d somotracker_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
 
-      - name: Run integration tests
-        run: make test-integration
-
-      - name: Publish test report
-        uses: mikepenz/action-junit-report@v4
-        if: always()
-        with:
-          report_paths: 'test-results/integration.xml'
-          fail_on_failure: true

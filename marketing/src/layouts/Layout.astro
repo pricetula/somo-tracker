@@ -4,16 +4,15 @@ interface Props {
 }
 const { title } = Astro.props
 ---
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{title}</title>
-</head>
-<body>
-  <header>
-    <a href="/">Somotracker</a>
-  </header>
-  <main><slot /></main>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>{title}</title>
+  </head>
+  <body class="bg-background text-foreground font-sans antialiased selection:bg-primary selection:text-primary-foreground">
+    <slot />
+  </body>
 </html>

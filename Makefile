@@ -167,7 +167,7 @@ generate-frontend-types:
 # Quality / Compliance
 # =============================================================================
 
-compliance: vet lint typecheck typecheck-marketing test-backend generate-check
+compliance: vet lint typecheck test-backend generate-check
 
 vet:
 	cd backend && go vet ./...

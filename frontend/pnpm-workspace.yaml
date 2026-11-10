@@ -22,6 +22,8 @@ permissions:
     skills: true
   unrs-resolver:
     build: true
+  workerd:
+    build: true
 skills:
   dirs:
     - .claude/skills

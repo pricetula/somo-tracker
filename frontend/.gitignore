@@ -52,3 +52,5 @@ Thumbs.db
 
 # misc
 *.gen.*
+
+.wranger/

@@ -13,7 +13,7 @@ import (
 )
 
 const createMembership = `-- name: CreateMembership :one
-INSERT INTO membership (user_id, school_id, role)
+INSERT INTO memberships (user_id, school_id, role)
 VALUES ($1, $2, $3)
 RETURNING id, user_id, school_id, role, created_at
 `
@@ -21,12 +21,20 @@ RETURNING id, user_id, school_id, role, created_at
 type CreateMembershipParams struct {
 	UserID   uuid.UUID
 	SchoolID uuid.UUID
-	Role     string
+	Role     UserRole
 }
 
-func (q *Queries) CreateMembership(ctx context.Context, arg CreateMembershipParams) (Membership, error) {
+type CreateMembershipRow struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	SchoolID  uuid.UUID
+	Role      UserRole
+	CreatedAt time.Time
+}
+
+func (q *Queries) CreateMembership(ctx context.Context, arg CreateMembershipParams) (CreateMembershipRow, error) {
 	row := q.db.QueryRowContext(ctx, createMembership, arg.UserID, arg.SchoolID, arg.Role)
-	var i Membership
+	var i CreateMembershipRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -38,7 +46,7 @@ func (q *Queries) CreateMembership(ctx context.Context, arg CreateMembershipPara
 }
 
 const createPKCECode = `-- name: CreatePKCECode :exec
-INSERT INTO pkce_code (pending_onboarding_id, code_verifier_hash, expires_at)
+INSERT INTO pkce_codes (pending_onboarding_id, code_verifier_hash, expires_at)
 VALUES ($1, $2, $3)
 ON CONFLICT (pending_onboarding_id) DO UPDATE SET
   code_verifier_hash = EXCLUDED.code_verifier_hash,
@@ -57,25 +65,46 @@ func (q *Queries) CreatePKCECode(ctx context.Context, arg CreatePKCECodeParams) 
 }
 
 const createSchool = `-- name: CreateSchool :one
-INSERT INTO school (tenant_id, name, code)
-VALUES ($1, $2, $3)
-RETURNING id, tenant_id, name, code, created_at, updated_at
+INSERT INTO schools (tenant_id, name, code, country_id, education_system_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, tenant_id, name, code, country_id, education_system_id, created_at, updated_at
 `
 
 type CreateSchoolParams struct {
-	TenantID uuid.UUID
-	Name     string
-	Code     string
+	TenantID          uuid.UUID
+	Name              string
+	Code              string
+	CountryID         uuid.UUID
+	EducationSystemID uuid.UUID
 }
 
-func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (School, error) {
-	row := q.db.QueryRowContext(ctx, createSchool, arg.TenantID, arg.Name, arg.Code)
-	var i School
+type CreateSchoolRow struct {
+	ID                uuid.UUID
+	TenantID          uuid.UUID
+	Name              string
+	Code              string
+	CountryID         uuid.UUID
+	EducationSystemID uuid.UUID
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (CreateSchoolRow, error) {
+	row := q.db.QueryRowContext(ctx, createSchool,
+		arg.TenantID,
+		arg.Name,
+		arg.Code,
+		arg.CountryID,
+		arg.EducationSystemID,
+	)
+	var i CreateSchoolRow
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
 		&i.Name,
 		&i.Code,
+		&i.CountryID,
+		&i.EducationSystemID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -83,9 +112,9 @@ func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (Sch
 }
 
 const createTenant = `-- name: CreateTenant :one
-INSERT INTO tenant (name, stytch_organization_id, status)
-VALUES ($1, $2, 'active')
-RETURNING id, name, stytch_organization_id, status, created_at, updated_at
+INSERT INTO tenants (name, stytch_organization_id, tenant_status)
+VALUES ($1, $2, 'ACTIVE')
+RETURNING id, name, stytch_organization_id, tenant_status, created_at, updated_at
 `
 
 type CreateTenantParams struct {
@@ -93,14 +122,23 @@ type CreateTenantParams struct {
 	StytchOrganizationID uuid.NullUUID
 }
 
-func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Tenant, error) {
+type CreateTenantRow struct {
+	ID                   uuid.UUID
+	Name                 string
+	StytchOrganizationID uuid.NullUUID
+	TenantStatus         TenantStatus
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (CreateTenantRow, error) {
 	row := q.db.QueryRowContext(ctx, createTenant, arg.Name, arg.StytchOrganizationID)
-	var i Tenant
+	var i CreateTenantRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.StytchOrganizationID,
-		&i.Status,
+		&i.TenantStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -108,7 +146,7 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Ten
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO "user" (tenant_id, email_normalized, stytch_member_id, name)
+INSERT INTO users (tenant_id, email_normalized, stytch_member_id, name)
 VALUES ($1, $2, $3, $4)
 RETURNING id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
 `
@@ -120,14 +158,24 @@ type CreateUserParams struct {
 	Name            string
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+type CreateUserRow struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	EmailNormalized string
+	StytchMemberID  uuid.NullUUID
+	Name            string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
 		arg.TenantID,
 		arg.EmailNormalized,
 		arg.StytchMemberID,
 		arg.Name,
 	)
-	var i User
+	var i CreateUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -141,7 +189,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const deletePKCECode = `-- name: DeletePKCECode :exec
-DELETE FROM pkce_code WHERE pending_onboarding_id = $1
+DELETE FROM pkce_codes WHERE pending_onboarding_id = $1
 `
 
 func (q *Queries) DeletePKCECode(ctx context.Context, pendingOnboardingID uuid.UUID) error {
@@ -151,7 +199,7 @@ func (q *Queries) DeletePKCECode(ctx context.Context, pendingOnboardingID uuid.U
 
 const getMembershipByUserAndSchool = `-- name: GetMembershipByUserAndSchool :one
 SELECT id, user_id, school_id, role, created_at
-FROM membership
+FROM memberships
 WHERE user_id = $1 AND school_id = $2
 LIMIT 1
 `
@@ -161,9 +209,17 @@ type GetMembershipByUserAndSchoolParams struct {
 	SchoolID uuid.UUID
 }
 
-func (q *Queries) GetMembershipByUserAndSchool(ctx context.Context, arg GetMembershipByUserAndSchoolParams) (Membership, error) {
+type GetMembershipByUserAndSchoolRow struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	SchoolID  uuid.UUID
+	Role      UserRole
+	CreatedAt time.Time
+}
+
+func (q *Queries) GetMembershipByUserAndSchool(ctx context.Context, arg GetMembershipByUserAndSchoolParams) (GetMembershipByUserAndSchoolRow, error) {
 	row := q.db.QueryRowContext(ctx, getMembershipByUserAndSchool, arg.UserID, arg.SchoolID)
-	var i Membership
+	var i GetMembershipByUserAndSchoolRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -176,19 +232,27 @@ func (q *Queries) GetMembershipByUserAndSchool(ctx context.Context, arg GetMembe
 
 const getMembershipsByUserID = `-- name: GetMembershipsByUserID :many
 SELECT id, user_id, school_id, role, created_at
-FROM membership
+FROM memberships
 WHERE user_id = $1
 `
 
-func (q *Queries) GetMembershipsByUserID(ctx context.Context, userID uuid.UUID) ([]Membership, error) {
+type GetMembershipsByUserIDRow struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	SchoolID  uuid.UUID
+	Role      UserRole
+	CreatedAt time.Time
+}
+
+func (q *Queries) GetMembershipsByUserID(ctx context.Context, userID uuid.UUID) ([]GetMembershipsByUserIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, getMembershipsByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Membership
+	var items []GetMembershipsByUserIDRow
 	for rows.Next() {
-		var i Membership
+		var i GetMembershipsByUserIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -211,14 +275,21 @@ func (q *Queries) GetMembershipsByUserID(ctx context.Context, userID uuid.UUID) 
 
 const getPKCECode = `-- name: GetPKCECode :one
 SELECT pending_onboarding_id, code_verifier_hash, expires_at, created_at
-FROM pkce_code
+FROM pkce_codes
 WHERE pending_onboarding_id = $1 AND expires_at > NOW()
 LIMIT 1
 `
 
-func (q *Queries) GetPKCECode(ctx context.Context, pendingOnboardingID uuid.UUID) (PkceCode, error) {
+type GetPKCECodeRow struct {
+	PendingOnboardingID uuid.UUID
+	CodeVerifierHash    []byte
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
+}
+
+func (q *Queries) GetPKCECode(ctx context.Context, pendingOnboardingID uuid.UUID) (GetPKCECodeRow, error) {
 	row := q.db.QueryRowContext(ctx, getPKCECode, pendingOnboardingID)
-	var i PkceCode
+	var i GetPKCECodeRow
 	err := row.Scan(
 		&i.PendingOnboardingID,
 		&i.CodeVerifierHash,
@@ -229,20 +300,33 @@ func (q *Queries) GetPKCECode(ctx context.Context, pendingOnboardingID uuid.UUID
 }
 
 const getSchoolByID = `-- name: GetSchoolByID :one
-SELECT id, tenant_id, name, code, created_at, updated_at
-FROM school
+SELECT id, tenant_id, name, code, country_id, education_system_id, created_at, updated_at
+FROM schools
 WHERE id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetSchoolByID(ctx context.Context, id uuid.UUID) (School, error) {
+type GetSchoolByIDRow struct {
+	ID                uuid.UUID
+	TenantID          uuid.UUID
+	Name              string
+	Code              string
+	CountryID         uuid.UUID
+	EducationSystemID uuid.UUID
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (q *Queries) GetSchoolByID(ctx context.Context, id uuid.UUID) (GetSchoolByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getSchoolByID, id)
-	var i School
+	var i GetSchoolByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
 		&i.Name,
 		&i.Code,
+		&i.CountryID,
+		&i.EducationSystemID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -250,20 +334,29 @@ func (q *Queries) GetSchoolByID(ctx context.Context, id uuid.UUID) (School, erro
 }
 
 const getTenantByID = `-- name: GetTenantByID :one
-SELECT id, name, stytch_organization_id, status, created_at, updated_at
-FROM tenant
+SELECT id, name, stytch_organization_id, tenant_status, created_at, updated_at
+FROM tenants
 WHERE id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetTenantByID(ctx context.Context, id uuid.UUID) (Tenant, error) {
+type GetTenantByIDRow struct {
+	ID                   uuid.UUID
+	Name                 string
+	StytchOrganizationID uuid.NullUUID
+	TenantStatus         TenantStatus
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+func (q *Queries) GetTenantByID(ctx context.Context, id uuid.UUID) (GetTenantByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getTenantByID, id)
-	var i Tenant
+	var i GetTenantByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.StytchOrganizationID,
-		&i.Status,
+		&i.TenantStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -271,20 +364,29 @@ func (q *Queries) GetTenantByID(ctx context.Context, id uuid.UUID) (Tenant, erro
 }
 
 const getTenantByStytchOrgID = `-- name: GetTenantByStytchOrgID :one
-SELECT id, name, stytch_organization_id, status, created_at, updated_at
-FROM tenant
+SELECT id, name, stytch_organization_id, tenant_status, created_at, updated_at
+FROM tenants
 WHERE stytch_organization_id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetTenantByStytchOrgID(ctx context.Context, stytchOrganizationID uuid.NullUUID) (Tenant, error) {
+type GetTenantByStytchOrgIDRow struct {
+	ID                   uuid.UUID
+	Name                 string
+	StytchOrganizationID uuid.NullUUID
+	TenantStatus         TenantStatus
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+func (q *Queries) GetTenantByStytchOrgID(ctx context.Context, stytchOrganizationID uuid.NullUUID) (GetTenantByStytchOrgIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getTenantByStytchOrgID, stytchOrganizationID)
-	var i Tenant
+	var i GetTenantByStytchOrgIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.StytchOrganizationID,
-		&i.Status,
+		&i.TenantStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -293,8 +395,8 @@ func (q *Queries) GetTenantByStytchOrgID(ctx context.Context, stytchOrganization
 
 const getTenantMembershipRole = `-- name: GetTenantMembershipRole :one
 SELECT m.role
-FROM membership m
-JOIN "user" u ON m.user_id = u.id
+FROM memberships m
+JOIN users u ON m.user_id = u.id
 WHERE u.id = $1 AND u.tenant_id = $2
 LIMIT 1
 `
@@ -304,23 +406,33 @@ type GetTenantMembershipRoleParams struct {
 	TenantID uuid.UUID
 }
 
-func (q *Queries) GetTenantMembershipRole(ctx context.Context, arg GetTenantMembershipRoleParams) (string, error) {
+func (q *Queries) GetTenantMembershipRole(ctx context.Context, arg GetTenantMembershipRoleParams) (UserRole, error) {
 	row := q.db.QueryRowContext(ctx, getTenantMembershipRole, arg.ID, arg.TenantID)
-	var role string
+	var role UserRole
 	err := row.Scan(&role)
 	return role, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
-FROM "user"
+FROM users
 WHERE email_normalized = $1
 LIMIT 1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, emailNormalized string) (User, error) {
+type GetUserByEmailRow struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	EmailNormalized string
+	StytchMemberID  uuid.NullUUID
+	Name            string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, emailNormalized string) (GetUserByEmailRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserByEmail, emailNormalized)
-	var i User
+	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -335,7 +447,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, emailNormalized string) (U
 
 const getUserByEmailAndTenant = `-- name: GetUserByEmailAndTenant :one
 SELECT id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
-FROM "user"
+FROM users
 WHERE tenant_id = $1 AND email_normalized = $2
 LIMIT 1
 `
@@ -345,9 +457,19 @@ type GetUserByEmailAndTenantParams struct {
 	EmailNormalized string
 }
 
-func (q *Queries) GetUserByEmailAndTenant(ctx context.Context, arg GetUserByEmailAndTenantParams) (User, error) {
+type GetUserByEmailAndTenantRow struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	EmailNormalized string
+	StytchMemberID  uuid.NullUUID
+	Name            string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (q *Queries) GetUserByEmailAndTenant(ctx context.Context, arg GetUserByEmailAndTenantParams) (GetUserByEmailAndTenantRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserByEmailAndTenant, arg.TenantID, arg.EmailNormalized)
-	var i User
+	var i GetUserByEmailAndTenantRow
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -362,14 +484,24 @@ func (q *Queries) GetUserByEmailAndTenant(ctx context.Context, arg GetUserByEmai
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
-FROM "user"
+FROM users
 WHERE id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+type GetUserByIDRow struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	EmailNormalized string
+	StytchMemberID  uuid.NullUUID
+	Name            string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserByID, id)
-	var i User
+	var i GetUserByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
@@ -384,14 +516,24 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 
 const getUserByStytchMemberID = `-- name: GetUserByStytchMemberID :one
 SELECT id, tenant_id, email_normalized, stytch_member_id, name, created_at, updated_at
-FROM "user"
+FROM users
 WHERE stytch_member_id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetUserByStytchMemberID(ctx context.Context, stytchMemberID uuid.NullUUID) (User, error) {
+type GetUserByStytchMemberIDRow struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	EmailNormalized string
+	StytchMemberID  uuid.NullUUID
+	Name            string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (q *Queries) GetUserByStytchMemberID(ctx context.Context, stytchMemberID uuid.NullUUID) (GetUserByStytchMemberIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserByStytchMemberID, stytchMemberID)
-	var i User
+	var i GetUserByStytchMemberIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,

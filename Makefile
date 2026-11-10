@@ -155,7 +155,7 @@ test-integration:
 generate: generate-sqlc generate-swag generate-frontend-types
 
 generate-sqlc:
-	cd backend && sqlc generate || true
+	cd backend && sqlc generate
 
 generate-swag:
 	cd backend && swag init -g cmd/api/main.go -o docs

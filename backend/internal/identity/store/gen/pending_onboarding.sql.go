@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -20,9 +21,25 @@ WHERE verified_email_normalized = $1
 LIMIT 1
 `
 
-func (q *Queries) GetPendingOnboardingByEmail(ctx context.Context, verifiedEmailNormalized string) (PendingOnboarding, error) {
+type GetPendingOnboardingByEmailRow struct {
+	ID                      uuid.UUID
+	VerifiedEmailNormalized string
+	Status                  PendingOnboardingStatus
+	CurrentStep             string
+	FormData                json.RawMessage
+	StytchOrganizationID    uuid.NullUUID
+	StytchMemberID          uuid.NullUUID
+	TenantID                uuid.NullUUID
+	SchoolName              sql.NullString
+	IdempotencyKey          sql.NullString
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	LastActivityAt          time.Time
+}
+
+func (q *Queries) GetPendingOnboardingByEmail(ctx context.Context, verifiedEmailNormalized string) (GetPendingOnboardingByEmailRow, error) {
 	row := q.db.QueryRowContext(ctx, getPendingOnboardingByEmail, verifiedEmailNormalized)
-	var i PendingOnboarding
+	var i GetPendingOnboardingByEmailRow
 	err := row.Scan(
 		&i.ID,
 		&i.VerifiedEmailNormalized,
@@ -48,9 +65,25 @@ WHERE id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetPendingOnboardingByID(ctx context.Context, id uuid.UUID) (PendingOnboarding, error) {
+type GetPendingOnboardingByIDRow struct {
+	ID                      uuid.UUID
+	VerifiedEmailNormalized string
+	Status                  PendingOnboardingStatus
+	CurrentStep             string
+	FormData                json.RawMessage
+	StytchOrganizationID    uuid.NullUUID
+	StytchMemberID          uuid.NullUUID
+	TenantID                uuid.NullUUID
+	SchoolName              sql.NullString
+	IdempotencyKey          sql.NullString
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	LastActivityAt          time.Time
+}
+
+func (q *Queries) GetPendingOnboardingByID(ctx context.Context, id uuid.UUID) (GetPendingOnboardingByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getPendingOnboardingByID, id)
-	var i PendingOnboarding
+	var i GetPendingOnboardingByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.VerifiedEmailNormalized,
@@ -83,7 +116,7 @@ type UpdatePendingOnboardingProvisioningParams struct {
 	ID                   uuid.UUID
 	StytchOrganizationID uuid.NullUUID
 	StytchMemberID       uuid.NullUUID
-	Status               string
+	Status               PendingOnboardingStatus
 }
 
 func (q *Queries) UpdatePendingOnboardingProvisioning(ctx context.Context, arg UpdatePendingOnboardingProvisioningParams) error {
@@ -132,7 +165,7 @@ RETURNING id, verified_email_normalized, status, current_step, form_data, stytch
 
 type UpsertPendingOnboardingParams struct {
 	VerifiedEmailNormalized string
-	Status                  string
+	Status                  PendingOnboardingStatus
 	CurrentStep             string
 	FormData                json.RawMessage
 	StytchOrganizationID    uuid.NullUUID
@@ -142,7 +175,23 @@ type UpsertPendingOnboardingParams struct {
 	IdempotencyKey          sql.NullString
 }
 
-func (q *Queries) UpsertPendingOnboarding(ctx context.Context, arg UpsertPendingOnboardingParams) (PendingOnboarding, error) {
+type UpsertPendingOnboardingRow struct {
+	ID                      uuid.UUID
+	VerifiedEmailNormalized string
+	Status                  PendingOnboardingStatus
+	CurrentStep             string
+	FormData                json.RawMessage
+	StytchOrganizationID    uuid.NullUUID
+	StytchMemberID          uuid.NullUUID
+	TenantID                uuid.NullUUID
+	SchoolName              sql.NullString
+	IdempotencyKey          sql.NullString
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	LastActivityAt          time.Time
+}
+
+func (q *Queries) UpsertPendingOnboarding(ctx context.Context, arg UpsertPendingOnboardingParams) (UpsertPendingOnboardingRow, error) {
 	row := q.db.QueryRowContext(ctx, upsertPendingOnboarding,
 		arg.VerifiedEmailNormalized,
 		arg.Status,
@@ -154,7 +203,7 @@ func (q *Queries) UpsertPendingOnboarding(ctx context.Context, arg UpsertPending
 		arg.SchoolName,
 		arg.IdempotencyKey,
 	)
-	var i PendingOnboarding
+	var i UpsertPendingOnboardingRow
 	err := row.Scan(
 		&i.ID,
 		&i.VerifiedEmailNormalized,

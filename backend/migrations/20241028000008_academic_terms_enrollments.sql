@@ -40,7 +40,7 @@ CREATE INDEX terms_deleted_at_idx ON terms (deleted_at) WHERE deleted_at IS NULL
 -- enrollments: one active per student per term (DB enforced)
 CREATE TABLE enrollments (
     id                UUID        NOT NULL    DEFAULT uuidv7() PRIMARY KEY,
-    student_id        UUID        NOT NULL    REFERENCES students(id) ON DELETE RESTRICT,
+    student_id        UUID        NOT NULL    REFERENCES students(student_id) ON DELETE RESTRICT,
     classroom_id      UUID        NOT NULL    REFERENCES classrooms(id) ON DELETE RESTRICT,
     term_id           UUID        NOT NULL    REFERENCES terms(id) ON DELETE RESTRICT,
     status            enrollment_status NOT NULL DEFAULT 'ACTIVE',
@@ -60,14 +60,6 @@ CREATE UNIQUE INDEX enrollments_active_student_term_uniq
 CREATE INDEX enrollments_deleted_at_idx ON enrollments (deleted_at) WHERE deleted_at IS NULL;
 
 -- updated_at triggers (applied per-table)
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON enrollments FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON academic_years FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON terms FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();

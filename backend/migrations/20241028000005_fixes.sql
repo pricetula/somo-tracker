@@ -18,22 +18,32 @@ ALTER TABLE schools ADD CONSTRAINT schools_education_system_id_fkey FOREIGN KEY 
 -- 3) updated_at trigger function + apply to all tables
 CREATE OR REPLACE FUNCTION trigger_set_timestamp() RETURNS TRIGGER LANGUAGE plpgsql AS $func$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $func$;
 
-DO $do3$
-DECLARE t TEXT[];
-BEGIN
-    FOREACH t IN ARRAY ARRAY[
-        'pending_onboarding','app_session','onboarding_ticket',
-        'countries','education_systems','class_levels',
-        'tenants','users','schools','memberships','pkce_codes',
-        'students','guardian_student_links'
-    ] LOOP
-        EXECUTE format(
-            'DROP TRIGGER IF EXISTS trigger_set_timestamp ON %I;'
-            'CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp()',
-            t, t);
-    END LOOP;
-END;
-$do3$;
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON pending_onboarding;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON pending_onboarding FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON app_session;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON app_session FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON onboarding_ticket;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON onboarding_ticket FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON countries;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON countries FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON education_systems;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON education_systems FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON class_levels;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON class_levels FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON tenants;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON users;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON schools;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON schools FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON memberships;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON memberships FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON pkce_codes;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON pkce_codes FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON students;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON students FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+DROP TRIGGER IF EXISTS trigger_set_timestamp ON guardian_student_links;
+CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON guardian_student_links FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 
 -- 4) Composite index users(tenant_id, email_normalized)
 CREATE INDEX IF NOT EXISTS idx_users_tenant_email ON users (tenant_id, email_normalized);
@@ -67,28 +77,37 @@ CREATE POLICY students_isolate ON students
     USING (EXISTS (SELECT 1 FROM schools WHERE schools.id = students.school_id));
 
 CREATE POLICY guardian_isolate ON guardian_student_links
-    USING (EXISTS (SELECT 1 FROM students WHERE students.id = guardian_student_links.student_id));
+    USING (EXISTS (SELECT 1 FROM students WHERE students.student_id = guardian_student_links.student_id));
 
 -- 13) No schema validation on JSONB columns.
 
 -- Soft delete (deleted_at) for all domain tables.
-DO $do$
-DECLARE t TEXT[];
-BEGIN
-    FOREACH t IN ARRAY ARRAY[
-        'pending_onboarding','app_session','onboarding_ticket',
-        'countries','education_systems','class_levels',
-        'tenants','users','schools','memberships','pkce_codes',
-        'students','guardian_student_links'
-    ] LOOP
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = t AND column_name = 'deleted_at') THEN CONTINUE; END IF;
-        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = t) THEN
-            EXECUTE format('ALTER TABLE %I ADD COLUMN deleted_at TIMESTAMPTZ', t);
-            EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%I_deleted_at ON %I (deleted_at) WHERE deleted_at IS NULL', t, t);
-        END IF;
-    END LOOP;
-END;
-$do$;
+ALTER TABLE pending_onboarding ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_pending_onboarding_deleted_at ON pending_onboarding (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE app_session ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_app_session_deleted_at ON app_session (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE onboarding_ticket ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_onboarding_ticket_deleted_at ON onboarding_ticket (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE countries ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_countries_deleted_at ON countries (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE education_systems ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_education_systems_deleted_at ON education_systems (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE class_levels ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_class_levels_deleted_at ON class_levels (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_tenants_deleted_at ON tenants (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE schools ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_schools_deleted_at ON schools (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE memberships ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_memberships_deleted_at ON memberships (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE pkce_codes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_pkce_codes_deleted_at ON pkce_codes (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_students_deleted_at ON students (deleted_at) WHERE deleted_at IS NULL;
+ALTER TABLE guardian_student_links ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_guardian_student_links_deleted_at ON guardian_student_links (deleted_at) WHERE deleted_at IS NULL;
 
 -- 9) Skills/strands/sub_strands deferred (see domain model: LearningArea hierarchy).
 
@@ -108,21 +127,19 @@ ALTER TABLE memberships DISABLE ROW LEVEL SECURITY;
 ALTER TABLE students   DISABLE ROW LEVEL SECURITY;
 ALTER TABLE guardian_student_links DISABLE ROW LEVEL SECURITY;
 
-DO $do2$
-DECLARE t TEXT[];
-BEGIN
-    FOREACH t IN ARRAY ARRAY[
-        'pending_onboarding','app_session','onboarding_ticket',
-        'countries','education_systems','class_levels',
-        'tenants','users','schools','memberships','pkce_codes',
-        'students','guardian_student_links'
-    ] LOOP
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = t AND column_name = 'deleted_at') THEN
-            EXECUTE format('ALTER TABLE %I DROP COLUMN deleted_at', t);
-        END IF;
-    END LOOP;
-END;
-$do2$;
+ALTER TABLE pending_onboarding DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE app_session DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE onboarding_ticket DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE countries DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE education_systems DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE class_levels DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE tenants DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE users DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE schools DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE memberships DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE pkce_codes DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE students DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE guardian_student_links DROP COLUMN IF EXISTS deleted_at;
 
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON pending_onboarding;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON app_session;

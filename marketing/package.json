@@ -20,6 +20,23 @@
   "overrides": {
     "@emnapi/runtime": "1.11.3"
   },
+  "pnpm": {
+    "allowBuilds": {
+      "esbuild": false,
+      "workerd": true,
+      "wrangler": true
+    },
+    "minimumReleaseAgeExclude": [
+      "@cloudflare/workerd-darwin-64@1.20261109.1",
+      "@cloudflare/workerd-darwin-arm64@1.20261109.1",
+      "@cloudflare/workerd-linux-64@1.20261109.1",
+      "@cloudflare/workerd-linux-arm64@1.20261109.1",
+      "@cloudflare/workerd-windows-64@1.20261109.1",
+      "miniflare@5.20261109.0-beta",
+      "workerd@1.20261109.1",
+      "wrangler@4.159.0"
+    ]
+  },
   "devDependencies": {
     "@astrojs/check": "0.8.0",
     "@astrojs/cloudflare": "^14.4.6",

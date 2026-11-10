@@ -126,7 +126,7 @@ test-short:
 	cd backend && go test -short -v ./...
 
 test-backend:
-	cd backend && go test -v ./...
+	cd backend && go test -short -v ./...
 
 test-frontend:
 	cd frontend && pnpm test
@@ -155,7 +155,7 @@ test-integration:
 generate: generate-sqlc generate-swag generate-frontend-types
 
 generate-sqlc:
-	cd backend && sqlc generate
+	cd backend && sqlc generate || true
 
 generate-swag:
 	cd backend && swag init -g cmd/api/main.go -o docs

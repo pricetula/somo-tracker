@@ -54,10 +54,17 @@ func TestValidateSessionWithMemberships_Success(t *testing.T) {
 	tenantID := uuid.New()
 	sessionID := uuid.New()
 	schoolID := uuid.New()
+	membershipID := uuid.New()
 
 	mockRepo := &mockRepo{
 		getSessionRow: storegen.GetSessionWithMembershipsRow{
-			ID: sessionID, UserID: userID, TenantID: tenantID, MembershipID: sql.NullString{Valid: true, String: uuid.New().String()}, SchoolID: sql.NullString{Valid: true, String: schoolID.String()}, Role: sql.NullString{Valid: true, String: "teacher"}, IsActive: sql.NullBool{Valid: true, Bool: true},
+			ID:             sessionID,
+			UserID:         userID,
+			TenantID:       tenantID,
+			MembershipID:   uuid.NullUUID{UUID: membershipID, Valid: true},
+			SchoolID:       uuid.NullUUID{UUID: schoolID, Valid: true},
+			Role:           storegen.NullUserRole{UserRole: storegen.UserRoleTEACHER, Valid: true},
+			IsActive:       sql.NullBool{Valid: true, Bool: true},
 		},
 	}
 
@@ -70,7 +77,7 @@ func TestValidateSessionWithMemberships_Success(t *testing.T) {
 	require.Equal(t, userID, sess.UserID)
 	require.Equal(t, tenantID, sess.TenantID)
 	require.Len(t, mems, 1)
-	require.Equal(t, "teacher", mems[0].Role)
+	require.Equal(t, "TEACHER", mems[0].Role)
 	require.True(t, mems[0].IsActive)
 }
 

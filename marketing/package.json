@@ -1,0 +1,50 @@
+{
+  "name": "somotracker-marketing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro preview",
+    "build": "astro build",
+    "preview": "astro preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "format": "prettier --write .",
+    "typecheck": "astro check",
+    "generate-types": "wrangler types"
+  },
+  "dependencies": {
+    "astro": "^7.4.7"
+  },
+  "overrides": {
+    "@emnapi/runtime": "1.11.3"
+  },
+  "pnpm": {
+    "allowBuilds": {
+      "esbuild": false,
+      "workerd": true,
+      "wrangler": true
+    },
+    "minimumReleaseAgeExclude": [
+      "@cloudflare/workerd-darwin-64@1.20261109.1",
+      "@cloudflare/workerd-darwin-arm64@1.20261109.1",
+      "@cloudflare/workerd-linux-64@1.20261109.1",
+      "@cloudflare/workerd-linux-arm64@1.20261109.1",
+      "@cloudflare/workerd-windows-64@1.20261109.1",
+      "miniflare@5.20261109.0-beta",
+      "workerd@1.20261109.1",
+      "wrangler@4.159.0"
+    ]
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.8.0",
+    "@astrojs/cloudflare": "^14.4.6",
+    "@eslint/js": "^9.39.5",
+    "eslint": "^10.14.0",
+    "eslint-plugin-astro": "^0.32.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.159.0"
+  }
+}

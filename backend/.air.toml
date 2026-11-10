@@ -2,14 +2,23 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-bin = "./tmp/main"
-cmd = "go build -o ./tmp/main ./cmd/api/main.go"
-exclude_dir = ["vendor", "tmp", "assets", "node_modules"]
-exclude_regex = [".git", ".idea", ".vscode"]
-include_ext = ["go"]
+  cmd = "go build -o ./tmp/main ./cmd/api"
+  bin = "./tmp/main"
+  full_bin = ""
+  watch = true
+  include_ext = ["go", "tpl", "tmpl", "html", "yaml", "yml", "toml", "sql"]
+  exclude_dir = ["bin", "tmp", "migrations", "vendor"]
+  include_dir = []
+  log = "build-errors.log"
 
-[watch]
-exclude_dir = ["vendor", "tmp", "assets", "node_modules"]
+[color]
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[log]
+  time = true
 
 [misc]
-clean_on_exit = true
+  clean_on_exit = true

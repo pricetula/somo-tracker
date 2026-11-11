@@ -97,71 +97,71 @@ Entry format:
 
 - **EducationSystem**: national education system definition (Kenya CBC, Tanzania NECTA) with display settings such as whether rank is shown; **existing global entity** (table `education_systems`)
   - Context: assessment, grading
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **SchoolAssessmentSettings**: per-school assessment configuration holding working scale `percentage`/`level_points`, default grading scheme family, default computation policy family
   - Context: assessment configuration
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Grading Scheme Template**: global read-only platform-managed scheme template per education system, with `is_recommended_default` flag
   - Context: assessment, grading
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Grading Scheme**: tenant-scoped versioned working copy of a scheme, grouped by `family_id` and optionally linked to a template; indicates whether it is level-based (rubric) or percentage-based
   - Context: assessment, grading
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Grading Band**: a single grade/level row in a Grading Scheme with label (EE, ME, A, B), min/max percentage, point value, and description; the single structure powering percentage↔level↔points conversion
   - Context: assessment, grading
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Subject Offering**: a Subject taught in a specific Classroom for an Academic Year with an assigned Teacher; determines which teacher may enter marks
   - Context: assessment, scheduling
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Assessment**: one marked activity (test, quiz, project, exam) for a Subject Offering in a Term; holds category (formative/summative), scoring mode (percentage/rubric), max score, grading scheme, and status (draft/open/finalized)
   - Context: assessment
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Assessment Result**: one result per Enrollment per Assessment; stores raw entry (mark or level), converted working value, derived grade, grading scheme version, status (entered/absent/excused/not_marked), and optional source reference for future quiz integration
   - Context: assessment
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Computation Policy**: versioned, school-owned policy for term result computation; defines category weights, selection within category (all/last N), aggregation, rounding rule, and missing-data rule; supports school default and per-subject overrides
   - Context: assessment, computation
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Term Result**: computed result per Enrollment per Subject Offering per Term; holds working value, final grade/level, policy version used, status (draft/incomplete/frozen), and computation timestamp
   - Context: assessment, reporting
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Term Result Input**: child row of Term Result listing each Assessment Result considered, its category, converted value, and whether it was included or dropped (with reason); provides full explainability
   - Context: assessment, computation
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Report Card**: per Enrollment per Term with lifecycle (draft/reviewed/approved/published/revised), class teacher remark, head teacher remark, version number, and published timestamp
   - Context: reporting, guardians
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Report Card Line**: snapshot row per subject on a Report Card; freezes final grade, working value, subject remark, and grading labels as they were at publication so later changes never alter a published card
   - Context: reporting
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Working Scale**: the scale on which a **school** combines assessment values for computation—either percentage (0–100) or level points (e.g., 1.0–4.0 for CBC). One working scale per school in v1.
   - Context: assessment, computation
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Missing-Data Rule**: policy setting governing how absent, excused, or not-marked results are treated during computation: skip and re-weight, count as zero, or block and mark incomplete
   - Context: assessment, computation
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 - **Rounding Rule**: policy setting for converting a computed working value back to a grade/level: nearest, down (floor), or scheme cutoff (map to band without rounding)
   - Context: assessment, computation
-  - References: FEATURE-ASSESSMENTS-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 
 - **Attendance Mark**: per-period attendance record for an enrollment tied to `timetable_assignment_id` + `date`. Status is Present, Late, Absent, Excused. Edits after day close require reason and create audit log.
   - Context: attendance
-  - References: FEATURE-ATTENDANCE-001, DOMAIN-MODEL
+  - References: DOMAIN-MODEL
 
 ---

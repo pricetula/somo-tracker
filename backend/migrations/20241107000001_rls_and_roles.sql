@@ -28,6 +28,7 @@ ALTER TABLE onboarding_ticket ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pkce_codes ENABLE ROW LEVEL SECURITY;
 
 -- Academic tables (if they exist)
+-- +goose StatementBegin
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'students') THEN
         ALTER TABLE students ENABLE ROW LEVEL SECURITY;
@@ -39,6 +40,7 @@ DO $$ BEGIN
         ALTER TABLE class_levels ENABLE ROW LEVEL SECURITY;
     END IF;
 END $$;
+-- +goose StatementEnd
 
 -- 3. Create RLS policies using current_setting('app.current_tenant_id', true)
 -- The application must SET LOCAL app.current_tenant_id = '<tenant-uuid>' at transaction start
@@ -96,6 +98,7 @@ ALTER TABLE app_session FORCE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_ticket FORCE ROW LEVEL SECURITY;
 ALTER TABLE pkce_codes FORCE ROW LEVEL SECURITY;
 
+-- +goose StatementBegin
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'students') THEN
         ALTER TABLE students FORCE ROW LEVEL SECURITY;
@@ -107,6 +110,7 @@ DO $$ BEGIN
         ALTER TABLE class_levels FORCE ROW LEVEL SECURITY;
     END IF;
 END $$;
+-- +goose StatementEnd
 
 -- 5. Grant necessary permissions to app role
 -- (Run as superuser after creating role)
@@ -139,6 +143,7 @@ ALTER TABLE app_session DISABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_ticket DISABLE ROW LEVEL SECURITY;
 ALTER TABLE pkce_codes DISABLE ROW LEVEL SECURITY;
 
+-- +goose StatementBegin
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'students') THEN
         ALTER TABLE students DISABLE ROW LEVEL SECURITY;
@@ -150,6 +155,7 @@ DO $$ BEGIN
         ALTER TABLE class_levels DISABLE ROW LEVEL SECURITY;
     END IF;
 END $$;
+-- +goose StatementEnd
 
 DROP FUNCTION IF EXISTS current_tenant_id();
 DROP INDEX IF EXISTS idx_memberships_school_tenant;

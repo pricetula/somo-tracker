@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test_AC11_MultiTenantIsolation verifies tenant isolation guarantees for FEATURE-PROD-SEC-BASELINE-001 AC-11.
+// Test_AC11_MultiTenantIsolation verifies tenant isolation guarantees.
 // It structurally verifies that tenant_id is derived from validated session context and never from client input,
 // and that RLS policies are present on tenant-scoped tables via migration tests.
 func Test_AC11_MultiTenantIsolation(t *testing.T) {

@@ -6,15 +6,15 @@ Authentication is opaque token based per ADR-0002. The frontend never receives o
 ## Flow
 1. Request arrives with cookie `__Secure-session_token=<raw>`.
 2. `RequireAuth` middleware hashes raw token with SHA-256.
-3. `service.ValidateSession` looks up `app_session` by `token_hash`, checks `revoked_at IS NULL` and `expires_at > now`.
+3. `service.ValidateSessionWithMemberships` performs one query: `app_session s` joined to `users u` (tenant match, fails closed) with a LEFT JOIN to active `memberships m` filtered to the session tenant (school tenant must match; enforced in the join predicate).
 4. On success, `SessionContext` contains `user_id`, `tenant_id`, `session_id`.
-5. Memberships are loaded for the user in the tenant: `GetUserMemberships(user_id, tenant_id)`. Optimisation under review in FEATURE-SESSION-MEMBERSHIP-JOIN-001 proposes a single join to resolve session + active memberships in one DB round-trip without caching role/school.
-6. Active roles and `school_ids` are derived from memberships with `IsActive = true`. Primary school is first active membership.
+5. Active memberships are returned inline in the same round-trip. No role/school is cached in the session; memberships remain live per request.
+6. Active roles and `school_id` (singular) are derived from the single active membership (enforced by `memberships_active_user_uniq_idx` where only one membership per user can be active).
 
 ## Resolved identifiers
 * `user_id` – from `app_session.user_id`
 * `tenant_id` – from `app_session.tenant_id`
-* `active school id` – from live memberships; no school id is accepted from the client. For object access the specific school id is validated against the session’s `school_ids` set via `RequireSchoolAccess`.
+* `active school id` – from live memberships; no school id is accepted from the client. For object access the specific school id is validated against the session’s active school via `RequireSchoolAccess`.
 
 ## Cookie contract
 * Name: `__Secure-session_token` + per-environment suffix
@@ -35,7 +35,5 @@ If new resolution fields are required:
 
 ## References
 * ADR-0002 Auth and Roles
-* FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001
-* FEATURE-SESSION-MEMBERSHIP-JOIN-001 – session + membership join optimisation
 * backend/internal/identity/middleware/auth.go
 * backend/internal/identity/service/service.go

@@ -12,7 +12,7 @@ touches: []
 
 - **Tenant** -> owns many **School**
 - **School** -> has many **User** via **Membership**; owns AcademicYears, ClassLevels, Streams
-- **User** -> has one identity per tenant; can have multiple Memberships each with a role scoped to a School
+- **User** -> has one identity per tenant; can have multiple Memberships each with a role scoped to a School, **but only one membership can be active at a time** (enforced by partial unique index `memberships_active_user_uniq_idx`)
 - **Membership** -> User + School + Role. Role is one of Platform Operator, Tenant Owner, Headteacher, School Administrator/Registrar, Teacher, Finance Officer, Guardian
 - **AcademicYear** -> contains three **Term**
 - **ClassLevel** -> PP1, PP2, Grade 1-9

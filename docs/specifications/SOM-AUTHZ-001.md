@@ -1,7 +1,7 @@
 ---
 id: SOM-AUTHZ-001
 title: Authz Permission Matrix
-status: approved
+status: implemented
 author: agent
 date: 2026-11-11
 updated: 2026-11-11

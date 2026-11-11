@@ -63,6 +63,10 @@ Timetable management allows teachers to know which class and subject they have a
 - `memberships` (migration 03) — teacher_id references memberships.id (teacher's membership in a school)
 - `schools` (migration 03) — tenant scoping
 
+### RLS
+
+New timetable tables are enabled for RLS with policies keyed on `tenant_id` (migration 06 pattern via `current_tenant_id()`). The service sets `app.current_tenant_id` from session context at transaction start. Cross-tenant lookups return identical 404 per BE-016.
+
 ### New domain
 
 `internal/timetable/{handler,service,store}/` owning domain per BE-003.
@@ -73,14 +77,16 @@ TimetableTemplate:
   id, tenant_id, school_id, name, created_at, updated_at, deleted_at
 
 TimeSlot:
-  id, template_id, start_time, end_time, order, created_at, updated_at, deleted_at
+  id, tenant_id, template_id, start_time, end_time, order, created_at, updated_at, deleted_at
   -- unique (template_id, order)
   -- no-overlap validation in service layer
+  -- tenant_id denormalized from template for direct tenant-scoped queries and RLS
 
 TimetableEntry:
-  id, time_slot_id, class_id, day (1-7), subject_id, teacher_id, created_at, updated_at, deleted_at
+  id, tenant_id, time_slot_id, class_id, day (1-7), subject_id, teacher_id, created_at, updated_at, deleted_at
   -- unique (class_id, time_slot_id, day)
   -- unique (teacher_id, time_slot_id, day)
+  -- tenant_id denormalized for direct tenant-scoped queries and RLS; matches slot's tenant
 
 ### Day cycle
 
@@ -128,11 +134,12 @@ Clicking a cell opens a Dialog/Sheet with Teacher select and Subject select. Cla
 
 ### Conflict checks (backend)
 
-Same class or teacher could be scheduled under two different templates with overlapping times. Unique constraints on slot ID alone won't catch this, so service layer must check by actual time:
+Same class or teacher could be scheduled under two different templates with overlapping times. Unique constraints on slot ID alone won't catch this, so service layer must check by actual time range:
 
-- Reject an entry if the same class already has an entry on the same day whose slot time range overlaps the new slot's range (across all templates).
-- Reject an entry if the same teacher already has an entry on the same day whose slot time range overlaps (across all templates).
-- DB unique constraints above as a backstop.
+- Reject an entry if the same class already has an entry on the same day whose slot time range overlaps the new slot's range (across all templates, same school).
+- Reject an entry if the same teacher already has an entry on the same day whose slot time range overlaps (across all templates, same school).
+- **Cross-school teacher protection:** resolve the teacher's user → all their active memberships across schools; reject an entry if that teacher already has an entry on the same day whose slot time range overlaps in *any* school. A teacher must not be double-booked across schools at the same time.
+- DB unique constraints above as a backstop for exact-slot duplicates.
 
 ## 6. API Contract
 
@@ -235,15 +242,16 @@ Then request is rejected with 409 (time range overlaps across templates)
 | Add slot default | 1 hour when no slots exist; previous end time + previous duration otherwise |
 | Delete semantics | Soft delete via deleted_at (BE-041) |
 | Cross-template conflicts | Service-layer check by actual time range, not just slot ID |
+| `class_id` FK | References `classrooms.id` (confirmed) |
+| `teacher_id` FK | References `memberships.id` (teacher's membership in one school; user may hold memberships in multiple schools, so cross-school double-booking is checked at service layer) |
+| Tenant scoping | `tenant_id` denormalized on `time_slots` and `timetable_entries`; RLS policies keyed to `tenant_id` per BE-016; frontend never sends tenant/school ID |
+| API paths | `/api/v1/timetable/templates` (kebab-case plural nouns per BE-025) |
+| `order` field | User-defined arrangement: 1 (top-most) to N (last) |
+| Permission name | `timetable:read` / `timetable:write` (granted per SOM-AUTHZ-001 matrix) |
 
 ## 9. Open Questions
 
-1. **`class_id`** — references `classrooms.id`? Confirm.
-2. **`teacher_id`** — references `memberships.id` (teacher's school membership) or `users.id`?
-3. **Tenant scoping** — templates/slots are per-school (tenant_id + school_id)? Confirm per BE-016.
-4. **API paths** — convention is `/api/v1/timetable/templates` (kebab-case plural nouns per BE-025). User wrote `/templates`. Confirm.
-5. **`order` field** — user-defined or auto-generated?
-6. **Permission name** — `timetable:read` / `timetable:write`? Confirm role grants in SOM-AUTHZ-001 matrix.
+None.
 
 ## Links
 

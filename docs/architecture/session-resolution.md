@@ -9,12 +9,12 @@ Authentication is opaque token based per ADR-0002. The frontend never receives o
 3. `service.ValidateSession` looks up `app_session` by `token_hash`, checks `revoked_at IS NULL` and `expires_at > now`.
 4. On success, `SessionContext` contains `user_id`, `tenant_id`, `session_id`.
 5. Memberships are loaded for the user in the tenant: `GetUserMemberships(user_id, tenant_id)`. Optimisation under review in FEATURE-SESSION-MEMBERSHIP-JOIN-001 proposes a single join to resolve session + active memberships in one DB round-trip without caching role/school.
-6. Active roles and `school_ids` are derived from memberships with `IsActive = true`. Primary school is first active membership.
+6. Active roles and `school_id` (singular) are derived from the single active membership (enforced by `memberships_active_user_uniq_idx` where only one membership per user can be active).
 
 ## Resolved identifiers
 * `user_id` – from `app_session.user_id`
 * `tenant_id` – from `app_session.tenant_id`
-* `active school id` – from live memberships; no school id is accepted from the client. For object access the specific school id is validated against the session’s `school_ids` set via `RequireSchoolAccess`.
+* `active school id` – from live memberships; no school id is accepted from the client. For object access the specific school id is validated against the session’s active school via `RequireSchoolAccess`.
 
 ## Cookie contract
 * Name: `__Secure-session_token` + per-environment suffix

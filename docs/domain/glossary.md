@@ -21,7 +21,7 @@ Entry format:
   - Context: school structure, onboarding
   - References: FR-ONB-001
 
-- **Membership**: the link between a user and a school, carrying exactly one role. A user can hold memberships in several schools of the same tenant, each with its own role
+- **Membership**: the link between a user and a school, carrying exactly one role. A user can hold memberships in several schools of the same tenant, **but only one membership can be active at a time** (enforced by partial unique index `memberships_active_user_uniq_idx`)
   - Context: auth, roles
   - References: FR-FND-006
 

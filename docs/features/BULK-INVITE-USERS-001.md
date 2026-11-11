@@ -66,7 +66,7 @@ Enable school administrators to bulk invite multiple users (admins, teachers, pa
 
 ### AC-5: Validation and constraints
 - Invitees must belong to the same tenant as the school
-- Cannot invite users who already have an active membership in the target school
+- Cannot invite users who already have an active membership in the target school (enforced by `memberships_active_user_uniq_idx`: only one active membership per user across all schools in the tenant)
 - Cannot invite users who already have an account in the system (unless they are deleted first)
 - Email format validation required
 - School must exist and belong to the tenant

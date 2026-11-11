@@ -1,7 +1,7 @@
 ---
 id: FEATURE-SESSION-MEMBERSHIP-JOIN-001
 title: Session Validation with Membership Join Optimisation
-status: approved
+status: implemented
 depends_on:
   - ADR-0002
   - FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001
@@ -25,7 +25,7 @@ Reduce per-request DB round-trips for authentication by resolving the opaque ses
 * backend/AGENTS.md BE-018, BE-017 – never cache role, load session context once per request
 
 ## Acceptance criteria
-- AC-1: `service.ValidateSession` returns `SessionContext` plus active membership in a single DB round-trip
+- AC-1: `service.ValidateSessionWithMemberships` (used by `RequireAuth`) returns `SessionContext` plus active membership in a single DB round-trip
 - AC-2: No `school_id` or `role` is persisted in `app_session`; session row remains token hash, user/tenant/expiry only
 - AC-3: Middleware `RequireAuth` still derives `user_id`, `tenant_id`, `roles`, `school_id` from the combined result, no additional query (only one active membership exists per user due to `memberships_active_user_uniq_idx`)
 - AC-4: Revocation and expiry are still enforced live; a revoked session returns `ErrSessionNotFound` even if memberships exist
@@ -38,7 +38,7 @@ No API changes. OpenAPI unchanged. Internal service interface changes only.
 
 ## Backend notes
 * Repository method `GetSessionWithMemberships(ctx, tokenHash []byte) (AppSession, Membership)` replaces separate `GetAppSessionByTokenHash` + `GetUserMemberships` calls in the auth middleware path.
-* SQL: single query joining `app_session s` → `users u` → `memberships m` filtered by `s.token_hash = $1`, `s.revoked_at IS NULL`, `s.expires_at > now()`, `m.is_active = true`, `u.tenant_id = s.tenant_id`. Returns at most one row per user (enforced by partial unique index `memberships_active_user_uniq_idx`).
+* SQL: single query joining `app_session s` → `users u` (INNER JOIN, `u.tenant_id = s.tenant_id`, fails closed) → `memberships m` (LEFT JOIN, `m.is_active = true`), filtered by `s.token_hash = $1`, `s.revoked_at IS NULL`, `s.expires_at > now()`. Membership rows are returned only when their school belongs to the session tenant (`EXISTS (SELECT 1 FROM schools sc WHERE sc.id = m.school_id AND sc.tenant_id = s.tenant_id)`); a cross-tenant membership yields a session with empty memberships (fail-closed in middleware). Returns at most one row per user (enforced by partial unique index `memberships_active_user_uniq_idx`).
 * Keep Repository interface small; service never imports sqlc types.
 * Ensure error mapping stays per `apperr` contract.
 * No Redis involvement. Keep Postgres as source of truth per BE-028.
@@ -47,15 +47,15 @@ No API changes. OpenAPI unchanged. Internal service interface changes only.
 None. Frontend remains cookie-presence only.
 
 ## Verification
-* Unit: mock repository returns session + membership; middleware builds locals correctly
-* Integration: authenticated request hits protected route, logs show single DB query for session+memberships
-* Security: revoke session → subsequent request 401 despite cached membership data in app
-* Run `make compliance`, `go test ./...`, `go vet`, `golangci-lint`
-
-## Open questions
-* Do we need a dedicated SQL view for session+memberships for readability vs inline join?
-* Should we also pre-load guardian students / teacher classes in same round-trip for those RBAC checks, or keep lazy?
+* Unit: `session_membership_test.go` mocks repository; middleware locals covered by existing middleware tests (AC-3).
+* Integration: `session_membership_integration_test.go` (build tag `integration`, testcontainers Postgres 18 + goose migrations) covers AC-1 (happy path, single query), AC-4 (revoked/expired session → `ErrSessionNotFound`) and AC-5 (cross-tenant school membership not returned; session tenant ≠ user tenant → `ErrSessionNotFound`). Cross-check: `migrator_integration_test.go` (BE-037) is green after fixing missing `-- +goose StatementBegin/End` markers in `20241107000001_rls_and_roles.sql` and `20241107000002_encrypt_ist.sql` (pre-existing fresh-environment migration failure).
+* Security: AC-4 case asserts revoked sessions stay 401 even with an active membership present.
+* `make compliance` run before status change.
 
 ## Decisions
 * Do not store active school id in session. Membership remains live per BE-018.
 * Optimisation is read-path only; Postgres remains authoritative.
+* Dedicated SQL view rejected; inline join kept in `queries/app_session.sql` (simple enough, no extra migration surface, no BE-037 gate needed). Resolved during implementation.
+* Membership school tenant is enforced by an `EXISTS (schools ...)` predicate on the membership join — added on top of the `u.tenant_id = s.tenant_id` filter specified here, per human decision during implementation review. Members whose school belongs to another tenant are excluded, yielding a session with empty memberships (middleware fails closed with 401 and revokes the session).
+* Guardian students / teacher classes are NOT pre-loaded in the same round-trip; those RBAC reads stay lazy (resolved during implementation).
+* `RequireAuth` uses `ValidateSessionWithMemberships`; the legacy `ValidateSession` is retained for other callers.

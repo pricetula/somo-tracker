@@ -6,9 +6,9 @@ Authentication is opaque token based per ADR-0002. The frontend never receives o
 ## Flow
 1. Request arrives with cookie `__Secure-session_token=<raw>`.
 2. `RequireAuth` middleware hashes raw token with SHA-256.
-3. `service.ValidateSession` looks up `app_session` by `token_hash`, checks `revoked_at IS NULL` and `expires_at > now`.
+3. `service.ValidateSessionWithMemberships` performs one query: `app_session s` joined to `users u` (tenant match, fails closed) with a LEFT JOIN to active `memberships m` filtered to the session tenant (school tenant must match; enforced in the join predicate).
 4. On success, `SessionContext` contains `user_id`, `tenant_id`, `session_id`.
-5. Memberships are loaded for the user in the tenant: `GetUserMemberships(user_id, tenant_id)`. Optimisation under review in FEATURE-SESSION-MEMBERSHIP-JOIN-001 proposes a single join to resolve session + active memberships in one DB round-trip without caching role/school.
+5. Active memberships are returned inline in the same round-trip (FEATURE-SESSION-MEMBERSHIP-JOIN-001, implemented). No role/school is cached in the session; memberships remain live per request.
 6. Active roles and `school_id` (singular) are derived from the single active membership (enforced by `memberships_active_user_uniq_idx` where only one membership per user can be active).
 
 ## Resolved identifiers

@@ -1,7 +1,7 @@
 ---
 id: DOMAIN-MODEL
 title: Domain Model
-status: draft
+status: reference
 depends_on: []
 touches: []
 ---

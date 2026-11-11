@@ -1,30 +1,29 @@
 # Docs Index
 
-## Reading order
-1. product/brief.md
-2. domain/glossary.md
-3. domain/model.md
-4. architecture/overview.md
-5. workflow/lifecycle.md
-6. workflow/definition-of-done.md
+Somotracker uses **spec-driven development (SDD)**. Docs are the contract; code follows docs.
+
+## Status legend
+
+| Status | Meaning | Who acts |
+|--------|---------|----------|
+| `draft` | Spec being written; not actionable | Human |
+| `approved` | Cleared for implementation | Human |
+| `implemented` | Code + tests complete; `make compliance` green | Agent |
+| `verified` | Human reviewed tests against ACs | Human |
+| `deprecated` | Superseded; do not implement | Human |
 
 ## Where to write what
 
-| Need to know | Read |
-|--------------|------|
-| Product goals | docs/product/brief.md |
-| Personas | docs/product/personas.md |
-| Domain terms | docs/domain/glossary.md |
-| Domain rules | docs/domain/rules/ |
-| Architecture map | docs/architecture/overview.md |
-| How work flows | docs/workflow/lifecycle.md |
-| Done criteria | docs/workflow/definition-of-done.md |
+| Need | File |
+|------|------|
+| SDD process | `docs/sdd.md` |
+| Feature status index | `docs/features/REGISTRY.md` |
+| New feature spec | `docs/features/FEATURE-xxx.md` (from `_template.md`) |
+| Domain entities & invariants | `docs/domain/model.md` |
+| Domain terms | `docs/domain/glossary.md` |
+| API contract | `docs/api/openapi.yaml` |
+| Architecture decisions | `docs/adr/` |
 
-| Need to record | Write |
-|----------------|-------|
-| New feature | docs/features/FEATURE-xxx.md from template |
-| New ADR | docs/adr/ADR-YYYY-MM-DD-xxx.md from template |
-| Domain rule | docs/domain/rules/RULE-xxx.md from template |
-| Gap | TODO(human): decide gap process |
+## Rule
 
-All docs under docs/features, docs/adr, docs/domain/rules require frontmatter with id, title, status, depends_on, touches.
+Implement **only** specs with `status: approved`. If implementation reveals the spec is wrong, update the spec in the same commit as the code change. One fact lives in one place — link, do not copy.

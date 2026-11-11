@@ -35,37 +35,37 @@ This document is the single source of truth for the school management system sch
 ## School calendar & timetable
 | Table | Purpose | Status | Spec |
 |-------|---------|--------|------|
-| school_off_dates | School-wide off dates | draft | FEATURE-SCHOOL-DATES-EVENTS-001 |
-| school_events | Per-day events, affects attendance | draft | FEATURE-SCHOOL-DATES-EVENTS-001 |
-| school_event_students | Event ↔ student link | draft | FEATURE-SCHOOL-DATES-EVENTS-001 |
-| school_event_teachers | Event ↔ teacher link | draft | FEATURE-SCHOOL-DATES-EVENTS-001 |
-| timetable_templates | Master timeslot template per school | draft | FEATURE-TIMETABLE-001 |
-| timetable_assignments | Lesson assignment per classroom/term | draft | FEATURE-TIMETABLE-001 |
-| subject_offerings | Subject taught in classroom per academic year with teacher | draft | DOMAIN-MODEL / FEATURE-ASSESSMENTS-001 |
+| school_off_dates | School-wide off dates | draft | DOMAIN-MODELDATES-EVENTS-001 |
+| school_events | Per-day events, affects attendance | draft | DOMAIN-MODELDATES-EVENTS-001 |
+| school_event_students | Event ↔ student link | draft | DOMAIN-MODELDATES-EVENTS-001 |
+| school_event_teachers | Event ↔ teacher link | draft | DOMAIN-MODELDATES-EVENTS-001 |
+| timetable_templates | Master timeslot template per school | draft | DOMAIN-MODEL |
+| timetable_assignments | Lesson assignment per classroom/term | draft | DOMAIN-MODEL |
+| subject_offerings | Subject taught in classroom per academic year with teacher | draft | DOMAIN-MODEL / DOMAIN-MODEL |
 
 ## Attendance – per period
 | Table | Purpose | Status | Spec |
 |-------|---------|--------|------|
-| attendance_marks | Per period attendance per enrollment | draft | FEATURE-ATTENDANCE-001 |
-| attendance_audit_log | Audit edits after day close | draft | FEATURE-ATTENDANCE-001 |
+| attendance_marks | Per period attendance per enrollment | draft | DOMAIN-MODEL |
+| attendance_audit_log | Audit edits after day close | draft | DOMAIN-MODEL |
 
 ## Assessment & reporting
 | Table | Purpose | Status | Spec |
 |-------|---------|--------|------|
 | education_systems | Global education system definition | approved | DOMAIN-MODEL |
-| school_assessment_settings | Per-school assessment config | draft | FEATURE-ASSESSMENTS-001 |
-| grading_scheme_templates | Global read-only templates | draft | FEATURE-ASSESSMENTS-001 |
-| grading_scheme_template_bands | Bands for templates | draft | FEATURE-ASSESSMENTS-001 |
-| grading_scheme_families | Tenant-scoped family grouping | draft | FEATURE-ASSESSMENTS-001 |
-| grading_schemes | Versioned working copies | draft | FEATURE-ASSESSMENTS-001 |
-| grading_bands | Bands within scheme | draft | FEATURE-ASSESSMENTS-001 |
-| assessments | Marked activity per subject offering | draft | FEATURE-ASSESSMENTS-001 |
-| assessment_results | Result per enrollment per assessment | draft | FEATURE-ASSESSMENTS-001 |
-| computation_policies | Term result computation policy | draft | FEATURE-ASSESSMENTS-001 |
-| term_results | Computed term result | draft | FEATURE-ASSESSMENTS-001 |
-| term_result_inputs | Explainability rows | draft | FEATURE-ASSESSMENTS-001 |
-| report_cards | Report card lifecycle | draft | FEATURE-ASSESSMENTS-001 |
-| report_card_lines | Snapshot lines at publication | draft | FEATURE-ASSESSMENTS-001 |
+| school_assessment_settings | Per-school assessment config | draft | DOMAIN-MODEL |
+| grading_scheme_templates | Global read-only templates | draft | DOMAIN-MODEL |
+| grading_scheme_template_bands | Bands for templates | draft | DOMAIN-MODEL |
+| grading_scheme_families | Tenant-scoped family grouping | draft | DOMAIN-MODEL |
+| grading_schemes | Versioned working copies | draft | DOMAIN-MODEL |
+| grading_bands | Bands within scheme | draft | DOMAIN-MODEL |
+| assessments | Marked activity per subject offering | draft | DOMAIN-MODEL |
+| assessment_results | Result per enrollment per assessment | draft | DOMAIN-MODEL |
+| computation_policies | Term result computation policy | draft | DOMAIN-MODEL |
+| term_results | Computed term result | draft | DOMAIN-MODEL |
+| term_result_inputs | Explainability rows | draft | DOMAIN-MODEL |
+| report_cards | Report card lifecycle | draft | DOMAIN-MODEL |
+| report_card_lines | Snapshot lines at publication | draft | DOMAIN-MODEL |
 
 ## Welfare
 | Table | Purpose | Status | Spec |
@@ -87,7 +87,7 @@ This document is the single source of truth for the school management system sch
 * Tables marked `draft` belong to features with status draft. Do not create migrations until feature is approved.
 * `approved` tables are safe to migrate.
 * `planned` tables have domain mention but no feature spec yet. Spec must be written before migration.
-* Attendance is per-period per FEATURE-ATTENDANCE-001. School calendar is covered by `school_off_dates` + `school_events`.
+* Attendance is per-period per DOMAIN-MODEL. School calendar is covered by `school_off_dates` + `school_events`.
 * Class teacher assignment is covered by `subject_offerings.teacher_id` and timetable.
 
 ## Dependency order

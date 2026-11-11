@@ -15,7 +15,10 @@ ALTER TABLE onboarding_ticket ADD COLUMN ist_key_version SMALLINT NOT NULL DEFAU
 -- 3. Create encryption/decryption functions
 -- These use pgcrypto's AES-GCM (available in PostgreSQL 14+)
 -- The key is passed via a GUC to avoid logging it
-CREATE OR REPLACE FUNCTION encrypt_ist(plaintext BYTEA) RETURNS RECORD LANGUAGE plpgsql AS $$
+-- +goose StatementBegin
+-- NOTE: unused placeholder; IST encryption lives in the Go application layer (ist_encryption.go).
+-- Kept for compatibility with deployments that already applied this migration.
+CREATE OR REPLACE FUNCTION encrypt_ist(plaintext BYTEA) RETURNS VOID LANGUAGE plpgsql AS $$
 DECLARE
     key_base64 TEXT := current_setting('app.ist_encryption_key', true);
     key_bytes BYTEA;
@@ -36,6 +39,7 @@ BEGIN
     -- This migration uses application-layer encryption instead (see Go code)
     RETURN;
 END $$;
+-- +goose StatementEnd
 
 -- 4. Since true AES-GCM with nonce management is complex in pure SQL,
 --    we'll handle encryption/decryption in the Go application layer

@@ -94,13 +94,17 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 			})
 		}
 
-		// Store in locals for handlers
+		// Store in locals for handlers (role strings lowercased to match authz matrix keys)
 		c.Locals("session_id", sessionCtx.SessionID)
 		c.Locals("user_id", sessionCtx.UserID)
 		c.Locals("tenant_id", sessionCtx.TenantID)
-		c.Locals("roles", activeRoles)
+		lowerRoles := make([]string, 0, len(activeRoles))
+		for _, r := range activeRoles {
+			lowerRoles = append(lowerRoles, strings.ToLower(r))
+		}
+		c.Locals("roles", lowerRoles)
 		c.Locals("school_ids", activeSchoolIDs)
-		c.Locals("primary_role", activeRoles[0]) // first active role
+		c.Locals("primary_role", strings.ToLower(activeRoles[0]))
 
 		// Also store in context for service layer
 		ctx := context.WithValue(c.Context(), httpserver.SessionContextKey{}, sessionCtx)
@@ -138,7 +142,11 @@ func (m *AuthMiddleware) OptionalAuth() fiber.Handler {
 		c.Locals("session_id", sessionCtx.SessionID)
 		c.Locals("user_id", sessionCtx.UserID)
 		c.Locals("tenant_id", sessionCtx.TenantID)
-		c.Locals("roles", activeRoles)
+		lowerRoles := make([]string, 0, len(activeRoles))
+		for _, r := range activeRoles {
+			lowerRoles = append(lowerRoles, strings.ToLower(r))
+		}
+		c.Locals("roles", lowerRoles)
 		c.Locals("school_ids", activeSchoolIDs)
 
 		// Also store in context for service layer
@@ -560,12 +568,12 @@ func (r *RBACMiddleware) RequireTeacherAccess(classIDParam string) fiber.Handler
 // RequireFinanceAccess ensures user has finance_officer or school_admin or tenant_owner role
 // for the current school
 func (r *RBACMiddleware) RequireFinanceAccess() fiber.Handler {
-	return r.RequireRole("finance_officer", "school_admin", "tenant_owner")
+	return r.RequireRole("finance", "admin", "owner")
 }
 
 // RequireAdminAccess ensures user has school_admin or tenant_owner role
 func (r *RBACMiddleware) RequireAdminAccess() fiber.Handler {
-	return r.RequireRole("school_admin", "tenant_owner")
+	return r.RequireRole("admin", "owner")
 }
 
 // ErrorResponse standardizes error shape for middleware

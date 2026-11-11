@@ -25,7 +25,7 @@ func (m *mockRBACValidator) ValidateSession(ctx context.Context, tokenHash []byt
 		UserID:    uuid.New(),
 		TenantID:  uuid.New(),
 		SessionID: uuid.New(),
-		Role:      "tenant_owner",
+		Role:      "owner",
 	}, nil
 }
 
@@ -58,12 +58,12 @@ func TestRequireRole(t *testing.T) {
 		required    []string
 		wantStatus  int
 	}{
-		{"single role match", []string{"school_admin"}, []string{"school_admin"}, http.StatusOK},
-		{"multiple roles, one matches", []string{"teacher", "guardian"}, []string{"school_admin", "finance_officer"}, http.StatusForbidden},
-		{"multiple roles, one matches (finance)", []string{"teacher", "finance_officer"}, []string{"school_admin", "finance_officer"}, http.StatusOK},
-		{"tenant_owner in required", []string{"tenant_owner"}, []string{"tenant_owner", "school_admin"}, http.StatusOK},
-		{"no matching role", []string{"teacher"}, []string{"school_admin", "finance_officer"}, http.StatusForbidden},
-		{"empty user roles", []string{}, []string{"school_admin"}, http.StatusUnauthorized},
+		{"single role match", []string{"admin"}, []string{"admin"}, http.StatusOK},
+		{"multiple roles, one matches", []string{"teacher", "guardian"}, []string{"admin", "finance"}, http.StatusForbidden},
+		{"multiple roles, one matches (finance)", []string{"teacher", "finance"}, []string{"admin", "finance"}, http.StatusOK},
+		{"owner in required", []string{"owner"}, []string{"owner", "admin"}, http.StatusOK},
+		{"no matching role", []string{"teacher"}, []string{"admin", "finance"}, http.StatusForbidden},
+		{"empty user roles", []string{}, []string{"admin"}, http.StatusUnauthorized},
 	}
 
 	for _, tc := range tests {
@@ -106,10 +106,10 @@ func TestRequireAllRoles(t *testing.T) {
 		required    []string
 		wantStatus  int
 	}{
-		{"all roles present", []string{"school_admin", "finance_officer"}, []string{"school_admin", "finance_officer"}, http.StatusOK},
-		{"missing one role", []string{"school_admin"}, []string{"school_admin", "finance_officer"}, http.StatusForbidden},
-		{"extra roles ok", []string{"school_admin", "finance_officer", "tenant_owner"}, []string{"school_admin", "finance_officer"}, http.StatusOK},
-		{"empty required", []string{"school_admin"}, []string{}, http.StatusOK},
+		{"all roles present", []string{"admin", "finance"}, []string{"admin", "finance"}, http.StatusOK},
+		{"missing one role", []string{"admin"}, []string{"admin", "finance"}, http.StatusForbidden},
+		{"extra roles ok", []string{"admin", "finance", "owner"}, []string{"admin", "finance"}, http.StatusOK},
+		{"empty required", []string{"admin"}, []string{}, http.StatusOK},
 	}
 
 	for _, tc := range tests {
@@ -149,9 +149,9 @@ func TestRequireFinanceAccess(t *testing.T) {
 		userRole   string
 		wantStatus int
 	}{
-		{"finance_officer allowed", "finance_officer", http.StatusOK},
-		{"school_admin allowed", "school_admin", http.StatusOK},
-		{"tenant_owner allowed", "tenant_owner", http.StatusOK},
+		{"finance allowed", "finance", http.StatusOK},
+		{"admin allowed", "admin", http.StatusOK},
+		{"owner allowed", "owner", http.StatusOK},
 		{"teacher denied", "teacher", http.StatusForbidden},
 		{"guardian denied", "guardian", http.StatusForbidden},
 	}
@@ -188,9 +188,9 @@ func TestRequireAdminAccess(t *testing.T) {
 		userRole   string
 		wantStatus int
 	}{
-		{"school_admin allowed", "school_admin", http.StatusOK},
-		{"tenant_owner allowed", "tenant_owner", http.StatusOK},
-		{"finance_officer denied", "finance_officer", http.StatusForbidden},
+		{"admin allowed", "admin", http.StatusOK},
+		{"owner allowed", "owner", http.StatusOK},
+		{"finance denied", "finance", http.StatusForbidden},
 		{"teacher denied", "teacher", http.StatusForbidden},
 	}
 

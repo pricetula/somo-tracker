@@ -76,9 +76,10 @@ Add a students domain with full CRUD (list, get, create, update, delete) and gua
 - `admission_number` unique within a school (DB constraint)
 - At most one emergency contact per student (DB partial unique index)
 - Student soft-delete via `deleted_at` (BE-041)
-- Guardian can read only their linked students (object-level scope via `guardian_student_links`)
-- Teacher/headteacher/admin/finance can read/write students in their school
-- Platform operator can read/write across all schools in tenant
+- **Guardian scope:** Guardian can `student:read` only for students linked via `guardian_student_links`. Applies to both list (`GET /api/v1/students` returns only linked students via a dedicated sqlc query) and single-record (`GET /api/v1/students/{id}` returns 404 if not linked). Guardian cannot see another guardian's students.
+- **Teacher scope:** Teacher can `student:read` all students in their school.
+- Platform operator can read/write across all schools in tenant.
+- Owner/admin/headteacher/finance can read/write students in their school per permission matrix.
 
 ## 4. API Contract
 
@@ -154,11 +155,14 @@ All JSON snake_case (BE-025). Query params camelCase.
 
 **Given** an authenticated teacher with `student:read` permission
 **When** `GET /api/v1/students?limit=50&sort=name_asc`
-**Then** returns `{ items, nextCursor }` with students from their school only
+**Then** returns `{ items, nextCursor }` with all students in their school
 
-**Given** an authenticated guardian
+**Given** an authenticated guardian with membership `membership-123`
 **When** `GET /api/v1/students`
-**Then** returns only students linked via `guardian_student_links` where `guardian_id` = guardian's membership
+**Then** returns only students linked via `guardian_student_links` where `guardian_id` = guardian's membership, using a dedicated sqlc query
+
+**Given** an authenticated guardian requesting `GET /api/v1/students/{id}` for a student they are not linked to
+**Then** returns 404 NOT_FOUND (identical to nonexistent student, BE-016)
 
 ### Create student
 
@@ -235,15 +239,14 @@ All JSON snake_case (BE-025). Query params camelCase.
 - Add/Edit modal: soft-nav and hard-load tests
 - Form validation error mapping (`errors[].field` → `setError`)
 
-## 8. Open Questions
+## 8. Resolved decisions
 
-1. **Guardian scoping:** Guardian has `student:read` permission but only for linked students. Should `GET /api/v1/students` for a guardian auto-filter to linked students, or should guardian only access via `GET /api/v1/students/{id}` with object-level check? Recommendation: auto-filter list by guardian links; object-level check on single record.
-
-2. **Teacher scoping:** Teacher can read students but should they see all students in school or only their enrolled classes? Enrollments table exists but no classroom-teacher link yet. Recommendation: teacher sees all students in school for MVP; refine later.
-
-3. **Delete semantics:** Soft delete (BE-041) or hard delete? Recommendation: soft delete for students (audit trail), hard delete only if domain allows.
-
-4. **OpenAPI regeneration:** Adding endpoints changes `docs/api/openapi.yaml` — need to regenerate frontend types and swagger. Confirm this is acceptable before implementation.
+| Question | Decision |
+|----------|----------|
+| Guardian scoping | Guardian checks role first, then a dedicated sqlc query fetches only linked students. Applies to both list and single-record views; guardian cannot see unlinked students (404). |
+| Teacher scope | Teacher can `student:read` all students in their school. |
+| Delete semantics | Soft delete via `deleted_at` (BE-041). |
+| OpenAPI regeneration | Yes — `docs/api/openapi.yaml` updated, then `make generate-swag` and `pnpm generate:api` to regenerate frontend types and swagger docs. |
 
 ## 9. Links
 

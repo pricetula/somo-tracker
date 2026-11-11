@@ -2,8 +2,7 @@
 
 | ID | Title | Status | FR/NFR IDs | API contract change? | Migrations? | Updated |
 |----|-------|--------|------------|----------------------|-------------|---------|
-
-No specifications registered yet. Add one row per specification when it reaches `proposed`; move to `approved` only after human sign-off.
+| SOM-AUTHZ-001 | Authz Permission Matrix | approved | BE-020, BE-021, BE-016, BE-017, BE-018 | no | no | 2026-11-11 |
 
 ## Rules
 

@@ -1,7 +1,11 @@
 # Somotracker Frontend: Agent Rules
 
-Scope: TanStack Start + shadcn/ui (Base UI). Root AGENTS.md covers commit policy and the document-led workflow. Library versions: see package.json.
-Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before finishing.
+Scope: TanStack Start + Tailwind + shadcn/ui (Base UI). Root AGENTS.md covers the document-led workflow, commit policy, and monorepo-wide rules. Library versions: see `frontend/package.json`.
+Rules are enforced by lint, CI, and tests where possible. Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before finishing.
+
+## Application boundaries
+
+This file contains frontend-specific rules. Repository-wide rules (commit policy, document-led workflow, cross-application API coordination, security principles) live in the root `AGENTS.md` and apply here too. Application-specific rules do not override repository-wide requirements.
 
 ## Architecture
 
@@ -14,20 +18,17 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
 
 ## Data layer
 
-- FE-007 Base path and client
-   All HTTP uses native fetch, wrapped once in src/lib/api/client.ts. Base path is /api/v1, e.g. /api/v1/me. Paths start with /api/v1. Never hardcode /backend. No axios. Never send a school identifier or
-   X-Active-School header; the backend resolves it. No [school] route segments.
-- FE-008 Types generation
-   API types and Zod schemas are generated from the backend OpenAPI 3.1 spec (docs/api/openapi.yaml) into src/features/auth/api/generated/. Run `pnpm generate:api` after any API contract change. Generator must accept OpenAPI 3.1, nullable fields, and snake_case field names. Spec location is docs/api/openapi.yaml. CI regenerates and diffs on each build. Generate types only, never a client/SDK. Frontend MUST use generated types (snake_case) - backend is the contract authority.
-- FE-009 / FE-019 Pagination
-  List screens use useInfiniteQuery with getNextPageParam reading nextCursor, null means last page, plus @tanstack/react-virtual. Request params: limit default 50 max 100, cursor, sort whitelisted e.g.
-  name_asc, q and filters. No page numbers, no total counts, no OFFSET. Query key includes sort and filters so change resets cursor. maxPages is set, row heights are fixed. Sensitive lists
-  health/behavior/fees use staleTime:0 gcTime:0.
-- FE-010 Errors
-  ApiError is built from HTTP status + body { code, message, errors?, requestId }. Status is not read from body. One global MutationCache.onError shows a sonner toast. UI copy comes from a code→message map
-  with backend message as English fallback. errors[].field is a dotted path and is fed to react-hook-form setError. 404 is handled identically for missing and cross-tenant records. 204 responses are not
-  parsed as JSON. 401 UNAUTHENTICATED triggers login; no client-side role caching beyond /api/v1/me.
-- **FE-011** The active school is backend state. URLs never contain a school segment (`/students`, never `/[school]/students`). Read it only via `useActiveSchool()`. Query keys are prefixed with its `schoolId` for cache isolation only, and the cache is cleared when it changes.
+- **FE-007** Base path and client
+  All HTTP uses native `fetch`, wrapped once in `src/lib/api/client.ts`. Base path is `/api/v1`, e.g. `/api/v1/me`. Paths start with `/api/v1`. Never hardcode `/backend`. No axios. Never send a school identifier or `X-Active-School` header; the backend resolves the active school. No `[school]` route segments.
+- **FE-008** API types generation
+  API types (and Zod schemas) are generated from the backend OpenAPI 3.1 spec (`docs/api/openapi.yaml`) into `src/features/auth/api/generated/types.ts`. Run `pnpm generate:api` after any API contract change. The generator accepts OpenAPI 3.1, nullable fields, and snake_case field names. CI regenerates and diffs on each build (`make generate-check`).
+  - The frontend consumes **generated types only**; it does not use a generated client SDK. HTTP calls go through the project's own `apiFetch` wrapper in `src/lib/api/client.ts`.
+  - Generated wire types use **snake_case** field names (e.g. `school_name`, `idempotency_key`, `auth_state`). The backend is the contract authority; never hand-edit generated files.
+- **FE-009 / FE-019 Pagination**
+  List screens use `useInfiniteQuery` with `getNextPageParam` reading `nextCursor`; `null` means last page, plus `@tanstack/react-virtual`. Request params: `limit` default 50 max 100, `cursor`, sort whitelisted (e.g. `name_asc`), `q` and filters. No page numbers, no total counts, no OFFSET. Query key includes sort and filters so change resets cursor. `maxPages` is set, row heights are fixed. Sensitive lists (health/behavior/fees) use `staleTime: 0`, `gcTime: 0`.
+- **FE-010** Errors
+  `ApiError` is built from HTTP status plus body `{ code, message, errors?, request_id }`. Status is read from the response, not the body. One global `MutationCache.onError` shows a sonner toast. UI copy comes from a code→message map with backend message as English fallback. `errors[].field` is a dotted path fed to `react-hook-form setError`. 404 is handled identically for missing and cross-tenant records. 204 responses are not parsed as JSON. 401 `UNAUTHENTICATED` triggers login; no client-side role caching beyond `/api/v1/me`.
+- **FE-011** The active school is backend state. URLs never contain a school segment (`/students`, never `/[school]/students`). Read it only via `useActiveSchool()` (`src/lib/hooks/use-active-school.ts`). Query keys are prefixed with its `schoolId` for cache isolation only, and the cache is cleared when it changes.
 - **FE-012** Health, vaccination, behavior and fee queries use `staleTime: 0` and `gcTime: 0` and are never persisted. No PII or secrets in logs, URLs, query strings or analytics.
 
 ## Layout and routing
@@ -44,7 +45,7 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
 - **FE-019** All tables use the shared `<DataTable>` (`@tanstack/react-table` + shadcn `Table`) with server-side pagination, sorting and filtering. No custom div/ul grids. Only exemption: `RollCallList`.
 - **FE-020** Forms use `react-hook-form` + `zodResolver` + shadcn `Form` parts (`FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage`). No `useState` form bindings.
 - **FE-021** Never hand-edit `src/components/ui/`; add via `pnpm dlx shadcn@latest add`. Shared composites live in `src/components/shared/` and never fetch data.
-- **FE-022** Charts use shadcn `ChartContainer`, `ChartTooltip`, `ChartTooltipContent` and `ChartConfig` over Recharts, loaded via React.lazy/Suspense for code-splitting. No raw SVG/canvas, Chart.js or D3.
+- **FE-022** Charts use shadcn `ChartContainer`, `ChartTooltip`, `ChartTooltipContent` and `ChartConfig` over Recharts, loaded via `React.lazy`/`Suspense` for code-splitting. No raw SVG/canvas, Chart.js or D3.
 
 ## Domain and quality
 
@@ -54,28 +55,26 @@ Rules are enforced by lint, CI and tests where possible. Run `pnpm lint`, `pnpm 
 - **FE-026** Reference FR/NFR IDs in PRs, commits and tests. Don't build requirements without Given/When/Then AC, or Phase 2/Later features. Unstated behavior becomes an Open Question, not an assumption.
 - **FE-027** Every role-gated screen has a test per role. Every modal route has soft-nav and hard-load tests.
 
-## Conventions
+## Naming and TypeScript conventions
 
-- **Feature layout:** `features/<name>/{index.ts, types.ts, schemas.ts, query-keys.ts, api/, hooks/, components/}`.
-- **Naming:** files and folders are kebab-case. Components are PascalCase, matching the file (`student-form.tsx` exports `StudentForm`). Hooks are `use-<name>.ts` exporting `use<Name>`. API functions are verb-first (`get-students.ts`, `create-student.ts`).
-- **Exports:** named exports only. Default exports only where required by framework entry points (e.g., `main.tsx`).
-- **Query keys:** `[schoolId, '<feature>', '<scope>', params]`, built only in the feature's `query-keys.ts`.
-- **TypeScript:** strict. No `any`; use `unknown` and narrow. Use `type` for aliases and `interface` only when extending. Use `undefined` for absent values; `null` only where the API sends it.
-- **Icons:** `lucide-react` only.
-- **Dependencies:** add none without approval. Prefer what is already installed.
-- **Scope:** change only what the task requires. Don't refactor unrelated code.
--  Naming: camelCase everywhere, no manual snake_case mapping. Money is integer with Minor suffix, formatted only via formatKes(). Timestamps RFC3339 UTC displayed Africa/Nairobi. Enums are SCREAMING_SNAKE
-  with one label map each and UI safe fallback for unknown values. Updates use PUT with full editable body; no PATCH. Responses are bare objects except lists; declared fields are always present with no null values, arrays are [] never null. Creates
-  expect 201 with body, queued work 202, deletes 204.
+- Files and folders are kebab-case. Components are PascalCase, matching the file (`student-form.tsx` exports `StudentForm`). Hooks are `use-<name>.ts` exporting `use<Name>`. API functions are verb-first (`get-students.ts`, `create-student.ts`).
+- Named exports only. Default exports only where required by framework entry points (e.g. `main.tsx`).
+- Query keys: `[schoolId, '<feature>', '<scope>', params]`, built only in the feature's `query-keys.ts`.
+- TypeScript: strict. No `any`; use `unknown` and narrow. Use `type` for aliases and `interface` only when extending. Use `undefined` for absent values; `null` only where the API sends it.
+- Icons: `lucide-react` only.
+- Dependencies: add none without approval. Prefer what is already installed.
 
-- Vite proxy
-  `/api/*` proxied via `vite.config.ts` `server.proxy` to the private backend. Real client IP is forwarded in the agreed header. Body-size and timeout limits are set to allow CSV import/exports/PDF downloads. No internal backend endpoints
-  /healthz /readyz /metrics /spec are exposed or referenced under /api. Authenticated responses set Cache-Control: no-store.
+## Snake_case vs camelCase (boundary clarification)
+
+Generated OpenAPI wire types use **snake_case** field names (e.g. `school_name`, `idempotency_key`, `verified_email`). Internal frontend code (variables, props, component names, query keys) uses **camelCase**.
+
+The boundary rule: when passing data between the generated API types and internal UI code, map snake_case → camelCase at the adapter/API-function layer (`src/features/<name>/api/`). Do not hand-edit generated types. Do not invent manual snake_case field names inside components. If a mapping is unclear, raise an Open Question.
 
 ## Auth guard and server-only imports (addendum from 2026-10-30)
+
 - **FE-AUTH-01** `beforeLoad` redirect must use `redirect()` from `@tanstack/react-router`; never throw native `Response` (breaks `seroval` SSR serialization).
 - **FE-AUTH-02** Client code (`src/lib/api/client.ts`) must never import `@tanstack/react-start/server` or `*.server.*` files via dynamic import; TanStack import-protection denies them. Use middleware (`entry.server.tsx`) or `createServerOnlyFn()` for server-only logic.
-- **FE-AUTH-03** `QueryClientProvider` must wrap `<Outlet />` in root component (`routes/__root.tsx`) so SSR renders without `No QueryClient` errors.
+- **FE-AUTH-03** `QueryClientProvider` must wrap `<Outlet />` in the root component (`routes/__root.tsx`) so SSR renders without `No QueryClient` errors.
 
 ## Definition of done
 

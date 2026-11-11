@@ -19,7 +19,7 @@ WHERE id = $1;
 -- INNER JOIN users fails closed: missing user or tenant mismatch returns no row -> ErrSessionNotFound.
 -- LEFT JOIN memberships keeps the session result when no usable membership exists;
 -- memberships are returned only when their school belongs to the session tenant
--- (defense in depth per ADR-0002 / FEATURE-SESSION-MEMBERSHIP-JOIN-001).
+-- (defense in depth per ADR-0002).
 -- memberships_active_user_uniq_idx guarantees at most one active membership per user.
 SELECT s.id, s.user_id, s.tenant_id, s.token_hash, s.stytch_member_session_id, s.created_at, s.expires_at, s.revoked_at,
        m.id as membership_id, m.school_id, m.role, m.is_active

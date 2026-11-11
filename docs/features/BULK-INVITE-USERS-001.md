@@ -24,7 +24,7 @@ Enable school administrators to bulk invite multiple users (admins, teachers, pa
 ## Domain references
 - docs/domain/glossary.md (User, School, Membership, Role, Tenant)
 - docs/domain/model.md (User, School, Membership)
-- docs/features/FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001.md (Stytch magic link flow)
+
 
 ## Acceptance criteria
 

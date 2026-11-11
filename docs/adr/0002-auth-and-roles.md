@@ -28,4 +28,4 @@ Positive: security boundary is unambiguous, frontend can be bypassed without dat
 Negative: frontend route guard cannot prove session validity, may briefly show shell before API 401.
 Operational: CORS must be exact origin with credentials, middleware order matters, CSRF protections required for mutations.
 
-See FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001 and FEATURE-AUTHENTICATED-CHECK-SESSION-COOKIE-001 for implementation details.
+

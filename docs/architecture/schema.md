@@ -79,7 +79,7 @@ This document is the single source of truth for the school management system sch
 |-------|---------|--------|------|
 | invites | Staff/guardian invites | draft | DOMAIN-MODEL |
 | needs_attention | System generated tasks | draft | DOMAIN-MODEL |
-| pending_onboarding | Stytch B2B onboarding state | approved | FEATURE-STYTCH-B2B-ONBOARDING-SESSION-001 |
+| pending_onboarding | Stytch B2B onboarding state | approved | ADR-0002 |
 | app_sessions | Opaque session tokens | approved | ADR-0002 |
 | audit_logs | Immutable audit trail | draft | DOMAIN-MODEL |
 

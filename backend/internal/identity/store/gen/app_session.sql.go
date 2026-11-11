@@ -164,7 +164,7 @@ type GetSessionWithMembershipsRow struct {
 // INNER JOIN users fails closed: missing user or tenant mismatch returns no row -> ErrSessionNotFound.
 // LEFT JOIN memberships keeps the session result when no usable membership exists;
 // memberships are returned only when their school belongs to the session tenant
-// (defense in depth per ADR-0002 / FEATURE-SESSION-MEMBERSHIP-JOIN-001).
+// (defense in depth per ADR-0002).
 // memberships_active_user_uniq_idx guarantees at most one active membership per user.
 func (q *Queries) GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (GetSessionWithMembershipsRow, error) {
 	row := q.db.QueryRowContext(ctx, getSessionWithMemberships, tokenHash)

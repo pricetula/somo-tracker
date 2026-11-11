@@ -13,7 +13,6 @@ Initial repository assessment completed and first phase changes applied per docu
 
 ## Files created
 - docs/architecture/production-security-baseline.md - Assessment findings and gaps
-- docs/features/FEATURE-PROD-SEC-BASELINE-001.md - Feature spec draft
 - docs/architecture/security-baseline-report.md - This report
 
 ## Files modified

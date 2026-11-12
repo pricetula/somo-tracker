@@ -74,10 +74,12 @@ type ProvisionResult struct {
 
 // ProvisionData holds all data needed for tenant provisioning.
 type ProvisionData struct {
-	SchoolName     string
-	IdempotencyKey string
-	SchoolCode     string
-	AdminName      string
+	SchoolName       string
+	IdempotencyKey   string
+	SchoolCode       string
+	AdminName        string
+	CountryID        uuid.UUID
+	EducationSystemID uuid.UUID
 }
 
 // Service defines business logic for identity domain.
@@ -102,6 +104,10 @@ type Repository interface {
 	CreateOnboardingTicket(ctx context.Context, arg storegen.CreateOnboardingTicketParams) (storegen.OnboardingTicket, error)
 	GetOnboardingTicketByHash(ctx context.Context, hash []byte) (storegen.OnboardingTicket, error)
 	MarkOnboardingTicketUsed(ctx context.Context, id uuid.UUID) error
+
+	// Reference data
+	ListCountries(ctx context.Context) ([]storegen.Country, error)
+	ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error)
 
 	// Core domain - for transactional provisioning
 	CreateTenant(ctx context.Context, arg storegen.CreateTenantParams) (storegen.Tenant, error)
@@ -408,9 +414,11 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 
 	// Create School
 	school, err := txRepo.CreateSchool(ctx, storegen.CreateSchoolParams{
-		TenantID: tenant.ID,
-		Name:     data.SchoolName,
-		Code:     schoolCode,
+		TenantID:          tenant.ID,
+		Name:              data.SchoolName,
+		Code:              schoolCode,
+		CountryID:         data.CountryID,
+		EducationSystemID: data.EducationSystemID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create school: %w", err)
@@ -452,6 +460,24 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 		UserID:   &adminUser.ID,
 		SchoolID: &school.ID,
 	}, nil
+}
+
+// ListCountries returns all non-deleted countries ordered by name.
+func (s *Service) ListCountries(ctx context.Context) ([]storegen.Country, error) {
+	countries, err := s.repo.ListCountries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list countries: %w", err)
+	}
+	return countries, nil
+}
+
+// ListEducationSystems returns all non-deleted education systems for a country.
+func (s *Service) ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error) {
+	systems, err := s.repo.ListEducationSystems(ctx, countryID)
+	if err != nil {
+		return nil, fmt.Errorf("list education systems: %w", err)
+	}
+	return systems, nil
 }
 
 // generateSchoolCode generates a unique school code from name.

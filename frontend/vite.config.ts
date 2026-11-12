@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
-import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,7 +12,6 @@ export default defineConfig({
     tanstackStart(),
     tailwindcss(),
     react(),
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
   ],
   resolve: {
     alias: {

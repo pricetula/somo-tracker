@@ -17,6 +17,26 @@ definitions:
       ticket_token:
         type: string
     type: object
+  handler.CountryResponse:
+    properties:
+      country_code:
+        type: string
+      country_name:
+        type: string
+      id:
+        type: string
+    type: object
+  handler.EducationSystemResponse:
+    properties:
+      country_id:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      system_name:
+        type: string
+    type: object
   handler.OnboardingState:
     properties:
       current_step:
@@ -35,6 +55,10 @@ definitions:
     type: object
   handler.ProvisionTenantRequest:
     properties:
+      country_id:
+        type: string
+      education_system_id:
+        type: string
       idempotency_key:
         type: string
       school_name:
@@ -42,6 +66,8 @@ definitions:
         minLength: 1
         type: string
     required:
+    - country_id
+    - education_system_id
     - idempotency_key
     - school_name
     type: object
@@ -153,4 +179,58 @@ paths:
       summary: Complete onboarding and provision tenant
       tags:
       - Onboarding
+  /api/v1/reference/countries:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.CountryResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List all countries
+      tags:
+      - Reference
+  /api/v1/reference/education-systems:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Country UUID
+        format: uuid
+        in: query
+        name: country_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.EducationSystemResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List education systems for a country
+      tags:
+      - Reference
 swagger: "2.0"

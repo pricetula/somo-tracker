@@ -46,6 +46,8 @@ func (m *mockRepo) GetUserMemberships(ctx context.Context, userID, tenantID uuid
 func (m *mockRepo) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {return nil, nil}
 func (m *mockRepo) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {return nil, nil}
 func (m *mockRepo) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {return nil}
+func (m *mockRepo) ListCountries(ctx context.Context) ([]storegen.Country, error) {return nil, nil}
+func (m *mockRepo) ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error) {return nil, nil}
 
 func TestValidateSessionWithMemberships_Success(t *testing.T) {
 

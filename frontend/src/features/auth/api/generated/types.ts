@@ -73,6 +73,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reference/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all countries */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of countries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Country"][];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/education-systems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List education systems for a country */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Country UUID */
+                    country_id: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of education systems */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EducationSystem"][];
+                    };
+                };
+                /** @description Invalid country_id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -229,12 +331,36 @@ export interface components {
         ProvisionTenantRequest: {
             school_name: string;
             idempotency_key: string;
+            /**
+             * Format: uuid
+             * @description Country UUID for the school
+             */
+            country_id: string;
+            /**
+             * Format: uuid
+             * @description Education system UUID for the school
+             */
+            education_system_id: string;
         };
         ProvisionTenantResponse: {
             success?: boolean;
         };
         LogoutResponse: {
             success?: boolean;
+        };
+        Country: {
+            /** Format: uuid */
+            id?: string;
+            country_name?: string;
+            country_code?: string;
+        };
+        EducationSystem: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            country_id?: string;
+            system_name?: string;
+            description?: string;
         };
         ErrorResponse: {
             code?: string;

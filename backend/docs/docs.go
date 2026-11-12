@@ -148,6 +148,87 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/reference/countries": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reference"
+                ],
+                "summary": "List all countries",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handler.CountryResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/reference/education-systems": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reference"
+                ],
+                "summary": "List education systems for a country",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Country UUID",
+                        "name": "country_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handler.EducationSystemResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -179,6 +260,37 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.CountryResponse": {
+            "type": "object",
+            "properties": {
+                "country_code": {
+                    "type": "string"
+                },
+                "country_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.EducationSystemResponse": {
+            "type": "object",
+            "properties": {
+                "country_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "system_name": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.OnboardingState": {
             "type": "object",
             "properties": {
@@ -206,10 +318,18 @@ const docTemplate = `{
         "handler.ProvisionTenantRequest": {
             "type": "object",
             "required": [
+                "country_id",
+                "education_system_id",
                 "idempotency_key",
                 "school_name"
             ],
             "properties": {
+                "country_id": {
+                    "type": "string"
+                },
+                "education_system_id": {
+                    "type": "string"
+                },
                 "idempotency_key": {
                     "type": "string"
                 },

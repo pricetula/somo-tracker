@@ -58,8 +58,10 @@ type OnboardingState struct {
 }
 
 type ProvisionTenantRequest struct {
-	SchoolName     string `json:"school_name" validate:"required,min=1,max=255"`
-	IdempotencyKey string `json:"idempotency_key" validate:"required"`
+	SchoolName       string `json:"school_name" validate:"required,min=1,max=255"`
+	IdempotencyKey   string `json:"idempotency_key" validate:"required"`
+	CountryID        string `json:"country_id" validate:"required,uuid"`
+	EducationSystemID string `json:"education_system_id" validate:"required,uuid"`
 }
 
 type ProvisionTenantResponse struct {
@@ -85,6 +87,20 @@ type GetOnboardingCurrentResponse struct {
 
 type UpdateOnboardingResponse struct {
 	Success bool `json:"success"`
+}
+
+// Reference data types
+type CountryResponse struct {
+	ID          string `json:"id"`
+	CountryName string `json:"country_name"`
+	CountryCode string `json:"country_code"`
+}
+
+type EducationSystemResponse struct {
+	ID          string `json:"id"`
+	CountryID   string `json:"country_id"`
+	SystemName  string `json:"system_name"`
+	Description string `json:"description,omitempty"`
 }
 
 // RequestMagicLink handles POST /api/v1/auth/request-magic-link
@@ -349,9 +365,11 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 
 	// Call service
 	data := service.ProvisionData{
-		SchoolName:     schoolName,
-		IdempotencyKey: req.IdempotencyKey,
-		AdminName:      schoolName, // Use school name as admin name for now
+		SchoolName:       schoolName,
+		IdempotencyKey:   req.IdempotencyKey,
+		AdminName:        schoolName,
+		CountryID:        mustParseUUID(req.CountryID),
+		EducationSystemID: mustParseUUID(req.EducationSystemID),
 	}
 	result, err := h.svc.ProvisionTenant(c.Context(), ticketToken, data)
 	if err != nil {
@@ -547,6 +565,71 @@ func (h *Handler) UpdateOnboardingCurrent(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(UpdateOnboardingResponse{Success: true})
 }
 
+// ListCountries handles GET /api/v1/reference/countries
+// @Summary List all countries
+// @Tags Reference
+// @Accept json
+// @Produce json
+// @Success 200 {array} CountryResponse
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/reference/countries [get]
+func (h *Handler) ListCountries(c fiber.Ctx) error {
+	countries, err := h.svc.ListCountries(c.Context())
+	if err != nil {
+		logger.Error(c.Context(), err, "ListCountries failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to list countries")
+	}
+
+	resp := make([]CountryResponse, 0, len(countries))
+	for _, ctry := range countries {
+		resp = append(resp, CountryResponse{
+			ID:          ctry.ID.String(),
+			CountryName: ctry.CountryName,
+			CountryCode: ctry.CountryCode,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(resp)
+}
+
+// ListEducationSystems handles GET /api/v1/reference/education-systems?country_id=UUID
+// @Summary List education systems for a country
+// @Tags Reference
+// @Accept json
+// @Produce json
+// @Param country_id query string true "Country UUID" format(uuid)
+// @Success 200 {array} EducationSystemResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/reference/education-systems [get]
+func (h *Handler) ListEducationSystems(c fiber.Ctx) error {
+	countryIDStr := c.Query("country_id")
+	if countryIDStr == "" {
+		return apperr.New(apperr.INVALID_REQUEST, "country_id query parameter is required")
+	}
+
+	countryID, err := uuid.Parse(countryIDStr)
+	if err != nil {
+		return apperr.New(apperr.INVALID_REQUEST, "invalid country_id format")
+	}
+
+	systems, err := h.svc.ListEducationSystems(c.Context(), countryID)
+	if err != nil {
+		logger.Error(c.Context(), err, "ListEducationSystems failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to list education systems")
+	}
+
+	resp := make([]EducationSystemResponse, 0, len(systems))
+	for _, sys := range systems {
+		resp = append(resp, EducationSystemResponse{
+			ID:          sys.ID.String(),
+			CountryID:   sys.CountryID.String(),
+			SystemName:  sys.SystemName,
+			Description: sys.Description.String,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(resp)
+}
+
 // RegisterRoutes registers identity routes under /api/v1
 func (h *Handler) RegisterRoutes(api fiber.Router) {
 	auth := api.Group("/auth")
@@ -558,6 +641,10 @@ func (h *Handler) RegisterRoutes(api fiber.Router) {
 	onboarding.Get("/current", h.GetOnboardingCurrent)
 	onboarding.Put("/current", h.UpdateOnboardingCurrent)
 	onboarding.Post("/complete", h.ProvisionTenant)
+
+	reference := api.Group("/reference")
+	reference.Get("/countries", h.ListCountries)
+	reference.Get("/education-systems", h.ListEducationSystems)
 }
 
 // sessionCookieName returns the cookie name with environment suffix per ADR-0002
@@ -618,4 +705,14 @@ func (h *Handler) clearSessionCookie(c fiber.Ctx) {
 // contains checks if a string contains a substring
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+// mustParseUUID parses a UUID string and panics on error.
+// Callers should validate before calling; this is used after validation has passed.
+func mustParseUUID(s string) uuid.UUID {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.UUID{}
+	}
+	return id
 }

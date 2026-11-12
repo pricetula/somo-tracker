@@ -456,3 +456,11 @@ func (s *Store) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID u
 func (s *Store) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
 	return s.q.RevokeAppSession(ctx, sessionID)
 }
+
+func (s *Store) ListCountries(ctx context.Context) ([]storegen.Country, error) {
+	return s.q.ListCountries(ctx)
+}
+
+func (s *Store) ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error) {
+	return s.q.ListEducationSystems(ctx, countryID)
+}

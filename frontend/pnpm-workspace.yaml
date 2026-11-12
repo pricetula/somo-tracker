@@ -2,6 +2,8 @@ packages:
   - '.'
 allowBuilds:
   esbuild: true
+  '@parcel/watcher': true
+  unrs-resolver: true
 minimumReleaseAgeExclude:
   - '@tanstack/query-core@5.105.0'
   - '@tanstack/react-query@5.105.0'
@@ -9,6 +11,12 @@ minimumReleaseAgeExclude:
   - '@tanstack/virtual-core@3.19.8'
   - autoprefixer@10.6.2
   - postcss@8.5.32
+  - '@cloudflare/workerd-darwin-64@1.20261112.1'
+  - '@cloudflare/workerd-darwin-arm64@1.20261112.1'
+  - '@cloudflare/workerd-linux-64@1.20261112.1'
+  - '@cloudflare/workerd-linux-arm64@1.20261112.1'
+  - '@cloudflare/workerd-windows-64@1.20261112.1'
+  - workerd@1.20261112.1
 permissions:
   '@parcel/watcher':
     build: true

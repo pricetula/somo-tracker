@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ RUN corepack enable && corepack prepare pnpm@12.11.2 --activate
 
 # Install deps (cached layer)
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm config set minimum-release-age 0 && pnpm approve-builds @parcel/watcher unrs-resolver && pnpm install --frozen-lockfile
+RUN pnpm config set minimum-release-age 0 && pnpm approve-builds @parcel/watcher unrs-resolver esbuild workerd@1.20261101.1 workerd@1.20261104.1 workerd@1.20261112.1 && pnpm install --frozen-lockfile
 
 # Vite dev server with HMR
 EXPOSE 3000

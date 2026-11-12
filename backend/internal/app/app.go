@@ -26,7 +26,12 @@ import (
 	"somotracker/internal/platform/migrator"
 	"somotracker/internal/platform/ratelimit"
 	redisPkg "somotracker/internal/platform/redis"
+	"somotracker/internal/platform/seed"
 	"somotracker/internal/platform/stytch"
+	studentHandler "somotracker/internal/students/handler"
+	studentService "somotracker/internal/students/service"
+	studentStore "somotracker/internal/students/store"
+	studentStoreGen "somotracker/internal/students/store/gen"
 )
 
 // App is the HTTP API composition root.
@@ -65,6 +70,17 @@ func New(cfg *config.Config) (*App, error) {
 		_ = sqlDB.Close()
 		dbPool.Close()
 		return nil, err
+	}
+
+	// Seed reference data after migrations (opt-in via SEED_REFERENCE_DATA)
+	if cfg.SeedReferenceData {
+		slog.Info("seeding reference data")
+		seeder := seed.New(dbPool.Pool)
+		if err := seeder.Run(ctx); err != nil {
+			_ = sqlDB.Close()
+			dbPool.Close()
+			return nil, err
+		}
 	}
 
 	// Redis client
@@ -153,6 +169,11 @@ func (a *App) Start(ctx context.Context) error {
 	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg)
 	rbacMiddleware := identityMiddleware.NewRBACMiddleware(identitySvc)
 
+	// Students domain
+	studentStore := studentStore.New(studentStoreGen.New(a.sqlDB))
+	studentSvc := studentService.New(studentStore, db.NewTxManager(a.dbPool.Pool))
+	studentHandler := studentHandler.New(studentSvc)
+
 	// Public routes (no auth required)
 	publicAPI := a.server.App().Group("/api/v1")
 	publicAPI.Use(rateLimitMiddleware.PublicRateLimit())
@@ -164,7 +185,7 @@ func (a *App) Start(ctx context.Context) error {
 	protectedAPI.Use(authMiddleware.TenantMiddleware())
 	protectedAPI.Use(a.setTenantContextMiddleware()) // Sets app.current_tenant_id for RLS
 	protectedAPI.Use(rateLimitMiddleware.ProtectedRateLimit())
-	// TODO: Register protected domain handlers here
+	studentHandler.RegisterRoutes(protectedAPI)
 
 	// Mutation routes (require auth + tenant + CSRF)
 	mutationAPI := a.server.App().Group("/api/v1")

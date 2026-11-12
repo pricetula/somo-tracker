@@ -95,11 +95,11 @@ func TestRequireAuth_CookieNamePerEnv(t *testing.T) {
 						UserID:    uuid.New(),
 						TenantID:  uuid.New(),
 						SessionID: uuid.New(),
-						Role:      "tenant_owner",
+						Role:      "owner",
 					}, nil
 				}
 				m.getUserMembershipsFunc = func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
-					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "owner", IsActive: true}}, nil
 				}
 			},
 		},
@@ -128,11 +128,11 @@ func TestRequireAuth_CookieNamePerEnv(t *testing.T) {
 						UserID:    uuid.New(),
 						TenantID:  uuid.New(),
 						SessionID: uuid.New(),
-						Role:      "tenant_owner",
+						Role:      "owner",
 					}, nil
 				}
 				m.getUserMembershipsFunc = func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
-					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "owner", IsActive: true}}, nil
 				}
 			},
 		},
@@ -225,11 +225,11 @@ func TestRequireAuth_ValidatesExpiryRevocation(t *testing.T) {
 						UserID:    uuid.New(),
 						TenantID:  uuid.New(),
 						SessionID: uuid.New(),
-						Role:      "tenant_owner",
+						Role:      "owner",
 					}, nil
 				},
 				getUserMembershipsFunc: func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
-					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "owner", IsActive: true}}, nil
 				},
 			}
 
@@ -273,7 +273,7 @@ func TestRequireAuth_SetsLocals(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 	sessionID := uuid.New()
-	role := "tenant_owner"
+	role := "owner"
 
 	mockSvc := &MockSessionValidator{
 		validateSessionFunc: func(ctx context.Context, tokenHash []byte) (*service.SessionContext, error) {
@@ -285,7 +285,7 @@ func TestRequireAuth_SetsLocals(t *testing.T) {
 			}, nil
 		},
 		getUserMembershipsFunc: func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
-			return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+			return []service.MembershipContext{{SchoolID: uuid.New(), Role: "owner", IsActive: true}}, nil
 		},
 	}
 
@@ -414,11 +414,11 @@ func TestCSRFMiddleware_RejectsMissingOrigin(t *testing.T) {
 						UserID:    uuid.New(),
 						TenantID:  uuid.New(),
 						SessionID: uuid.New(),
-						Role:      "tenant_owner",
+						Role:      "owner",
 					}, nil
 				},
 				getUserMembershipsFunc: func(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
-					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "tenant_owner", IsActive: true}}, nil
+					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "owner", IsActive: true}}, nil
 				},
 			}
 			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test", CORSOrigins: "https://app.example.com,http://localhost:3000"})

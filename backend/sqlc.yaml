@@ -7,3 +7,10 @@ sql:
       go:
         out: "internal/identity/store/gen"
         package: "store"
+  - engine: postgresql
+    queries: "internal/students/store/queries"
+    schema: "migrations"
+    gen:
+      go:
+        out: "internal/students/store/gen"
+        package: "store"

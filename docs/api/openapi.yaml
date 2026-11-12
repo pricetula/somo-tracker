@@ -213,6 +213,377 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/students:
+    get:
+      summary: List students with keyset pagination
+      operationId: listStudents
+      tags:
+        - Students
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Page size
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Pagination cursor from previous page
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: name_asc
+          description: Sort order
+        - name: guardianId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by guardian membership ID
+      responses:
+        '200':
+          description: List of students
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListStudentsResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Create a student
+      operationId: createStudent
+      tags:
+        - Students
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudentRequest'
+      responses:
+        '201':
+          description: Student created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentDTO'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Admission number already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/students/{id}:
+    get:
+      summary: Get a single student
+      operationId: getStudent
+      tags:
+        - Students
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Student ID
+      responses:
+        '200':
+          description: Student details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentDTO'
+        '404':
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Update a student (full body)
+      operationId: updateStudent
+      tags:
+        - Students
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Student ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStudentRequest'
+      responses:
+        '200':
+          description: Student updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentDTO'
+        '404':
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Admission number already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Soft-delete a student
+      operationId: deleteStudent
+      tags:
+        - Students
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Student ID
+      responses:
+        '204':
+          description: Student deleted
+        '404':
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/students/{id}/guardians:
+    get:
+      summary: List guardians linked to a student
+      operationId: listGuardianLinks
+      tags:
+        - Students
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Student ID
+      responses:
+        '200':
+          description: Guardian links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GuardianLinkDTO'
+        '404':
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Link a guardian to a student
+      operationId: createGuardianLink
+      tags:
+        - Students
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Student ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuardianLinkRequest'
+      responses:
+        '201':
+          description: Guardian linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuardianLinkDTO'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/students/{id}/guardians/{guardian_id}:
+    delete:
+      summary: Unlink a guardian from a student
+      operationId: deleteGuardianLink
+      tags:
+        - Students
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Student ID
+        - name: guardian_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Guardian membership ID
+      responses:
+        '204':
+          description: Guardian unlinked
+        '404':
+          description: Guardian link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     cookieAuth:
@@ -344,3 +715,111 @@ components:
           type: string
         message:
           type: string
+    StudentDTO:
+      type: object
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        school_id:
+          type: string
+          format: uuid
+        admission_number:
+          type: string
+        national_number:
+          type: string
+          nullable: true
+        full_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ListStudentsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudentDTO'
+        nextCursor:
+          type: string
+          nullable: true
+    CreateStudentRequest:
+      type: object
+      required:
+        - admission_number
+        - full_name
+        - date_of_birth
+        - gender
+      properties:
+        admission_number:
+          type: string
+        national_number:
+          type: string
+          nullable: true
+        full_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    UpdateStudentRequest:
+      type: object
+      required:
+        - admission_number
+        - full_name
+        - date_of_birth
+        - gender
+      properties:
+        admission_number:
+          type: string
+        national_number:
+          type: string
+          nullable: true
+        full_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    GuardianLinkDTO:
+      type: object
+      properties:
+        guardian_id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          format: uuid
+        relationship_type:
+          type: string
+        is_emergency_contact:
+          type: boolean
+    GuardianLinkRequest:
+      type: object
+      required:
+        - relationship_type
+      properties:
+        relationship_type:
+          type: string
+        is_emergency_contact:
+          type: boolean

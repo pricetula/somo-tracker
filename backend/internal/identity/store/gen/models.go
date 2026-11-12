@@ -283,6 +283,7 @@ type Membership struct {
 	Role      UserRole
 	IsActive  bool
 	CreatedAt time.Time
+	UpdatedAt time.Time
 	DeletedAt sql.NullTime
 }
 
@@ -291,18 +292,19 @@ type OnboardingTicket struct {
 	PendingOnboardingID uuid.UUID
 	TicketHash          []byte
 	IstCiphertext       []byte
+	IstNonce            []byte
+	IstKeyVersion       int16
 	UsedAt              sql.NullTime
 	ExpiresAt           time.Time
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 	DeletedAt           sql.NullTime
-	IstNonce            []byte
-	IstKeyVersion       int16
 }
 
 type PendingOnboarding struct {
 	ID                      uuid.UUID
 	VerifiedEmailNormalized string
+	Status                  PendingOnboardingStatus
 	CurrentStep             string
 	FormData                json.RawMessage
 	StytchOrganizationID    uuid.NullUUID
@@ -313,7 +315,6 @@ type PendingOnboarding struct {
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 	LastActivityAt          time.Time
-	Status                  PendingOnboardingStatus
 	DeletedAt               sql.NullTime
 }
 

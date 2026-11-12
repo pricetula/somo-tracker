@@ -1,7 +1,7 @@
 ---
 id: SOM-SEED-001
 title: Reference Data Seeding
-status: draft
+status: approved
 author: agent
 date: 2026-11-11
 updated: 2026-11-11

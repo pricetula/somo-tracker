@@ -47,6 +47,10 @@ const (
 	PermHealthWrite     Permission = "health:write"
 	PermBehaviorRead    Permission = "behavior:read"
 	PermBehaviorWrite   Permission = "behavior:write"
+	PermTimetableRead   Permission = "timetable:read"
+	PermTimetableWrite  Permission = "timetable:write"
+	PermAttendanceRead  Permission = "attendance:read"
+	PermAttendanceWrite Permission = "attendance:write"
 	PermAuditRead       Permission = "audit:read"
 	PermSystemManage    Permission = "system:manage"
 )
@@ -73,6 +77,10 @@ var rolePermissions = map[Role]map[Permission]struct{}{
 		PermHealthWrite:   {},
 		PermBehaviorRead:  {},
 		PermBehaviorWrite: {},
+		PermTimetableRead: {},
+		PermTimetableWrite: {},
+		PermAttendanceRead: {},
+		PermAttendanceWrite: {},
 		PermAuditRead:     {},
 		PermSystemManage:  {},
 	},
@@ -94,6 +102,10 @@ var rolePermissions = map[Role]map[Permission]struct{}{
 		PermHealthWrite:   {},
 		PermBehaviorRead:  {},
 		PermBehaviorWrite: {},
+		PermTimetableRead: {},
+		PermTimetableWrite: {},
+		PermAttendanceRead: {},
+		PermAttendanceWrite: {},
 		PermAuditRead:     {},
 	},
 	RoleHeadteacher: {
@@ -112,6 +124,10 @@ var rolePermissions = map[Role]map[Permission]struct{}{
 		PermHealthWrite:   {},
 		PermBehaviorRead:  {},
 		PermBehaviorWrite: {},
+		PermTimetableRead: {},
+		PermTimetableWrite: {},
+		PermAttendanceRead: {},
+		PermAttendanceWrite: {},
 	},
 	RoleTeacher: {
 		PermAuthRead:      {},
@@ -122,6 +138,9 @@ var rolePermissions = map[Role]map[Permission]struct{}{
 		PermEnrollmentRead:  {},
 		PermHealthRead:    {},
 		PermBehaviorRead:  {},
+		PermTimetableRead: {},
+		PermAttendanceRead: {},
+		PermAttendanceWrite: {},
 	},
 	RoleGuardian: {
 		PermAuthRead:      {},
@@ -129,6 +148,8 @@ var rolePermissions = map[Role]map[Permission]struct{}{
 		PermStudentRead:   {}, // object-level: only linked students (enforced in service/store)
 		PermHealthRead:    {}, // object-level: only linked students
 		PermBehaviorRead:  {}, // object-level: only linked students
+		PermTimetableRead: {}, // object-level: only linked children's classes
+		PermAttendanceRead: {}, // object-level: only linked children's attendance
 	},
 	RoleFinance: {
 		PermAuthRead:   {},
@@ -136,6 +157,7 @@ var rolePermissions = map[Role]map[Permission]struct{}{
 		PermSchoolRead: {},
 		PermFeeRead:    {},
 		PermFeeWrite:   {},
+		PermAttendanceRead: {},
 	},
 	RolePlatformOperator: {
 		PermAuthRead:      {},
@@ -156,6 +178,10 @@ var rolePermissions = map[Role]map[Permission]struct{}{
 		PermHealthWrite:   {},
 		PermBehaviorRead:  {},
 		PermBehaviorWrite: {},
+		PermTimetableRead: {},
+		PermTimetableWrite: {},
+		PermAttendanceRead: {},
+		PermAttendanceWrite: {},
 		PermAuditRead:     {},
 		PermSystemManage:  {},
 	},

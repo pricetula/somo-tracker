@@ -2,7 +2,7 @@
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"compatibility_date": "2026-11-01",
 	"compatibility_flags": ["global_fetch_strictly_public"],
-	"name": "somo-tracker-marketing",
+	"name": "somo-tracker",
 	"main": "@astrojs/cloudflare/entrypoints/server",
 	"assets": {
 		"directory": "./dist",

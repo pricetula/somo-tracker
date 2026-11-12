@@ -18,7 +18,7 @@
 | SOM-BEHAVIOR-001 | Behavior Domain - Behavior Records | draft | BE-006, BE-007, BE-009, BE-010, BE-012, BE-013, BE-014, BE-015, BE-016, BE-020, BE-021, BE-025, BE-029, BE-036, FE-007, FE-008, FE-009, FE-011, FE-012, FE-014, FE-019, FE-020, FE-023, FE-026, FE-027 | yes | yes | 2026-11-11 |
 | SOM-TIMETABLE-001 | Timetable Management | draft | BE-006, BE-007, BE-009, BE-010, BE-012, BE-013, BE-014, BE-015, BE-016, BE-020, BE-021, BE-025, BE-029, BE-036, FE-007, FE-008, FE-009, FE-011, FE-014, FE-019, FE-020, FE-026, FE-027 | yes | yes | 2026-11-11 |
 | SOM-ATTENDANCE-001 | Attendance Management | draft | BE-006, BE-007, BE-009, BE-010, BE-012, BE-013, BE-014, BE-015, BE-016, BE-020, BE-021, BE-025, BE-029, BE-036, FE-007, FE-008, FE-009, FE-011, FE-014, FE-019, FE-020, FE-023, FE-026, FE-027 | yes | yes | 2026-11-11 |
-| SOM-SEED-001 | Reference Data Seeding | approved | BE-001, BE-005, BE-012, BE-033, BE-038, BE-039 | yes | yes | 2026-11-11 |
+| SOM-SEED-001 | Reference Data Seeding | implemented | BE-001, BE-005, BE-012, BE-033, BE-038, BE-039 | yes | yes | 2026-11-11 |
 
 ## Rules
 

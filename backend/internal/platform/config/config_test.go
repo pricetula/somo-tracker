@@ -149,6 +149,52 @@ func TestLoad_FromEnvironment(t *testing.T) {
 	_ = os.Setenv("STYTCH_SECRET", origSecret)
 }
 
+func TestSeedReferenceDataFieldExists(t *testing.T) {
+	cfg := &Config{Env: "production", PostgresDSN: "postgres://x", RedisAddr: "redis:6379", StytchProjectID: "p", StytchSecret: "s"}
+	require.False(t, cfg.SeedReferenceData) // zero value
+
+	cfg.SeedReferenceData = true
+	require.True(t, cfg.SeedReferenceData)
+}
+
+func TestLoad_SeedReferenceDataDefaults(t *testing.T) {
+	// Save original env
+	origSeed := os.Getenv("SEED_REFERENCE_DATA")
+	origEnv := os.Getenv("APP_ENV")
+
+	// Set required env
+	_ = os.Setenv("DATABASE_URL", "postgres://test")
+	_ = os.Setenv("REDIS_ADDR", "redis:6379")
+	_ = os.Setenv("STYTCH_PROJECT_ID", "test-proj")
+	_ = os.Setenv("STYTCH_SECRET", "test-secret")
+	_ = os.Setenv("EMAIL_HMAC_KEY", "test-hmac-key")
+	_ = os.Setenv("IST_ENCRYPTION_KEY", "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=")
+
+	// Production, no env flag -> false
+	_ = os.Setenv("APP_ENV", "production")
+	_ = os.Setenv("SEED_REFERENCE_DATA", "")
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.False(t, cfg.SeedReferenceData)
+
+	// Production, env flag true -> true
+	_ = os.Setenv("SEED_REFERENCE_DATA", "true")
+	cfg, err = Load()
+	require.NoError(t, err)
+	require.True(t, cfg.SeedReferenceData)
+
+	// Development, no env flag -> true
+	_ = os.Setenv("APP_ENV", "development")
+	_ = os.Setenv("SEED_REFERENCE_DATA", "")
+	cfg, err = Load()
+	require.NoError(t, err)
+	require.True(t, cfg.SeedReferenceData)
+
+	// Restore
+	_ = os.Setenv("APP_ENV", origEnv)
+	_ = os.Setenv("SEED_REFERENCE_DATA", origSeed)
+}
+
 func TestParseRedisAddr(t *testing.T) {
 	tests := []struct {
 		input    string

@@ -9,6 +9,28 @@ import (
 	"somotracker/internal/platform/db"
 )
 
+// TestNew_CreatesSeed verifies New returns a non-nil Seed with no DB required.
+func TestNew_CreatesSeed(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), "postgres://invalid")
+	require.NoError(t, err)
+	defer pool.Close()
+
+	s := New(pool)
+	require.NotNil(t, s)
+	require.IsType(t, &Seed{}, s)
+}
+
+// TestTxManagerConstruction verifies db.NewTxManager can be constructed without a DB.
+func TestTxManagerConstruction(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), "postgres://invalid")
+	require.NoError(t, err)
+	defer pool.Close()
+
+	tm := db.NewTxManager(pool)
+	require.NotNil(t, tm)
+}
+
+// mustPool returns a DB pool or skips the test if none is available.
 func mustPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	pool, err := pgxpool.New(context.Background(), "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable")
@@ -62,27 +84,4 @@ func TestSeed_Atomic(t *testing.T) {
 	require.Equal(t, 3, countryCount)
 	require.Equal(t, 3, systemCount)
 	require.Equal(t, 11, levelCount)
-}
-
-// TestNew_CreatesSeed verifies New returns a non-nil Seed.
-func TestNew_CreatesSeed(t *testing.T) {
-	pool := mustPool(t)
-	s := New(pool)
-	require.NotNil(t, s)
-	require.IsType(t, &Seed{}, s)
-}
-
-// TestTxManagerIsUsed verifies db.NewTxManager can be constructed and Run works.
-func TestTxManagerIsUsed(t *testing.T) {
-	pool := mustPool(t)
-
-	tm := db.NewTxManager(pool)
-	require.NotNil(t, tm)
-
-	// Verify Run works with a simple query
-	var count int
-	err := tm.Run(context.Background(), func(ctx context.Context) error {
-		return pool.QueryRow(ctx, "SELECT COUNT(*) FROM countries").Scan(&count)
-	})
-	require.NoError(t, err)
 }

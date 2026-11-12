@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"strings"
@@ -10,33 +11,49 @@ import (
 	"github.com/google/uuid"
 	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/authz"
-	"somotracker/internal/students/service"
+	studentsSvc "somotracker/internal/students/service"
 )
+
+// Service is the interface the handler depends on.
+// The real students service satisfies this interface.
+type Service interface {
+	ListStudents(ctx context.Context, guardianID *uuid.UUID, limit int32, cursorFullName string, cursorStudentID uuid.UUID) (*studentsSvc.ListResponse, error)
+	GetStudent(ctx context.Context, id uuid.UUID) (*studentsSvc.StudentDTO, error)
+	CreateStudent(ctx context.Context, req studentsSvc.CreateStudentRequest) (*studentsSvc.StudentDTO, error)
+	UpdateStudent(ctx context.Context, req studentsSvc.UpdateStudentRequest) (*studentsSvc.StudentDTO, error)
+	DeleteStudent(ctx context.Context, id uuid.UUID) error
+	ListGuardianLinks(ctx context.Context, studentID uuid.UUID) ([]studentsSvc.GuardianLinkDTO, error)
+	CreateGuardianLink(ctx context.Context, req studentsSvc.CreateGuardianLinkRequest) (*studentsSvc.GuardianLinkDTO, error)
+	DeleteGuardianLink(ctx context.Context, studentID uuid.UUID, guardianID uuid.UUID) error
+}
 
 // Handler is HTTP handler for students domain (thin, BE-006).
 type Handler struct {
-	svc *service.Service
+	svc Service
 }
 
 // New creates handler.
-func New(svc *service.Service) *Handler {
+func New(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
+
+// Ensure the real service satisfies the Service interface.
+var _ Service = (*studentsSvc.Service)(nil)
 
 // DTOs are defined per endpoint, not domain structs (BE-007).
 
 // ListStudentsRequest represents query parameters for listing students.
 type ListStudentsRequest struct {
-	Limit     int32  `query:"limit"`
-	Cursor    string `query:"cursor"`
-	Sort      string `query:"sort"`
+	Limit      int32  `query:"limit"`
+	Cursor     string `query:"cursor"`
+	Sort       string `query:"sort"`
 	GuardianID string `query:"guardianId"`
 }
 
 // ListStudentsResponse is the paginated list response.
 type ListStudentsResponse struct {
-	Items      []service.StudentDTO `json:"items"`
-	NextCursor *string              `json:"nextCursor,omitempty"`
+	Items      []studentsSvc.StudentDTO `json:"items"`
+	NextCursor *string                  `json:"nextCursor,omitempty"`
 }
 
 // CreateStudentRequest is the request body for creating a student.
@@ -165,7 +182,7 @@ func (h *Handler) CreateStudent(c fiber.Ctx) error {
 		return apperr.New(apperr.FORBIDDEN, "no active school in session")
 	}
 
-	dto, err := h.svc.CreateStudent(c.Context(), service.CreateStudentRequest{
+	dto, err := h.svc.CreateStudent(c.Context(), studentsSvc.CreateStudentRequest{
 		SchoolID:        schoolID,
 		AdmissionNumber: req.AdmissionNumber,
 		NationalNumber:  req.NationalNumber,
@@ -205,7 +222,7 @@ func (h *Handler) UpdateStudent(c fiber.Ctx) error {
 		metadata = req.Metadata
 	}
 
-	dto, err := h.svc.UpdateStudent(c.Context(), service.UpdateStudentRequest{
+	dto, err := h.svc.UpdateStudent(c.Context(), studentsSvc.UpdateStudentRequest{
 		StudentID:       id,
 		AdmissionNumber: req.AdmissionNumber,
 		NationalNumber:  req.NationalNumber,
@@ -268,7 +285,7 @@ func (h *Handler) CreateGuardianLink(c fiber.Ctx) error {
 		return apperr.New(apperr.FORBIDDEN, "guardian membership not found in session")
 	}
 
-	dto, err := h.svc.CreateGuardianLink(c.Context(), service.CreateGuardianLinkRequest{
+	dto, err := h.svc.CreateGuardianLink(c.Context(), studentsSvc.CreateGuardianLinkRequest{
 		GuardianID:         guardianID,
 		StudentID:          id,
 		RelationshipType:   req.RelationshipType,

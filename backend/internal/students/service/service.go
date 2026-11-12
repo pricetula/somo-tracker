@@ -9,20 +9,42 @@ import (
 	"github.com/google/uuid"
 	studentStore "somotracker/internal/students/store"
 	storegen "somotracker/internal/students/store/gen"
-	"somotracker/internal/platform/db"
 )
 
+// TxRunner is the transaction runner interface used by Service.
+// db.TxManager satisfies this interface.
+type TxRunner interface {
+	Run(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+// Store is the data access interface used by Service.
+// The real storegen-backed store satisfies this interface.
+type Store interface {
+	GetStudent(ctx context.Context, id uuid.UUID) (*storegen.Student, error)
+	ListStudents(ctx context.Context, limit int32, cursorFullName string, cursorStudentID uuid.UUID) ([]storegen.Student, error)
+	CreateStudent(ctx context.Context, schoolID uuid.UUID, admissionNumber string, nationalNumber sql.NullString, fullName string, dateOfBirth time.Time, gender string, metadata json.RawMessage) (*storegen.Student, error)
+	UpdateStudent(ctx context.Context, id uuid.UUID, admissionNumber string, nationalNumber sql.NullString, fullName string, dateOfBirth time.Time, gender string, metadata json.RawMessage) (*storegen.Student, error)
+	DeleteStudent(ctx context.Context, id uuid.UUID) error
+	ListStudentsForGuardian(ctx context.Context, guardianID uuid.UUID, limit int32) ([]storegen.Student, error)
+	ListGuardianLinks(ctx context.Context, studentID uuid.UUID) ([]storegen.GuardianStudentLink, error)
+	CreateGuardianLink(ctx context.Context, guardianID uuid.UUID, studentID uuid.UUID, relationshipType string, isEmergencyContact bool) (*storegen.GuardianStudentLink, error)
+	DeleteGuardianLink(ctx context.Context, studentID uuid.UUID, guardianID uuid.UUID) error
+}
+
 // Service implements the students domain business logic.
-// Depends only on Store; never imports handler or sqlc directly (BE-002).
+// Depends only on Store interface; never imports handler or sqlc directly (BE-002).
 type Service struct {
-	store *studentStore.Store
-	txm   *db.TxManager
+	store Store
+	txm   TxRunner
 }
 
 // New creates service.
-func New(store *studentStore.Store, txm *db.TxManager) *Service {
+func New(store Store, txm TxRunner) *Service {
 	return &Service{store: store, txm: txm}
 }
+
+// Ensure the real storegen-backed store satisfies the Store interface.
+var _ Store = (*studentStore.Store)(nil)
 
 // StudentDTO is the domain type returned to handlers (never sqlc rows, BE-007).
 type StudentDTO struct {

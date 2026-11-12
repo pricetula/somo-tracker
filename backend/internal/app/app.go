@@ -26,6 +26,7 @@ import (
 	"somotracker/internal/platform/migrator"
 	"somotracker/internal/platform/ratelimit"
 	redisPkg "somotracker/internal/platform/redis"
+	"somotracker/internal/platform/seed"
 	"somotracker/internal/platform/stytch"
 )
 
@@ -65,6 +66,17 @@ func New(cfg *config.Config) (*App, error) {
 		_ = sqlDB.Close()
 		dbPool.Close()
 		return nil, err
+	}
+
+	// Seed reference data after migrations (opt-in via SEED_REFERENCE_DATA)
+	if cfg.SeedReferenceData {
+		slog.Info("seeding reference data")
+		seeder := seed.New(dbPool.Pool)
+		if err := seeder.Run(ctx); err != nil {
+			_ = sqlDB.Close()
+			dbPool.Close()
+			return nil, err
+		}
 	}
 
 	// Redis client

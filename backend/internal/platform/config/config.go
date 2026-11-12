@@ -34,6 +34,9 @@ type Config struct {
 	RateLimitMagicLinkIPPerMin      int
 	RateLimitMagicLinkEmailPer15Min int
 	RateLimitTokenExchangeIPPerMin  int
+
+	// Reference data seeding
+	SeedReferenceData bool
 	// Tenant-scoped rate limits
 	RateLimitTenantMagicLinkIPPerMin      int
 	RateLimitTenantMagicLinkEmailPer15Min int
@@ -77,6 +80,16 @@ func Load() (*Config, error) {
 	tokenIPPerMin := parseIntEnv("RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN", 10)
 	tenantIPPerMin := parseIntEnv("RATE_LIMIT_TENANT_MAGIC_LINK_IP_PER_MIN", 5)
 	tenantEmailPer15Min := parseIntEnv("RATE_LIMIT_TENANT_MAGIC_LINK_EMAIL_PER_15_MIN", 2)
+
+	// Reference data seeding - opt-in in production, on in dev/test
+	seedRefData := firstNonEmpty("SEED_REFERENCE_DATA", "")
+	seedReferenceData := false
+	if seedRefData != "" {
+		seedReferenceData = seedRefData == "true" || seedRefData == "1"
+	} else if env == "development" || env == "test" {
+		seedReferenceData = true
+	}
+
 	cfg := &Config{
 		Env:            env,
 		PostgresDSN:    postgresDSN,
@@ -100,6 +113,7 @@ func Load() (*Config, error) {
 		RateLimitTokenExchangeIPPerMin:  tokenIPPerMin,
 		RateLimitTenantMagicLinkIPPerMin:      tenantIPPerMin,
 		RateLimitTenantMagicLinkEmailPer15Min: tenantEmailPer15Min,
+		SeedReferenceData:                     seedReferenceData,
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err

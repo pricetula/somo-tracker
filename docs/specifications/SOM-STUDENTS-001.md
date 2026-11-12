@@ -1,7 +1,7 @@
 ---
 id: SOM-STUDENTS-001
 title: Students Domain - CRUD and Guardian Links
-status: draft
+status: approved
 author: agent
 date: 2026-11-11
 updated: 2026-11-11

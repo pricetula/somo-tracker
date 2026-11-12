@@ -424,11 +424,11 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 		return nil, fmt.Errorf("create school: %w", err)
 	}
 
-	// Create Membership (tenant_owner role for first admin)
+	// Create Membership (OWNER role for first admin)
 	_, err = txRepo.CreateMembership(ctx, storegen.CreateMembershipParams{
 		UserID:   adminUser.ID,
 		SchoolID: school.ID,
-		Role:     "tenant_owner",
+		Role:     storegen.UserRoleOWNER,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create membership: %w", err)

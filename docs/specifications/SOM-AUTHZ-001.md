@@ -67,6 +67,10 @@ No OpenAPI contract change (no endpoints added/removed). The authz middleware is
 | `health:write` | Create/update health records | OWNER, ADMIN, HEADTEACHER, PLATFORMOPERATOR |
 | `behavior:read` | Read behavior records | OWNER, ADMIN, HEADTEACHER, TEACHER, GUARDIAN (own children), PLATFORMOPERATOR |
 | `behavior:write` | Create/update behavior records | OWNER, ADMIN, HEADTEACHER, PLATFORMOPERATOR |
+| `timetable:read` | Read timetable entries | OWNER, ADMIN, HEADTEACHER, TEACHER, GUARDIAN (own children), PLATFORMOPERATOR |
+| `timetable:write` | Create/update timetable entries | OWNER, ADMIN, HEADTEACHER, TEACHER (own class), PLATFORMOPERATOR |
+| `attendance:read` | Read attendance records | OWNER, ADMIN, HEADTEACHER, TEACHER, GUARDIAN (own children), FINANCE, PLATFORMOPERATOR |
+| `attendance:write` | Create/update attendance records | OWNER, ADMIN, HEADTEACHER, TEACHER (own class), PLATFORMOPERATOR |
 | `audit:read` | Read audit logs | OWNER, ADMIN, PLATFORMOPERATOR |
 | `system:manage` | System configuration | PLATFORMOPERATOR |
 

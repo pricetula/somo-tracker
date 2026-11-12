@@ -3,15 +3,8 @@
  * Layer B: beforeLoad for client-side navigation (uses server function for auth state)
  */
 
-import {
-  createRootRoute,
-  Link,
-  Outlet,
-  HeadContent,
-  Scripts,
-  redirect,
-} from '@tanstack/react-router';
-import { TanStackRouterDevtools } from '@tanstack/router-devtools';
+import { HeadContent, Scripts } from '@tanstack/react-router';
+import { createRootRoute, Outlet, redirect } from '@tanstack/react-router';
 import { getAuthState } from '@/features/auth/api/get-auth-state';
 import { routePolicy } from '@/features/auth/utils/route-policy';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -57,34 +50,16 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <RootDocument>
-      <div className="min-h-screen bg-background text-foreground">
-        <header className="border-b px-4 py-3">
-          <nav className="flex gap-4">
-            <Link to="/" className="[&.active]:font-bold">
-              Home
-            </Link>
-          </nav>
-        </header>
-        <main className="p-6">
-          <QueryClientProvider client={queryClient}>
-            <Outlet />
-          </QueryClientProvider>
-        </main>
-      </div>
-      <TanStackRouterDevtools />
-    </RootDocument>
-  );
-}
-
-function RootDocument({ children }: { children: React.ReactNode }) {
-  return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        {children}
+        <main className="p-6">
+          <QueryClientProvider client={queryClient}>
+            <Outlet />
+          </QueryClientProvider>
+        </main>
         <Scripts />
       </body>
     </html>

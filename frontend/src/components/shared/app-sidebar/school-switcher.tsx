@@ -64,7 +64,7 @@ export function SchoolSwitcher({ me }: { me?: MeResponse | null }) {
             <ChevronsUpDownIcon className="ml-auto size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-fit"
+            className="w-fit min-w-[200px]"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}

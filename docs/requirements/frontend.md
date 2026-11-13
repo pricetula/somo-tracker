@@ -30,6 +30,9 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 |----|---------|
 | FE-013 | Shell shadcn `sidebar-07`; header only `SidebarTrigger` + `Separator` + dynamic `Breadcrumb`; `<PageHeader>` for title/actions |
 | FE-014 | Add/edit/view via intercepting + parallel routes in `Dialog`/`Sheet`; `@modal/(.)add`, `(.)[id]`, `(.)[id]/edit`; full-page route renders same component; `@modal` default returns `null` |
+| FE-028 | Create routes use `xxx/add` via intercepting + parallel routes; `Dialog`/`Sheet` on client navigation, full-page route on hard load; `@modal` default returns `null` |
+| FE-029 | View routes use `xxx/id`; `Sheet` side panel on client redirect; full-page route renders same page on hard load |
+| FE-030 | Update resource per-section on the detail page; no dedicated edit routes |
 
 ## UI
 
@@ -43,6 +46,10 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 | FE-020 | Forms: `react-hook-form` + `zodResolver` + shadcn `Form` parts; no `useState` bindings |
 | FE-021 | Never hand-edit `src/components/ui/`; `pnpm dlx shadcn@latest add`; shared composites in `src/components/shared/`, never fetch |
 | FE-022 | Charts: shadcn Chart + Recharts via `React.lazy`/`Suspense`; no raw SVG/canvas, Chart.js, D3 |
+| FE-031 | Create forms use `react-hook-form` + `zodResolver` + shadcn `Form` parts; uniform styling across resources |
+| FE-032 | Form buttons show loading/error states via shadcn components; uniform across all forms |
+| FE-033 | Listing tables use shared `<DataTable>` with TanStack Infinite Query + `@tanstack/react-virtual` (full spec pending) |
+| FE-034 | Delete confirmation via `Dialog`/`AlertDialog` with accept/cancel; cannot dismiss by clicking overlay |
 
 ## Domain and quality
 
@@ -75,3 +82,11 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 ## Snake_case vs camelCase boundary
 
 Generated wire types snake_case; internal code camelCase; map at `src/features/<name>/api/` adapter layer; never hand-edit generated types; never invent manual snake_case in components.
+
+## API contract changes (pending)
+
+| Endpoint | Method | Body | Replaces |
+|----------|--------|------|----------|
+| `DELETE /api/v1/{resource}` | `DELETE` | `{ "ids": ["uuid1", "uuid2", ...] }` | `DELETE /api/v1/{resource}/{id}` |
+
+Backend owns `docs/api/openapi.yaml`. After any contract change: backend regenerates `backend/docs/swagger.*` via `make generate-swag`, frontend regenerates types via `pnpm generate:api`, then verify no drift with `make generate-check`.

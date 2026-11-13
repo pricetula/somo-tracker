@@ -10,7 +10,7 @@ import { getAuthState } from "@/features/auth/api/get-auth-state";
 import { routePolicy } from "@/features/auth/utils/route-policy";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/shared/app-sidebar/app-sidebar";
 import { ShellSidebarProvider } from "@/components/shared/sidebar-provider";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";

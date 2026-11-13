@@ -5,6 +5,7 @@ import * as React from "react"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -68,22 +69,27 @@ export function SchoolSwitcher({ me }: { me?: MeResponse | null }) {
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
-            <DropdownMenuLabel className="text-muted-foreground">
-              Schools
-            </DropdownMenuLabel>
-            {schools.map((school) => {
-              const schoolId = school.id ?? ""
-              const isActive = schoolId === (activeSchoolId ?? "") && schoolId !== ""
-              return (
-                <DropdownMenuItem
-                  key={schoolId}
-                  onClick={() => handleSwitchSchool(schoolId)}
-                >
-                  {school.name}
-                  {isActive && <span className="ml-auto text-xs">Active</span>}
-                </DropdownMenuItem>
-              )
-            })}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-muted-foreground">
+                Schools
+              </DropdownMenuLabel>
+              {schools.map((school) => {
+                const schoolId = school.id ?? ""
+                const isActive =
+                  schoolId === (activeSchoolId ?? "") && schoolId !== ""
+                return (
+                  <DropdownMenuItem
+                    key={schoolId}
+                    onClick={() => handleSwitchSchool(schoolId)}
+                  >
+                    {school.name}
+                    {isActive && (
+                      <span className="ml-auto text-xs">Active</span>
+                    )}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </DropdownMenuContent>
         </DropdownMenu>

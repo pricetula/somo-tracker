@@ -14,7 +14,7 @@ export const getMe = createServerFn({ method: 'GET' }).handler(
       ?.get('cookie');
 
     // Forward the cookie header so the backend can resolve the session
-    const response = await apiFetch<MeResponse>('/me', {
+    const response = await apiFetch<MeResponse>('/api/v1/me', {
       headers: cookieHeader ? { cookie: cookieHeader } : {},
     });
 

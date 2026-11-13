@@ -109,6 +109,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/me": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Identity"
+                ],
+                "summary": "Get current user profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.MeResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/me/active-school": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Identity"
+                ],
+                "summary": "Switch active school membership",
+                "parameters": [
+                    {
+                        "description": "request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.SwitchActiveSchoolRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.SwitchActiveSchoolResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/onboarding/complete": {
             "post": {
                 "consumes": [
@@ -229,6 +298,38 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/schools": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Identity"
+                ],
+                "summary": "List schools in tenant",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handler.SchoolRef"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -287,6 +388,35 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "system_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.MeResponse": {
+            "type": "object",
+            "properties": {
+                "active_school": {
+                    "$ref": "#/definitions/handler.SchoolRef"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "schools": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.SchoolRef"
+                    }
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -360,6 +490,36 @@ const docTemplate = `{
             }
         },
         "handler.RequestMagicLinkResponse": {
+            "type": "object",
+            "properties": {
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "handler.SchoolRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.SwitchActiveSchoolRequest": {
+            "type": "object",
+            "required": [
+                "school_id"
+            ],
+            "properties": {
+                "school_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.SwitchActiveSchoolResponse": {
             "type": "object",
             "properties": {
                 "success": {

@@ -103,6 +103,30 @@ type EducationSystemResponse struct {
 	Description string `json:"description,omitempty"`
 }
 
+// Me response types
+type MeResponse struct {
+	UserID       string     `json:"user_id"`
+	FullName     string     `json:"full_name"`
+	Email        string     `json:"email"`
+	AvatarURL    *string    `json:"avatar_url"`
+	Role         string     `json:"role"`
+	ActiveSchool *SchoolRef `json:"active_school"`
+	Schools      []SchoolRef `json:"schools"`
+}
+
+type SchoolRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type SwitchActiveSchoolRequest struct {
+	SchoolID string `json:"school_id" validate:"required,uuid"`
+}
+
+type SwitchActiveSchoolResponse struct {
+	Success bool `json:"success"`
+}
+
 // RequestMagicLink handles POST /api/v1/auth/request-magic-link
 // @Summary Request a Stytch Discovery magic link
 // @Tags Authentication
@@ -630,6 +654,97 @@ func (h *Handler) ListEducationSystems(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(resp)
 }
 
+// GetMe handles GET /api/v1/me
+// @Summary Get current user profile
+// @Tags Identity
+// @Accept json
+// @Produce json
+// @Success 200 {object} MeResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/me [get]
+func (h *Handler) GetMe(c fiber.Ctx) error {
+	sessionToken := c.Cookies(h.sessionCookieName())
+	if sessionToken == "" {
+		return apperr.New(apperr.UNAUTHENTICATED, "no session cookie")
+	}
+
+	tokenHash := sha256.Sum256([]byte(sessionToken))
+	me, err := h.svc.GetMe(c.Context(), tokenHash[:])
+	if err != nil {
+		if errors.Is(err, service.ErrSessionNotFound) {
+			return apperr.New(apperr.UNAUTHENTICATED, "session not found or expired")
+		}
+		logger.Error(c.Context(), err, "GetMe failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to load user profile")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(me)
+}
+
+// ListSchools handles GET /api/v1/schools
+// @Summary List schools in tenant
+// @Tags Identity
+// @Accept json
+// @Produce json
+// @Success 200 {array} SchoolRef
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/schools [get]
+func (h *Handler) ListSchools(c fiber.Ctx) error {
+	sessionToken := c.Cookies(h.sessionCookieName())
+	if sessionToken == "" {
+		return apperr.New(apperr.UNAUTHENTICATED, "no session cookie")
+	}
+
+	tokenHash := sha256.Sum256([]byte(sessionToken))
+	schools, err := h.svc.ListSchools(c.Context(), tokenHash[:])
+	if err != nil {
+		if errors.Is(err, service.ErrSessionNotFound) {
+			return apperr.New(apperr.UNAUTHENTICATED, "session not found or expired")
+		}
+		logger.Error(c.Context(), err, "ListSchools failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to list schools")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(schools)
+}
+
+// SwitchActiveSchool handles PUT /api/v1/me/active-school
+// @Summary Switch active school membership
+// @Tags Identity
+// @Accept json
+// @Produce json
+// @Param request body SwitchActiveSchoolRequest true "request"
+// @Success 200 {object} SwitchActiveSchoolResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/me/active-school [put]
+func (h *Handler) SwitchActiveSchool(c fiber.Ctx) error {
+	sessionToken := c.Cookies(h.sessionCookieName())
+	if sessionToken == "" {
+		return apperr.New(apperr.UNAUTHENTICATED, "no session cookie")
+	}
+
+	var req SwitchActiveSchoolRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
+	}
+
+	schoolID, err := uuid.Parse(req.SchoolID)
+	if err != nil {
+		return apperr.New(apperr.INVALID_REQUEST, "invalid school_id format")
+	}
+
+	tokenHash := sha256.Sum256([]byte(sessionToken))
+	if err := h.svc.SwitchActiveSchool(c.Context(), tokenHash[:], schoolID); err != nil {
+		if errors.Is(err, service.ErrSessionNotFound) {
+			return apperr.New(apperr.UNAUTHENTICATED, "session not found or expired")
+		}
+		logger.Error(c.Context(), err, "SwitchActiveSchool failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to switch active school")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(SwitchActiveSchoolResponse{Success: true})
+}
+
 // RegisterRoutes registers identity routes under /api/v1
 func (h *Handler) RegisterRoutes(api fiber.Router) {
 	auth := api.Group("/auth")
@@ -645,6 +760,16 @@ func (h *Handler) RegisterRoutes(api fiber.Router) {
 	reference := api.Group("/reference")
 	reference.Get("/countries", h.ListCountries)
 	reference.Get("/education-systems", h.ListEducationSystems)
+}
+
+// RegisterAuthenticatedRoutes registers identity routes that require authentication
+// under /api/v1 on the protected router group.
+func (h *Handler) RegisterAuthenticatedRoutes(api fiber.Router) {
+	me := api.Group("/me")
+	me.Get("", h.GetMe)
+	me.Put("/active-school", h.SwitchActiveSchool)
+
+	api.Get("/schools", h.ListSchools)
 }
 
 // sessionCookieName returns the cookie name with environment suffix per ADR-0002

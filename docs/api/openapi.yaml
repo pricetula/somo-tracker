@@ -271,6 +271,101 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me:
+    get:
+      summary: Get current user profile
+      operationId: getMe
+      tags:
+        - Identity
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/active-school:
+    put:
+      summary: Switch active school membership
+      operationId: switchActiveSchool
+      tags:
+        - Identity
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchActiveSchoolRequest'
+      responses:
+        '200':
+          description: Active school switched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwitchActiveSchoolResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/schools:
+    get:
+      summary: List schools in tenant
+      operationId: listSchools
+      tags:
+        - Identity
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of schools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SchoolRef'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/students:
     get:
       summary: List students with keyset pagination
@@ -772,6 +867,55 @@ components:
         success:
           type: boolean
     LogoutResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    MeResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        role:
+          type: string
+        active_school:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        schools:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchoolRef'
+    SchoolRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    SwitchActiveSchoolRequest:
+      type: object
+      required:
+        - school_id
+      properties:
+        school_id:
+          type: string
+          format: uuid
+    SwitchActiveSchoolResponse:
       type: object
       properties:
         success:

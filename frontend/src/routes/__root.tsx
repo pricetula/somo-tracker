@@ -58,10 +58,23 @@ async function authBeforeLoad({
 
 export async function rootLoader() {
   const { hasSession } = await getAuthState();
+  console.log("[rootLoader] hasSession:", hasSession);
 
   let me: Awaited<ReturnType<typeof getMe>> | null = null;
   if (hasSession) {
-    me = await getMe().catch(() => null);
+    console.log("[rootLoader] calling getMe (/api/v1/me)");
+    try {
+      me = await getMe();
+      console.log(
+        "[rootLoader] getMe success:",
+        me ? { role: me.role, email: me.email, schoolCount: me.schools?.length } : null,
+      );
+    } catch (e) {
+      console.error("[rootLoader] getMe error:", e);
+      me = null;
+    }
+  } else {
+    console.log("[rootLoader] no session, skipping getMe");
   }
 
   return { hasSession, me };

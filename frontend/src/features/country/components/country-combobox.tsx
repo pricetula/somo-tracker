@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Country } from '../types';
-import { listCountries } from '../api/list-countries';
+import { useCountries } from '../hooks/use-countries';
 
 interface CountryComboboxProps {
   value: string | null;
@@ -17,7 +17,7 @@ export function CountryCombobox({
   onChange,
   disabled = false,
 }: CountryComboboxProps) {
-  const [countries, setCountries] = useState<Country[]>([]);
+  const { data: countries = [], isLoading } = useCountries();
   const [filtered, setFiltered] = useState<Country[]>([]);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -26,17 +26,7 @@ export function CountryCombobox({
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
 
-  useEffect(() => {
-    listCountries()
-      .then((data) => {
-        setCountries(data);
-        setFiltered(data);
-      })
-      .catch(() => {
-        // Error handled by toast in parent or silently
-      });
-  }, []);
-
+  // Filter countries as user types
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value;
@@ -51,6 +41,7 @@ export function CountryCombobox({
     [countries]
   );
 
+  // Select a country
   const selectCountry = useCallback(
     (country: Country) => {
       setSearch(country.country_name ?? '');
@@ -62,6 +53,7 @@ export function CountryCombobox({
     [onChange]
   );
 
+  // Clear selection
   const clearSelection = useCallback(() => {
     setSearch('');
     setOpen(false);
@@ -69,6 +61,7 @@ export function CountryCombobox({
     onChange(null);
   }, [onChange]);
 
+  // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (!open) {
@@ -105,6 +98,7 @@ export function CountryCombobox({
     [open, filtered, highlighted, selectCountry]
   );
 
+  // Close on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
@@ -118,6 +112,7 @@ export function CountryCombobox({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Sync highlighted with visible listbox scroll
   useEffect(() => {
     if (!open || highlighted < 0 || !listboxRef.current) return;
     const activeOption = listboxRef.current.querySelector(
@@ -165,7 +160,11 @@ export function CountryCombobox({
             aria-label="Countries"
             className="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto"
           >
-            {filtered.length === 0 ? (
+            {isLoading ? (
+              <li role="option" className="px-3 py-2">
+                Loading...
+              </li>
+            ) : filtered.length === 0 ? (
               <li role="option" className="px-3 py-2">
                 No countries found
               </li>

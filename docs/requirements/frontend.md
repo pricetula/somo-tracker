@@ -51,6 +51,18 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 | FE-033 | Listing tables use shared `<DataTable>` with TanStack Infinite Query + `@tanstack/react-virtual` (full spec pending) |
 | FE-034 | Delete confirmation via `Dialog`/`AlertDialog` with accept/cancel; cannot dismiss by clicking overlay |
 | FE-035 | Use `<Link>` from `@tanstack/react-router` for all internal navigation; never native `<a href>` which causes full page reload |
+| FE-036 | Submit buttons disable on click to prevent double submission; re-enable on response |
+| FE-037 | Forms reset to pristine state after successful submission |
+| FE-038 | Empty state component shown when lists return no data; never blank page |
+| FE-039 | Skeleton screens during data fetching; never empty blank content |
+| FE-040 | Search inputs debounce 300ms before API call |
+| FE-041 | Active filters shown as removable chips above lists |
+| FE-042 | Error boundaries at route level; never unhandled crash |
+| FE-043 | Toast notifications for success/error/info/warning feedback |
+| FE-044 | File uploads use shadcn upload component; validate file type/size client-side |
+| FE-045 | Accessibility: ARIA labels, keyboard navigation, focus management |
+| FE-046 | Page titles and meta tags via TanStack Router `head` for SEO |
+| FE-047 | Print styles: hide nav/sidebar when printing |
 
 ## Domain and quality
 

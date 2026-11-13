@@ -1,11 +1,11 @@
 /**
- * Onboarding tenant name step - School name input
+ * Onboarding tenant name step - School name + country + education system
  * Guards access by checking onboarding session validity on mount
  */
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,11 +20,16 @@ import { useCompleteOnboarding } from '../hooks/use-onboarding';
 import { useOnboardingCurrent } from '../hooks/use-onboarding';
 import { isApiError } from '@/lib/api/errors';
 import { toast } from 'sonner';
+import { CountryCombobox } from '@/features/country';
+import { EducationSystemCombobox } from '@/features/education-system';
 
 export function OnboardingTenantName() {
   const router = useRouter();
   const { mutateAsync: completeOnboarding, isPending } = useCompleteOnboarding();
   const { data, isError, isLoading } = useOnboardingCurrent();
+
+  const [countryId, setCountryId] = useState<string | null>(null);
+  const [educationSystemId, setEducationSystemId] = useState<string | null>(null);
 
   // Guard: redirect to login if onboarding session is invalid or expired
   useEffect(() => {
@@ -41,10 +46,20 @@ export function OnboardingTenantName() {
 
   const onSubmit = async (data: TenantNameFormInput) => {
     const idempotencyKey = `onboarding-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    if (!countryId) {
+      toast.error('Please select a country');
+      return;
+    }
+    if (!educationSystemId) {
+      toast.error('Please select an education system');
+      return;
+    }
     try {
       await completeOnboarding({
         school_name: data.school_name,
         idempotency_key: idempotencyKey,
+        country_id: countryId,
+        education_system_id: educationSystemId,
       });
     } catch (err) {
       if (isApiError(err) && err.fieldErrors) {
@@ -64,6 +79,9 @@ export function OnboardingTenantName() {
     }
   };
 
+  const isLoadingCountries = isLoading || isPending;
+  const isLoadingEducationSystems = !countryId || isLoading || isPending;
+
   return (
     <Card className="w-full max-w-md mx-auto mt-20">
       <CardHeader className="space-y-4">
@@ -72,11 +90,30 @@ export function OnboardingTenantName() {
         </div>
         <CardTitle className="text-2xl text-center">Name your school</CardTitle>
         <CardDescription className="text-center">
-          This will be your organization name in Somotracker
+          Select your country and education system, then name your school
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="country-combobox">Country</Label>
+            <CountryCombobox
+              value={countryId}
+              onChange={setCountryId}
+              disabled={isLoadingCountries}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="education-system-combobox">Education System</Label>
+            <EducationSystemCombobox
+              value={educationSystemId}
+              countryId={countryId}
+              onChange={setEducationSystemId}
+              disabled={isLoadingEducationSystems}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="school_name">School Name</Label>
             <Input
@@ -85,7 +122,7 @@ export function OnboardingTenantName() {
               placeholder="e.g., Sunshine Primary School"
               autoComplete="organization"
               {...form.register('school_name')}
-              disabled={isPending}
+              disabled={isPending || !countryId || !educationSystemId}
               aria-describedby={form.formState.errors.school_name ? 'school_name-error' : undefined}
             />
             {form.formState.errors.school_name && (
@@ -98,7 +135,7 @@ export function OnboardingTenantName() {
           <Button
             type="submit"
             className="w-full"
-            disabled={isPending || isLoading}
+            disabled={isPending || isLoading || !countryId || !educationSystemId}
             size="default"
           >
             {isPending ? (

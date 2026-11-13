@@ -186,6 +186,7 @@ func (a *App) Start(ctx context.Context) error {
 	protectedAPI.Use(a.setTenantContextMiddleware()) // Sets app.current_tenant_id for RLS
 	protectedAPI.Use(rateLimitMiddleware.ProtectedRateLimit())
 	studentHandler.RegisterRoutes(protectedAPI)
+	identityHandler.RegisterAuthenticatedRoutes(protectedAPI)
 
 	// Mutation routes (require auth + tenant + CSRF)
 	mutationAPI := a.server.App().Group("/api/v1")

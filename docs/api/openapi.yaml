@@ -186,6 +186,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/reference/countries:
+    get:
+      summary: List all countries
+      tags:
+        - Reference
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of countries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Country'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/reference/education-systems:
+    get:
+      summary: List education systems for a country
+      tags:
+        - Reference
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: country_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Country UUID
+      responses:
+        '200':
+          description: List of education systems
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EducationSystem'
+        '400':
+          description: Invalid country_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/logout:
     post:
       summary: Logout and revoke session
@@ -201,6 +259,101 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me:
+    get:
+      summary: Get current user profile
+      operationId: getMe
+      tags:
+        - Identity
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/active-school:
+    put:
+      summary: Switch active school membership
+      operationId: switchActiveSchool
+      tags:
+        - Identity
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchActiveSchoolRequest'
+      responses:
+        '200':
+          description: Active school switched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwitchActiveSchoolResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/schools:
+    get:
+      summary: List schools in tenant
+      operationId: listSchools
+      tags:
+        - Identity
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of schools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SchoolRef'
         '401':
           description: No active session
           content:
@@ -691,6 +844,8 @@ components:
       required:
         - school_name
         - idempotency_key
+        - country_id
+        - education_system_id
       properties:
         school_name:
           type: string
@@ -698,6 +853,14 @@ components:
           maxLength: 255
         idempotency_key:
           type: string
+        country_id:
+          type: string
+          format: uuid
+          description: Country UUID for the school
+        education_system_id:
+          type: string
+          format: uuid
+          description: Education system UUID for the school
     ProvisionTenantResponse:
       type: object
       properties:
@@ -708,6 +871,78 @@ components:
       properties:
         success:
           type: boolean
+    MeResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        role:
+          type: string
+        active_school:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        schools:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchoolRef'
+    SchoolRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    SwitchActiveSchoolRequest:
+      type: object
+      required:
+        - school_id
+      properties:
+        school_id:
+          type: string
+          format: uuid
+    SwitchActiveSchoolResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    Country:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        country_name:
+          type: string
+        country_code:
+          type: string
+    EducationSystem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        country_id:
+          type: string
+          format: uuid
+        system_name:
+          type: string
+        description:
+          type: string
     ErrorResponse:
       type: object
       properties:

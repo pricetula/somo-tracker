@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log/slog"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"somotracker/internal/platform/db"
 )
@@ -62,7 +63,7 @@ func (s *Seed) seedCountries(ctx context.Context) error {
 			RETURNING id
 		`, c.name, c.code).Scan(&id)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if err == sql.ErrNoRows || err == pgx.ErrNoRows {
 				s.log.Info("country already exists", "code", c.code)
 				continue
 			}
@@ -95,7 +96,7 @@ func (s *Seed) seedEducationSystems(ctx context.Context) error {
 			RETURNING id
 		`, sys.systemName, sys.countryCode).Scan(&id)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if err == sql.ErrNoRows || err == pgx.ErrNoRows {
 				s.log.Info("education system already exists", "system", sys.systemName)
 				continue
 			}
@@ -139,7 +140,7 @@ func (s *Seed) seedClassLevels(ctx context.Context) error {
 			RETURNING id
 		`, lvl.tierStage, lvl.localLabel, lvl.seqIndex, lvl.systemName).Scan(&id)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if err == sql.ErrNoRows || err == pgx.ErrNoRows {
 				s.log.Info("class level already exists", "label", lvl.localLabel)
 				continue
 			}

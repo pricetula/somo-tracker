@@ -17,6 +17,45 @@ definitions:
       ticket_token:
         type: string
     type: object
+  handler.CountryResponse:
+    properties:
+      country_code:
+        type: string
+      country_name:
+        type: string
+      id:
+        type: string
+    type: object
+  handler.EducationSystemResponse:
+    properties:
+      country_id:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      system_name:
+        type: string
+    type: object
+  handler.MeResponse:
+    properties:
+      active_school:
+        $ref: '#/definitions/handler.SchoolRef'
+      avatar_url:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      role:
+        type: string
+      schools:
+        items:
+          $ref: '#/definitions/handler.SchoolRef'
+        type: array
+      user_id:
+        type: string
+    type: object
   handler.OnboardingState:
     properties:
       current_step:
@@ -35,6 +74,10 @@ definitions:
     type: object
   handler.ProvisionTenantRequest:
     properties:
+      country_id:
+        type: string
+      education_system_id:
+        type: string
       idempotency_key:
         type: string
       school_name:
@@ -42,6 +85,8 @@ definitions:
         minLength: 1
         type: string
     required:
+    - country_id
+    - education_system_id
     - idempotency_key
     - school_name
     type: object
@@ -58,6 +103,25 @@ definitions:
     - email
     type: object
   handler.RequestMagicLinkResponse:
+    properties:
+      success:
+        type: boolean
+    type: object
+  handler.SchoolRef:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  handler.SwitchActiveSchoolRequest:
+    properties:
+      school_id:
+        type: string
+    required:
+    - school_id
+    type: object
+  handler.SwitchActiveSchoolResponse:
     properties:
       success:
         type: boolean
@@ -127,6 +191,51 @@ paths:
       summary: Request a Stytch Discovery magic link
       tags:
       - Authentication
+  /api/v1/me:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MeResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get current user profile
+      tags:
+      - Identity
+  /api/v1/me/active-school:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SwitchActiveSchoolRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.SwitchActiveSchoolResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Switch active school membership
+      tags:
+      - Identity
   /api/v1/onboarding/complete:
     post:
       consumes:
@@ -153,4 +262,79 @@ paths:
       summary: Complete onboarding and provision tenant
       tags:
       - Onboarding
+  /api/v1/reference/countries:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.CountryResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List all countries
+      tags:
+      - Reference
+  /api/v1/reference/education-systems:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Country UUID
+        format: uuid
+        in: query
+        name: country_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.EducationSystemResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List education systems for a country
+      tags:
+      - Reference
+  /api/v1/schools:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.SchoolRef'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List schools in tenant
+      tags:
+      - Identity
 swagger: "2.0"

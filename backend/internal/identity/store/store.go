@@ -456,3 +456,39 @@ func (s *Store) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID u
 func (s *Store) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
 	return s.q.RevokeAppSession(ctx, sessionID)
 }
+
+func (s *Store) ListCountries(ctx context.Context) ([]storegen.Country, error) {
+	return s.q.ListCountries(ctx)
+}
+
+func (s *Store) ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error) {
+	return s.q.ListEducationSystems(ctx, countryID)
+}
+
+func (s *Store) ListSchoolsByTenant(ctx context.Context, tenantID uuid.UUID) ([]storegen.School, error) {
+	rows, err := s.q.ListSchoolsByTenant(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]storegen.School, len(rows))
+	for i, row := range rows {
+		result[i] = storegen.School{
+			ID:                row.ID,
+			TenantID:          row.TenantID,
+			Name:              row.Name,
+			Code:              row.Code,
+			CountryID:         row.CountryID,
+			EducationSystemID: row.EducationSystemID,
+			CreatedAt:         row.CreatedAt,
+			UpdatedAt:         row.UpdatedAt,
+		}
+	}
+	return result, nil
+}
+
+func (s *Store) SetMembershipActive(ctx context.Context, userID uuid.UUID, membershipID uuid.UUID) error {
+	return s.q.SetMembershipActive(ctx, storegen.SetMembershipActiveParams{
+		UserID: userID,
+		ID:     membershipID,
+	})
+}

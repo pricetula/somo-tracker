@@ -93,3 +93,14 @@ FROM memberships m
 JOIN users u ON m.user_id = u.id
 WHERE u.id = $1 AND u.tenant_id = $2
 LIMIT 1;
+
+-- name: ListSchoolsByTenant :many
+SELECT s.id, s.tenant_id, s.name, s.code, s.country_id, s.education_system_id, s.created_at, s.updated_at
+FROM schools s
+WHERE s.tenant_id = $1
+ORDER BY s.name;
+
+-- name: SetMembershipActive :exec
+UPDATE memberships
+SET is_active = (id = $2), updated_at = NOW()
+WHERE user_id = $1;

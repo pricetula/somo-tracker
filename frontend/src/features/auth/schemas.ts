@@ -30,6 +30,8 @@ const _updateOnboardingTypeCheck: UpdateOnboardingInput extends import('./types'
 export const completeOnboardingSchema = z.object({
   school_name: z.string().min(1, 'School name is required').max(255).transform((val) => val.trim()).refine((val) => val.length > 0, 'School name is required'),
   idempotency_key: z.string().min(1, 'Idempotency key is required'),
+  country_id: z.string().uuid('Invalid country'),
+  education_system_id: z.string().uuid('Invalid education system'),
 });
 
 export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;

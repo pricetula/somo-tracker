@@ -545,3 +545,69 @@ func (q *Queries) GetUserByStytchMemberID(ctx context.Context, stytchMemberID uu
 	)
 	return i, err
 }
+
+const listSchoolsByTenant = `-- name: ListSchoolsByTenant :many
+SELECT s.id, s.tenant_id, s.name, s.code, s.country_id, s.education_system_id, s.created_at, s.updated_at
+FROM schools s
+WHERE s.tenant_id = $1
+ORDER BY s.name
+`
+
+type ListSchoolsByTenantRow struct {
+	ID                uuid.UUID
+	TenantID          uuid.UUID
+	Name              string
+	Code              string
+	CountryID         uuid.UUID
+	EducationSystemID uuid.UUID
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (q *Queries) ListSchoolsByTenant(ctx context.Context, tenantID uuid.UUID) ([]ListSchoolsByTenantRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSchoolsByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSchoolsByTenantRow
+	for rows.Next() {
+		var i ListSchoolsByTenantRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Code,
+			&i.CountryID,
+			&i.EducationSystemID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setMembershipActive = `-- name: SetMembershipActive :exec
+UPDATE memberships
+SET is_active = (id = $2), updated_at = NOW()
+WHERE user_id = $1
+`
+
+type SetMembershipActiveParams struct {
+	UserID uuid.UUID
+	ID     uuid.UUID
+}
+
+func (q *Queries) SetMembershipActive(ctx context.Context, arg SetMembershipActiveParams) error {
+	_, err := q.db.ExecContext(ctx, setMembershipActive, arg.UserID, arg.ID)
+	return err
+}

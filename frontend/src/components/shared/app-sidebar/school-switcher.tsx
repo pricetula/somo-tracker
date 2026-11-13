@@ -17,7 +17,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SchoolIcon } from "lucide-react"
+import { ChevronsUpDownIcon, PlusIcon, SchoolIcon } from "lucide-react"
 import type { MeResponse } from "@/features/auth/types"
 
 export function SchoolSwitcher({ me }: { me?: MeResponse | null }) {
@@ -91,6 +91,12 @@ export function SchoolSwitcher({ me }: { me?: MeResponse | null }) {
               })}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => {}}>
+              <PlusIcon className="size-4" />
+              <span className="font-medium text-muted-foreground">
+                Add school
+              </span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

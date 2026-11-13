@@ -20,7 +20,7 @@ import { useCompleteOnboarding } from '../hooks/use-onboarding';
 import { useOnboardingCurrent } from '../hooks/use-onboarding';
 import { isApiError } from '@/lib/api/errors';
 import { toast } from 'sonner';
-import { CountryCombobox } from '@/features/onboarding/country-combobox';
+import { CountryCombobox } from '@/features/country';
 import { EducationSystemCombobox } from '@/features/onboarding/education-system-combobox';
 
 export function OnboardingTenantName() {

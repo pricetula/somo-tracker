@@ -1,23 +1,22 @@
-/**
- * CountryCombobox - Searchable country selector for onboarding
- * Self-contained module: API + component
- */
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Country } from '../types';
-import { listCountries } from './country-combobox.api';
+import { listCountries } from '../api/list-countries';
 
 interface CountryComboboxProps {
-  value: string | null; // country ID or null
+  value: string | null;
   onChange: (countryId: string | null) => void;
   disabled?: boolean;
 }
 
-export function CountryCombobox({ value, onChange, disabled = false }: CountryComboboxProps) {
+export function CountryCombobox({
+  value,
+  onChange,
+  disabled = false,
+}: CountryComboboxProps) {
   const [countries, setCountries] = useState<Country[]>([]);
   const [filtered, setFiltered] = useState<Country[]>([]);
   const [open, setOpen] = useState(false);
@@ -27,7 +26,6 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
 
-  // Fetch countries on mount
   useEffect(() => {
     listCountries()
       .then((data) => {
@@ -39,7 +37,6 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
       });
   }, []);
 
-  // Filter countries as user types
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value;
@@ -54,7 +51,6 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
     [countries]
   );
 
-  // Select a country
   const selectCountry = useCallback(
     (country: Country) => {
       setSearch(country.country_name ?? '');
@@ -66,7 +62,6 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
     [onChange]
   );
 
-  // Clear selection
   const clearSelection = useCallback(() => {
     setSearch('');
     setOpen(false);
@@ -74,7 +69,6 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
     onChange(null);
   }, [onChange]);
 
-  // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (!open) {
@@ -111,7 +105,6 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
     [open, filtered, highlighted, selectCountry]
   );
 
-  // Close on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
@@ -125,10 +118,11 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Sync highlighted with visible listbox scroll
   useEffect(() => {
     if (!open || highlighted < 0 || !listboxRef.current) return;
-    const activeOption = listboxRef.current.querySelector(`[data-index="${highlighted}"]`);
+    const activeOption = listboxRef.current.querySelector(
+      `[data-index="${highlighted}"]`
+    );
     if (!activeOption) return;
     const listbox = listboxRef.current;
     const optionRect = activeOption.getBoundingClientRect();
@@ -146,7 +140,9 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls="country-listbox"
-        aria-activedescendant={highlighted >= 0 ? `country-option-${highlighted}` : undefined}
+        aria-activedescendant={
+          highlighted >= 0 ? `country-option-${highlighted}` : undefined
+        }
         className="relative"
       >
         <Input
@@ -167,10 +163,10 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
             ref={listboxRef}
             role="listbox"
             aria-label="Countries"
-            className="absolute z-10 mt-1 w-full border border-input bg-background rounded-md shadow-lg overflow-hidden max-h-60 overflow-y-auto"
+            className="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto"
           >
             {filtered.length === 0 ? (
-              <li role="option" className="px-3 py-2 text-sm text-muted-foreground">
+              <li role="option" className="px-3 py-2">
                 No countries found
               </li>
             ) : (
@@ -184,13 +180,7 @@ export function CountryCombobox({ value, onChange, disabled = false }: CountryCo
                     id={`country-option-${index}`}
                     data-index={index}
                     aria-selected={isSelected}
-                    className={`cursor-pointer px-3 py-2 text-sm ${
-                      isHighlighted
-                        ? 'bg-primary text-primary-foreground'
-                        : isSelected
-                          ? 'bg-muted text-muted-foreground font-medium'
-                          : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
+                    className={`cursor-pointer px-3 py-2 ${isHighlighted ? 'bg-primary text-primary-foreground' : isSelected ? 'bg-muted text-muted-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'}`}
                     onMouseMove={() => setHighlighted(index)}
                     onMouseDown={(e) => {
                       e.preventDefault();

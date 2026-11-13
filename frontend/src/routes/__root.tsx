@@ -56,7 +56,7 @@ async function authBeforeLoad({
 // Root route loader - SSR data loading (no flicker)
 // ============================================================================
 
-async function rootLoader() {
+export async function rootLoader() {
   const { hasSession } = await getAuthState();
 
   let me: Awaited<ReturnType<typeof getMe>> | null = null;

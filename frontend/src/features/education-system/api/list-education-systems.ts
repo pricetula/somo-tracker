@@ -1,8 +1,3 @@
-/**
- * Education system combobox API
- * GET /api/v1/reference/education-systems?country_id=UUID
- */
-
 import { apiFetch } from '@/lib/api/client';
 import type { EducationSystem } from '../types';
 

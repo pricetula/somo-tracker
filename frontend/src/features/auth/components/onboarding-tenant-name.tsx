@@ -21,7 +21,7 @@ import { useOnboardingCurrent } from '../hooks/use-onboarding';
 import { isApiError } from '@/lib/api/errors';
 import { toast } from 'sonner';
 import { CountryCombobox } from '@/features/country';
-import { EducationSystemCombobox } from '@/features/onboarding/education-system-combobox';
+import { EducationSystemCombobox } from '@/features/education-system';
 
 export function OnboardingTenantName() {
   const router = useRouter();

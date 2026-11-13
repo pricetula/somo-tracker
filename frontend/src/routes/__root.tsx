@@ -3,11 +3,13 @@
  * Layer B: beforeLoad for client-side navigation (uses server function for auth state)
  */
 
-import { HeadContent, Scripts, Link } from "@tanstack/react-router";
+import { HeadContent, Scripts, Link, useLoaderData } from "@tanstack/react-router";
 import { createRootRoute, Outlet, redirect } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { getAuthState } from "@/features/auth/api/get-auth-state";
+import { getMe } from "@/features/auth/api/get-me";
 import { routePolicy } from "@/features/auth/utils/route-policy";
+import type { MeResponse } from "@/features/auth/types";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
 import { AppSidebar } from "@/components/shared/app-sidebar/app-sidebar";
@@ -51,6 +53,21 @@ async function authBeforeLoad({
 }
 
 // ============================================================================
+// Root route loader - SSR data loading (no flicker)
+// ============================================================================
+
+async function rootLoader() {
+  const { hasSession } = await getAuthState();
+
+  let me: Awaited<ReturnType<typeof getMe>> | null = null;
+  if (hasSession) {
+    me = await getMe().catch(() => null);
+  }
+
+  return { hasSession, me };
+}
+
+// ============================================================================
 // Root Route Definition
 // ============================================================================
 
@@ -63,10 +80,12 @@ export const Route = createRootRoute({
     ],
   }),
   beforeLoad: authBeforeLoad,
+  loader: rootLoader,
   component: RootComponent,
 });
 
 function RootComponent() {
+  const { me } = useLoaderData({ from: "__root__" }) as { me: MeResponse | null };
   return (
     <html lang="en">
       <head>
@@ -75,7 +94,7 @@ function RootComponent() {
       <body>
         <ShellSidebarProvider>
           <div className="relative flex h-screen w-full min-w-0">
-            <AppSidebar variant={undefined} />
+            <AppSidebar me={me ?? undefined} variant={undefined} />
             <SidebarInset className="flex-1 min-w-0 border-0">
               <header className="flex items-center gap-4 px-4 py-3 shrink-0">
                 <SidebarTrigger className="border-0" />

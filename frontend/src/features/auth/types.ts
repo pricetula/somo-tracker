@@ -17,6 +17,8 @@ export type CompleteOnboardingRequest = components['schemas']['ProvisionTenantRe
 export type CompleteOnboardingResponse = components['schemas']['ProvisionTenantResponse'];
 export type LogoutRequest = Record<string, never>;
 export type LogoutResponse = components['schemas']['LogoutResponse'];
+export type MeResponse = components['schemas']['MeResponse'];
+export type SchoolRef = components['schemas']['SchoolRef'];
 export type ErrorResponse = components['schemas']['ErrorResponse'];
 
 export interface AuthState {

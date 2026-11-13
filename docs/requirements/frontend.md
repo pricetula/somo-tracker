@@ -50,6 +50,7 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 | FE-032 | Form buttons show loading/error states via shadcn components; uniform across all forms |
 | FE-033 | Listing tables use shared `<DataTable>` with TanStack Infinite Query + `@tanstack/react-virtual` (full spec pending) |
 | FE-034 | Delete confirmation via `Dialog`/`AlertDialog` with accept/cancel; cannot dismiss by clicking overlay |
+| FE-035 | Use `<Link>` from `@tanstack/react-router` for all internal navigation; never native `<a href>` which causes full page reload |
 
 ## Domain and quality
 

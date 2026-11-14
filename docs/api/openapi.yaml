@@ -339,29 +339,215 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/v1/schools:
     get:
-      summary: List schools in tenant
+      summary: List schools in tenant with keyset pagination
       operationId: listSchools
       tags:
-        - Identity
+        - Schools
       security:
         - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Page size
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Pagination cursor from previous page
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: name_asc
+          description: Sort order
+        - name: filters
+          in: query
+          schema:
+            type: string
+          description: Base64url-encoded JSON filter object
       responses:
         '200':
           description: List of schools
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SchoolRef'
+                $ref: '#/components/schemas/ListSchoolsResponse'
         '401':
           description: No active session
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Create school
+      operationId: createSchool
+      tags:
+        - Schools
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchoolCreateRequest'
+      responses:
+        '201':
+          description: School created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/School'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: School code already exists in tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Deactivate schools (soft delete)
+      operationId: deactivateSchools
+      tags:
+        - Schools
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivateSchoolsRequest'
+      responses:
+        '200':
+          description: Schools deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeactivateSchoolsResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Schools not found or cross-tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/schools/{id}:
+    get:
+      summary: Get school
+      operationId: getSchool
+      tags:
+        - Schools
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: School ID
+      responses:
+        '200':
+          description: School details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/School'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: School not found or cross-tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      summary: Update school
+      operationId: updateSchool
+      tags:
+        - Schools
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: School ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchoolUpdateRequest'
+      responses:
+        '200':
+          description: School updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/School'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: School not found or cross-tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: School code already exists in tenant
           content:
             application/json:
               schema:
@@ -907,6 +1093,91 @@ components:
           format: uuid
         name:
           type: string
+    School:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        country_id:
+          type: string
+          format: uuid
+        education_system_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+    SchoolCreateRequest:
+      type: object
+      required:
+        - name
+        - code
+        - country_id
+        - education_system_id
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        country_id:
+          type: string
+          format: uuid
+        education_system_id:
+          type: string
+          format: uuid
+    SchoolUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        country_id:
+          type: string
+          format: uuid
+        education_system_id:
+          type: string
+          format: uuid
+    ListSchoolsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/School'
+        nextCursor:
+          type: string
+          nullable: true
+    DeactivateSchoolsRequest:
+      type: object
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+    DeactivateSchoolsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
     SwitchActiveSchoolRequest:
       type: object
       required:

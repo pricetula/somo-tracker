@@ -32,6 +32,10 @@ import (
 	studentService "somotracker/internal/students/service"
 	studentStore "somotracker/internal/students/store"
 	studentStoreGen "somotracker/internal/students/store/gen"
+	schoolHandler "somotracker/internal/schools/handler"
+	schoolService "somotracker/internal/schools/service"
+	schoolStore "somotracker/internal/schools/store"
+	schoolStoreGen "somotracker/internal/schools/store/gen"
 )
 
 // App is the HTTP API composition root.
@@ -62,9 +66,6 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	// Migrator runs Goose migrations on startup
-	// NOTE: In production, migrations should run as a separate deploy step
-	// with a privileged role, while the app connects as a non-owner role
-	// with FORCE ROW LEVEL SECURITY enabled.
 	m := migrator.New(sqlDB, "migrations")
 	if _, err := m.Up(ctx); err != nil {
 		_ = sqlDB.Close()
@@ -100,6 +101,7 @@ func New(cfg *config.Config) (*App, error) {
 		sqlDB:       sqlDB,
 		redisClient: redisClient,
 		server:      server,
+		rateLimiter: ratelimit.New(redisClient.Client, cfg.EmailHMACKey),
 	}, nil
 }
 
@@ -136,13 +138,9 @@ func (a *App) Start(ctx context.Context) error {
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
-		// Vary: Origin is automatically added by Fiber when AllowCredentials=true
 	}))
 
 	// 6. AccessLog - single completion line per request
-	// Note: We do NOT use fiber's logger.New() here - it duplicates AccessLog
-	// and can leak sensitive data in production. httpserver.AccessLog()
-	// emits a single structured line per request.
 	app.Use(httpserver.AccessLog())
 
 	// Initialize services
@@ -167,12 +165,17 @@ func (a *App) Start(ctx context.Context) error {
 
 	// Create auth middleware
 	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg)
-	rbacMiddleware := identityMiddleware.NewRBACMiddleware(identitySvc)
+	_ = identityMiddleware.NewRBACMiddleware(identitySvc)
 
 	// Students domain
 	studentStore := studentStore.New(studentStoreGen.New(a.sqlDB))
 	studentSvc := studentService.New(studentStore, db.NewTxManager(a.dbPool.Pool))
 	studentHandler := studentHandler.New(studentSvc)
+
+	// Schools domain
+	schoolStore := schoolStore.New(schoolStoreGen.New(a.sqlDB))
+	schoolSvc := schoolService.New(schoolStore, db.NewTxManager(a.dbPool.Pool))
+	schoolHandler := schoolHandler.New(schoolSvc)
 
 	// Public routes (no auth required)
 	publicAPI := a.server.App().Group("/api/v1")
@@ -186,6 +189,7 @@ func (a *App) Start(ctx context.Context) error {
 	protectedAPI.Use(a.setTenantContextMiddleware()) // Sets app.current_tenant_id for RLS
 	protectedAPI.Use(rateLimitMiddleware.ProtectedRateLimit())
 	studentHandler.RegisterRoutes(protectedAPI)
+	schoolHandler.RegisterRoutes(protectedAPI)
 	identityHandler.RegisterAuthenticatedRoutes(protectedAPI)
 
 	// Mutation routes (require auth + tenant + CSRF)
@@ -195,14 +199,6 @@ func (a *App) Start(ctx context.Context) error {
 	mutationAPI.Use(a.setTenantContextMiddleware())
 	mutationAPI.Use(rateLimitMiddleware.MutationRateLimit())
 	mutationAPI.Use(authMiddleware.CSRFMiddleware())
-	// TODO: Register mutation handlers here
-
-	// Example: Finance routes with RBAC
-	// financeAPI := mutationAPI.Group("/fees")
-	// financeAPI.Use(rbacMiddleware.RequireFinanceAccess())
-	// feesHandler.RegisterRoutes(financeAPI)
-
-	_ = rbacMiddleware // used in commented example above
 
 	// Legacy routes
 	a.server.RegisterRoutes()
@@ -247,20 +243,15 @@ func (a *App) Start(ctx context.Context) error {
 // securityHeadersMiddleware applies security headers to all responses.
 func (a *App) securityHeadersMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Standard headers
 		c.Set("X-Content-Type-Options", "nosniff")
 		c.Set("X-Frame-Options", "DENY")
 		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 
-		// HSTS - detect HTTPS via X-Forwarded-Proto (set by trusted proxy)
-		// c.Secure() reads from fasthttp which respects ProxyHeader when TrustProxy=true
 		if a.cfg.Env == "production" && (c.Secure() || c.Get("X-Forwarded-Proto") == "https") {
 			c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 		}
 
-		// CSP for API: default-src 'none'; frame-ancestors 'none'
-		// This is safe for JSON APIs and prevents any accidental HTML rendering
 		if a.cfg.Env == "production" {
 			c.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
 		} else if a.cfg.CSPReportOnlyEnabled {
@@ -276,22 +267,15 @@ func (a *App) securityHeadersMiddleware() fiber.Handler {
 }
 
 // setTenantContextMiddleware sets app.current_tenant_id for RLS policies.
-// Must run after RequireAuth/TenantMiddleware which populate tenant_id in locals.
 func (a *App) setTenantContextMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		tenantID, ok := c.Locals("tenant_id").(string)
 		if !ok {
-			// Try UUID type
 			if tid, ok2 := c.Locals("tenant_id").([16]byte); ok2 {
 				tenantID = fmtUUID(tid)
 			}
 		}
 		if tenantID != "" {
-			// Set LOCAL (transaction-scoped) GUC for RLS
-			// This requires the DB connection to be in a transaction
-			// For pgx pool, we set it per-request; the connection is released after
-			// In practice, sqlc queries run in their own tx, so we need a wrapper
-			// For now, store in context for repositories to use
 			ctx := context.WithValue(c.Context(), httpserver.TenantIDKey{}, tenantID)
 			c.SetContext(ctx)
 		}
@@ -308,7 +292,7 @@ func (a *App) rateLimiterCleanup(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			a.rateLimiter.MemoryCleanup(24 * time.Hour) // clean entries older than 24h
+			a.rateLimiter.MemoryCleanup(24 * time.Hour)
 		}
 	}
 }
@@ -322,20 +306,13 @@ func fmtUUID(b [16]byte) string {
 // Shutdown gracefully stops the app.
 func (a *App) Shutdown(ctx context.Context) error {
 	slog.Info("shutting down API")
-
-	// Shutdown HTTP server
 	if err := a.server.Shutdown(ctx); err != nil {
 		slog.Error("HTTP server shutdown failed", "err", err)
 	}
-
-	// Close Redis
 	if err := a.redisClient.Close(); err != nil {
 		slog.Error("Redis close failed", "err", err)
 	}
-
-	// Close DB pool
 	a.dbPool.Close()
-
 	slog.Info("shutdown complete")
 	return nil
 }
@@ -376,7 +353,6 @@ func NewWorker(cfg *config.Config) (*Worker, error) {
 
 func (w *Worker) Start(ctx context.Context) error {
 	slog.Info("starting worker")
-	// TODO: start asynq server
 	<-ctx.Done()
 	return w.Shutdown(ctx)
 }

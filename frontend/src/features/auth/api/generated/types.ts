@@ -233,14 +233,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List schools in tenant */
+        /** List schools in tenant with keyset pagination */
         get: operations["listSchools"];
+        put?: never;
+        /** Create school */
+        post: operations["createSchool"];
+        /** Deactivate schools (soft delete) */
+        delete: operations["deactivateSchools"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get school */
+        get: operations["getSchool"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update school */
+        patch: operations["updateSchool"];
         trace?: never;
     };
     "/api/v1/students": {
@@ -417,6 +437,50 @@ export interface components {
             /** Format: uuid */
             id?: string;
             name?: string;
+        };
+        School: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            code?: string;
+            /** Format: uuid */
+            country_id?: string;
+            /** Format: uuid */
+            education_system_id?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /** Format: date-time */
+            deleted_at?: string | null;
+        };
+        SchoolCreateRequest: {
+            name: string;
+            code: string;
+            /** Format: uuid */
+            country_id: string;
+            /** Format: uuid */
+            education_system_id: string;
+        };
+        SchoolUpdateRequest: {
+            name?: string;
+            code?: string;
+            /** Format: uuid */
+            country_id?: string;
+            /** Format: uuid */
+            education_system_id?: string;
+        };
+        ListSchoolsResponse: {
+            items?: components["schemas"]["School"][];
+            nextCursor?: string | null;
+        };
+        DeactivateSchoolsRequest: {
+            ids: string[];
+        };
+        DeactivateSchoolsResponse: {
+            success?: boolean;
         };
         SwitchActiveSchoolRequest: {
             /** Format: uuid */
@@ -874,7 +938,16 @@ export interface operations {
     };
     listSchools: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Pagination cursor from previous page */
+                cursor?: string;
+                /** @description Sort order */
+                sort?: string;
+                /** @description Base64url-encoded JSON filter object */
+                filters?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -887,7 +960,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SchoolRef"][];
+                    "application/json": components["schemas"]["ListSchoolsResponse"];
                 };
             };
             /** @description No active session */
@@ -899,8 +972,214 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Internal server error */
-            500: {
+            /** @description Insufficient permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createSchool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description School created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["School"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Insufficient permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description School code already exists in tenant */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deactivateSchools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeactivateSchoolsRequest"];
+            };
+        };
+        responses: {
+            /** @description Schools deactivated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeactivateSchoolsResponse"];
+                };
+            };
+            /** @description Insufficient permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Schools not found or cross-tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSchool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description School ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description School details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["School"];
+                };
+            };
+            /** @description No active session */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Insufficient permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description School not found or cross-tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateSchool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description School ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description School updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["School"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Insufficient permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description School not found or cross-tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description School code already exists in tenant */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

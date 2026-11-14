@@ -138,6 +138,7 @@ const (
 	NO_ACTIVE_SESSION    Code = "NO_ACTIVE_SESSION"
 	INVALID_REQUEST      Code = "INVALID_REQUEST"
 	INVALID_EMAIL        Code = "INVALID_EMAIL"
+	INVALID_CURSOR       Code = "INVALID_CURSOR"
 )
 
 func init() {
@@ -172,4 +173,5 @@ func init() {
 	Register(BAD_GATEWAY, 502)
 	Register(SERVICE_UNAVAILABLE, 503)
 	Register(GATEWAY_TIMEOUT, 504)
+	Register(INVALID_CURSOR, 400)
 }

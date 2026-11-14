@@ -1,7 +1,7 @@
 ---
 id: SOM-PAGINATION-001
 title: Backend Keyset Pagination & Cursor Engine
-status: draft
+status: approved
 author: agent
 date: 2026-11-14
 updated: 2026-11-14

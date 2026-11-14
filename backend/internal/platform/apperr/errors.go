@@ -173,5 +173,4 @@ func init() {
 	Register(BAD_GATEWAY, 502)
 	Register(SERVICE_UNAVAILABLE, 503)
 	Register(GATEWAY_TIMEOUT, 504)
-	Register(INVALID_CURSOR, 400)
 }

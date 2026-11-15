@@ -1,13 +1,13 @@
-import { apiFetch } from '@/lib/api/client';
-import type { FilterWire, DataTablePage } from './column-meta';
+import { apiFetch } from '@/lib/api/client'
+import type { FilterWire, DataTablePage } from './column-meta'
 
 function serializeFilters(filters: Record<string, FilterWire>): string {
-  const wire: Record<string, FilterWire> = {};
+  const wire: Record<string, FilterWire> = {}
   for (const [field, filter] of Object.entries(filters)) {
-    const snakeField = field.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-    wire[snakeField] = filter;
+    const snakeField = field.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
+    wire[snakeField] = filter
   }
-  return btoa(JSON.stringify(wire)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(JSON.stringify(wire)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 export function createListQueryFn<TData>(endpoint: string) {
@@ -16,36 +16,36 @@ export function createListQueryFn<TData>(endpoint: string) {
     pageParam,
     signal,
   }: {
-    queryKey: readonly unknown[];
-    pageParam: string | undefined;
-    signal: AbortSignal;
+    queryKey: readonly unknown[]
+    pageParam: string | undefined
+    signal: AbortSignal
   }): Promise<DataTablePage<TData>> {
     const [, limit, sort, filters] = queryKey as unknown as [
       string,
       number,
       string,
       Record<string, FilterWire>,
-    ];
+    ]
 
-    const params = new URLSearchParams();
-    params.set('limit', String(limit));
+    const params = new URLSearchParams()
+    params.set('limit', String(limit))
     if (pageParam) {
-      params.set('cursor', pageParam);
+      params.set('cursor', pageParam)
     }
     if (sort) {
-      params.set('sort', sort);
+      params.set('sort', sort)
     }
-    const filtersObj = filters as Record<string, FilterWire>;
+    const filtersObj = filters as Record<string, FilterWire>
     if (filtersObj && Object.keys(filtersObj).length > 0) {
-      params.set('filters', serializeFilters(filtersObj));
+      params.set('filters', serializeFilters(filtersObj))
     }
 
-    const path = `${endpoint}?${params.toString()}`;
+    const path = `${endpoint}?${params.toString()}`
 
     const response = await apiFetch<DataTablePage<TData>>(path, {
       signal,
-    });
+    })
 
-    return response;
-  };
+    return response
+  }
 }

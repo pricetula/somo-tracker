@@ -1,20 +1,20 @@
-import type { ColumnDef } from '@tanstack/react-table';
-import { Link } from '@tanstack/react-router';
-import type { FilterWire, DataTableColumnMeta } from './column-meta';
+import type { ColumnDef } from '@tanstack/react-table'
+import { Link } from '@tanstack/react-router'
+import type { FilterWire, DataTableColumnMeta } from './column-meta'
 
-export type { ColumnDef } from '@tanstack/react-table';
+export type { ColumnDef } from '@tanstack/react-table'
 
 export function textColumn<TData>(config: {
-  accessorKey: keyof TData & string;
-  label: string;
-  sortKeys?: string[];
-  truncate?: boolean;
-  align?: 'left' | 'center' | 'right';
+  accessorKey: keyof TData & string
+  label: string
+  sortKeys?: string[]
+  truncate?: boolean
+  align?: 'left' | 'center' | 'right'
 }): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
-      const isSorted = column.getIsSorted();
+      const isSorted = column.getIsSorted()
       return (
         <div className="flex items-center gap-1">
           {column.columnDef.meta?.label ?? config.label}
@@ -24,10 +24,10 @@ export function textColumn<TData>(config: {
             </span>
           )}
         </div>
-      );
+      )
     },
     cell: ({ getValue }: any) => {
-      const value = getValue();
+      const value = getValue()
       return (
         <div
           className={`text-sm ${config.align === 'right' ? 'text-right' : config.align === 'center' ? 'text-center' : 'text-left'}${
@@ -37,7 +37,7 @@ export function textColumn<TData>(config: {
         >
           {value ?? ''}
         </div>
-      );
+      )
     },
     meta: {
       label: config.label,
@@ -45,19 +45,19 @@ export function textColumn<TData>(config: {
       sortKeys: config.sortKeys ?? [],
       truncate: config.truncate,
     } as DataTableColumnMeta,
-  };
+  }
 }
 
 export function numberColumn<TData>(config: {
-  accessorKey: keyof TData & string;
-  label: string;
-  sortKeys?: string[];
-  align?: 'left' | 'center' | 'right';
+  accessorKey: keyof TData & string
+  label: string
+  sortKeys?: string[]
+  align?: 'left' | 'center' | 'right'
 }): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
-      const isSorted = column.getIsSorted();
+      const isSorted = column.getIsSorted()
       return (
         <div className="flex items-center gap-1">
           {column.columnDef.meta?.label ?? config.label}
@@ -67,34 +67,34 @@ export function numberColumn<TData>(config: {
             </span>
           )}
         </div>
-      );
+      )
     },
     cell: ({ getValue }: any) => {
-      const value = getValue();
+      const value = getValue()
       return (
         <div className="text-sm text-right font-mono tabular-nums">
           {value ?? ''}
         </div>
-      );
+      )
     },
     meta: {
       label: config.label,
       align: 'right',
       sortKeys: config.sortKeys ?? [],
     } as DataTableColumnMeta,
-  };
+  }
 }
 
 export function dateColumn<TData>(config: {
-  accessorKey: keyof TData & string;
-  label: string;
-  sortKeys?: string[];
-  align?: 'left' | 'center' | 'right';
+  accessorKey: keyof TData & string
+  label: string
+  sortKeys?: string[]
+  align?: 'left' | 'center' | 'right'
 }): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
-      const isSorted = column.getIsSorted();
+      const isSorted = column.getIsSorted()
       return (
         <div className="flex items-center gap-1">
           {column.columnDef.meta?.label ?? config.label}
@@ -104,15 +104,15 @@ export function dateColumn<TData>(config: {
             </span>
           )}
         </div>
-      );
+      )
     },
     cell: ({ getValue }: any) => {
-      const value = getValue();
+      const value = getValue()
       return (
         <div className="text-sm text-muted-foreground">
           {value ?? ''}
         </div>
-      );
+      )
     },
     meta: {
       label: config.label,
@@ -120,20 +120,20 @@ export function dateColumn<TData>(config: {
       sortKeys: config.sortKeys ?? [],
       date: true,
     } as DataTableColumnMeta,
-  };
+  }
 }
 
 export function badgeColumn<TData>(config: {
-  accessorKey: keyof TData & string;
-  label: string;
-  sortKeys?: string[];
-  variants: Record<string, string>;
-  defaultVariant?: string;
+  accessorKey: keyof TData & string
+  label: string
+  sortKeys?: string[]
+  variants: Record<string, string>
+  defaultVariant?: string
 }): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
-      const isSorted = column.getIsSorted();
+      const isSorted = column.getIsSorted()
       return (
         <div className="flex items-center gap-1">
           {column.columnDef.meta?.label ?? config.label}
@@ -143,26 +143,26 @@ export function badgeColumn<TData>(config: {
             </span>
           )}
         </div>
-      );
+      )
     },
     cell: ({ getValue }: any) => {
-      const value = getValue();
+      const value = getValue()
       const variantClass =
-        config.variants[String(value)] ?? config.defaultVariant ?? 'bg-muted text-muted-foreground';
+        config.variants[String(value)] ?? config.defaultVariant ?? 'bg-muted text-muted-foreground'
       return (
         <span
           className={`text-xs font-medium px-2 py-0.5 rounded-full ${variantClass}`}
         >
           {value}
         </span>
-      );
+      )
     },
     meta: {
       label: config.label,
       align: 'left',
       sortKeys: config.sortKeys ?? [],
     } as DataTableColumnMeta,
-  };
+  }
 }
 
 export function selectColumn<TData>(): ColumnDef<any, any> {
@@ -195,19 +195,19 @@ export function selectColumn<TData>(): ColumnDef<any, any> {
       align: 'center',
       sortKeys: [],
     } as DataTableColumnMeta,
-  };
+  }
 }
 
 export function linkColumn<TData>(config: {
-  accessorKey: keyof TData & string;
-  label: string;
-  sortKeys?: string[];
-  to: (row: TData) => string;
+  accessorKey: keyof TData & string
+  label: string
+  sortKeys?: string[]
+  to: (row: TData) => string
 }): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
-      const isSorted = column.getIsSorted();
+      const isSorted = column.getIsSorted()
       return (
         <div className="flex items-center gap-1">
           {column.columnDef.meta?.label ?? config.label}
@@ -217,21 +217,21 @@ export function linkColumn<TData>(config: {
             </span>
           )}
         </div>
-      );
+      )
     },
     cell: ({ getValue, row }: any) => {
-      const value = getValue();
-      const href = config.to(row.original);
+      const value = getValue()
+      const href = config.to(row.original)
       return (
         <Link to={href} className="text-sm text-primary hover:underline">
           {value ?? ''}
         </Link>
-      );
+      )
     },
     meta: {
       label: config.label,
       align: 'left',
       sortKeys: config.sortKeys ?? [],
     } as DataTableColumnMeta,
-  };
+  }
 }

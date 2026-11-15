@@ -35,7 +35,7 @@ export function DataTable<TData, TFilterValue = Record<string, FilterWire>>({
 }: DataTableProps<TData, TFilterValue>) {
   const parentRef = useRef<HTMLDivElement>(null)
 
-  // Determine current sort from column meta
+  // Current sort direction, derived from the first column that declares sortKeys
   const currentSort = (() => {
     for (const col of columns) {
       const keys = col.meta?.sortKeys ?? []
@@ -46,6 +46,8 @@ export function DataTable<TData, TFilterValue = Record<string, FilterWire>>({
     return ''
   })()
 
+  // TanStack Virtual v3: row-only virtualization over the flattened client cache.
+  // count = rows loaded so far (grows as pages append). No DB total needed.
   const rowVirtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => parentRef.current,
@@ -72,6 +74,9 @@ export function DataTable<TData, TFilterValue = Record<string, FilterWire>>({
     return () => scrollEl.removeEventListener('scroll', handleScroll)
   }, [handleScroll])
 
+  // Correct TanStack Virtual v3 API: getVirtualItems() returns items shaped
+  // { index, start, end, size, offset }. There is no getItemPosition() or
+  // getItemSize() on the virtualizer — those were the source of the crash.
   const virtualItems = rowVirtualizer.getVirtualItems()
 
   const isRowSelected = (id: string) => {

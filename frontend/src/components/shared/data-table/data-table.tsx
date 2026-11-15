@@ -72,9 +72,7 @@ export function DataTable<TData, TFilterValue = Record<string, FilterWire>>({
     return () => scrollEl.removeEventListener('scroll', handleScroll)
   }, [handleScroll])
 
-  const vr = rowVirtualizer as any
-  const visibleIndices = vr.getVirtualItems().map((v: { index: number }) => v.index)
-  const visibleRows = visibleIndices.map((i: number) => data[i])
+  const virtualItems = rowVirtualizer.getVirtualItems()
 
   const isRowSelected = (id: string) => {
     if (!selectionStore) return false
@@ -173,7 +171,7 @@ export function DataTable<TData, TFilterValue = Record<string, FilterWire>>({
         <div
           className="relative w-full min-h-full"
           style={{
-            height: `${vr.getTotalSize()}px`,
+            height: `${rowVirtualizer.getTotalSize()}px`,
             width: '100%',
           }}
         >
@@ -189,19 +187,20 @@ export function DataTable<TData, TFilterValue = Record<string, FilterWire>>({
             </div>
           )}
 
-          {visibleRows.map((row: TData, rowIndex: number) => {
+          {virtualItems.map((virtualItem) => {
+            const globalIndex = virtualItem.index
+            const row = data[globalIndex]
             if (!row) return null
-            const id = getRowId(rowIndex, row)
+            const id = getRowId(globalIndex, row)
             const isSelected = isRowSelected(id)
-            const globalIndex = visibleIndices[rowIndex]
 
             return (
               <div
                 key={id}
                 className="absolute left-0 right-0"
                 style={{
-                  top: `${vr.getItemPosition(globalIndex)}px`,
-                  height: `${vr.getItemSize(globalIndex)}px`,
+                  top: `${virtualItem.start}px`,
+                  height: `${virtualItem.size}px`,
                 }}
               >
                 <div

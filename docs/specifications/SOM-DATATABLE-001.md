@@ -348,6 +348,8 @@ Covered by domain feature specs (students, schools, etc.) per FE-027 — this sp
 | Pruning notification | Toast via sonner (already global per FE-010 `MutationCache.onError`). |
 | TanStack Virtual v3 API | `useVirtualizer` exposes `getVirtualItems()` (items shaped `{ index, start, end, size, offset }`) and `getTotalSize()`. `getItemPosition()` / `getItemSize()` **do not exist** on the v3 `Virtualizer` — calling them crashes with `getItemPosition is not a function`. Row positioning uses `virtualItem.start` / `virtualItem.size`; scroll spacer height uses `getTotalSize()`. |
 | Column key uniqueness | Every column factory (`textColumn`, `numberColumn`, `dateColumn`, `badgeColumn`, `linkColumn`, `selectColumn`) sets an explicit `id` (`accessorKey` or `'selection'`). Without it, `column.id` is `undefined` and every cell in a row receives `key={undefined}`, which React flags as duplicate keys. |
+| Column width & alignment | Header and body rows use a shared CSS `grid` with `grid-template-columns` built from column widths. Columns with an explicit `width` in `DataTableColumnMeta` use it; others share `1fr`. This guarantees header cells and body cells line up vertically. Cells use `px-4 py-3` padding, `text-ellipsis` overflow, and consistent text alignment per column `align`. |
+| Row hover / selection | Hover: `bg-muted/50`. Selected: `bg-accent/50 text-accent-foreground`. Applied via conditional classes on the row div. |
 
 ## 9. Links
 

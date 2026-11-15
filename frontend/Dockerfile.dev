@@ -1,0 +1,15 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json ./
+RUN npm install
+
+COPY . .
+
+# Expose Next.js dev port
+EXPOSE 3000
+
+# Start dev server with turbopack
+CMD ["npm", "run", "dev", "--", "--turbo", "-H", "0.0.0.0", "-p", "3000"]

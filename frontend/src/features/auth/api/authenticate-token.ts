@@ -10,7 +10,7 @@ export async function authenticateToken(
   token: string
 ): Promise<AuthenticateTokenResponse> {
   const body: AuthenticateTokenRequest = { token };
-  return apiFetch<AuthenticateTokenResponse>('/auth/authenticate-token', {
+  return apiFetch<AuthenticateTokenResponse>('/api/v1/auth/authenticate-token', {
     method: 'POST',
     body: JSON.stringify(body),
   });

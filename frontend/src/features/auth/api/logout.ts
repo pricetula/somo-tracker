@@ -8,7 +8,7 @@ import type { LogoutRequest, LogoutResponse } from '../types';
 
 export async function logout(): Promise<LogoutResponse> {
   const body: LogoutRequest = {};
-  return apiFetch<LogoutResponse>('/auth/logout', {
+  return apiFetch<LogoutResponse>('/api/v1/auth/logout', {
     method: 'POST',
     body: JSON.stringify(body),
   });

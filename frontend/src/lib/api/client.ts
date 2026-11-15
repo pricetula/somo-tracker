@@ -12,7 +12,7 @@ function apiBase(isServer: boolean): string {
       'http://localhost:8080'
     );
   }
-  return '/api/v1';
+  return '';
 }
 
 async function getServerForwardHeaders(): Promise<Record<string, string>> {

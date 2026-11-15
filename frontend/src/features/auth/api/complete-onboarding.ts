@@ -9,7 +9,7 @@ import type { CompleteOnboardingRequest, CompleteOnboardingResponse } from '../t
 export async function completeOnboarding(
   data: CompleteOnboardingRequest
 ): Promise<CompleteOnboardingResponse> {
-  return apiFetch<CompleteOnboardingResponse>('/onboarding/complete', {
+  return apiFetch<CompleteOnboardingResponse>('/api/v1/onboarding/complete', {
     method: 'POST',
     body: JSON.stringify(data),
   });

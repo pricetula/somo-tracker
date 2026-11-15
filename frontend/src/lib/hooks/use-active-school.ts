@@ -17,7 +17,7 @@ export function useActiveSchool() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['active-school'],
     queryFn: async () => {
-      const response = await apiFetch<ActiveSchool>('/me/active-school');
+      const response = await apiFetch<ActiveSchool>('/api/v1/me/active-school');
       return response;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes

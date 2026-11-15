@@ -12,7 +12,7 @@ describe('apiFetch path for /me', () => {
     global.fetch = vi.fn();
   });
 
-  it('apiFetch prepends /api/v1 to /me path on client', async () => {
+  it('apiFetch uses path as-is on client (no /api/v1 prepend)', async () => {
     const mockedFetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -20,8 +20,8 @@ describe('apiFetch path for /me', () => {
     } as Response);
     global.fetch = mockedFetch;
 
-    // apiBase returns '/api/v1' on client (typeof window !== 'undefined')
-    await apiFetch('/me', {});
+    // apiBase returns '' on client; paths already include /api/v1
+    await apiFetch('/api/v1/me', {});
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [url] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [

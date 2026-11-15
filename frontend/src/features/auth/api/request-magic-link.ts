@@ -10,7 +10,7 @@ export async function requestMagicLink(
   email: string
 ): Promise<RequestMagicLinkResponse> {
   const body: RequestMagicLinkRequest = { email };
-  return apiFetch<RequestMagicLinkResponse>('/auth/request-magic-link', {
+  return apiFetch<RequestMagicLinkResponse>('/api/v1/auth/request-magic-link', {
     method: 'POST',
     body: JSON.stringify(body),
   });

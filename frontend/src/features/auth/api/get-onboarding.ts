@@ -7,7 +7,7 @@ import { apiFetch } from '@/lib/api/client';
 import type { GetOnboardingResponse } from '../types';
 
 export async function getOnboardingCurrent(): Promise<GetOnboardingResponse> {
-  return apiFetch<GetOnboardingResponse>('/onboarding/current', {
+  return apiFetch<GetOnboardingResponse>('/api/v1/onboarding/current', {
     method: 'GET',
   });
 }

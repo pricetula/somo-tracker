@@ -10,6 +10,7 @@ export interface DataTableColumnMeta {
   truncate?: boolean
   money?: boolean
   date?: boolean
+  width?: string // CSS width value applied to header + body cells for alignment
 }
 
 export interface DataTablePage<TData> {

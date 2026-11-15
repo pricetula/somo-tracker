@@ -41,21 +41,25 @@ function SchoolsPage() {
       label: 'Name',
       sortKeys: ['name_asc', 'name_desc'],
       to: (row) => `/schools/${row.id}`,
+      width: '1fr',
     }),
     textColumn({
       accessorKey: 'code',
       label: 'Code',
       sortKeys: ['code_asc', 'code_desc'],
+      width: '120px',
     }),
     textColumn({
       accessorKey: 'countryId',
       label: 'Country',
       sortKeys: ['countryId_asc', 'countryId_desc'],
+      width: '120px',
     }),
     textColumn({
       accessorKey: 'educationSystemId',
       label: 'Education System',
       sortKeys: ['educationSystemId_asc', 'educationSystemId_desc'],
+      width: '150px',
     }),
     badgeColumn({
       accessorKey: 'deletedAt',
@@ -65,6 +69,7 @@ function SchoolsPage() {
         'not-null': 'bg-gray-10 text-gray-900',
       },
       defaultVariant: 'bg-gray-10 text-gray-900',
+      width: '100px',
     }),
   ];
 

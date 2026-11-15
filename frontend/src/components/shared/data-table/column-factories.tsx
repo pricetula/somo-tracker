@@ -10,6 +10,7 @@ export function textColumn<TData>(config: {
   sortKeys?: string[]
   truncate?: boolean
   align?: 'left' | 'center' | 'right'
+  width?: string
 }): ColumnDef<any, any> {
   return {
     id: config.accessorKey as string,
@@ -45,6 +46,7 @@ export function textColumn<TData>(config: {
       align: config.align ?? 'left',
       sortKeys: config.sortKeys ?? [],
       truncate: config.truncate,
+      width: config.width,
     } as DataTableColumnMeta,
   }
 }
@@ -54,6 +56,7 @@ export function numberColumn<TData>(config: {
   label: string
   sortKeys?: string[]
   align?: 'left' | 'center' | 'right'
+  width?: string
 }): ColumnDef<any, any> {
   return {
     id: config.accessorKey as string,
@@ -83,6 +86,7 @@ export function numberColumn<TData>(config: {
       label: config.label,
       align: 'right',
       sortKeys: config.sortKeys ?? [],
+      width: config.width,
     } as DataTableColumnMeta,
   }
 }
@@ -92,6 +96,7 @@ export function dateColumn<TData>(config: {
   label: string
   sortKeys?: string[]
   align?: 'left' | 'center' | 'right'
+  width?: string
 }): ColumnDef<any, any> {
   return {
     id: config.accessorKey as string,
@@ -122,6 +127,7 @@ export function dateColumn<TData>(config: {
       align: config.align ?? 'left',
       sortKeys: config.sortKeys ?? [],
       date: true,
+      width: config.width,
     } as DataTableColumnMeta,
   }
 }
@@ -132,6 +138,7 @@ export function badgeColumn<TData>(config: {
   sortKeys?: string[]
   variants: Record<string, string>
   defaultVariant?: string
+  width?: string
 }): ColumnDef<any, any> {
   return {
     id: config.accessorKey as string,
@@ -165,6 +172,7 @@ export function badgeColumn<TData>(config: {
       label: config.label,
       align: 'left',
       sortKeys: config.sortKeys ?? [],
+      width: config.width,
     } as DataTableColumnMeta,
   }
 }
@@ -207,6 +215,7 @@ export function linkColumn<TData>(config: {
   label: string
   sortKeys?: string[]
   to: (row: TData) => string
+  width?: string
 }): ColumnDef<any, any> {
   return {
     id: config.accessorKey as string,
@@ -237,6 +246,7 @@ export function linkColumn<TData>(config: {
       label: config.label,
       align: 'left',
       sortKeys: config.sortKeys ?? [],
+      width: config.width,
     } as DataTableColumnMeta,
   }
 }

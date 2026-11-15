@@ -66,9 +66,8 @@ All under `app/api/`:
 
 No `.env` files. Secrets are injected by Doppler at runtime via `doppler run --`. Required env vars:
 
-- `NEXT_PUBLIC_APP_URL` — frontend URL (e.g., `https://app.somotracker.com`)
-- `GO_BACKEND_URL` — Go backend URL (e.g., `https://api.somotracker.com` or `http://backend:8080` in Docker)
-- `NODE_ENV` — `development` or `production`
+- `PUBLIC_APP_URL` — frontend URL (e.g., `https://app.somotracker.com`)
+- `PUBLIC_API_URL` — Go backend URL (e.g., `https://api.somotracker.com` or `http://backend:8080` in Docker)
 
 See `.env.example` for local reference.
 

@@ -34,7 +34,7 @@ export async function goRequest<T = unknown>(
 
   // Forward Origin for CSRF on mutations (Go CSRF middleware checks Origin)
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-    headers['Origin'] = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    headers['Origin'] = process.env.PUBLIC_APP_URL || 'http://localhost:3000'
   }
 
   const res = await fetch(`${getBackendUrl()}${path}`, {

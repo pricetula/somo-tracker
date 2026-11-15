@@ -23,9 +23,9 @@ export function isProduction(): boolean {
 }
 
 export function getBackendUrl(): string {
-  return process.env.GO_BACKEND_URL || 'http://127.0.0.1:8080'
+  return process.env.PUBLIC_API_URL || 'http://127.0.0.1:8080'
 }
 
 export function getAppUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  return process.env.PUBLIC_APP_URL || 'http://localhost:3000'
 }

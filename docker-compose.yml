@@ -66,8 +66,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     environment:
-      GO_BACKEND_URL: http://backend:8080
-      NEXT_PUBLIC_APP_URL: ${PUBLIC_APP_URL}
+      PUBLIC_API_URL: http://backend:8080
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       NODE_ENV: development
     ports:
       - "3000:3000"

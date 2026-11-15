@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/helmet"
 	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	identityHandler "somotracker/internal/identity/handler"
@@ -28,14 +29,14 @@ import (
 	redisPkg "somotracker/internal/platform/redis"
 	"somotracker/internal/platform/seed"
 	"somotracker/internal/platform/stytch"
-	studentHandler "somotracker/internal/students/handler"
-	studentService "somotracker/internal/students/service"
-	studentStore "somotracker/internal/students/store"
-	studentStoreGen "somotracker/internal/students/store/gen"
 	schoolHandler "somotracker/internal/schools/handler"
 	schoolService "somotracker/internal/schools/service"
 	schoolStore "somotracker/internal/schools/store"
 	schoolStoreGen "somotracker/internal/schools/store/gen"
+	studentHandler "somotracker/internal/students/handler"
+	studentService "somotracker/internal/students/service"
+	studentStore "somotracker/internal/students/store"
+	studentStoreGen "somotracker/internal/students/store/gen"
 )
 
 // App is the HTTP API composition root.
@@ -271,13 +272,20 @@ func (a *App) setTenantContextMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		tenantID, ok := c.Locals("tenant_id").(string)
 		if !ok {
-			if tid, ok2 := c.Locals("tenant_id").([16]byte); ok2 {
+			if tid, ok2 := c.Locals("tenant_id").(uuid.UUID); ok2 {
+				tenantID = tid.String()
+			} else if tid, ok2 := c.Locals("tenant_id").([16]byte); ok2 {
 				tenantID = fmtUUID(tid)
 			}
 		}
 		if tenantID != "" {
 			ctx := context.WithValue(c.Context(), httpserver.TenantIDKey{}, tenantID)
 			c.SetContext(ctx)
+			// Set PostgreSQL GUC for RLS. SET does not accept prepared-statement parameters,
+			// so interpolate the UUID literal. Best-effort: ignore errors to avoid breaking the request.
+			setSQL := fmt.Sprintf("SET app.current_tenant_id = '%s'", tenantID)
+			_, _ = a.dbPool.Exec(c.Context(), setSQL)
+			_, _ = a.sqlDB.ExecContext(c.Context(), setSQL)
 		}
 		return c.Next()
 	}

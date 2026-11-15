@@ -12,6 +12,7 @@ export function textColumn<TData>(config: {
   align?: 'left' | 'center' | 'right'
 }): ColumnDef<any, any> {
   return {
+    id: config.accessorKey as string,
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
       const isSorted = column.getIsSorted()
@@ -55,6 +56,7 @@ export function numberColumn<TData>(config: {
   align?: 'left' | 'center' | 'right'
 }): ColumnDef<any, any> {
   return {
+    id: config.accessorKey as string,
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
       const isSorted = column.getIsSorted()
@@ -92,6 +94,7 @@ export function dateColumn<TData>(config: {
   align?: 'left' | 'center' | 'right'
 }): ColumnDef<any, any> {
   return {
+    id: config.accessorKey as string,
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
       const isSorted = column.getIsSorted()
@@ -131,6 +134,7 @@ export function badgeColumn<TData>(config: {
   defaultVariant?: string
 }): ColumnDef<any, any> {
   return {
+    id: config.accessorKey as string,
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
       const isSorted = column.getIsSorted()
@@ -205,6 +209,7 @@ export function linkColumn<TData>(config: {
   to: (row: TData) => string
 }): ColumnDef<any, any> {
   return {
+    id: config.accessorKey as string,
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
       const isSorted = column.getIsSorted()

@@ -3,9 +3,10 @@
  * Testable in isolation — no React rendering required.
  */
 
-import type { MeResponse } from "@/features/auth/types";
+import type { MeResponse, UserRole } from "@/features/auth/types";
 import { LayoutDashboard } from "lucide-react";
 import { User } from "lucide-react";
+import { School } from "lucide-react";
 import { LayoutGrid } from "lucide-react";
 import { BookOpen } from "lucide-react";
 import { Calendar } from "lucide-react";
@@ -17,11 +18,11 @@ import { BarChart3 } from "lucide-react";
 import { LogOut } from "lucide-react";
 
 export interface SidebarLink {
-  id: string
-  title: string
-  url: string
-  icon: React.ReactNode
-  roles: string[]
+  id: string;
+  title: string;
+  url: string;
+  icon: React.ReactNode;
+  roles: UserRole[];
 }
 
 // All MVP links. Pages not yet implemented are rendered "Coming soon" by NavMain.
@@ -31,14 +32,21 @@ const allLinks: SidebarLink[] = [
     title: "Dashboard",
     url: "/",
     icon: <LayoutDashboard />,
-    roles: ["HEADTEACHER", "TEACHER", "GUARDIAN", "ACCOUNTANT"],
+    roles: ["HEADTEACHER", "TEACHER", "GUARDIAN", "FINANCE"],
+  },
+  {
+    id: "schools",
+    title: "Schools",
+    url: "/schools",
+    icon: <School />,
+    roles: ["HEADTEACHER", "ADMIN", "OWNER", "PLATFORMOPERATOR"],
   },
   {
     id: "students",
     title: "Students",
     url: "/students",
     icon: <User />,
-    roles: ["HEADTEACHER", "TEACHER", "GUARDIAN", "ACCOUNTANT"],
+    roles: ["HEADTEACHER", "TEACHER", "GUARDIAN", "FINANCE"],
   },
   {
     id: "classes",
@@ -73,7 +81,7 @@ const allLinks: SidebarLink[] = [
     title: "Fees / Payments",
     url: "/fees",
     icon: <CreditCard />,
-    roles: ["HEADTEACHER", "ACCOUNTANT"],
+    roles: ["HEADTEACHER", "FINANCE"],
   },
   {
     id: "guardians",
@@ -101,14 +109,14 @@ const allLinks: SidebarLink[] = [
     title: "Logout",
     url: "/auth/logout",
     icon: <LogOut />,
-    roles: ["HEADTEACHER", "TEACHER", "GUARDIAN", "ACCOUNTANT"],
+    roles: ["HEADTEACHER", "TEACHER", "GUARDIAN", "FINANCE"],
   },
   {
     id: "profile",
     title: "Profile / Account",
     url: "/profile",
     icon: <User />,
-    roles: ["HEADTEACHER", "TEACHER", "GUARDIAN", "ACCOUNTANT"],
+    roles: ["HEADTEACHER", "TEACHER", "GUARDIAN", "FINANCE"],
   },
 ];
 
@@ -116,7 +124,8 @@ const allLinks: SidebarLink[] = [
  * Returns the subset of links visible to the given role.
  * Pure function — easy to unit test per role.
  */
-export function getSidebarLinksByRole(role: string): SidebarLink[] {
+export function getSidebarLinksByRole(role: UserRole): SidebarLink[] {
+  console.log(";;;;;", role);
   return allLinks.filter((link) => link.roles.includes(role));
 }
 
@@ -125,6 +134,7 @@ export function getSidebarLinksByRole(role: string): SidebarLink[] {
  * Falls back to no links when no session data is available.
  */
 export function useSidebarNav(me?: MeResponse | null) {
-  const role = me?.role ?? "";
+  const role = me?.role;
+  if (!role) return [];
   return getSidebarLinksByRole(role);
 }

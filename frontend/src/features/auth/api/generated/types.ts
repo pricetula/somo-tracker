@@ -419,13 +419,15 @@ export interface components {
         LogoutResponse: {
             success?: boolean;
         };
+        /** @enum {string} */
+        UserRole: "OWNER" | "ADMIN" | "HEADTEACHER" | "TEACHER" | "GUARDIAN" | "FINANCE" | "PLATFORMOPERATOR";
         MeResponse: {
             /** Format: uuid */
             user_id?: string;
             full_name?: string;
             email?: string;
             avatar_url?: string | null;
-            role?: string;
+            role?: components["schemas"]["UserRole"];
             active_school?: {
                 /** Format: uuid */
                 id?: string;

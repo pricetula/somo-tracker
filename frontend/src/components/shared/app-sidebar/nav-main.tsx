@@ -1,6 +1,7 @@
 "use client"
 
 import { useSidebarNav } from "./use-sidebar-nav"
+import type { MeResponse } from "@/features/auth/types"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -9,7 +10,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-export function NavMain({ me }: { me?: { role?: string } | null }) {
+export function NavMain({ me }: { me?: MeResponse | null }) {
   const links = useSidebarNav(me)
 
   // Filter out user-menu items (logout, profile) — those live in NavUser

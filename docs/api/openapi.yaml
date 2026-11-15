@@ -1057,6 +1057,16 @@ components:
       properties:
         success:
           type: boolean
+    UserRole:
+      type: string
+      enum:
+        - OWNER
+        - ADMIN
+        - HEADTEACHER
+        - TEACHER
+        - GUARDIAN
+        - FINANCE
+        - PLATFORMOPERATOR
     MeResponse:
       type: object
       properties:
@@ -1071,7 +1081,7 @@ components:
           type: string
           nullable: true
         role:
-          type: string
+          $ref: '#/components/schemas/UserRole'
         active_school:
           type: object
           nullable: true

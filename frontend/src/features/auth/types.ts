@@ -18,6 +18,7 @@ export type CompleteOnboardingResponse = components['schemas']['ProvisionTenantR
 export type LogoutRequest = Record<string, never>;
 export type LogoutResponse = components['schemas']['LogoutResponse'];
 export type MeResponse = components['schemas']['MeResponse'];
+export type UserRole = components['schemas']['UserRole'];
 export type SchoolRef = components['schemas']['SchoolRef'];
 export type ErrorResponse = components['schemas']['ErrorResponse'];
 

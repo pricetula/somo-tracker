@@ -65,6 +65,16 @@ All under `app/api/`:
 | `/dashboard` | Protected dashboard | Session required |
 | `/api/*` | BFF API routes | See above |
 
+## Auth gateway (`lib/proxy.ts`)
+
+Server-side auth gateway replacing Next.js middleware. Runs in API routes
+and Server Components. Provides:
+
+- `getAuthUser()` — reads session cookie, validates against Go `/api/v1/me`, returns user or null
+- `requireAuth()` — redirects to `/login` if not authenticated, returns null if OK
+- `requireGuest()` — redirects to `/dashboard` if authenticated, returns null if guest
+- `proxyToGo(path, req, opts)` — forwards request to Go with session cookie + Origin, returns NextResponse with Set-Cookie forwarded
+
 ## Secrets
 
 No `.env` files. Secrets are injected by Doppler at runtime via `doppler run --`. Required env vars:

@@ -1,5 +1,5 @@
-import { apiFetch } from '@/lib/api/client'
-import type { FilterWire, DataTablePage } from './column-meta'
+import { apiFetch } from '@/lib/api/client';
+import type { FilterWire, DataTablePage } from './column-meta';
 
 function serializeFilters(filters: Record<string, FilterWire>): string {
   const wire: Record<string, FilterWire> = {};
@@ -13,23 +13,24 @@ function serializeFilters(filters: Record<string, FilterWire>): string {
 export function createListQueryFn<TData>(endpoint: string) {
   return async function listQueryFn({
     queryKey,
+    pageParam,
     signal,
   }: {
     queryKey: readonly unknown[];
+    pageParam: string | undefined;
     signal: AbortSignal;
   }): Promise<DataTablePage<TData>> {
-    const [, limit, cursor, sort, filters] = queryKey as unknown as [
+    const [, limit, sort, filters] = queryKey as unknown as [
       string,
       number,
-      string | null,
       string,
       Record<string, FilterWire>,
     ];
 
     const params = new URLSearchParams();
     params.set('limit', String(limit));
-    if (cursor) {
-      params.set('cursor', cursor);
+    if (pageParam) {
+      params.set('cursor', pageParam);
     }
     if (sort) {
       params.set('sort', sort);

@@ -1,7 +1,8 @@
+import type { ColumnDef } from '@tanstack/react-table';
 import { Link } from '@tanstack/react-router';
 import type { FilterWire, DataTableColumnMeta } from './column-meta';
 
-type AnyColumnDef = any;
+export type { ColumnDef } from '@tanstack/react-table';
 
 export function textColumn<TData>(config: {
   accessorKey: keyof TData & string;
@@ -9,7 +10,7 @@ export function textColumn<TData>(config: {
   sortKeys?: string[];
   truncate?: boolean;
   align?: 'left' | 'center' | 'right';
-}): AnyColumnDef {
+}): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
@@ -52,7 +53,7 @@ export function numberColumn<TData>(config: {
   label: string;
   sortKeys?: string[];
   align?: 'left' | 'center' | 'right';
-}): AnyColumnDef {
+}): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
@@ -89,7 +90,7 @@ export function dateColumn<TData>(config: {
   label: string;
   sortKeys?: string[];
   align?: 'left' | 'center' | 'right';
-}): AnyColumnDef {
+}): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
@@ -128,7 +129,7 @@ export function badgeColumn<TData>(config: {
   sortKeys?: string[];
   variants: Record<string, string>;
   defaultVariant?: string;
-}): AnyColumnDef {
+}): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {
@@ -164,7 +165,7 @@ export function badgeColumn<TData>(config: {
   };
 }
 
-export function selectColumn<TData>(): AnyColumnDef {
+export function selectColumn<TData>(): ColumnDef<any, any> {
   return {
     id: 'selection',
     header: ({ getIsAllSelected, toggleSelectAll }: any) => (
@@ -189,8 +190,6 @@ export function selectColumn<TData>(): AnyColumnDef {
         />
       </div>
     ),
-    enableSorting: false,
-    enableFiltering: false,
     meta: {
       label: '',
       align: 'center',
@@ -204,7 +203,7 @@ export function linkColumn<TData>(config: {
   label: string;
   sortKeys?: string[];
   to: (row: TData) => string;
-}): AnyColumnDef {
+}): ColumnDef<any, any> {
   return {
     accessorKey: config.accessorKey as string,
     header: ({ column }: any) => {

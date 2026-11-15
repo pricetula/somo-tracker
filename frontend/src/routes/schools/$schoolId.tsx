@@ -28,7 +28,7 @@ const updateSchoolSchema = z.object({
 
 type UpdateSchoolFormData = z.infer<typeof updateSchoolSchema>;
 
-export const Route = createFileRoute('/$schoolId')({
+export const Route = createFileRoute('/schools/$schoolId')({
   component: SchoolPage,
 });
 

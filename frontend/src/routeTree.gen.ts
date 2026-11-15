@@ -10,22 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SchoolIdRouteImport } from './routes/$schoolId'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SchoolsRouteImport } from './routes/schools'
 import { Route as UnauthorizedRouteImport } from './routes/unauthorized'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as OnboardingTenantNameRouteImport } from './routes/onboarding/tenant-name'
+import { Route as SchoolsSchoolIdRouteImport } from './routes/schools/$schoolId'
 import { Route as SchoolsAddRouteImport } from './routes/schools/add'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SchoolIdRoute = SchoolIdRouteImport.update({
-  id: '/$schoolId',
-  path: '/$schoolId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -53,6 +48,11 @@ const OnboardingTenantNameRoute = OnboardingTenantNameRouteImport.update({
   path: '/onboarding/tenant-name',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SchoolsSchoolIdRoute = SchoolsSchoolIdRouteImport.update({
+  id: '/$schoolId',
+  path: '/$schoolId',
+  getParentRoute: () => SchoolsRoute,
+} as any)
 const SchoolsAddRoute = SchoolsAddRouteImport.update({
   id: '/add',
   path: '/add',
@@ -61,71 +61,70 @@ const SchoolsAddRoute = SchoolsAddRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/$schoolId': typeof SchoolIdRoute
   '/login': typeof LoginRoute
   '/schools': typeof SchoolsRouteWithChildren
   '/unauthorized': typeof UnauthorizedRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/onboarding/tenant-name': typeof OnboardingTenantNameRoute
+  '/schools/$schoolId': typeof SchoolsSchoolIdRoute
   '/schools/add': typeof SchoolsAddRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/$schoolId': typeof SchoolIdRoute
   '/login': typeof LoginRoute
   '/schools': typeof SchoolsRouteWithChildren
   '/unauthorized': typeof UnauthorizedRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/onboarding/tenant-name': typeof OnboardingTenantNameRoute
+  '/schools/$schoolId': typeof SchoolsSchoolIdRoute
   '/schools/add': typeof SchoolsAddRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/$schoolId': typeof SchoolIdRoute
   '/login': typeof LoginRoute
   '/schools': typeof SchoolsRouteWithChildren
   '/unauthorized': typeof UnauthorizedRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/onboarding/tenant-name': typeof OnboardingTenantNameRoute
+  '/schools/$schoolId': typeof SchoolsSchoolIdRoute
   '/schools/add': typeof SchoolsAddRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/$schoolId'
     | '/login'
     | '/schools'
     | '/unauthorized'
     | '/auth/callback'
     | '/onboarding/tenant-name'
+    | '/schools/$schoolId'
     | '/schools/add'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/$schoolId'
     | '/login'
     | '/schools'
     | '/unauthorized'
     | '/auth/callback'
     | '/onboarding/tenant-name'
+    | '/schools/$schoolId'
     | '/schools/add'
   id:
     | '__root__'
     | '/'
-    | '/$schoolId'
     | '/login'
     | '/schools'
     | '/unauthorized'
     | '/auth/callback'
     | '/onboarding/tenant-name'
+    | '/schools/$schoolId'
     | '/schools/add'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  SchoolIdRoute: typeof SchoolIdRoute
   LoginRoute: typeof LoginRoute
   SchoolsRoute: typeof SchoolsRouteWithChildren
   UnauthorizedRoute: typeof UnauthorizedRoute
@@ -140,13 +139,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/$schoolId': {
-      id: '/$schoolId'
-      path: '/$schoolId'
-      fullPath: '/$schoolId'
-      preLoaderRoute: typeof SchoolIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -184,6 +176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingTenantNameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/schools/$schoolId': {
+      id: '/schools/$schoolId'
+      path: '/$schoolId'
+      fullPath: '/schools/$schoolId'
+      preLoaderRoute: typeof SchoolsSchoolIdRouteImport
+      parentRoute: typeof SchoolsRoute
+    }
     '/schools/add': {
       id: '/schools/add'
       path: '/add'
@@ -195,10 +194,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface SchoolsRouteChildren {
+  SchoolsSchoolIdRoute: typeof SchoolsSchoolIdRoute
   SchoolsAddRoute: typeof SchoolsAddRoute
 }
 
 const SchoolsRouteChildren: SchoolsRouteChildren = {
+  SchoolsSchoolIdRoute: SchoolsSchoolIdRoute,
   SchoolsAddRoute: SchoolsAddRoute,
 }
 
@@ -207,7 +208,6 @@ const SchoolsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SchoolIdRoute: SchoolIdRoute,
   LoginRoute: LoginRoute,
   SchoolsRoute: SchoolsRouteWithChildren,
   UnauthorizedRoute: UnauthorizedRoute,

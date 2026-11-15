@@ -14,7 +14,7 @@ generated_files: []
 
 ## 1. Summary
 
-A shared, virtualized infinite data table at `src/components/shared/data-table/`. It combines TanStack Table v9 (manual sorting/filtering/pagination), TanStack Virtual (row-only virtualization over an infinite client cache), and TanStack Query v5 (`useInfiniteQuery` with cursor pagination).
+A shared, virtualized infinite data table at `src/components/shared/data-table/`. It combines TanStack Virtual (row-only virtualization over an infinite client cache) and TanStack Query v5 (`useInfiniteQuery` with cursor pagination). Sorting and filtering are handled by the page component via `onSortChange`/`onFilterChange` callbacks and `createListQueryFn`; `<DataTable>` receives flattened props and only renders virtualized rows.
 
 This is the shared `<DataTable>` component mandated by FE-019. All list screens (students, schools, academics, fees, health, behavior, timetable, attendance, enrollments) use it; the only exemption is `RollCallList`.
 
@@ -129,7 +129,7 @@ The data table follows a **clean, minimal, modern aesthetic** with uniform rows 
 
 | File | Type | Responsibility |
 |------|------|----------------|
-| `data-table.tsx` | Component | `<DataTable>` — TanStack Table v9 + `useVirtualizer` encapsulated inside; ≤150 DOM nodes; row height via `rowHeight` prop (default 48px) |
+| `data-table.tsx` | Component | `<DataTable>` — `@tanstack/react-virtual` row virtualization + CSS grid column alignment; ≤150 DOM nodes; row height via `rowHeight` prop (default 48px); sorting/filtering handled by page component via callbacks |
 | `create-list-query-fn.ts` | Helper | `createListQueryFn<TData>(endpoint)` — serializes params into GET; `AbortSignal` passthrough; snake→camel mapping; returns `DataTablePage<TData>` |
 | `column-factories.ts` | Helper | `textColumn`, `numberColumn`, `dateColumn`, `badgeColumn`, `selectColumn`, `linkColumn` |
 | `selection-store.ts` | Store | `Set<string>` — toggle, selectAllLoaded, selectRange, prune, derived state |
@@ -274,14 +274,13 @@ interface BulkAction<TData> {
 2. **`selection-store.ts`** — `createSelectionStore<TData>()`: `Set<string>`-based store, toggle, selectAllLoaded, selectRange, prune, derived state, subscribe
 3. **`create-list-query-fn.ts`** — `createListQueryFn<TData>(endpoint)`: param conversion (limit, cursor, sort, filters→base64url), `AbortSignal` passthrough, snake→camel mapping, returns `DataTablePage<TData>`
 4. **`router-adapter.ts`** — `getSearchParams`, `setSearchParams` (push/replace), `serialize`/`parse` for pagination params (`limit`, `cursor`, `sort`, `filters`)
-5. **`data-table.tsx`** — `<DataTable>`: TanStack Table v9 (`manualSorting`, `manualFiltering`, `manualPagination`), row virtualization via `useVirtualizer` (≤150 DOM nodes, `rowHeight` prop default 48px), shadcn `Table`, header/row rendering via column factories
+5. **`data-table.tsx`** — `<DataTable>`: `@tanstack/react-virtual` row virtualization + CSS `grid` column alignment (`grid-template-columns` from column widths); ≤150 DOM nodes; `rowHeight` prop default 48px; sorting/filtering handled by page component via `onSortChange`/`onFilterChange` callbacks; header/row rendering via column factories
 6. **`data-table-bulk-bar.tsx`** — `<BulkBar>`: selected count readout, bulk action `DropdownMenu`, `AlertDialog` confirmation, clear selection
 7. **`index.ts`** — named exports only
 8. **`data-table.test.tsx`** — Vitest + RTL tests per §7
 
 ### Shadcn Dependencies (FE-021: `pnpm dlx shadcn@latest add`, never hand-edit `src/components/ui/`)
 
-- `table` — shadcn Table parts
 - `checkbox` — tri-state header + row checkboxes
 - `dropdown-menu` — row action menus, bulk action dropdown
 - `alert-dialog` — bulk action confirmations

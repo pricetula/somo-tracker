@@ -48,7 +48,7 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 | FE-022 | Charts: shadcn Chart + Recharts via `React.lazy`/`Suspense`; no raw SVG/canvas, Chart.js, D3 |
 | FE-031 | Create forms use `react-hook-form` + `zodResolver` + shadcn `Form` parts; uniform styling across resources |
 | FE-032 | Form buttons show loading/error states via shadcn components; uniform across all forms |
-| FE-033 | Listing tables use shared `<DataTable>` with TanStack Infinite Query + `@tanstack/react-virtual` (full spec pending) |
+| FE-033 | Listing tables use shared `<DataTable>` with TanStack Infinite Query + `@tanstack/react-virtual` (see SOM-DATATABLE-001) |
 | FE-034 | Delete confirmation via `Dialog`/`AlertDialog` with accept/cancel; cannot dismiss by clicking overlay |
 | FE-035 | Use `<Link>` from `@tanstack/react-router` for all internal navigation; never native `<a href>` which causes full page reload |
 | FE-036 | Submit buttons disable on click to prevent double submission; re-enable on response |

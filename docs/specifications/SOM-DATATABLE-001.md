@@ -1,10 +1,10 @@
 ---
 id: SOM-DATATABLE-001
 title: Virtualized Infinite Data Table Core
-status: approved
+status: implemented
 author: agent
 date: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-15
 fr_ids: [FE-007, FE-008, FE-009, FE-010, FE-011, FE-015, FE-016, FE-017, FE-018, FE-019, FE-020, FE-021, FE-023, FE-025, FE-026, FE-027]
 nf_ids: []
 api_contract: no
@@ -346,6 +346,8 @@ Covered by domain feature specs (students, schools, etc.) per FE-027 — this sp
 | Row height source | Set on the component via `rowHeight` prop (default 48px). No CSS variable. |
 | `linkColumn` navigation | Always uses TanStack Router `<Link>` (renders `<a>` under the hood). Middle-click, Ctrl/Cmd-click, and screen-reader semantics work natively. No native `<a href>`. |
 | Pruning notification | Toast via sonner (already global per FE-010 `MutationCache.onError`). |
+| TanStack Virtual v3 API | `useVirtualizer` exposes `getVirtualItems()` (items shaped `{ index, start, end, size, offset }`) and `getTotalSize()`. `getItemPosition()` / `getItemSize()` **do not exist** on the v3 `Virtualizer` — calling them crashes with `getItemPosition is not a function`. Row positioning uses `virtualItem.start` / `virtualItem.size`; scroll spacer height uses `getTotalSize()`. |
+| Column key uniqueness | Every column factory (`textColumn`, `numberColumn`, `dateColumn`, `badgeColumn`, `linkColumn`, `selectColumn`) sets an explicit `id` (`accessorKey` or `'selection'`). Without it, `column.id` is `undefined` and every cell in a row receives `key={undefined}`, which React flags as duplicate keys. |
 
 ## 9. Links
 

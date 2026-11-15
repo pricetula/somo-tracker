@@ -7,7 +7,7 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 | ID | Summary |
 |----|---------|
 | FE-001 | Outside a feature import only from `features/<name>/index.ts`; explicit named exports, no `export *`; features never import other features |
-| FE-002 | `routes/` export TanStack Router `Route` with `loader`/`component`; pages compose features via `index.ts`, no business logic or data access |
+| FE-002 | Routes in `app/` export Next.js App Router route handlers; pages compose features via `index.ts`, no business logic or data access |
 | FE-003 | No back buttons or "Back to" links; navigation belongs to app shell |
 | FE-004 | `entry.server.tsx`/`routes/$server.ts` replace Next.js middleware: session check only, never sole authorization |
 | FE-005 | No `setState` in effect to mirror props; compute during render or in handlers |
@@ -42,15 +42,15 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 | FE-016 | Semantic Tailwind tokens only; status colors from `globals.css` via one style map; never color alone |
 | FE-017 | No wrappers without layout/semantic purpose; fragments |
 | FE-018 | Base UI: `render={<Component/>}`; never `asChild` |
-| FE-019 | Tables use shared `<DataTable>` (react-table + shadcn Table), server-side pagination/sort/filter; exemption `RollCallList` |
+| FE-019 | Tables use shared `<DataTable>` (server-side pagination/sort/filter); exemption `RollCallList` |
 | FE-020 | Forms: `react-hook-form` + `zodResolver` + shadcn `Form` parts; no `useState` bindings |
 | FE-021 | Never hand-edit `src/components/ui/`; `pnpm dlx shadcn@latest add`; shared composites in `src/components/shared/`, never fetch |
 | FE-022 | Charts: shadcn Chart + Recharts via `React.lazy`/`Suspense`; no raw SVG/canvas, Chart.js, D3 |
 | FE-031 | Create forms use `react-hook-form` + `zodResolver` + shadcn `Form` parts; uniform styling across resources |
 | FE-032 | Form buttons show loading/error states via shadcn components; uniform across all forms |
-| FE-033 | Listing tables use shared `<DataTable>` with TanStack Infinite Query + `@tanstack/react-virtual` (see SOM-DATATABLE-001) |
+| FE-033 | Listing tables use shared `<DataTable>` (see SOM-DATATABLE-001) |
 | FE-034 | Delete confirmation via `Dialog`/`AlertDialog` with accept/cancel; cannot dismiss by clicking overlay |
-| FE-035 | Use `<Link>` from `@tanstack/react-router` for all internal navigation; never native `<a href>` which causes full page reload |
+| FE-035 | Use `<Link>` from Next.js for all internal navigation; never native `<a href>` which causes full page reload |
 | FE-036 | Submit buttons disable on click to prevent double submission; re-enable on response |
 | FE-037 | Forms reset to pristine state after successful submission |
 | FE-038 | Empty state component shown when lists return no data; never blank page |
@@ -61,7 +61,7 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 | FE-043 | Toast notifications for success/error/info/warning feedback |
 | FE-044 | File uploads use shadcn upload component; validate file type/size client-side |
 | FE-045 | Accessibility: ARIA labels, keyboard navigation, focus management |
-| FE-046 | Page titles and meta tags via TanStack Router `head` for SEO |
+| FE-046 | Page titles and meta tags via Next.js `head` for SEO |
 | FE-047 | Print styles: hide nav/sidebar when printing |
 
 ## Domain and quality
@@ -74,13 +74,12 @@ Source: `frontend/AGENTS.md`. One line per rule; full rule text lives in the sou
 | FE-026 | Reference FR/NFR IDs in PRs/commits/tests; Given/When/Then AC; unstated behavior = Open Question |
 | FE-027 | Every role-gated screen has a test per role; every modal route has soft-nav and hard-load tests |
 
-## Auth guard and server-only imports
+## Auth guard
 
 | ID | Summary |
 |----|---------|
-| FE-AUTH-01 | `beforeLoad` redirect via `redirect()` from `@tanstack/react-router`, never native `Response` |
-| FE-AUTH-02 | Client code never imports `@tanstack/react-start/server` or `*.server.*`; use middleware or `createServerOnlyFn()` |
-| FE-AUTH-03 | `QueryClientProvider` wraps `<Outlet />` in `routes/__root.tsx` |
+| FE-AUTH-01 | Client code never imports server-only modules; auth handled via middleware or server actions |
+| FE-AUTH-02 | Next.js middleware for route protection; never native `Response` redirects |
 
 ## Naming and TypeScript conventions
 

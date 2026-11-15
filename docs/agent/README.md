@@ -20,7 +20,7 @@ draft — bootstrapped from existing AGENTS.md files.
 | File | Scope | Location |
 |------|-------|----------|
 | Root AGENTS.md | Repo-wide: document-led workflow, commit policy, monorepo rules, security principles, compliance commands | `/AGENTS.md` |
-| Frontend AGENTS.md | TanStack Start rules (FE-001…FE-027, FE-AUTH-01…03) | `frontend/AGENTS.md` |
+| Frontend AGENTS.md | Next.js rules (frontend requirements) | `frontend/AGENTS.md` |
 | Backend AGENTS.md | Go Fiber rules (BE-001…BE-045) | `backend/AGENTS.md` |
 | Marketing AGENTS.md | Astro static site rules | `marketing/AGENTS.md` |
 

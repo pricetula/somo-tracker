@@ -60,7 +60,7 @@ This supersedes the `SOM-SIDEBAR-001` note that the school switcher "may move to
 | FE-042 | Route-level error boundaries |
 | FE-043 | Toast notifications for success/error/info/warning feedback |
 | FE-045 | Accessibility: ARIA labels, keyboard navigation, focus management |
-| FE-046 | Page titles and meta tags via TanStack Router `head` for SEO |
+| FE-046 | Page titles and meta tags via Next.js `head` for SEO |
 | FE-047 | Print styles: hide nav/sidebar when printing |
 | BE-031 | Log IDs (request, tenant, school, user), route, status, latency, error code |
 | BE-032 | Sentry: panics and 5xx only; scrub PII |

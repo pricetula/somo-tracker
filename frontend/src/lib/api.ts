@@ -1,5 +1,9 @@
 import { redirect } from 'next/navigation'
 
+function apiUrl(path: string): string {
+  return new URL(path, process.env.PUBLIC_APP_URL ?? 'http://localhost:3000').href
+}
+
 /**
  * Thrown when the backend returns 401 — session expired or revoked.
  * Callers (Server Components / Route Handlers) should catch this and
@@ -23,7 +27,7 @@ export async function apiRequest(
   input: string,
   init?: RequestInit
 ): Promise<Response> {
-  const res = await fetch(input, init)
+  const res = await fetch(apiUrl(input), init)
 
   if (res.status === 401) {
     throw new SessionExpiredError()
@@ -40,6 +44,6 @@ export async function apiRequest(
  * Must be called from a Server Component or Route Handler (uses redirect).
  */
 export async function clearSession(): Promise<never> {
-  await fetch('/api/auth/logout', { method: 'POST' })
+  await fetch(apiUrl('/api/auth/logout'), { method: 'POST' })
   redirect('/login')
 }

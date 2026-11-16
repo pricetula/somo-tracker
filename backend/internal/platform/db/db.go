@@ -2,9 +2,11 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"somotracker/internal/platform/httpserver"
 )
 
 // Pool provides pgx connection pool (BE-012).
@@ -63,6 +65,15 @@ func (tm *TxManager) Run(ctx context.Context, fn func(ctx context.Context) error
 			panic(p)
 		}
 	}()
+
+	// Set tenant GUC for RLS within the transaction (SET LOCAL is transaction-scoped).
+	if tenantID := httpserver.TenantIDFrom(ctx); tenantID != "" {
+		setSQL := fmt.Sprintf("SET LOCAL app.current_tenant_id = '%s'", tenantID)
+		if _, err := tx.Exec(ctx, setSQL); err != nil {
+			_ = tx.Rollback(ctx)
+			return fmt.Errorf("set tenant context: %w", err)
+		}
+	}
 
 	ctx = context.WithValue(ctx, txKey{}, tx)
 	if err := fn(ctx); err != nil {

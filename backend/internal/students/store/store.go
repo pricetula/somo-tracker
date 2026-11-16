@@ -43,6 +43,7 @@ func mapPGError(err error) error {
 }
 
 // GetStudent returns a single student by ID, tenant-scoped.
+// Object-level access control (guardian scoping) is enforced in the service layer (BE-010).
 func (s *Store) GetStudent(ctx context.Context, id uuid.UUID) (*storegen.Student, error) {
 	row, err := s.q.GetStudent(ctx, id)
 	if err != nil {
@@ -51,8 +52,20 @@ func (s *Store) GetStudent(ctx context.Context, id uuid.UUID) (*storegen.Student
 	return &row, nil
 }
 
+// GetStudentForGuardian returns a student only if linked to the given guardian's membership.
+func (s *Store) GetStudentForGuardian(ctx context.Context, studentID uuid.UUID, userID uuid.UUID) (*storegen.Student, error) {
+	row, err := s.q.GetStudentForGuardian(ctx, storegen.GetStudentForGuardianParams{
+		StudentID: studentID,
+		UserID:    userID,
+	})
+	if err != nil {
+		return nil, mapPGError(err)
+	}
+	return &row, nil
+}
+
 // ListStudents returns students with keyset pagination, tenant-scoped.
-// cursorFullName and cursorStudentID encode the last item from the previous page.
+// Object-level access control (guardian scoping) is enforced in the service layer (BE-010).
 func (s *Store) ListStudents(ctx context.Context, limit int32, cursorFullName string, cursorStudentID uuid.UUID) ([]storegen.Student, error) {
 	rows, err := s.q.ListStudents(ctx, storegen.ListStudentsParams{
 		Limit:   limit,
@@ -63,6 +76,14 @@ func (s *Store) ListStudents(ctx context.Context, limit int32, cursorFullName st
 		return nil, mapPGError(err)
 	}
 	return rows, nil
+}
+
+// GetGuardianMembershipID returns the active membership ID for a user in a tenant.
+func (s *Store) GetGuardianMembershipID(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (uuid.UUID, error) {
+	return s.q.GetGuardianMembershipID(ctx, storegen.GetGuardianMembershipIDParams{
+		UserID:   userID,
+		TenantID: tenantID,
+	})
 }
 
 // CreateStudent inserts a new student.

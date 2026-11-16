@@ -88,6 +88,7 @@ type Service struct {
 	stytch         stytch.Client
 	db             *sql.DB
 	istEncryption  *ISTEncryption
+	idleTimeout    time.Duration // sliding window idle timeout; zero means disabled
 }
 
 // Repository is domain repository interface, using sqlc-generated types.
@@ -126,6 +127,8 @@ type Repository interface {
 	GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
+	RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error
+	UpdateSessionLastSeen(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error
 
 	// School + membership for /me
 	ListSchoolsByTenant(ctx context.Context, tenantID uuid.UUID) ([]storegen.School, error)
@@ -135,8 +138,9 @@ type Repository interface {
 	GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (storegen.GetSessionWithMembershipsRow, error)
 }
 
-// New creates service.
-func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionKey string) (*Service, error) {
+// New creates service. idleTimeout is the sliding window idle timeout;
+// zero disables idle enforcement (absolute expiry still applies).
+func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionKey string, idleTimeout time.Duration) (*Service, error) {
 	var istEnc *ISTEncryption
 	if istEncryptionKey != "" {
 		var err error
@@ -145,7 +149,7 @@ func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionK
 			return nil, fmt.Errorf("init IST encryption: %w", err)
 		}
 	}
-	return &Service{repo: repo, stytch: stytchClient, db: db, istEncryption: istEnc}, nil
+	return &Service{repo: repo, stytch: stytchClient, db: db, istEncryption: istEnc, idleTimeout: idleTimeout}, nil
 }
 
 // RequestMagicLink initiates Stytch Discovery magic link flow.
@@ -697,6 +701,25 @@ func (s *Service) ValidateSessionWithMemberships(ctx context.Context, tokenHash 
 		return nil, nil, fmt.Errorf("query session with memberships: %w", err)
 	}
 
+	// Idle timeout enforcement (fail closed).
+	// If last_seen_at is older than idleTimeout, the session is expired.
+	// last_seen_at is NULL for sessions created before the column existed;
+	// treat those as valid (backward compat) and slide them forward.
+	if s.idleTimeout > 0 && row.LastSeenAt.Valid {
+		idleCutoff := time.Now().Add(-s.idleTimeout)
+		if row.LastSeenAt.Time.Before(idleCutoff) {
+			return nil, nil, ErrSessionNotFound
+		}
+	}
+
+	// Slide last_seen_at (throttled: only writes if older than idleThreshold).
+	// Use a shorter threshold than idleTimeout to avoid DB writes on every request.
+	// Best-effort: a slide failure does not fail the request.
+	if s.idleTimeout > 0 {
+		idleThreshold := 5 * time.Minute
+		_ = s.repo.UpdateSessionLastSeen(ctx, row.ID, idleThreshold)
+	}
+
 	memberships := []MembershipContext{}
 	if row.MembershipID.Valid && row.SchoolID.Valid && row.Role.Valid {
 		memberships = append(memberships, MembershipContext{
@@ -743,6 +766,12 @@ func (s *Service) RevokeSession(ctx context.Context, sessionID uuid.UUID) error 
 	return s.repo.RevokeAppSession(ctx, sessionID)
 }
 
+// RevokeAllSessionsForUser revokes all sessions for a user (log out everywhere).
+// Used when roles or memberships change, or on explicit user request.
+func (s *Service) RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error {
+	return s.repo.RevokeAllSessionsForUser(ctx, userID)
+}
+
 // GetUserMemberships returns all active memberships for a user in a tenant
 func (s *Service) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]MembershipContext, error) {
 	// This would typically be a custom query; for now we use the existing method
@@ -759,18 +788,17 @@ func (s *Service) GetUserMemberships(ctx context.Context, userID, tenantID uuid.
 	return []MembershipContext{}, nil
 }
 
-// GetGuardianStudents returns student IDs that a guardian is authorized to access
+// GetGuardianStudents returns student IDs that a guardian is authorized to access.
 func (s *Service) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
-	// TODO: Implement with custom query joining guardians -> students
-	// For now, return empty - this should be implemented with a proper query
-	return []uuid.UUID{}, nil
+	return s.repo.GetGuardianStudents(ctx, guardianUserID, tenantID)
 }
 
-// GetTeacherClasses returns class IDs that a teacher is authorized to access
+// GetTeacherClasses returns class IDs that a teacher is authorized to access.
+// NOTE: This is a future feature. The teacher_class_links table does not exist yet;
+// this method currently returns empty via the store stub. When implemented, it must
+// resolve teacher->classroom links scoped to tenant via schools.tenant_id.
 func (s *Service) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
-	// TODO: Implement with custom query joining teachers -> classes
-	// For now, return empty - this should be implemented with a proper query
-	return []uuid.UUID{}, nil
+	return s.repo.GetTeacherClasses(ctx, teacherUserID, tenantID)
 }
 
 // UpdateOnboardingStep updates the current step and form data for pending onboarding.

@@ -17,8 +17,8 @@ import (
 // Service is the interface the handler depends on.
 // The real students service satisfies this interface.
 type Service interface {
-	ListStudents(ctx context.Context, guardianID *uuid.UUID, limit int32, cursorFullName string, cursorStudentID uuid.UUID) (*studentsSvc.ListResponse, error)
-	GetStudent(ctx context.Context, id uuid.UUID) (*studentsSvc.StudentDTO, error)
+	ListStudents(ctx context.Context, userID uuid.UUID, roles []string, limit int32, cursorFullName string, cursorStudentID uuid.UUID) (*studentsSvc.ListResponse, error)
+	GetStudent(ctx context.Context, id uuid.UUID, userID uuid.UUID, roles []string) (*studentsSvc.StudentDTO, error)
 	CreateStudent(ctx context.Context, req studentsSvc.CreateStudentRequest) (*studentsSvc.StudentDTO, error)
 	UpdateStudent(ctx context.Context, req studentsSvc.UpdateStudentRequest) (*studentsSvc.StudentDTO, error)
 	DeleteStudent(ctx context.Context, id uuid.UUID) error
@@ -103,18 +103,21 @@ func (h *Handler) RegisterRoutes(api fiber.Router) {
 }
 
 // ListStudents handles GET /api/v1/students
+// Object-level: guardians see only linked students, teachers see only students in assigned classes.
 func (h *Handler) ListStudents(c fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return apperr.New(apperr.UNAUTHENTICATED, "user not in session")
+	}
+	roles, ok := c.Locals("roles").([]string)
+	if !ok {
+		roles = []string{}
+	}
+
 	limit := int32(50)
 	if l := c.Query("limit"); l != "" {
 		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 100 {
 			limit = int32(n)
-		}
-	}
-
-	var guardianID *uuid.UUID
-	if gid := c.Query("guardianId"); gid != "" {
-		if id, err := uuid.Parse(gid); err == nil {
-			guardianID = &id
 		}
 	}
 
@@ -130,7 +133,7 @@ func (h *Handler) ListStudents(c fiber.Ctx) error {
 		}
 	}
 
-	resp, err := h.svc.ListStudents(c.Context(), guardianID, limit, cursorFullName, cursorStudentID)
+	resp, err := h.svc.ListStudents(c.Context(), userID, roles, limit, cursorFullName, cursorStudentID)
 	if err != nil {
 		return err
 	}
@@ -142,13 +145,23 @@ func (h *Handler) ListStudents(c fiber.Ctx) error {
 }
 
 // GetStudent handles GET /api/v1/students/{id}
+// Object-level: guardians/teachers only see students they are authorized for.
 func (h *Handler) GetStudent(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid student ID")
 	}
 
-	dto, err := h.svc.GetStudent(c.Context(), id)
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return apperr.New(apperr.UNAUTHENTICATED, "user not in session")
+	}
+	roles, ok := c.Locals("roles").([]string)
+	if !ok {
+		roles = []string{}
+	}
+
+	dto, err := h.svc.GetStudent(c.Context(), id, userID, roles)
 	if err != nil {
 		return err
 	}

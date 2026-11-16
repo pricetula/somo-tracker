@@ -2,11 +2,13 @@ package httpserver
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"somotracker/internal/platform/apperr"
+	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/ratelimit"
 )
 
@@ -14,42 +16,101 @@ import (
 // It wraps internal/platform/ratelimit and exposes helper methods and Fiber handlers.
 type RateLimitMiddleware struct {
 	limiter *ratelimit.Limiter
+	cfg     *config.Config
 }
 
 // NewRateLimitMiddleware creates a new middleware instance wrapping the limiter.
-func NewRateLimitMiddleware(limiter *ratelimit.Limiter) *RateLimitMiddleware {
-	return &RateLimitMiddleware{limiter: limiter}
+// All public rate limits are driven by cfg (env-configurable, see platform/config).
+func NewRateLimitMiddleware(limiter *ratelimit.Limiter, cfg *config.Config) *RateLimitMiddleware {
+	return &RateLimitMiddleware{limiter: limiter, cfg: cfg}
 }
 
 // PublicRateLimit enforces public rate limits on unauthenticated endpoints:
-//  - IP-based limit for magic-link requests
-//  - Email-based limit for magic-link requests (when email is present)
+//   - Per-IP limit for all public routes
+//   - Per-endpoint limits: magic-link, token-exchange, logout, provision
+//
+// Email-based and provider-quota limits are enforced in the identity handlers
+// (where the JSON body/email is already available) to avoid double counting.
 // Best used on public API groups before handler execution.
 func (rl *RateLimitMiddleware) PublicRateLimit() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// IP limit for magic-link requests
 		ip := c.IP()
-		allowed, err := rl.limiter.AllowIP(c.Context(), "magic-link", ip, 10, time.Minute)
+		path := c.Path()
+
+		// Per-IP limits by endpoint
+		switch path {
+		case "/api/v1/auth/request-magic-link":
+			allowed, retryAfter := rl.checkLimit(c.Context(), "magic-link", ip, rl.cfg.RateLimitMagicLinkIPPerMin, time.Minute)
+			if !allowed {
+				return rl.rateLimited(c, retryAfter)
+			}
+
+		case "/api/v1/auth/authenticate-token":
+			allowed, retryAfter := rl.checkLimit(c.Context(), "token-exchange", ip, rl.cfg.RateLimitTokenExchangeIPPerMin, time.Minute)
+			if !allowed {
+				return rl.rateLimited(c, retryAfter)
+			}
+
+		case "/api/v1/auth/logout":
+			allowed, retryAfter := rl.checkLimit(c.Context(), "logout", ip, rl.cfg.RateLimitLogoutIPPerMin, time.Minute)
+			if !allowed {
+				return rl.rateLimited(c, retryAfter)
+			}
+
+		case "/api/v1/onboarding/complete":
+			allowed, retryAfter := rl.checkLimit(c.Context(), "provision", ip, rl.cfg.RateLimitProvisionIPPerMin, time.Minute)
+			if !allowed {
+				return rl.rateLimited(c, retryAfter)
+			}
+
+		default:
+			// Generic public IP limit for other unauthenticated routes
+			allowed, retryAfter := rl.checkLimit(c.Context(), "public", ip, rl.cfg.RateLimitPublicIPPerMin, time.Minute)
+			if !allowed {
+				return rl.rateLimited(c, retryAfter)
+			}
+		}
+
+		return c.Next()
+	}
+}
+
+// checkLimit runs a single IP-based rate limit check. On limiter error it fails
+// open (the in-memory fallback already absorbs Redis outages) so a transient
+// store failure cannot knock out public endpoints.
+func (rl *RateLimitMiddleware) checkLimit(ctx context.Context, prefix, ip string, limit int, window time.Duration) (allowed bool, retryAfter time.Duration) {
+	allowed, err := rl.limiter.AllowIP(ctx, prefix, ip, limit, window)
+	if err != nil {
+		slog.Warn("public rate limit check failed, failing open", "err", err)
+		return true, 0
+	}
+	if !allowed {
+		retryAfter = window
+	}
+	return allowed, retryAfter
+}
+
+// rateLimited returns a 429 with a Retry-After hint when available.
+func (rl *RateLimitMiddleware) rateLimited(c fiber.Ctx, retryAfter time.Duration) error {
+	if retryAfter > 0 {
+		c.Set("Retry-After", fmt.Sprintf("%d", int(retryAfter.Seconds())))
+	}
+	return apperr.New(apperr.RATE_LIMITED, "Too many requests")
+}
+
+// UnauthenticatedRateLimit enforces IP-based rate limits before authentication.
+// Runs before RequireAuth so floods of invalid cookies can't hammer the DB.
+func (rl *RateLimitMiddleware) UnauthenticatedRateLimit() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		ip := c.IP()
+		allowed, err := rl.limiter.AllowIP(c.Context(), "unauthenticated", ip, 20, time.Minute)
 		if err != nil {
-			slog.Warn("public rate limit IP check failed", "err", err)
+			slog.Warn("unauthenticated rate limit IP check failed", "err", err)
 			return apperr.New(apperr.SERVICE_UNAVAILABLE, "rate limit check unavailable")
 		}
 		if !allowed {
 			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
 		}
-
-		// Email limit for magic-link requests (if body contains email)
-		if email := c.FormValue("email"); email != "" {
-			allowed, err = rl.limiter.AllowEmail(c.Context(), "magic-link", email, 3, 15*time.Minute)
-			if err != nil {
-				slog.Warn("public rate limit email check failed", "err", err)
-				return apperr.New(apperr.SERVICE_UNAVAILABLE, "rate limit check unavailable")
-			}
-			if !allowed {
-				return apperr.New(apperr.RATE_LIMITED, "Too many requests")
-			}
-		}
-
 		return c.Next()
 	}
 }
@@ -116,16 +177,6 @@ func (rl *RateLimitMiddleware) HealthzRateLimit() fiber.Handler {
 		}
 		if !allowed {
 			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
-		}
-		return c.Next()
-	}
-}
-
-// Legacy helper for direct binding to limiter.
-func ApplyRateLimit(rl *RateLimitMiddleware, handler func(c fiber.Ctx) error) fiber.Handler {
-	return func(c fiber.Ctx) error {
-		if err := handler(c); err != nil {
-			return err
 		}
 		return c.Next()
 	}

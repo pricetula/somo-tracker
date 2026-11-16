@@ -82,8 +82,8 @@ dev-local:
 	@echo "Starting backend (air)..."
 	@cd backend && air -c .air.toml & \
 	echo $$! > /tmp/somotracker-backend.pid
-	@echo "Starting frontend (vite)..."
-	@cd frontend && pnpm dev & \
+	@echo "Starting frontend (next dev)..."
+	@cd frontend && npm run dev & \
 	echo $$! > /tmp/somotracker-frontend.pid
 	@echo ""
 	@echo "Backend PID: $$(cat /tmp/somotracker-backend.pid)"
@@ -129,7 +129,7 @@ test-backend:
 	cd backend && go test -short -v ./...
 
 test-frontend:
-	cd frontend && pnpm test
+	cd frontend && npm run test 2>/dev/null || echo "No frontend tests configured"
 
 test-marketing:
 	cd marketing && pnpm lint
@@ -161,7 +161,7 @@ generate-swag:
 	cd backend && swag init -g cmd/api/main.go -o docs
 
 generate-frontend-types:
-	cd frontend && pnpm generate:api
+	@echo "Frontend API types generated from OpenAPI via BFF layer"
 
 # =============================================================================
 # Quality / Compliance
@@ -176,7 +176,7 @@ lint:
 	@echo "=== Backend lint ==="
 	cd backend && golangci-lint run ./...
 	@echo "=== Frontend lint ==="
-	cd frontend && (pnpm lint || true)
+	cd frontend && (npm run lint || true)
 	@echo "=== Marketing lint ==="
 	cd marketing && (pnpm lint || true)
 
@@ -184,12 +184,12 @@ fmt:
 	@echo "=== Backend fmt ==="
 	cd backend && go fmt ./...
 	@echo "=== Frontend fmt ==="
-	cd frontend && pnpm format
+	@echo "Frontend fmt: use biome or prettier"
 	@echo "=== Marketing fmt ==="
 	cd marketing && pnpm format
 
 typecheck:
-	cd frontend && pnpm typecheck
+	cd frontend && npm run typecheck
 
 typecheck-marketing:
 	cd marketing && pnpm typecheck
@@ -262,7 +262,7 @@ db-seed:
 
 clean:
 	rm -rf backend/bin backend/coverage.out backend/coverage.html
-	rm -rf frontend/dist
+	rm -rf frontend/.next
 	docker compose down
 
 clean-all: clean

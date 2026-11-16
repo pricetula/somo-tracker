@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -51,6 +52,14 @@ func (m *mockRBACValidator) RevokeSession(ctx context.Context, sessionID uuid.UU
 	return nil
 }
 
+func (m *mockRBACValidator) RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRBACValidator) UpdateSessionLastSeen(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error {
+	return nil
+}
+
 func TestRequireRole(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -80,7 +89,7 @@ func TestRequireRole(t *testing.T) {
 				})
 			}
 
-			auth := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+			auth := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"}, nil)
 			rbac := NewRBACMiddleware(mockSvc)
 
 			app := fiber.New()
@@ -124,7 +133,7 @@ func TestRequireAllRoles(t *testing.T) {
 				})
 			}
 
-			auth := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+			auth := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"}, nil)
 			rbac := NewRBACMiddleware(mockSvc)
 
 			app := fiber.New()
@@ -163,7 +172,7 @@ func TestRequireFinanceAccess(t *testing.T) {
 					{SchoolID: uuid.New(), Role: tc.userRole, IsActive: true},
 				},
 			}
-			auth := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+			auth := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"}, nil)
 			rbac := NewRBACMiddleware(mockSvc)
 
 			app := fiber.New()
@@ -201,7 +210,7 @@ func TestRequireAdminAccess(t *testing.T) {
 					{SchoolID: uuid.New(), Role: tc.userRole, IsActive: true},
 				},
 			}
-			auth := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+			auth := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"}, nil)
 			rbac := NewRBACMiddleware(mockSvc)
 
 			app := fiber.New()

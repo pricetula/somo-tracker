@@ -65,12 +65,12 @@ func TestProvisionTenant_Handler_RequiresCountryID(t *testing.T) {
 	repo := store.New(queries)
 
 	mockStytch := &mockStytchHandlerForValidation{}
-	svc, err := service.New(repo, mockStytch, db, "")
+	svc, err := service.New(repo, mockStytch, db, "", 0)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 	cfg := &config.Config{Env: "development"}
-	h := New(svc, cfg, nil)
+	h := New(svc, cfg, nil, nil)
 
 	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -22,6 +23,8 @@ type MockSessionValidator struct {
 	getGuardianStudentsFunc          func(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	getTeacherClassesFunc            func(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	revokeSessionFunc                func(ctx context.Context, sessionID uuid.UUID) error
+	revokeAllSessionsFunc            func(ctx context.Context, userID uuid.UUID) error
+	updateSessionLastSeenFunc        func(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error
 }
 
 func (m *MockSessionValidator) ValidateSession(ctx context.Context, tokenHash []byte) (*service.SessionContext, error) {
@@ -71,6 +74,20 @@ func (m *MockSessionValidator) GetTeacherClasses(ctx context.Context, teacherUse
 func (m *MockSessionValidator) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
 	if m.revokeSessionFunc != nil {
 		return m.revokeSessionFunc(ctx, sessionID)
+	}
+	return nil
+}
+
+func (m *MockSessionValidator) RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error {
+	if m.revokeAllSessionsFunc != nil {
+		return m.revokeAllSessionsFunc(ctx, userID)
+	}
+	return nil
+}
+
+func (m *MockSessionValidator) UpdateSessionLastSeen(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error {
+	if m.updateSessionLastSeenFunc != nil {
+		return m.updateSessionLastSeenFunc(ctx, sessionID, idleThreshold)
 	}
 	return nil
 }
@@ -145,7 +162,7 @@ func TestRequireAuth_CookieNamePerEnv(t *testing.T) {
 				tc.setupMock(mockSvc)
 			}
 
-			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: tc.env})
+			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: tc.env}, nil)
 
 			app := fiber.New()
 			app.Use(middleware.RequireAuth())
@@ -233,7 +250,7 @@ func TestRequireAuth_ValidatesExpiryRevocation(t *testing.T) {
 				},
 			}
 
-			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"}, nil)
 
 			app := fiber.New()
 			app.Use(middleware.RequireAuth())
@@ -289,7 +306,7 @@ func TestRequireAuth_SetsLocals(t *testing.T) {
 		},
 	}
 
-	middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+	middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"}, nil)
 
 	app := fiber.New()
 	app.Use(middleware.RequireAuth())
@@ -421,7 +438,7 @@ func TestCSRFMiddleware_RejectsMissingOrigin(t *testing.T) {
 					return []service.MembershipContext{{SchoolID: uuid.New(), Role: "owner", IsActive: true}}, nil
 				},
 			}
-			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test", CORSOrigins: "https://app.example.com,http://localhost:3000"})
+			middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test", CORSOrigins: "https://app.example.com,http://localhost:3000"}, nil)
 
 			app := fiber.New()
 			app.Use(middleware.RequireAuth())
@@ -461,7 +478,7 @@ func TestCSRFMiddleware_RejectsMissingOrigin(t *testing.T) {
 // TestOptionalAuth_AllowsMissingCookie verifies optional auth doesn't require cookie
 func TestOptionalAuth_AllowsMissingCookie(t *testing.T) {
 	mockSvc := &MockSessionValidator{}
-	middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+	middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"}, nil)
 
 	app := fiber.New()
 	app.Use(middleware.OptionalAuth())
@@ -493,7 +510,7 @@ func TestOptionalAuth_ValidatesCookieIfPresent(t *testing.T) {
 			return []service.MembershipContext{}, nil
 		},
 	}
-	middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"})
+	middleware := NewAuthMiddleware(mockSvc, &config.Config{Env: "test"}, nil)
 
 	app := fiber.New()
 	app.Use(middleware.OptionalAuth())

@@ -1,10 +1,10 @@
 ---
 id: SOM-DATATABLE-001
 title: Virtualized Infinite Data Table Core
-status: approved
+status: implemented
 author: agent
 date: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-15
 fr_ids: [FE-007, FE-008, FE-009, FE-010, FE-011, FE-015, FE-016, FE-017, FE-018, FE-019, FE-020, FE-021, FE-023, FE-025, FE-026, FE-027]
 nf_ids: []
 api_contract: no
@@ -14,7 +14,7 @@ generated_files: []
 
 ## 1. Summary
 
-A shared, virtualized infinite data table at `src/components/shared/data-table/`. It combines TanStack Table v9 (manual sorting/filtering/pagination), TanStack Virtual (row-only virtualization over an infinite client cache), and TanStack Query v5 (`useInfiniteQuery` with cursor pagination).
+A shared, virtualized infinite data table at `src/components/shared/data-table/`. It combines a row virtualizer (row-only virtualization over an infinite client cache) and a cursor-based pagination library (`useInfiniteQuery` with cursor pagination). Sorting and filtering are handled by the page component via `onSortChange`/`onFilterChange` callbacks; `<DataTable>` receives flattened props and only renders virtualized rows.
 
 This is the shared `<DataTable>` component mandated by FE-019. All list screens (students, schools, academics, fees, health, behavior, timetable, attendance, enrollments) use it; the only exemption is `RollCallList`.
 
@@ -24,12 +24,12 @@ It is a **shared composite** under `src/components/shared/` and therefore **neve
 
 ### Virtualization Over Infinite Cache
 
-TanStack Virtual requires a `totalCount` to size the scrollbar. Keyset pagination has no DB total count. The solution:
+A row virtualizer requires a `totalCount` to size the scrollbar. Keyset pagination has no DB total count. The solution:
 
 - All loaded pages are flattened into one array: `pages.flatMap(p => p.items)`
 - `useVirtualizer({ count: flatArray.length, ... })` — `totalCount` is rows loaded **so far**, not DB total
 - Scroll near bottom → `fetchNextPage` → append new page → virtualizer `totalCount` grows
-- User can scroll back up through previously loaded pages (still in React Query cache)
+- User can scroll back up through previously loaded pages (still in client cache)
 
 ```
 [Page 1] [Page 2] [Page 3] → flattened → virtualizer count = 150
@@ -93,7 +93,7 @@ Shared links strip `cursor` and keep `filters` → recipient gets page 1 with th
 | FE-016 | Semantic Tailwind tokens only; status colors from one style map; never color alone |
 | FE-017 | No wrappers without layout/semantic purpose; fragments |
 | FE-018 | Base UI `render={<Component/>}`; never `asChild` |
-| FE-019 | All tables use shared `<DataTable>` (`@tanstack/react-table` + shadcn `Table`), server-side pagination/sort/filter; exemption `RollCallList` |
+| FE-019 | All tables use shared `<DataTable>` (shadcn Table), server-side pagination/sort/filter; exemption `RollCallList` |
 | FE-020 | `react-hook-form` + `zodResolver` + shadcn `Form` parts (for inline filter/edit UI) |
 | FE-021 | Shared composites never fetch; live in `src/components/shared/` |
 | FE-023 | `date-fns` + `@date-fns/tz` Africa/Nairobi; date-only `yyyy-MM-dd` strings |
@@ -129,7 +129,7 @@ The data table follows a **clean, minimal, modern aesthetic** with uniform rows 
 
 | File | Type | Responsibility |
 |------|------|----------------|
-| `data-table.tsx` | Component | `<DataTable>` — TanStack Table v9 + `useVirtualizer` encapsulated inside; ≤150 DOM nodes; row height via `rowHeight` prop (default 48px) |
+| `data-table.tsx` | Component | `<DataTable>` — row virtualizer + CSS grid column alignment; ≤150 DOM nodes; row height via `rowHeight` prop (default 48px); sorting/filtering handled by page component via callbacks |
 | `create-list-query-fn.ts` | Helper | `createListQueryFn<TData>(endpoint)` — serializes params into GET; `AbortSignal` passthrough; snake→camel mapping; returns `DataTablePage<TData>` |
 | `column-factories.ts` | Helper | `textColumn`, `numberColumn`, `dateColumn`, `badgeColumn`, `selectColumn`, `linkColumn` |
 | `selection-store.ts` | Store | `Set<string>` — toggle, selectAllLoaded, selectRange, prune, derived state |
@@ -274,14 +274,13 @@ interface BulkAction<TData> {
 2. **`selection-store.ts`** — `createSelectionStore<TData>()`: `Set<string>`-based store, toggle, selectAllLoaded, selectRange, prune, derived state, subscribe
 3. **`create-list-query-fn.ts`** — `createListQueryFn<TData>(endpoint)`: param conversion (limit, cursor, sort, filters→base64url), `AbortSignal` passthrough, snake→camel mapping, returns `DataTablePage<TData>`
 4. **`router-adapter.ts`** — `getSearchParams`, `setSearchParams` (push/replace), `serialize`/`parse` for pagination params (`limit`, `cursor`, `sort`, `filters`)
-5. **`data-table.tsx`** — `<DataTable>`: TanStack Table v9 (`manualSorting`, `manualFiltering`, `manualPagination`), row virtualization via `useVirtualizer` (≤150 DOM nodes, `rowHeight` prop default 48px), shadcn `Table`, header/row rendering via column factories
+5. **`data-table.tsx`** — `<DataTable>`: row virtualizer + CSS `grid` column alignment (`grid-template-columns` from column widths); ≤150 DOM nodes; `rowHeight` prop default 48px; sorting/filtering handled by page component via `onSortChange`/`onFilterChange` callbacks; header/row rendering via column factories
 6. **`data-table-bulk-bar.tsx`** — `<BulkBar>`: selected count readout, bulk action `DropdownMenu`, `AlertDialog` confirmation, clear selection
 7. **`index.ts`** — named exports only
 8. **`data-table.test.tsx`** — Vitest + RTL tests per §7
 
 ### Shadcn Dependencies (FE-021: `pnpm dlx shadcn@latest add`, never hand-edit `src/components/ui/`)
 
-- `table` — shadcn Table parts
 - `checkbox` — tri-state header + row checkboxes
 - `dropdown-menu` — row action menus, bulk action dropdown
 - `alert-dialog` — bulk action confirmations
@@ -344,8 +343,12 @@ Covered by domain feature specs (students, schools, etc.) per FE-027 — this sp
 | Backend filter param format | Single `filters=<base64url>` param. Backend parser matches `createListQueryFn` serialization exactly (snake_case field names, `op`/`v` structure). |
 | `maxPages` default | `maxPages: 10` (caches last 10 pages). |
 | Row height source | Set on the component via `rowHeight` prop (default 48px). No CSS variable. |
-| `linkColumn` navigation | Always uses TanStack Router `<Link>` (renders `<a>` under the hood). Middle-click, Ctrl/Cmd-click, and screen-reader semantics work natively. No native `<a href>`. |
+| `linkColumn` navigation | Always uses Next.js `<Link>` (renders `<a>` under the hood). Middle-click, Ctrl/Cmd-click, and screen-reader semantics work natively. No native `<a href>`. |
 | Pruning notification | Toast via sonner (already global per FE-010 `MutationCache.onError`). |
+| Row virtualizer API | `useVirtualizer` exposes `getVirtualItems()` (items shaped `{ index, start, end, size, offset }`) and `getTotalSize()`. Row positioning uses `virtualItem.start` / `virtualItem.size`; scroll spacer height uses `getTotalSize()`. |
+| Column key uniqueness | Every column factory (`textColumn`, `numberColumn`, `dateColumn`, `badgeColumn`, `linkColumn`, `selectColumn`) sets an explicit `id` (`accessorKey` or `'selection'`). Without it, `column.id` is `undefined` and every cell in a row receives `key={undefined}`, which React flags as duplicate keys. |
+| Column width & alignment | Header and body rows use a shared CSS `grid` with `grid-template-columns` built from column widths. Columns with an explicit `width` in `DataTableColumnMeta` use it; others share `1fr`. This guarantees header cells and body cells line up vertically. Cells use `px-4 py-3` padding, `text-ellipsis` overflow, and consistent text alignment per column `align`. |
+| Row hover / selection | Hover: `bg-muted/50`. Selected: `bg-accent/50 text-accent-foreground`. Applied via conditional classes on the row div. |
 
 ## 9. Links
 
@@ -358,5 +361,5 @@ Covered by domain feature specs (students, schools, etc.) per FE-027 — this sp
 - [FE-027](../requirements/frontend.md) — per-role tests, modal soft-nav + hard-load tests
 - [FE-040](../requirements/frontend.md) — search debounce 300ms (handled at feature level)
 - [FE-041](../requirements/frontend.md) — active filters as removable chips (handled at feature level)
-- [frontend/package.json](../../../frontend/package.json) — `@tanstack/react-table` v9, `@tanstack/react-virtual` v3, `@tanstack/react-query` v5 already installed
+- [frontend/package.json](../../../frontend/package.json) — frontend dependencies (to be defined with Next.js migration)
 - [src/components/shared/](../../../frontend/src/components/shared/) — existing shared composites (app-sidebar, sidebar-provider)

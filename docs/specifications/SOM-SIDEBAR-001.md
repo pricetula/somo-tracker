@@ -59,10 +59,10 @@ Attempting to navigate to a page outside the user's role set renders the existin
 Backend endpoint `GET /api/v1/me` returns the authenticated user's profile. Frontend flow:
 
 1. **Backend:** `GET /api/v1/me` returns `full_name`, `email`, `avatar_url`, `role`, `active_school { id, name }`, `schools [ { id, name } ]`.
-2. **Server function:** `getMe` (`createServerFn`) reads the Cookie header and forwards it to `/api/v1/me`. Runs on TanStack Start server.
+2. **Server action:** `getMe` reads the session cookie and forwards it to `/api/v1/me`. Runs on Next.js server.
 3. **Root route loader:** `routes/__root.tsx` loader calls `getMe()` during SSR; data is embedded in HTML.
 4. **Client hook:** `useMe()` reads loader data via context; no client fetch on initial load (no skeleton, no flicker).
-5. **Client-side navigation:** `beforeLoad` can invoke `getMe` as a server function RPC, or TanStack Query revalidates.
+5. **Client-side navigation:** Next.js server actions revalidate data on navigation.
 6. **Sidebar components** (`AppSidebar`, `NavMain`, `SchoolSwitcher`, `NavUser`) receive data via props — **never fetch** (FE-021).
 
 ## 5. School Switcher

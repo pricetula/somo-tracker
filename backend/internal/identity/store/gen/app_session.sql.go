@@ -14,9 +14,9 @@ import (
 )
 
 const createAppSession = `-- name: CreateAppSession :one
-INSERT INTO app_session (user_id, tenant_id, token_hash, stytch_member_session_id, expires_at)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at
+INSERT INTO app_session (user_id, tenant_id, token_hash, stytch_member_session_id, expires_at, last_seen_at)
+VALUES ($1, $2, $3, $4, $5, NOW())
+RETURNING id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at, last_seen_at
 `
 
 type CreateAppSessionParams struct {
@@ -36,6 +36,7 @@ type CreateAppSessionRow struct {
 	CreatedAt             time.Time
 	ExpiresAt             time.Time
 	RevokedAt             sql.NullTime
+	LastSeenAt            sql.NullTime
 }
 
 func (q *Queries) CreateAppSession(ctx context.Context, arg CreateAppSessionParams) (CreateAppSessionRow, error) {
@@ -56,12 +57,13 @@ func (q *Queries) CreateAppSession(ctx context.Context, arg CreateAppSessionPara
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
+		&i.LastSeenAt,
 	)
 	return i, err
 }
 
 const getAppSessionByID = `-- name: GetAppSessionByID :one
-SELECT id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at
+SELECT id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at, last_seen_at
 FROM app_session
 WHERE id = $1
 `
@@ -75,6 +77,7 @@ type GetAppSessionByIDRow struct {
 	CreatedAt             time.Time
 	ExpiresAt             time.Time
 	RevokedAt             sql.NullTime
+	LastSeenAt            sql.NullTime
 }
 
 func (q *Queries) GetAppSessionByID(ctx context.Context, id uuid.UUID) (GetAppSessionByIDRow, error) {
@@ -89,12 +92,13 @@ func (q *Queries) GetAppSessionByID(ctx context.Context, id uuid.UUID) (GetAppSe
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
+		&i.LastSeenAt,
 	)
 	return i, err
 }
 
 const getAppSessionByTokenHash = `-- name: GetAppSessionByTokenHash :one
-SELECT id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at
+SELECT id, user_id, tenant_id, token_hash, stytch_member_session_id, created_at, expires_at, revoked_at, last_seen_at
 FROM app_session
 WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()
 LIMIT 1
@@ -109,6 +113,7 @@ type GetAppSessionByTokenHashRow struct {
 	CreatedAt             time.Time
 	ExpiresAt             time.Time
 	RevokedAt             sql.NullTime
+	LastSeenAt            sql.NullTime
 }
 
 func (q *Queries) GetAppSessionByTokenHash(ctx context.Context, tokenHash []byte) (GetAppSessionByTokenHashRow, error) {
@@ -123,12 +128,13 @@ func (q *Queries) GetAppSessionByTokenHash(ctx context.Context, tokenHash []byte
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
+		&i.LastSeenAt,
 	)
 	return i, err
 }
 
 const getSessionWithMemberships = `-- name: GetSessionWithMemberships :one
-SELECT s.id, s.user_id, s.tenant_id, s.token_hash, s.stytch_member_session_id, s.created_at, s.expires_at, s.revoked_at,
+SELECT s.id, s.user_id, s.tenant_id, s.token_hash, s.stytch_member_session_id, s.created_at, s.expires_at, s.revoked_at, s.last_seen_at,
        m.id as membership_id, m.school_id, m.role, m.is_active
 FROM app_session s
 JOIN users u ON u.id = s.user_id AND u.tenant_id = s.tenant_id
@@ -154,6 +160,7 @@ type GetSessionWithMembershipsRow struct {
 	CreatedAt             time.Time
 	ExpiresAt             time.Time
 	RevokedAt             sql.NullTime
+	LastSeenAt            sql.NullTime
 	MembershipID          uuid.NullUUID
 	SchoolID              uuid.NullUUID
 	Role                  NullUserRole
@@ -178,12 +185,24 @@ func (q *Queries) GetSessionWithMemberships(ctx context.Context, tokenHash []byt
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
+		&i.LastSeenAt,
 		&i.MembershipID,
 		&i.SchoolID,
 		&i.Role,
 		&i.IsActive,
 	)
 	return i, err
+}
+
+const revokeAllSessionsForUser = `-- name: RevokeAllSessionsForUser :exec
+UPDATE app_session
+SET revoked_at = NOW()
+WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, revokeAllSessionsForUser, userID)
+	return err
 }
 
 const revokeAppSession = `-- name: RevokeAppSession :exec
@@ -194,5 +213,21 @@ WHERE id = $1
 
 func (q *Queries) RevokeAppSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, revokeAppSession, id)
+	return err
+}
+
+const updateSessionLastSeen = `-- name: UpdateSessionLastSeen :exec
+UPDATE app_session
+SET last_seen_at = NOW()
+WHERE id = $1 AND last_seen_at < NOW() - $2
+`
+
+type UpdateSessionLastSeenParams struct {
+	ID      uuid.UUID
+	Column2 interface{}
+}
+
+func (q *Queries) UpdateSessionLastSeen(ctx context.Context, arg UpdateSessionLastSeenParams) error {
+	_, err := q.db.ExecContext(ctx, updateSessionLastSeen, arg.ID, arg.Column2)
 	return err
 }

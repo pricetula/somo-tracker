@@ -12,7 +12,7 @@ draft — bootstrapped from code. No human sign-off yet.
 
 | Application | Stack | Role |
 |-------------|-------|------|
-| `frontend/` | TanStack Start + Tailwind + shadcn/ui + Base UI | Web application (TanStack Router, React Query) |
+| `frontend/` | Next.js + Tailwind + shadcn/ui | Web application (Next.js App Router) |
 | `backend/` | Go, Fiber v3, pgx, sqlc, PostgreSQL, Redis, Asynq | HTTP API + background worker |
 | `marketing/` | Astro static site | Public landing site; not part of `docker-compose.yml` |
 
@@ -46,12 +46,11 @@ Middleware: `RequireAuth`, `TenantMiddleware`, RBAC middleware, CSRF middleware.
 
 ### Frontend architecture (`frontend/AGENTS.md`)
 
-- Feature modules under `src/features/<name>/`; import only via `features/<name>/index.ts` outside the feature (`FE-001`).
-- Routes in `routes/` export TanStack Router `Route` with `loader` and `component`; pages compose features via `index.ts`, hold no business logic or data access (`FE-002`).
-- API types generated from `docs/api/openapi.yaml` into `src/features/auth/api/generated/types.ts`; generated wire types are snake_case; map to camelCase at the API-function layer (`FE-008`).
-- HTTP via native `fetch` wrapped once in `src/lib/api/client.ts`; base path `/api/v1`; never send school ID or `X-Active-School` (`FE-007`).
-- App shell: shadcn `sidebar-07`; header has `SidebarTrigger`, `Separator`, dynamic `Breadcrumb`; page title and primary actions in shared `<PageHeader>` (`FE-013`).
-- Add/edit/view use intercepting + parallel routes in `Dialog`/`Sheet` (`FE-014`).
+- Feature modules under `src/features/<name>/`; import only via `features/<name>/index.ts` outside the feature.
+- Routes in `app/` export Next.js App Router route handlers; pages compose features via `index.ts`, hold no business logic or data access.
+- API types generated from `docs/api/openapi.yaml` into `src/features/auth/api/generated/types.ts`; generated wire types are snake_case; map to camelCase at the API-function layer.
+- HTTP via native `fetch` wrapped once in `src/lib/api/client.ts`; base path `/api/v1`; never send school ID or `X-Active-School`.
+- App shell: shadcn sidebar; header has `SidebarTrigger`, `Separator`, dynamic `Breadcrumb`; page title and primary actions in shared `<PageHeader>`.
 
 ## Boundaries
 

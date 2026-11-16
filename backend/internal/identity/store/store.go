@@ -90,6 +90,7 @@ func toAppSession(row storegen.CreateAppSessionRow) storegen.AppSession {
 		ExpiresAt:              row.ExpiresAt,
 		RevokedAt:              row.RevokedAt,
 		DeletedAt:              sql.NullTime{},
+		LastSeenAt:             row.LastSeenAt,
 	}
 }
 
@@ -104,6 +105,7 @@ func toAppSessionByToken(row storegen.GetAppSessionByTokenHashRow) storegen.AppS
 		ExpiresAt:              row.ExpiresAt,
 		RevokedAt:              row.RevokedAt,
 		DeletedAt:              sql.NullTime{},
+		LastSeenAt:             row.LastSeenAt,
 	}
 }
 
@@ -118,6 +120,7 @@ func toAppSessionByID(row storegen.GetAppSessionByIDRow) storegen.AppSession {
 		ExpiresAt:              row.ExpiresAt,
 		RevokedAt:              row.RevokedAt,
 		DeletedAt:              sql.NullTime{},
+		LastSeenAt:             row.LastSeenAt,
 	}
 }
 
@@ -316,6 +319,13 @@ func (s *Store) RevokeAppSession(ctx context.Context, id uuid.UUID) error {
 	return s.q.RevokeAppSession(ctx, id)
 }
 
+func (s *Store) UpdateSessionLastSeen(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error {
+	return s.q.UpdateSessionLastSeen(ctx, storegen.UpdateSessionLastSeenParams{
+		ID:           sessionID,
+		Column2:      idleThreshold,
+	})
+}
+
 func (s *Store) GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (storegen.GetSessionWithMembershipsRow, error) {
 	return s.q.GetSessionWithMemberships(ctx, tokenHash)
 }
@@ -439,22 +449,29 @@ func (s *Store) GetTenantMembershipRole(ctx context.Context, userID, tenantID uu
 	return string(role), err
 }
 
-// RBAC support - placeholder implementations
-// TODO: Add custom SQL queries for these
+// RBAC support
 func (s *Store) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error) {
 	return []service.MembershipContext{}, nil
 }
 
 func (s *Store) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
-	return []uuid.UUID{}, nil
+	return s.q.GetGuardianStudents(ctx, storegen.GetGuardianStudentsParams{
+		UserID:   guardianUserID,
+		TenantID: tenantID,
+	})
 }
 
 func (s *Store) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	// teacher_class_links table does not exist yet - migration required
 	return []uuid.UUID{}, nil
 }
 
 func (s *Store) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
 	return s.q.RevokeAppSession(ctx, sessionID)
+}
+
+func (s *Store) RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error {
+	return s.q.RevokeAllSessionsForUser(ctx, userID)
 }
 
 func (s *Store) ListCountries(ctx context.Context) ([]storegen.Country, error) {

@@ -16,7 +16,9 @@ EXPOSE 3000
 
 # Start dev server. HOSTNAME=0.0.0.0 is required so the dev server
 # accepts connections from outside the container (docker port mapping).
+# Install dependencies at runtime because the anonymous /app/node_modules
+# volume shadows the image-installed node_modules.
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-CMD ["pnpm", "run", "dev"]
+CMD ["sh", "-c", "pnpm install --frozen-lockfile && pnpm run dev"]

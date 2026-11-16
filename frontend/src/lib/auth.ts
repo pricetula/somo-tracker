@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { goRequest } from './go-client'
 
 export interface AuthUser {
@@ -13,11 +14,10 @@ export interface AuthUser {
  * getAuthUser validates the session against Go /api/v1/me and returns the
  * user or null.
  *
- * Called once per page load (typically in a layout). Results should be
- * cached in React Context or passed down as props — do not call this on
- * every navigation.
+ * Results are deduplicated within a single render pass via React cache(),
+ * so calling this from both the layout and a page only hits the backend once.
  */
-export async function getAuthUser(): Promise<AuthUser | null> {
+export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   try {
     const res = await goRequest('/api/v1/me')
     if (!res.ok) return null
@@ -39,4 +39,4 @@ export async function getAuthUser(): Promise<AuthUser | null> {
   } catch {
     return null
   }
-}
+})

@@ -1,4 +1,5 @@
 import { getAuthUser } from '@/lib/auth'
+import { clearSession } from '@/lib/api'
 import { redirect } from 'next/navigation'
 
 /**
@@ -14,5 +15,6 @@ export default async function RootPage() {
     redirect('/dashboard')
   }
 
-  redirect('/login')
+  // Session may be present but invalid — clear it before redirecting
+  await clearSession()
 }

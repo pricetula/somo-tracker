@@ -1,6 +1,5 @@
 import { getAuthUser } from '@/lib/auth'
-import { apiRequest, SessionExpiredError } from '@/lib/api'
-import { redirect } from 'next/navigation'
+import { apiRequest, clearSession, SessionExpiredError } from '@/lib/api'
 
 interface Student {
   student_id: string
@@ -43,11 +42,7 @@ export default async function StudentsPage() {
   } catch (err) {
     if (err instanceof SessionExpiredError) {
       // Session expired or revoked — clear cookie and redirect to login
-      // Note: redirect() in a Server Component throws, so we need to handle
-      // this carefully. We call clearSession() which redirects internally.
-      // For now, fall through to show empty state; the global 401 handler
-      // in apiRequest already throws SessionExpiredError.
-      return null
+      await clearSession()
     }
     console.error('Failed to load students:', err)
   }

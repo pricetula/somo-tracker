@@ -1,23 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 
+export const dynamic = 'force-dynamic'
+
 /**
- * Auth callback page — public route.
- *
- * Stytch redirects here after the user clicks the magic link in their email.
- * The URL contains a ?token=... query parameter.
- *
- * We POST the token to BFF /api/auth/authenticate-token → Go validates it,
- * exchanges the IST for a real Stytch session, and sets the
- * __Host-session_token cookie (HttpOnly). Then we redirect to /dashboard.
- *
- * If onboarding is required (new user), Go returns auth_state and we
- * redirect to the onboarding flow instead.
+ * Inner callback content — uses useSearchParams, must be wrapped in Suspense.
  */
-export default function CallbackPage() {
+function CallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
@@ -86,7 +78,9 @@ export default function CallbackPage() {
       <div className="flex min-h-screen flex-col items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6">
           <h1 className="text-3xl font-bold">Signing in…</h1>
-          <p className="text-muted-foreground">Please wait while we verify your magic link.</p>
+          <p className="text-muted-foreground">
+            Please wait while we verify your magic link.
+          </p>
         </div>
       </div>
     )
@@ -109,4 +103,36 @@ export default function CallbackPage() {
   }
 
   return null
+}
+
+/**
+ * Auth callback page — public route.
+ *
+ * Stytch redirects here after the user clicks the magic link in their email.
+ * The URL contains a ?token=... query parameter.
+ *
+ * We POST the token to BFF /api/auth/authenticate-token → Go validates it,
+ * exchanges the IST for a real Stytch session, and sets the
+ * __Host-session_token cookie (HttpOnly). Then we redirect to /dashboard.
+ *
+ * If onboarding is required (new user), Go returns auth_state and we
+ * redirect to the onboarding flow instead.
+ */
+export default function CallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen flex-col items-center justify-center p-4">
+          <div className="w-full max-w-md space-y-6">
+            <h1 className="text-3xl font-bold">Signing in…</h1>
+            <p className="text-muted-foreground">
+              Please wait while we verify your magic link.
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <CallbackContent />
+    </Suspense>
+  )
 }

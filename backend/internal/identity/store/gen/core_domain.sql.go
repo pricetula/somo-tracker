@@ -197,6 +197,47 @@ func (q *Queries) DeletePKCECode(ctx context.Context, pendingOnboardingID uuid.U
 	return err
 }
 
+const getGuardianStudents = `-- name: GetGuardianStudents :many
+SELECT gsl.student_id
+FROM memberships m
+INNER JOIN guardian_student_links gsl ON gsl.guardian_id = m.id
+INNER JOIN schools sc ON sc.id = m.school_id
+WHERE m.user_id = $1
+  AND sc.tenant_id = $2
+  AND m.deleted_at IS NULL
+  AND gsl.deleted_at IS NULL
+`
+
+type GetGuardianStudentsParams struct {
+	UserID   uuid.UUID
+	TenantID uuid.UUID
+}
+
+// Returns student IDs linked to a guardian (via their membership) in a tenant.
+// Scoped to tenant via schools.tenant_id. Read-only join across identity + students domains (BE-003).
+func (q *Queries) GetGuardianStudents(ctx context.Context, arg GetGuardianStudentsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, getGuardianStudents, arg.UserID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var student_id uuid.UUID
+		if err := rows.Scan(&student_id); err != nil {
+			return nil, err
+		}
+		items = append(items, student_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMembershipByUserAndSchool = `-- name: GetMembershipByUserAndSchool :one
 SELECT id, user_id, school_id, role, created_at
 FROM memberships

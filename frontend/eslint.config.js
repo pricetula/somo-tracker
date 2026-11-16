@@ -1,3 +1,3 @@
-const config = require('eslint-config-next')
+import config from 'eslint-config-next'
 
-module.exports = config
+export default config

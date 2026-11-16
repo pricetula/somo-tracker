@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "compatibility_date": "2026-11-16",
   "compatibility_flags": ["global_fetch_strictly_public"],
-  "name": "somotracker-frontend",
+  "name": "somo-tracker-frontend",
   "main": "vinext/server/fetch-handler",
   "assets": {
     "directory": "./cloudflare/output",

@@ -112,7 +112,7 @@ func setupMeIntegrationDB(t *testing.T) *meTestEnv {
 	// 7. Wire service + handler
 	queries := storegen.New(db)
 	repo := identityStore.New(queries)
-	svc, err := service.New(repo, nil, db, "")
+	svc, err := service.New(repo, nil, db, "", 0)
 	require.NoError(t, err)
 	env.svc = svc
 

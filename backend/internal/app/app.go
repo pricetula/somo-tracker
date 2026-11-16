@@ -21,6 +21,8 @@ import (
 	identityService "somotracker/internal/identity/service"
 	identityStore "somotracker/internal/identity/store"
 	storegen "somotracker/internal/identity/store/gen"
+	"somotracker/internal/platform/apperr"
+	"somotracker/internal/platform/audit"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/db"
 	"somotracker/internal/platform/httpserver"
@@ -41,12 +43,13 @@ import (
 
 // App is the HTTP API composition root.
 type App struct {
-	cfg         *config.Config
-	dbPool      *db.Pool
-	sqlDB       *sql.DB
-	redisClient *redisPkg.Client
-	server      *httpserver.Server
-	rateLimiter *ratelimit.Limiter
+	cfg           *config.Config
+	dbPool        *db.Pool
+	sqlDB         *sql.DB
+	redisClient   *redisPkg.Client
+	server        *httpserver.Server
+	rateLimiter   *ratelimit.Limiter
+	auditRecorder *audit.Recorder
 }
 
 // New creates the API app with manual DI (BE-005).
@@ -96,13 +99,17 @@ func New(cfg *config.Config) (*App, error) {
 	// HTTP server
 	server := httpserver.New(cfg.Env)
 
+	// Audit recorder
+	auditRecorder := audit.New(slog.Default())
+
 	return &App{
-		cfg:         cfg,
-		dbPool:      dbPool,
-		sqlDB:       sqlDB,
-		redisClient: redisClient,
-		server:      server,
-		rateLimiter: ratelimit.New(redisClient.Client, cfg.EmailHMACKey),
+		cfg:           cfg,
+		dbPool:        dbPool,
+		sqlDB:         sqlDB,
+		redisClient:   redisClient,
+		server:        server,
+		rateLimiter:   ratelimit.New(redisClient.Client, cfg.EmailHMACKey),
+		auditRecorder: auditRecorder,
 	}, nil
 }
 
@@ -148,7 +155,7 @@ func (a *App) Start(ctx context.Context) error {
 	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret)
 	queries := storegen.New(a.sqlDB)
 	identityStore := identityStore.New(queries)
-	identitySvc, err := identityService.New(identityStore, stytchClient, a.sqlDB, a.cfg.ISTEncryptionKey)
+	identitySvc, err := identityService.New(identityStore, stytchClient, a.sqlDB, a.cfg.ISTEncryptionKey, a.cfg.SessionIdleTimeout)
 	if err != nil {
 		return fmt.Errorf("init identity service: %w", err)
 	}
@@ -157,15 +164,15 @@ func (a *App) Start(ctx context.Context) error {
 	a.rateLimiter = ratelimit.New(a.redisClient.Client, a.cfg.EmailHMACKey)
 
 	// Initialize rate limit middleware
-	rateLimitMiddleware := httpserver.NewRateLimitMiddleware(a.rateLimiter)
+	rateLimitMiddleware := httpserver.NewRateLimitMiddleware(a.rateLimiter, a.cfg)
 
 	// Start memory fallback cleanup goroutine
 	go a.rateLimiterCleanup(ctx)
 
-	identityHandler := identityHandler.New(identitySvc, a.cfg, a.rateLimiter)
+	identityHandler := identityHandler.New(identitySvc, a.cfg, a.rateLimiter, a.auditRecorder)
 
 	// Create auth middleware
-	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg)
+	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg, a.auditRecorder)
 	_ = identityMiddleware.NewRBACMiddleware(identitySvc)
 
 	// Students domain
@@ -185,6 +192,7 @@ func (a *App) Start(ctx context.Context) error {
 
 	// Protected routes (require authentication + tenant context)
 	protectedAPI := a.server.App().Group("/api/v1")
+	protectedAPI.Use(rateLimitMiddleware.UnauthenticatedRateLimit()) // Early IP limiter before RequireAuth
 	protectedAPI.Use(authMiddleware.RequireAuth())
 	protectedAPI.Use(authMiddleware.TenantMiddleware())
 	protectedAPI.Use(a.setTenantContextMiddleware()) // Sets app.current_tenant_id for RLS
@@ -268,6 +276,9 @@ func (a *App) securityHeadersMiddleware() fiber.Handler {
 }
 
 // setTenantContextMiddleware sets app.current_tenant_id for RLS policies.
+// Uses SET LOCAL so the GUC is transaction-scoped and automatically reset on
+// commit/rollback. Also defers RESET to prevent pool connection leaks for
+// non-transactional queries. Fails closed (5xx) if the GUC cannot be set.
 func (a *App) setTenantContextMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		tenantID, ok := c.Locals("tenant_id").(string)
@@ -278,15 +289,39 @@ func (a *App) setTenantContextMiddleware() fiber.Handler {
 				tenantID = fmtUUID(tid)
 			}
 		}
-		if tenantID != "" {
-			ctx := context.WithValue(c.Context(), httpserver.TenantIDKey{}, tenantID)
-			c.SetContext(ctx)
-			// Set PostgreSQL GUC for RLS. SET does not accept prepared-statement parameters,
-			// so interpolate the UUID literal. Best-effort: ignore errors to avoid breaking the request.
-			setSQL := fmt.Sprintf("SET app.current_tenant_id = '%s'", tenantID)
-			_, _ = a.dbPool.Exec(c.Context(), setSQL)
-			_, _ = a.sqlDB.ExecContext(c.Context(), setSQL)
+		if tenantID == "" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"code":    string(apperr.FORBIDDEN),
+				"message": "tenant not found in session",
+			})
 		}
+
+		ctx := context.WithValue(c.Context(), httpserver.TenantIDKey{}, tenantID)
+		c.SetContext(ctx)
+
+		// SET LOCAL is transaction-scoped: automatically reset on COMMIT/ROLLBACK.
+		// Outside a transaction it behaves like SET, so we also defer RESET to
+		// prevent leaking the tenant ID into pooled connections.
+		setSQL := fmt.Sprintf("SET LOCAL app.current_tenant_id = '%s'", tenantID)
+		if _, err := a.dbPool.Exec(c.Context(), setSQL); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    string(apperr.INTERNAL_ERROR),
+				"message": "failed to set tenant context",
+			})
+		}
+		if _, err := a.sqlDB.ExecContext(c.Context(), setSQL); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    string(apperr.INTERNAL_ERROR),
+				"message": "failed to set tenant context",
+			})
+		}
+
+		// Defer RESET to prevent pool connection leaks even outside transactions.
+		defer func() {
+			_, _ = a.dbPool.Exec(context.Background(), "RESET app.current_tenant_id")
+			_, _ = a.sqlDB.ExecContext(context.Background(), "RESET app.current_tenant_id")
+		}()
+
 		return c.Next()
 	}
 }

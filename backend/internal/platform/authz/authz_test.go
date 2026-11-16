@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/httpserver"
@@ -253,4 +254,130 @@ func rolesToRoles(roles []string) []Role {
 		r = append(r, Role(s))
 	}
 	return r
+}
+
+func TestRequireSchool_AllowsWhenRoleInTargetSchoolHasPermission(t *testing.T) {
+	schoolA := uuid.New()
+	schoolB := uuid.New()
+
+	// User is admin in School A (current = first), teacher in School B
+	// Admin has school:read in School A
+	app := fiber.New()
+	app.Use(func(c fiber.Ctx) error {
+		c.Locals("roles", []string{"admin", "teacher"})
+		c.Locals("school_ids", []uuid.UUID{schoolA, schoolB})
+		return c.Next()
+	})
+	app.Use(RequireSchool(PermSchoolRead, "current"))
+	app.Get("/test", func(c fiber.Ctx) error {
+		return c.SendString("OK")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestRequireSchool_DeniesWhenRoleInTargetSchoolLacksPermission(t *testing.T) {
+	schoolA := uuid.New()
+	schoolB := uuid.New()
+
+	// User is teacher in School A (current), admin in School B
+	// Teacher lacks school:write in School A
+	app := fiber.New()
+	app.Use(func(c fiber.Ctx) error {
+		c.Locals("roles", []string{"teacher", "admin"})
+		c.Locals("school_ids", []uuid.UUID{schoolA, schoolB})
+		return c.Next()
+	})
+	app.Use(RequireSchool(PermSchoolWrite, "current"))
+	app.Get("/test", func(c fiber.Ctx) error {
+		return c.SendString("OK")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestRequireSchool_DeniesWhenNoMembershipInTargetSchool(t *testing.T) {
+	schoolA := uuid.New()
+	schoolB := uuid.New()
+
+	// User has membership in School A only, requests School B via path param
+	// RequireSchool with path param must be on a route group (Fiber v3: params not in global Use)
+	app := fiber.New()
+	schools := app.Group("/schools/:school_id")
+	schools.Use(func(c fiber.Ctx) error {
+		c.Locals("roles", []string{"admin"})
+		c.Locals("school_ids", []uuid.UUID{schoolA})
+		return c.Next()
+	})
+	schools.Use(RequireSchool(PermSchoolRead, "school_id"))
+	schools.Get("/:id", func(c fiber.Ctx) error {
+		return c.SendString("OK")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/schools/"+schoolB.String()+"/123", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestRequireSchool_AllowsWhenTargetSchoolParamMatches(t *testing.T) {
+	schoolA := uuid.New()
+	schoolB := uuid.New()
+
+	// User is teacher in School A, owner in School B
+	// Requests School B explicitly - owner has school:write
+	app := fiber.New()
+	schools := app.Group("/schools/:school_id")
+	schools.Use(func(c fiber.Ctx) error {
+		c.Locals("roles", []string{"teacher", "owner"})
+		c.Locals("school_ids", []uuid.UUID{schoolA, schoolB})
+		return c.Next()
+	})
+	schools.Use(RequireSchool(PermSchoolWrite, "school_id"))
+	schools.Get("/:id", func(c fiber.Ctx) error {
+		return c.SendString("OK")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/schools/"+schoolB.String()+"/123", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestRequireSchool_DeniesWhenNoSession(t *testing.T) {
+	app := fiber.New()
+	app.Use(RequireSchool(PermSchoolRead, "current"))
+	app.Get("/test", func(c fiber.Ctx) error {
+		return c.SendString("OK")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestRequireSchool_CaseInsensitiveRoleMatching(t *testing.T) {
+	schoolID := uuid.New()
+	app := fiber.New()
+	app.Use(func(c fiber.Ctx) error {
+		c.Locals("roles", []string{"TEACHER"})
+		c.Locals("school_ids", []uuid.UUID{schoolID})
+		return c.Next()
+	})
+	app.Use(RequireSchool(PermStudentRead, "current"))
+	app.Get("/test", func(c fiber.Ctx) error {
+		return c.SendString("OK")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 }

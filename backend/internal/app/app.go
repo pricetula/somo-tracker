@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/helmet"
 	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	identityHandler "somotracker/internal/identity/handler"
@@ -20,6 +21,8 @@ import (
 	identityService "somotracker/internal/identity/service"
 	identityStore "somotracker/internal/identity/store"
 	storegen "somotracker/internal/identity/store/gen"
+	"somotracker/internal/platform/apperr"
+	"somotracker/internal/platform/audit"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/db"
 	"somotracker/internal/platform/httpserver"
@@ -28,6 +31,10 @@ import (
 	redisPkg "somotracker/internal/platform/redis"
 	"somotracker/internal/platform/seed"
 	"somotracker/internal/platform/stytch"
+	schoolHandler "somotracker/internal/schools/handler"
+	schoolService "somotracker/internal/schools/service"
+	schoolStore "somotracker/internal/schools/store"
+	schoolStoreGen "somotracker/internal/schools/store/gen"
 	studentHandler "somotracker/internal/students/handler"
 	studentService "somotracker/internal/students/service"
 	studentStore "somotracker/internal/students/store"
@@ -36,12 +43,13 @@ import (
 
 // App is the HTTP API composition root.
 type App struct {
-	cfg         *config.Config
-	dbPool      *db.Pool
-	sqlDB       *sql.DB
-	redisClient *redisPkg.Client
-	server      *httpserver.Server
-	rateLimiter *ratelimit.Limiter
+	cfg           *config.Config
+	dbPool        *db.Pool
+	sqlDB         *sql.DB
+	redisClient   *redisPkg.Client
+	server        *httpserver.Server
+	rateLimiter   *ratelimit.Limiter
+	auditRecorder *audit.Recorder
 }
 
 // New creates the API app with manual DI (BE-005).
@@ -62,9 +70,6 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	// Migrator runs Goose migrations on startup
-	// NOTE: In production, migrations should run as a separate deploy step
-	// with a privileged role, while the app connects as a non-owner role
-	// with FORCE ROW LEVEL SECURITY enabled.
 	m := migrator.New(sqlDB, "migrations")
 	if _, err := m.Up(ctx); err != nil {
 		_ = sqlDB.Close()
@@ -94,12 +99,17 @@ func New(cfg *config.Config) (*App, error) {
 	// HTTP server
 	server := httpserver.New(cfg.Env)
 
+	// Audit recorder
+	auditRecorder := audit.New(slog.Default())
+
 	return &App{
-		cfg:         cfg,
-		dbPool:      dbPool,
-		sqlDB:       sqlDB,
-		redisClient: redisClient,
-		server:      server,
+		cfg:           cfg,
+		dbPool:        dbPool,
+		sqlDB:         sqlDB,
+		redisClient:   redisClient,
+		server:        server,
+		rateLimiter:   ratelimit.New(redisClient.Client, cfg.EmailHMACKey),
+		auditRecorder: auditRecorder,
 	}, nil
 }
 
@@ -136,20 +146,16 @@ func (a *App) Start(ctx context.Context) error {
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
-		// Vary: Origin is automatically added by Fiber when AllowCredentials=true
 	}))
 
 	// 6. AccessLog - single completion line per request
-	// Note: We do NOT use fiber's logger.New() here - it duplicates AccessLog
-	// and can leak sensitive data in production. httpserver.AccessLog()
-	// emits a single structured line per request.
 	app.Use(httpserver.AccessLog())
 
 	// Initialize services
 	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret)
 	queries := storegen.New(a.sqlDB)
 	identityStore := identityStore.New(queries)
-	identitySvc, err := identityService.New(identityStore, stytchClient, a.sqlDB, a.cfg.ISTEncryptionKey)
+	identitySvc, err := identityService.New(identityStore, stytchClient, a.sqlDB, a.cfg.ISTEncryptionKey, a.cfg.SessionIdleTimeout)
 	if err != nil {
 		return fmt.Errorf("init identity service: %w", err)
 	}
@@ -158,21 +164,26 @@ func (a *App) Start(ctx context.Context) error {
 	a.rateLimiter = ratelimit.New(a.redisClient.Client, a.cfg.EmailHMACKey)
 
 	// Initialize rate limit middleware
-	rateLimitMiddleware := httpserver.NewRateLimitMiddleware(a.rateLimiter)
+	rateLimitMiddleware := httpserver.NewRateLimitMiddleware(a.rateLimiter, a.cfg)
 
 	// Start memory fallback cleanup goroutine
 	go a.rateLimiterCleanup(ctx)
 
-	identityHandler := identityHandler.New(identitySvc, a.cfg, a.rateLimiter)
+	identityHandler := identityHandler.New(identitySvc, a.cfg, a.rateLimiter, a.auditRecorder)
 
 	// Create auth middleware
-	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg)
-	rbacMiddleware := identityMiddleware.NewRBACMiddleware(identitySvc)
+	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg, a.auditRecorder)
+	_ = identityMiddleware.NewRBACMiddleware(identitySvc)
 
 	// Students domain
 	studentStore := studentStore.New(studentStoreGen.New(a.sqlDB))
 	studentSvc := studentService.New(studentStore, db.NewTxManager(a.dbPool.Pool))
 	studentHandler := studentHandler.New(studentSvc)
+
+	// Schools domain
+	schoolStore := schoolStore.New(schoolStoreGen.New(a.sqlDB))
+	schoolSvc := schoolService.New(schoolStore, db.NewTxManager(a.dbPool.Pool))
+	schoolHandler := schoolHandler.New(schoolSvc)
 
 	// Public routes (no auth required)
 	publicAPI := a.server.App().Group("/api/v1")
@@ -181,11 +192,14 @@ func (a *App) Start(ctx context.Context) error {
 
 	// Protected routes (require authentication + tenant context)
 	protectedAPI := a.server.App().Group("/api/v1")
+	protectedAPI.Use(rateLimitMiddleware.UnauthenticatedRateLimit()) // Early IP limiter before RequireAuth
 	protectedAPI.Use(authMiddleware.RequireAuth())
 	protectedAPI.Use(authMiddleware.TenantMiddleware())
 	protectedAPI.Use(a.setTenantContextMiddleware()) // Sets app.current_tenant_id for RLS
 	protectedAPI.Use(rateLimitMiddleware.ProtectedRateLimit())
 	studentHandler.RegisterRoutes(protectedAPI)
+	schoolHandler.RegisterRoutes(protectedAPI)
+	identityHandler.RegisterAuthenticatedRoutes(protectedAPI)
 
 	// Mutation routes (require auth + tenant + CSRF)
 	mutationAPI := a.server.App().Group("/api/v1")
@@ -194,14 +208,6 @@ func (a *App) Start(ctx context.Context) error {
 	mutationAPI.Use(a.setTenantContextMiddleware())
 	mutationAPI.Use(rateLimitMiddleware.MutationRateLimit())
 	mutationAPI.Use(authMiddleware.CSRFMiddleware())
-	// TODO: Register mutation handlers here
-
-	// Example: Finance routes with RBAC
-	// financeAPI := mutationAPI.Group("/fees")
-	// financeAPI.Use(rbacMiddleware.RequireFinanceAccess())
-	// feesHandler.RegisterRoutes(financeAPI)
-
-	_ = rbacMiddleware // used in commented example above
 
 	// Legacy routes
 	a.server.RegisterRoutes()
@@ -246,20 +252,15 @@ func (a *App) Start(ctx context.Context) error {
 // securityHeadersMiddleware applies security headers to all responses.
 func (a *App) securityHeadersMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Standard headers
 		c.Set("X-Content-Type-Options", "nosniff")
 		c.Set("X-Frame-Options", "DENY")
 		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 
-		// HSTS - detect HTTPS via X-Forwarded-Proto (set by trusted proxy)
-		// c.Secure() reads from fasthttp which respects ProxyHeader when TrustProxy=true
 		if a.cfg.Env == "production" && (c.Secure() || c.Get("X-Forwarded-Proto") == "https") {
 			c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 		}
 
-		// CSP for API: default-src 'none'; frame-ancestors 'none'
-		// This is safe for JSON APIs and prevents any accidental HTML rendering
 		if a.cfg.Env == "production" {
 			c.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
 		} else if a.cfg.CSPReportOnlyEnabled {
@@ -275,25 +276,52 @@ func (a *App) securityHeadersMiddleware() fiber.Handler {
 }
 
 // setTenantContextMiddleware sets app.current_tenant_id for RLS policies.
-// Must run after RequireAuth/TenantMiddleware which populate tenant_id in locals.
+// Uses SET LOCAL so the GUC is transaction-scoped and automatically reset on
+// commit/rollback. Also defers RESET to prevent pool connection leaks for
+// non-transactional queries. Fails closed (5xx) if the GUC cannot be set.
 func (a *App) setTenantContextMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		tenantID, ok := c.Locals("tenant_id").(string)
 		if !ok {
-			// Try UUID type
-			if tid, ok2 := c.Locals("tenant_id").([16]byte); ok2 {
+			if tid, ok2 := c.Locals("tenant_id").(uuid.UUID); ok2 {
+				tenantID = tid.String()
+			} else if tid, ok2 := c.Locals("tenant_id").([16]byte); ok2 {
 				tenantID = fmtUUID(tid)
 			}
 		}
-		if tenantID != "" {
-			// Set LOCAL (transaction-scoped) GUC for RLS
-			// This requires the DB connection to be in a transaction
-			// For pgx pool, we set it per-request; the connection is released after
-			// In practice, sqlc queries run in their own tx, so we need a wrapper
-			// For now, store in context for repositories to use
-			ctx := context.WithValue(c.Context(), httpserver.TenantIDKey{}, tenantID)
-			c.SetContext(ctx)
+		if tenantID == "" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"code":    string(apperr.FORBIDDEN),
+				"message": "tenant not found in session",
+			})
 		}
+
+		ctx := context.WithValue(c.Context(), httpserver.TenantIDKey{}, tenantID)
+		c.SetContext(ctx)
+
+		// SET LOCAL is transaction-scoped: automatically reset on COMMIT/ROLLBACK.
+		// Outside a transaction it behaves like SET, so we also defer RESET to
+		// prevent leaking the tenant ID into pooled connections.
+		setSQL := fmt.Sprintf("SET LOCAL app.current_tenant_id = '%s'", tenantID)
+		if _, err := a.dbPool.Exec(c.Context(), setSQL); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    string(apperr.INTERNAL_ERROR),
+				"message": "failed to set tenant context",
+			})
+		}
+		if _, err := a.sqlDB.ExecContext(c.Context(), setSQL); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    string(apperr.INTERNAL_ERROR),
+				"message": "failed to set tenant context",
+			})
+		}
+
+		// Defer RESET to prevent pool connection leaks even outside transactions.
+		defer func() {
+			_, _ = a.dbPool.Exec(context.Background(), "RESET app.current_tenant_id")
+			_, _ = a.sqlDB.ExecContext(context.Background(), "RESET app.current_tenant_id")
+		}()
+
 		return c.Next()
 	}
 }
@@ -307,7 +335,7 @@ func (a *App) rateLimiterCleanup(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			a.rateLimiter.MemoryCleanup(24 * time.Hour) // clean entries older than 24h
+			a.rateLimiter.MemoryCleanup(24 * time.Hour)
 		}
 	}
 }
@@ -321,20 +349,13 @@ func fmtUUID(b [16]byte) string {
 // Shutdown gracefully stops the app.
 func (a *App) Shutdown(ctx context.Context) error {
 	slog.Info("shutting down API")
-
-	// Shutdown HTTP server
 	if err := a.server.Shutdown(ctx); err != nil {
 		slog.Error("HTTP server shutdown failed", "err", err)
 	}
-
-	// Close Redis
 	if err := a.redisClient.Close(); err != nil {
 		slog.Error("Redis close failed", "err", err)
 	}
-
-	// Close DB pool
 	a.dbPool.Close()
-
 	slog.Info("shutdown complete")
 	return nil
 }
@@ -375,7 +396,6 @@ func NewWorker(cfg *config.Config) (*Worker, error) {
 
 func (w *Worker) Start(ctx context.Context) error {
 	slog.Info("starting worker")
-	// TODO: start asynq server
 	<-ctx.Done()
 	return w.Shutdown(ctx)
 }

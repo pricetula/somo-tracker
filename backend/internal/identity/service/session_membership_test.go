@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
+	"time"
 
 	storegen "somotracker/internal/identity/store/gen"
 	"github.com/google/uuid"
@@ -11,8 +13,10 @@ import (
 )
 
 type mockRepo struct {
-	getSessionRow storegen.GetSessionWithMembershipsRow
-	getSessionErr error
+	getSessionRow             storegen.GetSessionWithMembershipsRow
+	getSessionErr             error
+	getGuardianStudentsFunc   func(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
+	getTeacherClassesFunc     func(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 }
 
 func (m *mockRepo) GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (storegen.GetSessionWithMembershipsRow, error) {
@@ -43,9 +47,25 @@ func (m *mockRepo) CreateMembership(ctx context.Context, arg storegen.CreateMemb
 func (m *mockRepo) GetUserByID(ctx context.Context, id uuid.UUID) (storegen.User, error) {return storegen.User{}, nil}
 func (m *mockRepo) GetTenantMembershipRole(ctx context.Context, userID, tenantID uuid.UUID) (string, error) {return "", nil}
 func (m *mockRepo) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]MembershipContext, error) {return nil, nil}
-func (m *mockRepo) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {return nil, nil}
-func (m *mockRepo) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {return nil, nil}
+func (m *mockRepo) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	if m.getGuardianStudentsFunc != nil {
+		return m.getGuardianStudentsFunc(ctx, guardianUserID, tenantID)
+	}
+	return nil, nil
+}
+func (m *mockRepo) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	if m.getTeacherClassesFunc != nil {
+		return m.getTeacherClassesFunc(ctx, teacherUserID, tenantID)
+	}
+	return nil, nil
+}
 func (m *mockRepo) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {return nil}
+func (m *mockRepo) RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error {return nil}
+func (m *mockRepo) UpdateSessionLastSeen(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error {return nil}
+func (m *mockRepo) ListCountries(ctx context.Context) ([]storegen.Country, error) {return nil, nil}
+func (m *mockRepo) ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error) {return nil, nil}
+func (m *mockRepo) ListSchoolsByTenant(ctx context.Context, tenantID uuid.UUID) ([]storegen.School, error) {return nil, nil}
+func (m *mockRepo) SetMembershipActive(ctx context.Context, userID uuid.UUID, membershipID uuid.UUID) error {return nil}
 
 func TestValidateSessionWithMemberships_Success(t *testing.T) {
 
@@ -94,4 +114,118 @@ func TestValidateSessionWithMemberships_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, ErrSessionNotFound)
 	require.Nil(t, sess)
 	require.Nil(t, mems)
+}
+
+func TestGetGuardianStudents_ReturnsLinkedStudentIDs(t *testing.T) {
+	guardianUserID := uuid.New()
+	tenantID := uuid.New()
+	studentID1 := uuid.New()
+	studentID2 := uuid.New()
+
+	mockRepo := &mockRepo{
+		getSessionRow: storegen.GetSessionWithMembershipsRow{},
+	}
+	mockRepo.getGuardianStudentsFunc = func(ctx context.Context, guid, tid uuid.UUID) ([]uuid.UUID, error) {
+		require.Equal(t, guardianUserID, guid)
+		require.Equal(t, tenantID, tid)
+		return []uuid.UUID{studentID1, studentID2}, nil
+	}
+
+	svc := &Service{repo: mockRepo}
+
+	ctx := context.Background()
+	result, err := svc.GetGuardianStudents(ctx, guardianUserID, tenantID)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []uuid.UUID{studentID1, studentID2}, result)
+}
+
+func TestGetGuardianStudents_ReturnsEmptyForUnlinkedGuardian(t *testing.T) {
+	guardianUserID := uuid.New()
+	tenantID := uuid.New()
+
+	mockRepo := &mockRepo{}
+	mockRepo.getGuardianStudentsFunc = func(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+		return []uuid.UUID{}, nil
+	}
+
+	svc := &Service{repo: mockRepo}
+
+	ctx := context.Background()
+	result, err := svc.GetGuardianStudents(ctx, guardianUserID, tenantID)
+	require.NoError(t, err)
+	require.Empty(t, result)
+}
+
+func TestGetGuardianStudents_PropagatesRepoError(t *testing.T) {
+	guardianUserID := uuid.New()
+	tenantID := uuid.New()
+
+	mockRepo := &mockRepo{}
+	mockRepo.getGuardianStudentsFunc = func(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+		return nil, errors.New("db connection failed")
+	}
+
+	svc := &Service{repo: mockRepo}
+
+	ctx := context.Background()
+	result, err := svc.GetGuardianStudents(ctx, guardianUserID, tenantID)
+	require.Error(t, err)
+	require.Nil(t, result)
+}
+
+func TestGetTeacherClasses_ReturnsLinkedClassIDs(t *testing.T) {
+	teacherUserID := uuid.New()
+	tenantID := uuid.New()
+	classID1 := uuid.New()
+	classID2 := uuid.New()
+
+	mockRepo := &mockRepo{
+		getSessionRow: storegen.GetSessionWithMembershipsRow{},
+	}
+	mockRepo.getTeacherClassesFunc = func(ctx context.Context, tuid, tid uuid.UUID) ([]uuid.UUID, error) {
+		require.Equal(t, teacherUserID, tuid)
+		require.Equal(t, tenantID, tid)
+		return []uuid.UUID{classID1, classID2}, nil
+	}
+
+	svc := &Service{repo: mockRepo}
+
+	ctx := context.Background()
+	result, err := svc.GetTeacherClasses(ctx, teacherUserID, tenantID)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []uuid.UUID{classID1, classID2}, result)
+}
+
+func TestGetTeacherClasses_ReturnsEmptyForUnassignedTeacher(t *testing.T) {
+	teacherUserID := uuid.New()
+	tenantID := uuid.New()
+
+	mockRepo := &mockRepo{}
+	mockRepo.getTeacherClassesFunc = func(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+		return []uuid.UUID{}, nil
+	}
+
+	svc := &Service{repo: mockRepo}
+
+	ctx := context.Background()
+	result, err := svc.GetTeacherClasses(ctx, teacherUserID, tenantID)
+	require.NoError(t, err)
+	require.Empty(t, result)
+}
+
+func TestGetTeacherClasses_PropagatesRepoError(t *testing.T) {
+	teacherUserID := uuid.New()
+	tenantID := uuid.New()
+
+	mockRepo := &mockRepo{}
+	mockRepo.getTeacherClassesFunc = func(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
+		return nil, errors.New("db connection failed")
+	}
+
+	svc := &Service{repo: mockRepo}
+
+	ctx := context.Background()
+	result, err := svc.GetTeacherClasses(ctx, teacherUserID, tenantID)
+	require.Error(t, err)
+	require.Nil(t, result)
 }

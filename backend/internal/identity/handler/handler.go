@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"somotracker/internal/identity/service"
 	"somotracker/internal/platform/apperr"
+	"somotracker/internal/platform/audit"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/logger"
 	"somotracker/internal/platform/ratelimit"
@@ -17,14 +18,15 @@ import (
 
 // Handler is HTTP handler for identity domain (thin, BE-006).
 type Handler struct {
-	svc     *service.Service
-	cfg     *config.Config
-	rl      *ratelimit.Limiter
+	svc           *service.Service
+	cfg           *config.Config
+	rl            *ratelimit.Limiter
+	auditRecorder *audit.Recorder
 }
 
 // New creates handler.
-func New(svc *service.Service, cfg *config.Config, rl *ratelimit.Limiter) *Handler {
-	return &Handler{svc: svc, cfg: cfg, rl: rl}
+func New(svc *service.Service, cfg *config.Config, rl *ratelimit.Limiter, auditRecorder *audit.Recorder) *Handler {
+	return &Handler{svc: svc, cfg: cfg, rl: rl, auditRecorder: auditRecorder}
 }
 
 // DTOs are defined per endpoint, not domain structs (BE-007).
@@ -42,10 +44,10 @@ type AuthenticateTokenRequest struct {
 }
 
 type AuthenticateTokenResponse struct {
-	Status      string            `json:"status"`
-	AuthState   string            `json:"auth_state"`
-	TicketToken string            `json:"ticket_token,omitempty"`
-	Onboarding  *OnboardingState  `json:"onboarding,omitempty"`
+	Status      string           `json:"status"`
+	AuthState   string           `json:"auth_state"`
+	TicketToken string           `json:"ticket_token,omitempty"`
+	Onboarding  *OnboardingState `json:"onboarding,omitempty"`
 }
 
 type OnboardingState struct {
@@ -58,8 +60,10 @@ type OnboardingState struct {
 }
 
 type ProvisionTenantRequest struct {
-	SchoolName     string `json:"school_name" validate:"required,min=1,max=255"`
-	IdempotencyKey string `json:"idempotency_key" validate:"required"`
+	SchoolName        string `json:"school_name" validate:"required,min=1,max=255"`
+	IdempotencyKey    string `json:"idempotency_key" validate:"required"`
+	CountryID         string `json:"country_id" validate:"required,uuid"`
+	EducationSystemID string `json:"education_system_id" validate:"required,uuid"`
 }
 
 type ProvisionTenantResponse struct {
@@ -87,6 +91,44 @@ type UpdateOnboardingResponse struct {
 	Success bool `json:"success"`
 }
 
+// Reference data types
+type CountryResponse struct {
+	ID          string `json:"id"`
+	CountryName string `json:"country_name"`
+	CountryCode string `json:"country_code"`
+}
+
+type EducationSystemResponse struct {
+	ID          string `json:"id"`
+	CountryID   string `json:"country_id"`
+	SystemName  string `json:"system_name"`
+	Description string `json:"description,omitempty"`
+}
+
+// Me response types
+type MeResponse struct {
+	UserID       string      `json:"user_id"`
+	FullName     string      `json:"full_name"`
+	Email        string      `json:"email"`
+	AvatarURL    *string     `json:"avatar_url"`
+	Role         string      `json:"role"`
+	ActiveSchool *SchoolRef  `json:"active_school"`
+	Schools      []SchoolRef `json:"schools"`
+}
+
+type SchoolRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type SwitchActiveSchoolRequest struct {
+	SchoolID string `json:"school_id" validate:"required,uuid"`
+}
+
+type SwitchActiveSchoolResponse struct {
+	Success bool `json:"success"`
+}
+
 // RequestMagicLink handles POST /api/v1/auth/request-magic-link
 // @Summary Request a Stytch Discovery magic link
 // @Tags Authentication
@@ -110,17 +152,9 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 
 	// Rate limiting and provider quotas
 	if h.rl != nil {
-		ip := c.IP()
-		allowed, err := h.rl.AllowIP(c.Context(), "magic-link", ip, h.cfg.RateLimitMagicLinkIPPerMin, time.Minute)
-		if err != nil {
-			logger.Error(c.Context(), err, "rate limit check failed")
-			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
-		}
-		if !allowed {
-			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
-		}
-
-		allowed, err = h.rl.AllowEmail(c.Context(), "magic-link", req.Email, h.cfg.RateLimitMagicLinkEmailPer15Min, 15*time.Minute)
+		// Per-email limit for magic-link (prevents enumeration via rate limit differences).
+		// Per-IP limit is enforced by the PublicRateLimit middleware to avoid double counting.
+		allowed, err := h.rl.AllowEmail(c.Context(), "magic-link", req.Email, h.cfg.RateLimitMagicLinkEmailPer15Min, 15*time.Minute)
 		if err != nil {
 			logger.Error(c.Context(), err, "email rate limit check failed")
 			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
@@ -197,19 +231,7 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
 	}
 
-	// IP rate limit for token exchange
-	if h.rl != nil {
-		ip := c.IP()
-		allowed, err := h.rl.AllowIP(c.Context(), "token-exchange", ip, h.cfg.RateLimitTokenExchangeIPPerMin, time.Minute)
-		if err != nil {
-			logger.Error(c.Context(), err, "token exchange rate limit check failed")
-			return apperr.New(apperr.SERVICE_UNAVAILABLE, "authentication failed")
-		}
-		if !allowed {
-			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
-		}
-	}
-
+	// IP rate limit for token exchange is enforced by the PublicRateLimit middleware.
 	// Get PKCE verifier from cookie
 	pkceCookieName := "__Host-pkce_verifier"
 	if h.cfg.Env != "production" {
@@ -349,9 +371,11 @@ func (h *Handler) ProvisionTenant(c fiber.Ctx) error {
 
 	// Call service
 	data := service.ProvisionData{
-		SchoolName:     schoolName,
-		IdempotencyKey: req.IdempotencyKey,
-		AdminName:      schoolName, // Use school name as admin name for now
+		SchoolName:        schoolName,
+		IdempotencyKey:    req.IdempotencyKey,
+		AdminName:         schoolName,
+		CountryID:         mustParseUUID(req.CountryID),
+		EducationSystemID: mustParseUUID(req.EducationSystemID),
 	}
 	result, err := h.svc.ProvisionTenant(c.Context(), ticketToken, data)
 	if err != nil {
@@ -409,6 +433,15 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 	if sessionToken == "" {
 		// Clear cookie regardless and return success
 		h.clearSessionCookie(c)
+		if h.auditRecorder != nil {
+			h.auditRecorder.Record(c.Context(), audit.Event{
+				Type:      audit.EventLogout,
+				RequestID: c.Locals("request_id").(string),
+				Outcome:   "success",
+				IP:        c.IP(),
+				Details:   map[string]string{"reason": "no_session_cookie"},
+			})
+		}
 		return c.Status(fiber.StatusOK).JSON(LogoutResponse{Success: true})
 	}
 
@@ -418,6 +451,15 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 		if errors.Is(err, service.ErrSessionNotFound) {
 			// Session not found; clear cookie anyway
 			h.clearSessionCookie(c)
+			if h.auditRecorder != nil {
+				h.auditRecorder.Record(c.Context(), audit.Event{
+					Type:      audit.EventLogout,
+					RequestID: c.Locals("request_id").(string),
+					Outcome:   "success",
+					IP:        c.IP(),
+					Details:   map[string]string{"reason": "session_not_found"},
+				})
+			}
 			return c.Status(fiber.StatusOK).JSON(LogoutResponse{Success: true})
 		}
 		logger.Error(c.Context(), err, "session validation failed on logout")
@@ -437,6 +479,17 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 
 	// Clear session cookie
 	h.clearSessionCookie(c)
+
+	if h.auditRecorder != nil && sessionCtx != nil {
+		h.auditRecorder.Record(c.Context(), audit.Event{
+			Type:      audit.EventLogout,
+			RequestID: c.Locals("request_id").(string),
+			UserID:    sessionCtx.UserID.String(),
+			TenantID:  sessionCtx.TenantID.String(),
+			Outcome:   "success",
+			IP:        c.IP(),
+		})
+	}
 
 	return c.Status(fiber.StatusOK).JSON(LogoutResponse{Success: true})
 }
@@ -547,6 +600,177 @@ func (h *Handler) UpdateOnboardingCurrent(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(UpdateOnboardingResponse{Success: true})
 }
 
+// ListCountries handles GET /api/v1/reference/countries
+// @Summary List all countries
+// @Tags Reference
+// @Accept json
+// @Produce json
+// @Success 200 {array} CountryResponse
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/reference/countries [get]
+func (h *Handler) ListCountries(c fiber.Ctx) error {
+	countries, err := h.svc.ListCountries(c.Context())
+	if err != nil {
+		logger.Error(c.Context(), err, "ListCountries failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to list countries")
+	}
+
+	resp := make([]CountryResponse, 0, len(countries))
+	for _, ctry := range countries {
+		resp = append(resp, CountryResponse{
+			ID:          ctry.ID.String(),
+			CountryName: ctry.CountryName,
+			CountryCode: ctry.CountryCode,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(resp)
+}
+
+// ListEducationSystems handles GET /api/v1/reference/education-systems?country_id=UUID
+// @Summary List education systems for a country
+// @Tags Reference
+// @Accept json
+// @Produce json
+// @Param country_id query string true "Country UUID" format(uuid)
+// @Success 200 {array} EducationSystemResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/reference/education-systems [get]
+func (h *Handler) ListEducationSystems(c fiber.Ctx) error {
+	countryIDStr := c.Query("country_id")
+	if countryIDStr == "" {
+		return apperr.New(apperr.INVALID_REQUEST, "country_id query parameter is required")
+	}
+
+	countryID, err := uuid.Parse(countryIDStr)
+	if err != nil {
+		return apperr.New(apperr.INVALID_REQUEST, "invalid country_id format")
+	}
+
+	systems, err := h.svc.ListEducationSystems(c.Context(), countryID)
+	if err != nil {
+		logger.Error(c.Context(), err, "ListEducationSystems failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to list education systems")
+	}
+
+	resp := make([]EducationSystemResponse, 0, len(systems))
+	for _, sys := range systems {
+		resp = append(resp, EducationSystemResponse{
+			ID:          sys.ID.String(),
+			CountryID:   sys.CountryID.String(),
+			SystemName:  sys.SystemName,
+			Description: sys.Description.String,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(resp)
+}
+
+// GetMe handles GET /api/v1/me
+// @Summary Get current user profile
+// @Tags Identity
+// @Accept json
+// @Produce json
+// @Success 200 {object} MeResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/me [get]
+func (h *Handler) GetMe(c fiber.Ctx) error {
+	sessionToken := c.Cookies(h.sessionCookieName())
+	if sessionToken == "" {
+		return apperr.New(apperr.UNAUTHENTICATED, "no session cookie")
+	}
+
+	tokenHash := sha256.Sum256([]byte(sessionToken))
+	me, err := h.svc.GetMe(c.Context(), tokenHash[:])
+	if err != nil {
+		if errors.Is(err, service.ErrSessionNotFound) {
+			return apperr.New(apperr.UNAUTHENTICATED, "session not found or expired")
+		}
+		logger.Error(c.Context(), err, "GetMe failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to load user profile")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(me)
+}
+
+// ListSchools handles GET /api/v1/schools
+// @Summary List schools in tenant
+// @Tags Identity
+// @Accept json
+// @Produce json
+// @Success 200 {array} SchoolRef
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/schools [get]
+func (h *Handler) ListSchools(c fiber.Ctx) error {
+	sessionToken := c.Cookies(h.sessionCookieName())
+	if sessionToken == "" {
+		return apperr.New(apperr.UNAUTHENTICATED, "no session cookie")
+	}
+
+	tokenHash := sha256.Sum256([]byte(sessionToken))
+	schools, err := h.svc.ListSchools(c.Context(), tokenHash[:])
+	if err != nil {
+		if errors.Is(err, service.ErrSessionNotFound) {
+			return apperr.New(apperr.UNAUTHENTICATED, "session not found or expired")
+		}
+		logger.Error(c.Context(), err, "ListSchools failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to list schools")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(schools)
+}
+
+// SwitchActiveSchool handles PUT /api/v1/me/active-school
+// @Summary Switch active school membership
+// @Tags Identity
+// @Accept json
+// @Produce json
+// @Param request body SwitchActiveSchoolRequest true "request"
+// @Success 200 {object} SwitchActiveSchoolResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/me/active-school [put]
+func (h *Handler) SwitchActiveSchool(c fiber.Ctx) error {
+	sessionToken := c.Cookies(h.sessionCookieName())
+	if sessionToken == "" {
+		return apperr.New(apperr.UNAUTHENTICATED, "no session cookie")
+	}
+
+	var req SwitchActiveSchoolRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
+	}
+
+	schoolID, err := uuid.Parse(req.SchoolID)
+	if err != nil {
+		return apperr.New(apperr.INVALID_REQUEST, "invalid school_id format")
+	}
+
+	tokenHash := sha256.Sum256([]byte(sessionToken))
+	if err := h.svc.SwitchActiveSchool(c.Context(), tokenHash[:], schoolID); err != nil {
+		if errors.Is(err, service.ErrSessionNotFound) {
+			return apperr.New(apperr.UNAUTHENTICATED, "session not found or expired")
+		}
+		logger.Error(c.Context(), err, "SwitchActiveSchool failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to switch active school")
+	}
+
+	if h.auditRecorder != nil {
+		sessionCtx, _ := h.svc.ValidateSession(c.Context(), tokenHash[:])
+		if sessionCtx != nil {
+			h.auditRecorder.Record(c.Context(), audit.Event{
+				Type:      audit.EventActiveSchoolSwitched,
+				RequestID: c.Locals("request_id").(string),
+				UserID:    sessionCtx.UserID.String(),
+				TenantID:  sessionCtx.TenantID.String(),
+				SchoolID:  schoolID.String(),
+				Outcome:   "success",
+				IP:        c.IP(),
+			})
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(SwitchActiveSchoolResponse{Success: true})
+}
+
 // RegisterRoutes registers identity routes under /api/v1
 func (h *Handler) RegisterRoutes(api fiber.Router) {
 	auth := api.Group("/auth")
@@ -558,6 +782,20 @@ func (h *Handler) RegisterRoutes(api fiber.Router) {
 	onboarding.Get("/current", h.GetOnboardingCurrent)
 	onboarding.Put("/current", h.UpdateOnboardingCurrent)
 	onboarding.Post("/complete", h.ProvisionTenant)
+
+	reference := api.Group("/reference")
+	reference.Get("/countries", h.ListCountries)
+	reference.Get("/education-systems", h.ListEducationSystems)
+}
+
+// RegisterAuthenticatedRoutes registers identity routes that require authentication
+// under /api/v1 on the protected router group.
+func (h *Handler) RegisterAuthenticatedRoutes(api fiber.Router) {
+	me := api.Group("/me")
+	me.Get("", h.GetMe)
+	me.Put("/active-school", h.SwitchActiveSchool)
+
+	api.Get("/schools", h.ListSchools)
 }
 
 // sessionCookieName returns the cookie name with environment suffix per ADR-0002
@@ -618,4 +856,14 @@ func (h *Handler) clearSessionCookie(c fiber.Ctx) {
 // contains checks if a string contains a substring
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+// mustParseUUID parses a UUID string and panics on error.
+// Callers should validate before calling; this is used after validation has passed.
+func mustParseUUID(s string) uuid.UUID {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.UUID{}
+	}
+	return id
 }

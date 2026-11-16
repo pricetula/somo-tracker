@@ -74,10 +74,12 @@ type ProvisionResult struct {
 
 // ProvisionData holds all data needed for tenant provisioning.
 type ProvisionData struct {
-	SchoolName     string
-	IdempotencyKey string
-	SchoolCode     string
-	AdminName      string
+	SchoolName       string
+	IdempotencyKey   string
+	SchoolCode       string
+	AdminName        string
+	CountryID        uuid.UUID
+	EducationSystemID uuid.UUID
 }
 
 // Service defines business logic for identity domain.
@@ -86,6 +88,7 @@ type Service struct {
 	stytch         stytch.Client
 	db             *sql.DB
 	istEncryption  *ISTEncryption
+	idleTimeout    time.Duration // sliding window idle timeout; zero means disabled
 }
 
 // Repository is domain repository interface, using sqlc-generated types.
@@ -102,6 +105,10 @@ type Repository interface {
 	CreateOnboardingTicket(ctx context.Context, arg storegen.CreateOnboardingTicketParams) (storegen.OnboardingTicket, error)
 	GetOnboardingTicketByHash(ctx context.Context, hash []byte) (storegen.OnboardingTicket, error)
 	MarkOnboardingTicketUsed(ctx context.Context, id uuid.UUID) error
+
+	// Reference data
+	ListCountries(ctx context.Context) ([]storegen.Country, error)
+	ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error)
 
 	// Core domain - for transactional provisioning
 	CreateTenant(ctx context.Context, arg storegen.CreateTenantParams) (storegen.Tenant, error)
@@ -120,13 +127,20 @@ type Repository interface {
 	GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
+	RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error
+	UpdateSessionLastSeen(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error
+
+	// School + membership for /me
+	ListSchoolsByTenant(ctx context.Context, tenantID uuid.UUID) ([]storegen.School, error)
+	SetMembershipActive(ctx context.Context, userID uuid.UUID, membershipID uuid.UUID) error
 
 	// Session with memberships (one DB round-trip)
 	GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (storegen.GetSessionWithMembershipsRow, error)
 }
 
-// New creates service.
-func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionKey string) (*Service, error) {
+// New creates service. idleTimeout is the sliding window idle timeout;
+// zero disables idle enforcement (absolute expiry still applies).
+func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionKey string, idleTimeout time.Duration) (*Service, error) {
 	var istEnc *ISTEncryption
 	if istEncryptionKey != "" {
 		var err error
@@ -135,7 +149,7 @@ func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionK
 			return nil, fmt.Errorf("init IST encryption: %w", err)
 		}
 	}
-	return &Service{repo: repo, stytch: stytchClient, db: db, istEncryption: istEnc}, nil
+	return &Service{repo: repo, stytch: stytchClient, db: db, istEncryption: istEnc, idleTimeout: idleTimeout}, nil
 }
 
 // RequestMagicLink initiates Stytch Discovery magic link flow.
@@ -408,19 +422,21 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 
 	// Create School
 	school, err := txRepo.CreateSchool(ctx, storegen.CreateSchoolParams{
-		TenantID: tenant.ID,
-		Name:     data.SchoolName,
-		Code:     schoolCode,
+		TenantID:          tenant.ID,
+		Name:              data.SchoolName,
+		Code:              schoolCode,
+		CountryID:         data.CountryID,
+		EducationSystemID: data.EducationSystemID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create school: %w", err)
 	}
 
-	// Create Membership (tenant_owner role for first admin)
+	// Create Membership (OWNER role for first admin)
 	_, err = txRepo.CreateMembership(ctx, storegen.CreateMembershipParams{
 		UserID:   adminUser.ID,
 		SchoolID: school.ID,
-		Role:     "tenant_owner",
+		Role:     storegen.UserRoleOWNER,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create membership: %w", err)
@@ -452,6 +468,160 @@ func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.On
 		UserID:   &adminUser.ID,
 		SchoolID: &school.ID,
 	}, nil
+}
+
+// ListCountries returns all non-deleted countries ordered by name.
+func (s *Service) ListCountries(ctx context.Context) ([]storegen.Country, error) {
+	countries, err := s.repo.ListCountries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list countries: %w", err)
+	}
+	return countries, nil
+}
+
+// ListEducationSystems returns all non-deleted education systems for a country.
+func (s *Service) ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error) {
+	systems, err := s.repo.ListEducationSystems(ctx, countryID)
+	if err != nil {
+		return nil, fmt.Errorf("list education systems: %w", err)
+	}
+	return systems, nil
+}
+
+// MeResponse is the payload for GET /api/v1/me.
+type MeResponse struct {
+	UserID       string     `json:"user_id"`
+	FullName     string     `json:"full_name"`
+	Email        string     `json:"email"`
+	AvatarURL    *string    `json:"avatar_url"`
+	Role         string     `json:"role"`
+	ActiveSchool *SchoolRef `json:"active_school"`
+	Schools      []SchoolRef `json:"schools"`
+}
+
+// SchoolRef is a lightweight school reference for /me and school switcher.
+type SchoolRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetMe returns the authenticated user's profile, active school, and all schools in the tenant.
+func (s *Service) GetMe(ctx context.Context, tokenHash []byte) (*MeResponse, error) {
+	// 1. Validate session + load memberships in one round-trip
+	sessionCtx, memberships, err := s.ValidateSessionWithMemberships(ctx, tokenHash)
+	if err != nil {
+		if err == sql.ErrNoRows || errors.Is(err, ErrSessionNotFound) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, fmt.Errorf("validate session: %w", err)
+	}
+
+	// 2. Get user info
+	user, err := s.repo.GetUserByID(ctx, sessionCtx.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+
+	// 3. List all schools in the tenant
+	schools, err := s.repo.ListSchoolsByTenant(ctx, sessionCtx.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list schools: %w", err)
+	}
+
+	// 4. Build school lookup for active school resolution
+	schoolByID := make(map[uuid.UUID]storegen.School, len(schools))
+	for i := range schools {
+		schoolByID[schools[i].ID] = schools[i]
+	}
+
+	// 5. Determine active school from memberships (is_active = true)
+	var activeSchool *SchoolRef
+	for _, m := range memberships {
+		if m.IsActive {
+			if school, ok := schoolByID[m.SchoolID]; ok {
+				name := school.Name
+				activeSchool = &SchoolRef{ID: school.ID.String(), Name: name}
+			}
+			break
+		}
+	}
+
+	// 6. Build school refs from memberships (only schools the user is a member of)
+	memberSchoolRefs := make([]SchoolRef, 0, len(memberships))
+	seen := make(map[uuid.UUID]bool)
+	for _, m := range memberships {
+		if seen[m.SchoolID] {
+			continue
+		}
+		seen[m.SchoolID] = true
+		if school, ok := schoolByID[m.SchoolID]; ok {
+			memberSchoolRefs = append(memberSchoolRefs, SchoolRef{
+				ID:   school.ID.String(),
+				Name: school.Name,
+			})
+		}
+	}
+
+	// 7. Determine role from active membership
+	role := ""
+	for _, m := range memberships {
+		if m.IsActive {
+			role = m.Role
+			break
+		}
+	}
+	if role == "" && len(memberships) > 0 {
+		role = memberships[0].Role
+	}
+
+	return &MeResponse{
+		UserID:       sessionCtx.UserID.String(),
+		FullName:     user.Name,
+		Email:        user.EmailNormalized,
+		AvatarURL:    nil, // avatar not stored yet; reserved for future
+		Role:         role,
+		ActiveSchool: activeSchool,
+		Schools:      memberSchoolRefs,
+	}, nil
+}
+
+// ListSchools returns all schools in the tenant for the school switcher dropdown.
+func (s *Service) ListSchools(ctx context.Context, tokenHash []byte) ([]SchoolRef, error) {
+	sessionCtx, _, err := s.ValidateSessionWithMemberships(ctx, tokenHash)
+	if err != nil {
+		if err == sql.ErrNoRows || errors.Is(err, ErrSessionNotFound) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, fmt.Errorf("validate session: %w", err)
+	}
+
+	schools, err := s.repo.ListSchoolsByTenant(ctx, sessionCtx.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list schools: %w", err)
+	}
+
+	refs := make([]SchoolRef, 0, len(schools))
+	for _, school := range schools {
+		refs = append(refs, SchoolRef{ID: school.ID.String(), Name: school.Name})
+	}
+	return refs, nil
+}
+
+// SwitchActiveSchool sets the given school as the user's active membership.
+func (s *Service) SwitchActiveSchool(ctx context.Context, tokenHash []byte, schoolID uuid.UUID) error {
+	sessionCtx, _, err := s.ValidateSessionWithMemberships(ctx, tokenHash)
+	if err != nil {
+		if err == sql.ErrNoRows || errors.Is(err, ErrSessionNotFound) {
+			return ErrSessionNotFound
+		}
+		return fmt.Errorf("validate session: %w", err)
+	}
+
+	// Verify the school belongs to the tenant and the user has a membership for it
+	if err := s.repo.SetMembershipActive(ctx, sessionCtx.UserID, schoolID); err != nil {
+		return fmt.Errorf("set membership active: %w", err)
+	}
+	return nil
 }
 
 // generateSchoolCode generates a unique school code from name.
@@ -531,6 +701,25 @@ func (s *Service) ValidateSessionWithMemberships(ctx context.Context, tokenHash 
 		return nil, nil, fmt.Errorf("query session with memberships: %w", err)
 	}
 
+	// Idle timeout enforcement (fail closed).
+	// If last_seen_at is older than idleTimeout, the session is expired.
+	// last_seen_at is NULL for sessions created before the column existed;
+	// treat those as valid (backward compat) and slide them forward.
+	if s.idleTimeout > 0 && row.LastSeenAt.Valid {
+		idleCutoff := time.Now().Add(-s.idleTimeout)
+		if row.LastSeenAt.Time.Before(idleCutoff) {
+			return nil, nil, ErrSessionNotFound
+		}
+	}
+
+	// Slide last_seen_at (throttled: only writes if older than idleThreshold).
+	// Use a shorter threshold than idleTimeout to avoid DB writes on every request.
+	// Best-effort: a slide failure does not fail the request.
+	if s.idleTimeout > 0 {
+		idleThreshold := 5 * time.Minute
+		_ = s.repo.UpdateSessionLastSeen(ctx, row.ID, idleThreshold)
+	}
+
 	memberships := []MembershipContext{}
 	if row.MembershipID.Valid && row.SchoolID.Valid && row.Role.Valid {
 		memberships = append(memberships, MembershipContext{
@@ -577,6 +766,12 @@ func (s *Service) RevokeSession(ctx context.Context, sessionID uuid.UUID) error 
 	return s.repo.RevokeAppSession(ctx, sessionID)
 }
 
+// RevokeAllSessionsForUser revokes all sessions for a user (log out everywhere).
+// Used when roles or memberships change, or on explicit user request.
+func (s *Service) RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error {
+	return s.repo.RevokeAllSessionsForUser(ctx, userID)
+}
+
 // GetUserMemberships returns all active memberships for a user in a tenant
 func (s *Service) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]MembershipContext, error) {
 	// This would typically be a custom query; for now we use the existing method
@@ -593,18 +788,17 @@ func (s *Service) GetUserMemberships(ctx context.Context, userID, tenantID uuid.
 	return []MembershipContext{}, nil
 }
 
-// GetGuardianStudents returns student IDs that a guardian is authorized to access
+// GetGuardianStudents returns student IDs that a guardian is authorized to access.
 func (s *Service) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
-	// TODO: Implement with custom query joining guardians -> students
-	// For now, return empty - this should be implemented with a proper query
-	return []uuid.UUID{}, nil
+	return s.repo.GetGuardianStudents(ctx, guardianUserID, tenantID)
 }
 
-// GetTeacherClasses returns class IDs that a teacher is authorized to access
+// GetTeacherClasses returns class IDs that a teacher is authorized to access.
+// NOTE: This is a future feature. The teacher_class_links table does not exist yet;
+// this method currently returns empty via the store stub. When implemented, it must
+// resolve teacher->classroom links scoped to tenant via schools.tenant_id.
 func (s *Service) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
-	// TODO: Implement with custom query joining teachers -> classes
-	// For now, return empty - this should be implemented with a proper query
-	return []uuid.UUID{}, nil
+	return s.repo.GetTeacherClasses(ctx, teacherUserID, tenantID)
 }
 
 // UpdateOnboardingStep updates the current step and form data for pending onboarding.

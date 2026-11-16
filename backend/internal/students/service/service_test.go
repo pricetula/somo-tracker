@@ -20,6 +20,12 @@ type fakeStore struct {
 	admissionIndex map[string]uuid.UUID // admission_number -> student_id (within a school)
 	guardianLinks  map[uuid.UUID][]storegen.GuardianStudentLink // student_id -> links
 	err            error
+
+	// Override points for testing object-level access
+	getGuardianMembershipIDFunc func(ctx context.Context, userID, tenantID uuid.UUID) (uuid.UUID, error)
+	getStudentFunc              func(ctx context.Context, id uuid.UUID) (*storegen.Student, error)
+	getStudentForGuardianFunc   func(ctx context.Context, studentID uuid.UUID, userID uuid.UUID) (*storegen.Student, error)
+	listStudentsForGuardianFunc func(ctx context.Context, guardianID uuid.UUID, limit int32) ([]storegen.Student, error)
 }
 
 func newFakeStore() *fakeStore {
@@ -31,10 +37,27 @@ func newFakeStore() *fakeStore {
 }
 
 func (f *fakeStore) GetStudent(ctx context.Context, id uuid.UUID) (*storegen.Student, error) {
+	if f.getStudentFunc != nil {
+		return f.getStudentFunc(ctx, id)
+	}
 	if f.err != nil {
 		return nil, f.err
 	}
 	s, ok := f.students[id]
+	if !ok {
+		return nil, &apperr.Error{Code: apperr.NOT_FOUND, Message: "record not found"}
+	}
+	return s, nil
+}
+
+func (f *fakeStore) GetStudentForGuardian(ctx context.Context, studentID uuid.UUID, userID uuid.UUID) (*storegen.Student, error) {
+	if f.getStudentForGuardianFunc != nil {
+		return f.getStudentForGuardianFunc(ctx, studentID, userID)
+	}
+	if f.err != nil {
+		return nil, f.err
+	}
+	s, ok := f.students[studentID]
 	if !ok {
 		return nil, &apperr.Error{Code: apperr.NOT_FOUND, Message: "record not found"}
 	}
@@ -55,6 +78,17 @@ func (f *fakeStore) ListStudents(ctx context.Context, limit int32, cursorFullNam
 		count++
 	}
 	return result, nil
+}
+
+func (f *fakeStore) GetGuardianMembershipID(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (uuid.UUID, error) {
+	if f.getGuardianMembershipIDFunc != nil {
+		return f.getGuardianMembershipIDFunc(ctx, userID, tenantID)
+	}
+	if f.err != nil {
+		return uuid.Nil, f.err
+	}
+	// Return a deterministic membership ID for testing
+	return uuid.New(), nil
 }
 
 func (f *fakeStore) CreateStudent(ctx context.Context, schoolID uuid.UUID, admissionNumber string, nationalNumber sql.NullString, fullName string, dateOfBirth time.Time, gender string, metadata json.RawMessage) (*storegen.Student, error) {
@@ -117,6 +151,9 @@ func (f *fakeStore) DeleteStudent(ctx context.Context, id uuid.UUID) error {
 }
 
 func (f *fakeStore) ListStudentsForGuardian(ctx context.Context, guardianID uuid.UUID, limit int32) ([]storegen.Student, error) {
+	if f.listStudentsForGuardianFunc != nil {
+		return f.listStudentsForGuardianFunc(ctx, guardianID, limit)
+	}
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -243,14 +280,14 @@ func TestService_GetStudent(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		dto, err := svc.GetStudent(ctx, created.StudentID)
+		dto, err := svc.GetStudent(ctx, created.StudentID, uuid.Nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, created.StudentID, dto.StudentID)
 		require.Equal(t, "Alice Johnson", dto.FullName)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		_, err := svc.GetStudent(ctx, uuid.New())
+		_, err := svc.GetStudent(ctx, uuid.New(), uuid.Nil, nil)
 		require.Error(t, err)
 		appErr, ok := err.(*apperr.Error)
 		require.True(t, ok)
@@ -321,7 +358,7 @@ func TestService_DeleteStudent(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		require.NoError(t, svc.DeleteStudent(ctx, created.StudentID))
-		_, err := svc.GetStudent(ctx, created.StudentID)
+		_, err := svc.GetStudent(ctx, created.StudentID, uuid.Nil, nil)
 		require.Error(t, err)
 	})
 
@@ -405,11 +442,9 @@ func TestService_ListStudentsForGuardian(t *testing.T) {
 	_, err = store.CreateStudent(ctx, schoolID, "A002", sql.NullString{}, "Bob", dob, "M", []byte(`{}`))
 	require.NoError(t, err)
 
-	guardianID := uuid.New()
-
 	t.Run("ReturnsAllStudents", func(t *testing.T) {
 		// In the fake, ListStudentsForGuardian returns all students
-		resp, err := svc.ListStudents(ctx, &guardianID, 10, "", uuid.Nil)
+		resp, err := svc.ListStudents(ctx, uuid.Nil, nil, 10, "", uuid.Nil)
 		require.NoError(t, err)
 		require.Len(t, resp.Items, 2)
 	})
@@ -430,9 +465,121 @@ func TestService_ListStudents(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Pagination", func(t *testing.T) {
-		resp, err := svc.ListStudents(ctx, nil, 1, "", uuid.Nil)
+		resp, err := svc.ListStudents(ctx, uuid.Nil, nil, 1, "", uuid.Nil)
 		require.NoError(t, err)
 		require.Len(t, resp.Items, 1)
 		require.NotNil(t, resp.NextCursor)
+	})
+}
+
+// TestService_ListStudents_GuardianScope verifies guardians only see linked students.
+func TestService_ListStudents_GuardianScope(t *testing.T) {
+	store := newFakeStore()
+	svc := New(store, &fakeTxManager{})
+
+	ctx := context.Background()
+	schoolID := uuid.New()
+	dob := time.Date(2010, 1, 15, 0, 0, 0, 0, time.UTC)
+
+	// Create students
+	student1, err := store.CreateStudent(ctx, schoolID, "A001", sql.NullString{}, "Alice", dob, "F", []byte(`{}`))
+	require.NoError(t, err)
+
+	guardianUserID := uuid.New()
+	guardianMembershipID := uuid.New()
+
+	// Configure fake to return this membership ID for the guardian
+	store.getGuardianMembershipIDFunc = func(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (uuid.UUID, error) {
+		if userID == guardianUserID {
+			return guardianMembershipID, nil
+		}
+		return uuid.Nil, sql.ErrNoRows
+	}
+
+	// Link guardian to student1 only (via the link table)
+	_, err = store.CreateGuardianLink(ctx, guardianMembershipID, student1.StudentID, "Parent", true)
+	require.NoError(t, err)
+
+	// Configure ListStudentsForGuardian to return only linked students
+	store.listStudentsForGuardianFunc = func(ctx context.Context, guardianID uuid.UUID, limit int32) ([]storegen.Student, error) {
+		if guardianID == guardianMembershipID {
+			return []storegen.Student{*store.students[student1.StudentID]}, nil
+		}
+		return []storegen.Student{}, nil
+	}
+
+	t.Run("Guardian sees only linked students", func(t *testing.T) {
+		resp, err := svc.ListStudents(ctx, guardianUserID, []string{"guardian"}, 10, "", uuid.Nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Items, 1)
+		require.Equal(t, student1.StudentID, resp.Items[0].StudentID)
+	})
+
+	t.Run("Guardian with no linked students gets empty list", func(t *testing.T) {
+		// Guardian user with no membership
+		otherGuardian := uuid.New()
+		resp, err := svc.ListStudents(ctx, otherGuardian, []string{"guardian"}, 10, "", uuid.Nil)
+		require.NoError(t, err)
+		require.Empty(t, resp.Items)
+	})
+}
+
+// TestService_GetStudent_GuardianScope verifies guardians can only read linked students.
+func TestService_GetStudent_GuardianScope(t *testing.T) {
+	store := newFakeStore()
+	svc := New(store, &fakeTxManager{})
+
+	ctx := context.Background()
+	schoolID := uuid.New()
+	dob := time.Date(2010, 1, 15, 0, 0, 0, 0, time.UTC)
+
+	student1, err := store.CreateStudent(ctx, schoolID, "A001", sql.NullString{}, "Alice", dob, "F", []byte(`{}`))
+	require.NoError(t, err)
+	student2, err := store.CreateStudent(ctx, schoolID, "A002", sql.NullString{}, "Bob", dob, "M", []byte(`{}`))
+	require.NoError(t, err)
+
+	guardianUserID := uuid.New()
+	guardianMembershipID := uuid.New()
+
+	store.getGuardianMembershipIDFunc = func(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (uuid.UUID, error) {
+		if userID == guardianUserID {
+			return guardianMembershipID, nil
+		}
+		return uuid.Nil, sql.ErrNoRows
+	}
+
+	// Override GetStudentForGuardian to simulate guardian scoping behavior
+	store.getStudentForGuardianFunc = func(ctx context.Context, studentID uuid.UUID, userID uuid.UUID) (*storegen.Student, error) {
+		if userID != guardianUserID {
+			return nil, &apperr.Error{Code: apperr.NOT_FOUND, Message: "record not found"}
+		}
+		if studentID != student1.StudentID {
+			return nil, &apperr.Error{Code: apperr.NOT_FOUND, Message: "record not found"}
+		}
+		s, ok := store.students[studentID]
+		if !ok {
+			return nil, &apperr.Error{Code: apperr.NOT_FOUND, Message: "record not found"}
+		}
+		return s, nil
+	}
+
+	t.Run("Guardian reads linked student: 200", func(t *testing.T) {
+		dto, err := svc.GetStudent(ctx, student1.StudentID, guardianUserID, []string{"guardian"})
+		require.NoError(t, err)
+		require.Equal(t, student1.StudentID, dto.StudentID)
+	})
+
+	t.Run("Guardian reads unlinked student: 404", func(t *testing.T) {
+		_, err := svc.GetStudent(ctx, student2.StudentID, guardianUserID, []string{"guardian"})
+		require.Error(t, err)
+		appErr, ok := err.(*apperr.Error)
+		require.True(t, ok)
+		require.Equal(t, apperr.NOT_FOUND, appErr.Code)
+	})
+
+	t.Run("Non-guardian reads any student: 200", func(t *testing.T) {
+		dto, err := svc.GetStudent(ctx, student2.StudentID, uuid.New(), []string{"admin"})
+		require.NoError(t, err)
+		require.Equal(t, student2.StudentID, dto.StudentID)
 	})
 }

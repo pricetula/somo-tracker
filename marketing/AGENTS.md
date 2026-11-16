@@ -26,6 +26,10 @@ This file contains marketing-specific rules. Repository-wide rules (commit polic
 - Not exposed under `/api`; no backend endpoints.
 - No PII or secrets in site source or analytics.
 
+## UI components
+
+- **MK-001** One component per file, named after the file. No second component inside it, even a private one; extract it into its own file. The frontend enforces the same rule (FE-006 in `frontend/AGENTS.md`).
+
 ## Compliance references
 
 Where they apply to public landing pages, the following frontend rules are referenced from `frontend/AGENTS.md` (they are frontend-owned; do not duplicate them here): FE-007, FE-011, FE-015, FE-016, FE-024.

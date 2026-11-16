@@ -1,36 +1,23 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+import { defineConfig } from "vite";
+import vinext from "vinext";
 import { cloudflare } from "@cloudflare/vite-plugin";
-import tailwindcss from '@tailwindcss/vite';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { responseStoreServiceBinding } from "./cloudflare.config";
+import { responseStoreAdapter } from "@vinext/cloudflare/cache/response-store-adapter";
+import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 
 export default defineConfig({
   plugins: [
-    tanstackStart(),
-    tailwindcss(),
-    react(),
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
-  ],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
-  server: {
-    host: true,
-    port: 3000,
-    proxy: {
-      '/api/v1': {
-        target: process.env.PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8080',
-        changeOrigin: true,
-        cookieDomainRewrite: 'localhost',
-        timeout: 300_000, // 5 minutes for CSV/PDF downloads
-        proxyTimeout: 300_000,
+    vinext({
+      cache: responseStoreAdapter(),
+      prerender: { routes: "*" },
+      images: { optimizer: imagesOptimizer() },
+    }),
+    cloudflare({
+      auxiliaryWorkers: [{ config: responseStoreServiceBinding }],
+      viteEnvironment: {
+        name: "rsc",
+        childEnvironments: ["ssr"],
       },
-    },
-  },
+    }),
+  ],
 });

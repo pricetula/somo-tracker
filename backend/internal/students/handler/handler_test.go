@@ -32,7 +32,7 @@ func newFakeService() *fakeService {
 	}
 }
 
-func (f *fakeService) ListStudents(ctx context.Context, guardianID *uuid.UUID, limit int32, cursorFullName string, cursorStudentID uuid.UUID) (*service.ListResponse, error) {
+func (f *fakeService) ListStudents(ctx context.Context, userID uuid.UUID, roles []string, limit int32, cursorFullName string, cursorStudentID uuid.UUID) (*service.ListResponse, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -43,7 +43,7 @@ func (f *fakeService) ListStudents(ctx context.Context, guardianID *uuid.UUID, l
 	return &service.ListResponse{Items: items}, nil
 }
 
-func (f *fakeService) GetStudent(ctx context.Context, id uuid.UUID) (*service.StudentDTO, error) {
+func (f *fakeService) GetStudent(ctx context.Context, id uuid.UUID, userID uuid.UUID, roles []string) (*service.StudentDTO, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -183,6 +183,7 @@ func buildTestApp(t *testing.T, h *Handler, roles []string) *fiber.App {
 	app.Use(func(c fiber.Ctx) error {
 		c.Locals("roles", roles)
 		c.Locals("school_ids", []uuid.UUID{uuid.New()})
+		c.Locals("user_id", uuid.New()) // simulate user in session
 		c.Locals("guardian_id", uuid.New()) // simulate guardian membership in session
 		return c.Next()
 	})

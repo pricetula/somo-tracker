@@ -1,81 +1,85 @@
-# Somotracker Frontend: Agent Rules
+<!-- BEGIN:nextjs-agent-rules -->
+This is NOT the Next.js you know
 
-Scope: TanStack Start + Tailwind + shadcn/ui (Base UI). Root AGENTS.md covers the document-led workflow, commit policy, and monorepo-wide rules. Library versions: see `frontend/package.json`.
-Rules are enforced by lint, CI, and tests where possible. Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before finishing.
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in node_modules/next/dist/docs/ (resolved from this file's directory; in monorepos the next package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
-## Application boundaries
+This block is written and re-added by next dev — verify at node_modules/next/dist/server/lib/generate-agent-files.js. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
-This file contains frontend-specific rules. Repository-wide rules (commit policy, document-led workflow, cross-application API coordination, security principles) live in the root `AGENTS.md` and apply here too. Application-specific rules do not override repository-wide requirements.
+<!-- END:nextjs-agent-rules -->
 
-## Architecture
+# Somotracker — Frontend Agent Contract
 
-- **FE-001** Outside a feature, import only from `features/<name>/index.ts` (components, hooks, types; explicit named exports, no `export *`). Never import a feature's `api/` or internals. Inside a feature use relative imports and never import the feature's own `index.ts`. Features never import other features.
-- **FE-002** `routes/` files export a TanStack Router `Route` with `loader` for server data and `component` that renders a page component from `src/components/pages/`. Pages compose features via `index.ts` and hold no business logic or data access. Cross-feature data is composed in the page via props; if that isn't possible, raise an Open Question. `components/ui/` and `components/shared/` never import from `features/` or `components/pages/`.
-- **FE-003** No back buttons or "Back to" links. Navigation belongs to the app shell. Closing a modal is not back navigation.
-- **FE-004** `entry.server.tsx` and `routes/$server.ts` replace Next.js middleware: session check only, never the sole authorization check. Root loader provides session.
-- **FE-005** Never call `setState` in an effect to mirror props or state. Compute during render or use event handlers. Subscriptions and `useSyncExternalStore` are fine.
-- **FE-006** One component per `.tsx` file, named after the file. No second component inside it, even a private one; extract it. Hooks and helpers go in `.ts` files. Column definitions and style maps are not components.
+**Application:** `frontend/` — Next.js App Router + Tailwind + shadcn/ui.
 
-## Data layer
+## Technology stack
 
-- **FE-007** Base path and client
-  All HTTP uses native `fetch`, wrapped once in `src/lib/api/client.ts`. Base path is `/api/v1`, e.g. `/api/v1/me`. Paths start with `/api/v1`. Never hardcode `/backend`. No axios. Never send a school identifier or `X-Active-School` header; the backend resolves the active school. No `[school]` route segments.
-- **FE-008** API types generation
-  API types (and Zod schemas) are generated from the backend OpenAPI 3.1 spec (`docs/api/openapi.yaml`) into `src/features/auth/api/generated/types.ts`. Run `pnpm generate:api` after any API contract change. The generator accepts OpenAPI 3.1, nullable fields, and snake_case field names. CI regenerates and diffs on each build (`make generate-check`).
-  - The frontend consumes **generated types only**; it does not use a generated client SDK. HTTP calls go through the project's own `apiFetch` wrapper in `src/lib/api/client.ts`.
-  - Generated wire types use **snake_case** field names (e.g. `school_name`, `idempotency_key`, `auth_state`). The backend is the contract authority; never hand-edit generated files.
-- **FE-009 / FE-019 Pagination**
-  List screens use `useInfiniteQuery` with `getNextPageParam` reading `nextCursor`; `null` means last page, plus `@tanstack/react-virtual`. Request params: `limit` default 50 max 100, `cursor`, sort whitelisted (e.g. `name_asc`), `q` and filters. No page numbers, no total counts, no OFFSET. Query key includes sort and filters so change resets cursor. `maxPages` is set, row heights are fixed. Sensitive lists (health/behavior/fees) use `staleTime: 0`, `gcTime: 0`.
-- **FE-010** Errors
-  `ApiError` is built from HTTP status plus body `{ code, message, errors?, request_id }`. Status is read from the response, not the body. One global `MutationCache.onError` shows a sonner toast. UI copy comes from a code→message map with backend message as English fallback. `errors[].field` is a dotted path fed to `react-hook-form setError`. 404 is handled identically for missing and cross-tenant records. 204 responses are not parsed as JSON. 401 `UNAUTHENTICATED` triggers login; no client-side role caching beyond `/api/v1/me`.
-- **FE-011** The active school is backend state. URLs never contain a school segment (`/students`, never `/[school]/students`). Read it only via `useActiveSchool()` (`src/lib/hooks/use-active-school.ts`). Query keys are prefixed with its `schoolId` for cache isolation only, and the cache is cleared when it changes.
-- **FE-012** Health, vaccination, behavior and fee queries use `staleTime: 0` and `gcTime: 0` and are never persisted. No PII or secrets in logs, URLs, query strings or analytics.
+- **Framework:** Next.js lates (App Router)
+- **Language:** TypeScript (strict)
+- **Styling:** Tailwind CSS + shadcn/ui components
+- **State:** React hooks + server actions where appropriate
+- **Tests:** None configured yet (add vitest or @testing-library/react as needed)
 
-## Layout and routing
+## Backend-for-Frontend (BFF) cookie architecture
 
-- **FE-013** The app shell is shadcn `sidebar-07`. The header contains only `SidebarTrigger`, a vertical `Separator` and a dynamic `Breadcrumb`. Page title and primary actions go in the shared `<PageHeader>` in the content area.
-- **FE-014** Add, edit and view use intercepting + parallel routes rendered in `Dialog`/`Sheet`, never inline on list views: `<resource>/@modal/(.)add`, `(.)[id]`, `(.)[id]/edit`. Each also has a real full-page route rendering the same page component, and every `@modal` slot has `default.tsx` returning `null`.
+The frontend is a BFF that sits between the browser and the Go backend:
 
-## UI
+```
+Browser (app.somotracker.com) ←→ Next.js API routes ←→ Go backend (api.somotracker.com)
+```
 
-- **FE-015** No native controls (`select`, `input`, `textarea`, `button`, `dialog`, `table`, `input[type=date]`); use shadcn counterparts. Dates use `Popover` + `Calendar`.
-- **FE-016** Semantic Tailwind tokens only (`bg-background`, `text-foreground`, `bg-muted`, `text-destructive`, `border-border`). No hex or palette colors. Status colors (success, warning, attendance, EE/ME/AE/BE) come from `globals.css` tokens through one style map and never rely on color alone. Separate sections with spacing, not cards or borders.
-- **FE-017** No wrapper elements without a layout or semantic purpose; use fragments.
-- **FE-018** This project uses Base UI: compose with `render={<Component/>}`. Never use `asChild`; convert pasted snippets that do.
-- **FE-019** All tables use the shared `<DataTable>` (`@tanstack/react-table` + shadcn `Table`) with server-side pagination, sorting and filtering. No custom div/ul grids. Only exemption: `RollCallList`.
-- **FE-020** Forms use `react-hook-form` + `zodResolver` + shadcn `Form` parts (`FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage`). No `useState` form bindings.
-- **FE-021** Never hand-edit `src/components/ui/`; add via `pnpm dlx shadcn@latest add`. Shared composites live in `src/components/shared/` and never fetch data.
-- **FE-022** Charts use shadcn `ChartContainer`, `ChartTooltip`, `ChartTooltipContent` and `ChartConfig` over Recharts, loaded via `React.lazy`/`Suspense` for code-splitting. No raw SVG/canvas, Chart.js or D3.
+### Cookie contract
 
-## Domain and quality
+All auth cookies are `HttpOnly` and set on the Next.js host. Next.js API routes proxy to Go and forward `Set-Cookie` headers from Go responses to the browser. On outgoing requests to Go, Next.js forwards the `Cookie` header.
 
-- **FE-023** Dates use `date-fns` + `@date-fns/tz` with Africa/Nairobi. Date-only fields are `yyyy-MM-dd` strings, never `Date` objects.
-- **FE-024** Performance levels come from the generated enum with one label map. Use CBC terms exactly (learning area, strand, sub-strand). Money is integer minor units, formatted only via `formatKes()`.
-- **FE-025** Mobile-first; touch targets at least 44px. No new heavy dependencies on attendance or dashboard routes.
-- **FE-026** Reference FR/NFR IDs in PRs, commits and tests. Don't build requirements without Given/When/Then AC, or Phase 2/Later features. Unstated behavior becomes an Open Question, not an assumption.
-- **FE-027** Every role-gated screen has a test per role. Every modal route has soft-nav and hard-load tests.
+| Cookie | Purpose | TTL | Set by |
+|--------|---------|-----|--------|
+| `__Host-session_token` / `session_token_development` | Auth session | 30 days | Go → Next.js → Browser |
+| `__Host-pkce_verifier` / `pkce_verifier_development` | PKCE during login | 10 min | Go → Next.js → Browser |
+| `__Host-onboarding` / `onboarding_development` | Onboarding ticket | 10 min | Go → Next.js → Browser |
 
-## Naming and TypeScript conventions
+### API routes (BFF proxy)
 
-- Files and folders are kebab-case. Components are PascalCase, matching the file (`student-form.tsx` exports `StudentForm`). Hooks are `use-<name>.ts` exporting `use<Name>`. API functions are verb-first (`get-students.ts`, `create-student.ts`).
-- Named exports only. Default exports only where required by framework entry points (e.g. `main.tsx`).
-- Query keys: `[schoolId, '<feature>', '<scope>', params]`, built only in the feature's `query-keys.ts`.
-- TypeScript: strict. No `any`; use `unknown` and narrow. Use `type` for aliases and `interface` only when extending. Use `undefined` for absent values; `null` only where the API sends it.
-- Icons: `lucide-react` only.
-- Dependencies: add none without approval. Prefer what is already installed.
+All under `app/api/`:
 
-## Snake_case vs camelCase (boundary clarification)
+- `POST /api/auth/request-magic-link` → `POST /api/v1/auth/request-magic-link` on Go
+- `POST /api/auth/authenticate-token` → `POST /api/v1/auth/authenticate-token` on Go (forwards Set-Cookie)
+- `POST /api/auth/logout` → `POST /api/v1/auth/logout` on Go
+- `GET /api/me` → `GET /api/v1/me` on Go (forwards session cookie)
+- `GET/PUT /api/onboarding` → `GET/PUT /api/v1/onboarding/current` on Go
+- `POST /api/onboarding/complete` → `POST /api/v1/onboarding/complete` on Go
 
-Generated OpenAPI wire types use **snake_case** field names (e.g. `school_name`, `idempotency_key`, `verified_email`). Internal frontend code (variables, props, component names, query keys) uses **camelCase**.
+### Cookie forwarding
 
-The boundary rule: when passing data between the generated API types and internal UI code, map snake_case → camelCase at the adapter/API-function layer (`src/features/<name>/api/`). Do not hand-edit generated types. Do not invent manual snake_case field names inside components. If a mapping is unclear, raise an Open Question.
+`lib/go-client.ts` provides `goRequest()` which:
+1. Reads `__Host-session_token` (or dev equivalent) from `cookies()`
+2. Forwards it in the `Cookie` header to Go
+3. Forwards `Set-Cookie` headers from Go responses to the browser
+4. Forwards `Origin` header on mutations for Go CSRF middleware
 
-## Auth guard and server-only imports (addendum from 2026-10-30)
+## Routes
 
-- **FE-AUTH-01** `beforeLoad` redirect must use `redirect()` from `@tanstack/react-router`; never throw native `Response` (breaks `seroval` SSR serialization).
-- **FE-AUTH-02** Client code (`src/lib/api/client.ts`) must never import `@tanstack/react-start/server` or `*.server.*` files via dynamic import; TanStack import-protection denies them. Use middleware (`entry.server.tsx`) or `createServerOnlyFn()` for server-only logic.
-- **FE-AUTH-03** `QueryClientProvider` must wrap `<Outlet />` in the root component (`routes/__root.tsx`) so SSR renders without `No QueryClient` errors.
+| Route | Purpose | Auth |
+|-------|---------|------|
+| `/login` | Magic link email entry | Public |
+| `/auth/callback` | Stytch magic link redirect | Public |
+| `/dashboard` | Protected dashboard | Session required |
+| `/api/*` | BFF API routes | See above |
 
-## Definition of done
+## Secrets
 
-Typecheck, lint and tests pass. New routes and role-gated screens have the tests required by FE-027. Requirement IDs are referenced per FE-026.
+No `.env` files. Secrets are injected by Doppler at runtime via `doppler run --`. Required env vars:
+
+- `PUBLIC_APP_URL` — frontend URL (e.g., `https://app.somotracker.com`)
+- `PUBLIC_API_URL` — Go backend URL (e.g., `https://api.somotracker.com` or `http://backend:8080` in Docker)
+
+See `.env.example` for local reference.
+
+## Commands
+
+| Purpose | Command |
+|---------|---------|
+| Dev server | `npm run dev` |
+| Production build | `npm run build` |
+| Production start | `npm run start` |
+| Lint | `npm run lint` |
+| Typecheck | `npm run typecheck` |

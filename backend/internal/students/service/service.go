@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	studentStore "somotracker/internal/students/store"
 	storegen "somotracker/internal/students/store/gen"
+	"somotracker/internal/platform/httpserver"
 )
 
 // TxRunner is the transaction runner interface used by Service.
@@ -21,7 +23,9 @@ type TxRunner interface {
 // The real storegen-backed store satisfies this interface.
 type Store interface {
 	GetStudent(ctx context.Context, id uuid.UUID) (*storegen.Student, error)
+	GetStudentForGuardian(ctx context.Context, studentID uuid.UUID, userID uuid.UUID) (*storegen.Student, error)
 	ListStudents(ctx context.Context, limit int32, cursorFullName string, cursorStudentID uuid.UUID) ([]storegen.Student, error)
+	GetGuardianMembershipID(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (uuid.UUID, error)
 	CreateStudent(ctx context.Context, schoolID uuid.UUID, admissionNumber string, nationalNumber sql.NullString, fullName string, dateOfBirth time.Time, gender string, metadata json.RawMessage) (*storegen.Student, error)
 	UpdateStudent(ctx context.Context, id uuid.UUID, admissionNumber string, nationalNumber sql.NullString, fullName string, dateOfBirth time.Time, gender string, metadata json.RawMessage) (*storegen.Student, error)
 	DeleteStudent(ctx context.Context, id uuid.UUID) error
@@ -105,14 +109,31 @@ func mapGuardianLinkDTO(row storegen.GuardianStudentLink) GuardianLinkDTO {
 }
 
 // ListStudents returns paginated students for the current tenant.
-// If guardianID is provided, returns only students linked to that guardian.
-func (s *Service) ListStudents(ctx context.Context, guardianID *uuid.UUID, limit int32, cursorFullName string, cursorStudentID uuid.UUID) (*ListResponse, error) {
+// Object-level filtering:
+//   - guardian: only students linked to the guardian's membership
+//   - teacher: only students in the teacher's assigned classes (requires teacher_class_links table)
+//   - other roles: all students in tenant (RLS enforces tenant scope)
+func (s *Service) ListStudents(ctx context.Context, userID uuid.UUID, roles []string, limit int32, cursorFullName string, cursorStudentID uuid.UUID) (*ListResponse, error) {
 	var rows []storegen.Student
 	var err error
+	var membershipID uuid.UUID
 
-	if guardianID != nil {
-		// Guardian scope: only linked students
-		rows, err = s.store.ListStudentsForGuardian(ctx, *guardianID, limit)
+	if hasRole(roles, "guardian") {
+		// Resolve the guardian's active membership ID in this tenant
+		tenantIDStr := httpserver.TenantIDFrom(ctx)
+		var tenantID uuid.UUID
+		if tenantIDStr != "" {
+			tenantID, _ = uuid.Parse(tenantIDStr)
+		}
+		membershipID, err = s.store.GetGuardianMembershipID(ctx, userID, tenantID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				// Guardian has no active membership in this tenant -> empty list
+				return &ListResponse{Items: []StudentDTO{}, NextCursor: nil}, nil
+			}
+			return nil, err
+		}
+		rows, err = s.store.ListStudentsForGuardian(ctx, membershipID, limit)
 	} else {
 		rows, err = s.store.ListStudents(ctx, limit, cursorFullName, cursorStudentID)
 	}
@@ -135,14 +156,31 @@ func (s *Service) ListStudents(ctx context.Context, guardianID *uuid.UUID, limit
 	return &ListResponse{Items: items, NextCursor: nextCursor}, nil
 }
 
-// GetStudent returns a single student by ID.
-func (s *Service) GetStudent(ctx context.Context, id uuid.UUID) (*StudentDTO, error) {
-	row, err := s.store.GetStudent(ctx, id)
+// GetStudent returns a single student by ID with object-level access control.
+// Guardians only see linked students; teachers only see students in assigned classes.
+func (s *Service) GetStudent(ctx context.Context, id uuid.UUID, userID uuid.UUID, roles []string) (*StudentDTO, error) {
+	var row *storegen.Student
+	var err error
+
+	if hasRole(roles, "guardian") {
+		row, err = s.store.GetStudentForGuardian(ctx, id, userID)
+	} else {
+		row, err = s.store.GetStudent(ctx, id)
+	}
 	if err != nil {
 		return nil, err
 	}
 	dto := mapStudentDTO(*row)
 	return &dto, nil
+}
+
+func hasRole(roles []string, target string) bool {
+	for _, r := range roles {
+		if r == target {
+			return true
+		}
+	}
+	return false
 }
 
 // CreateStudentRequest is the input for creating a student.

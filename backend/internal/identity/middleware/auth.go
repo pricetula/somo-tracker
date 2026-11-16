@@ -9,6 +9,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"somotracker/internal/identity/service"
+	"somotracker/internal/platform/apperr"
+	"somotracker/internal/platform/audit"
+	"somotracker/internal/platform/authz"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/httpserver"
 )
@@ -16,8 +19,9 @@ import (
 // AuthMiddleware validates session token on protected routes
 // Per ADR-0002: Go is sole security authority, validates every protected request
 type AuthMiddleware struct {
-	svc SessionValidator
-	cfg *config.Config
+	svc           SessionValidator
+	cfg           *config.Config
+	auditRecorder *audit.Recorder
 }
 
 // SessionValidator defines the interface needed by auth middleware.
@@ -28,6 +32,7 @@ type SessionValidator interface {
 	GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
 	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
+	RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error
 }
 
 // MembershipContext holds membership info for RBAC decisions
@@ -38,8 +43,8 @@ type MembershipContext struct {
 }
 
 // NewAuthMiddleware creates auth middleware.
-func NewAuthMiddleware(svc SessionValidator, cfg *config.Config) *AuthMiddleware {
-	return &AuthMiddleware{svc: svc, cfg: cfg}
+func NewAuthMiddleware(svc SessionValidator, cfg *config.Config, auditRecorder *audit.Recorder) *AuthMiddleware {
+	return &AuthMiddleware{svc: svc, cfg: cfg, auditRecorder: auditRecorder}
 }
 
 // sessionCookieName returns the cookie name with environment suffix per ADR-0002
@@ -55,6 +60,15 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 		cookieName := m.sessionCookieName()
 		token := c.Cookies(cookieName)
 		if token == "" {
+			if m.auditRecorder != nil {
+				m.auditRecorder.Record(c.Context(), audit.Event{
+					Type:     audit.EventLoginFailure,
+					RequestID: c.Locals("request_id").(string),
+					Outcome:  "failure",
+					IP:       c.IP(),
+					Details:  map[string]string{"reason": "missing_session_cookie"},
+				})
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 				Code:    "UNAUTHENTICATED",
 				Message: "authentication required",
@@ -65,6 +79,15 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 		sessionCtx, memberships, err := m.svc.ValidateSessionWithMemberships(c.Context(), tokenHash[:])
 		if err != nil {
 			if errors.Is(err, service.ErrSessionNotFound) {
+				if m.auditRecorder != nil {
+					m.auditRecorder.Record(c.Context(), audit.Event{
+						Type:     audit.EventLoginFailure,
+						RequestID: c.Locals("request_id").(string),
+						Outcome:  "failure",
+						IP:       c.IP(),
+						Details:  map[string]string{"reason": "session_not_found"},
+					})
+				}
 				return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 					Code:    "UNAUTHENTICATED",
 					Message: "session not found or expired",
@@ -88,9 +111,32 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 		if len(activeRoles) == 0 {
 			// User removed from all schools - revoke session immediately
 			_ = m.svc.RevokeSession(c.Context(), sessionCtx.SessionID)
+			if m.auditRecorder != nil {
+				m.auditRecorder.Record(c.Context(), audit.Event{
+					Type:     audit.EventSessionRevoked,
+					RequestID: c.Locals("request_id").(string),
+					UserID:   sessionCtx.UserID.String(),
+					TenantID: sessionCtx.TenantID.String(),
+					Outcome:  "success",
+					IP:       c.IP(),
+					Details:  map[string]string{"reason": "no_active_membership"},
+				})
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 				Code:    "UNAUTHENTICATED",
 				Message: "no active membership",
+			})
+		}
+
+		// Audit successful login/session validation
+		if m.auditRecorder != nil {
+			m.auditRecorder.Record(c.Context(), audit.Event{
+				Type:     audit.EventLoginSuccess,
+				RequestID: c.Locals("request_id").(string),
+				UserID:   sessionCtx.UserID.String(),
+				TenantID: sessionCtx.TenantID.String(),
+				Outcome:  "success",
+				IP:       c.IP(),
 			})
 		}
 
@@ -254,26 +300,28 @@ func NewRBACMiddleware(svc SessionValidator) *RBACMiddleware {
 	return &RBACMiddleware{svc: svc}
 }
 
-// RequireRole creates middleware that requires one of the specified roles
-// Roles checked: tenant_owner, school_admin, finance_officer, teacher, guardian
+// RequireRole creates middleware that requires one of the specified roles.
+// Role names must match the authz.Role constants (lowercased DB enum values):
+// owner, admin, headteacher, teacher, guardian, finance, platformoperator.
+// The check is against the user's roles from their active membership(s).
 func (r *RBACMiddleware) RequireRole(roles ...string) fiber.Handler {
-	roleSet := make(map[string]struct{}, len(roles))
+	required := make(map[string]struct{}, len(roles))
 	for _, role := range roles {
-		roleSet[role] = struct{}{}
+		required[strings.ToLower(role)] = struct{}{}
 	}
 
 	return func(c fiber.Ctx) error {
 		userRoles, ok := c.Locals("roles").([]string)
-		if !ok {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "roles not found in session",
+		if !ok || len(userRoles) == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
+				Code:    string(apperr.UNAUTHENTICATED),
+				Message: "authentication required",
 			})
 		}
 
 		hasRole := false
 		for _, ur := range userRoles {
-			if _, ok := roleSet[ur]; ok {
+			if _, ok := required[ur]; ok {
 				hasRole = true
 				break
 			}
@@ -281,7 +329,7 @@ func (r *RBACMiddleware) RequireRole(roles ...string) fiber.Handler {
 
 		if !hasRole {
 			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
+				Code:    string(apperr.FORBIDDEN),
 				Message: "insufficient role",
 			})
 		}
@@ -297,12 +345,17 @@ func (r *RBACMiddleware) RequireAnyRole(roles ...string) fiber.Handler {
 
 // RequireAllRoles requires ALL specified roles (user must have all)
 func (r *RBACMiddleware) RequireAllRoles(roles ...string) fiber.Handler {
+	required := make(map[string]struct{}, len(roles))
+	for _, role := range roles {
+		required[strings.ToLower(role)] = struct{}{}
+	}
+
 	return func(c fiber.Ctx) error {
 		userRoles, ok := c.Locals("roles").([]string)
-		if !ok {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "roles not found in session",
+		if !ok || len(userRoles) == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
+				Code:    string(apperr.UNAUTHENTICATED),
+				Message: "authentication required",
 			})
 		}
 
@@ -311,10 +364,10 @@ func (r *RBACMiddleware) RequireAllRoles(roles ...string) fiber.Handler {
 			userRoleSet[ur] = struct{}{}
 		}
 
-		for _, required := range roles {
-			if _, ok := userRoleSet[required]; !ok {
+		for requiredRole := range required {
+			if _, ok := userRoleSet[requiredRole]; !ok {
 				return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-					Code:    "FORBIDDEN",
+					Code:    string(apperr.FORBIDDEN),
 					Message: "insufficient role",
 				})
 			}
@@ -565,15 +618,62 @@ func (r *RBACMiddleware) RequireTeacherAccess(classIDParam string) fiber.Handler
 	}
 }
 
-// RequireFinanceAccess ensures user has finance_officer or school_admin or tenant_owner role
-// for the current school
+// RequireFinanceAccess ensures user has finance-write permission in the target school.
+// Resolves through the authz permission matrix (single source of truth).
 func (r *RBACMiddleware) RequireFinanceAccess() fiber.Handler {
-	return r.RequireRole("finance", "admin", "owner")
+	return func(c fiber.Ctx) error {
+		userRoles, ok := c.Locals("roles").([]string)
+		if !ok || len(userRoles) == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
+				Code:    string(apperr.UNAUTHENTICATED),
+				Message: "authentication required",
+			})
+		}
+
+		roles := make([]authz.Role, 0, len(userRoles))
+		for _, ur := range userRoles {
+			roles = append(roles, authz.Role(ur))
+		}
+
+		if !authz.HasPermission(roles, authz.PermFeeWrite) {
+			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+				Code:    string(apperr.FORBIDDEN),
+				Message: "insufficient permission in this school",
+			})
+		}
+
+		return c.Next()
+	}
 }
 
-// RequireAdminAccess ensures user has school_admin or tenant_owner role
+// RequireAdminAccess ensures user has admin-level permission in the target school.
+// Resolves through the authz permission matrix (single source of truth).
+// Uses user:write as the admin-level permission since RoleAdmin has user:write
+// but not school:write.
 func (r *RBACMiddleware) RequireAdminAccess() fiber.Handler {
-	return r.RequireRole("admin", "owner")
+	return func(c fiber.Ctx) error {
+		userRoles, ok := c.Locals("roles").([]string)
+		if !ok || len(userRoles) == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
+				Code:    string(apperr.UNAUTHENTICATED),
+				Message: "authentication required",
+			})
+		}
+
+		roles := make([]authz.Role, 0, len(userRoles))
+		for _, ur := range userRoles {
+			roles = append(roles, authz.Role(ur))
+		}
+
+		if !authz.HasPermission(roles, authz.PermUserWrite) {
+			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+				Code:    string(apperr.FORBIDDEN),
+				Message: "insufficient permission in this school",
+			})
+		}
+
+		return c.Next()
+	}
 }
 
 // ErrorResponse standardizes error shape for middleware

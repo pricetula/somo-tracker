@@ -49,14 +49,14 @@ func TestProvisionTenant_Handler_CompleteFlow(t *testing.T) {
 		memberID: uuid.New().String(),
 	}
 
-	svc, err := service.New(repo, mockStytch, db, "")
+	svc, err := service.New(repo, mockStytch, db, "", 0)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 	cfg := &config.Config{
 		Env: "development",
 	}
-	h := New(svc, cfg, nil)
+	h := New(svc, cfg, nil, nil)
 
 	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)
@@ -152,14 +152,14 @@ func TestProvisionTenant_StytchFailure(t *testing.T) {
 		failCreateOrg: true,
 	}
 
-	svc, err := service.New(repo, mockStytch, db, "")
+	svc, err := service.New(repo, mockStytch, db, "", 0)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 	cfg := &config.Config{
 		Env: "development",
 	}
-	h := New(svc, cfg, nil)
+	h := New(svc, cfg, nil, nil)
 
 	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)
@@ -235,14 +235,14 @@ func TestProvisionTenant_CompletedPendingBlocked(t *testing.T) {
 		memberID: uuid.New().String(),
 	}
 
-	svc, err := service.New(repo, mockStytch, db, "")
+	svc, err := service.New(repo, mockStytch, db, "", 0)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 	cfg := &config.Config{
 		Env: "development",
 	}
-	h := New(svc, cfg, nil)
+	h := New(svc, cfg, nil, nil)
 
 	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)
@@ -320,14 +320,14 @@ func TestProvisionTenant_ExistingUserBlocked(t *testing.T) {
 		memberID: uuid.New().String(),
 	}
 
-	svc, err := service.New(repo, mockStytch, db, "")
+	svc, err := service.New(repo, mockStytch, db, "", 0)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 	cfg := &config.Config{
 		Env: "development",
 	}
-	h := New(svc, cfg, nil)
+	h := New(svc, cfg, nil, nil)
 
 	app := fiber.New(fiber.Config{ErrorHandler: testErrorHandler()})
 	app.Post("/api/v1/onboarding/complete", h.ProvisionTenant)

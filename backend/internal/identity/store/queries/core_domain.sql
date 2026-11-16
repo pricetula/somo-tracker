@@ -93,3 +93,26 @@ FROM memberships m
 JOIN users u ON m.user_id = u.id
 WHERE u.id = $1 AND u.tenant_id = $2
 LIMIT 1;
+
+-- name: ListSchoolsByTenant :many
+SELECT s.id, s.tenant_id, s.name, s.code, s.country_id, s.education_system_id, s.created_at, s.updated_at
+FROM schools s
+WHERE s.tenant_id = $1
+ORDER BY s.name;
+
+-- name: GetGuardianStudents :many
+-- Returns student IDs linked to a guardian (via their membership) in a tenant.
+-- Scoped to tenant via schools.tenant_id. Read-only join across identity + students domains (BE-003).
+SELECT gsl.student_id
+FROM memberships m
+INNER JOIN guardian_student_links gsl ON gsl.guardian_id = m.id
+INNER JOIN schools sc ON sc.id = m.school_id
+WHERE m.user_id = $1
+  AND sc.tenant_id = $2
+  AND m.deleted_at IS NULL
+  AND gsl.deleted_at IS NULL;
+
+-- name: SetMembershipActive :exec
+UPDATE memberships
+SET is_active = (id = $2), updated_at = NOW()
+WHERE user_id = $1;

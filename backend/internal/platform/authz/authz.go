@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"somotracker/internal/platform/apperr"
+	"somotracker/internal/platform/audit"
 	"somotracker/internal/platform/httpserver"
 )
 
@@ -26,6 +28,19 @@ const (
 	RoleFinance         Role = "finance"
 	RolePlatformOperator Role = "platformoperator"
 )
+
+// Role semantics:
+//   - Tenant-level roles: owner, platformoperator. These apply across all schools in a tenant.
+//     "owner" is created during tenant provisioning and has full permissions.
+//     "platformoperator" is a cross-tenant support role (same permissions as owner within a tenant).
+//   - School-level roles: admin, headteacher, teacher, guardian, finance. These apply only within
+//     the specific school(s) where the user has an active membership.
+//   - Permissions are evaluated against the role(s) the user holds in the TARGET school, not the
+//     union of roles across all schools. Use authz.RequireSchool() for school-scoped checks and
+//     authz.Require() for tenant-level checks.
+//   - The permission matrix (rolePermissions) is the single source of truth. Role-based middleware
+//     helpers (RequireRole, RequireFinanceAccess, RequireAdminAccess) resolve through it, not
+//     through duplicated logic.
 
 // Permission constants.
 const (
@@ -190,10 +205,25 @@ var rolePermissions = map[Role]map[Permission]struct{}{
 // Require checks that the current session has the required permission.
 // Roles are read from c.Locals("roles") ([]string), set by AuthMiddleware.
 // Returns 401 if no session, 403 if the session lacks the permission (BE-020).
-func Require(perm Permission) fiber.Handler {
+// An optional audit.Recorder can be passed to record 403 denials.
+func Require(perm Permission, recorder ...*audit.Recorder) fiber.Handler {
+	var rec *audit.Recorder
+	if len(recorder) > 0 {
+		rec = recorder[0]
+	}
+
 	return func(c fiber.Ctx) error {
 		rolesRaw, ok := c.Locals("roles").([]string)
 		if !ok || len(rolesRaw) == 0 {
+			if rec != nil {
+				rec.Record(c.Context(), audit.Event{
+					Type:     audit.EventAuthorizationDenied,
+					RequestID: c.Locals("request_id").(string),
+					Outcome:  "denied",
+					IP:       c.IP(),
+					Details:  map[string]string{"permission": string(perm), "reason": "no_session"},
+				})
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 				Code:    string(apperr.UNAUTHENTICATED),
 				Message: "authentication required",
@@ -206,6 +236,15 @@ func Require(perm Permission) fiber.Handler {
 		}
 
 		if !hasPermission(roles, perm) {
+			if rec != nil {
+				rec.Record(c.Context(), audit.Event{
+					Type:     audit.EventAuthorizationDenied,
+					RequestID: c.Locals("request_id").(string),
+					Outcome:  "denied",
+					IP:       c.IP(),
+					Details:  map[string]string{"permission": string(perm), "reason": "insufficient_permission"},
+				})
+			}
 			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 				Code:    string(apperr.FORBIDDEN),
 				Message: "insufficient permission",
@@ -220,6 +259,123 @@ func Require(perm Permission) fiber.Handler {
 type ErrorResponse struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// RequireSchool checks that the current session has the required permission
+// in the target school. The target school is resolved from the route parameter
+// (schoolIDParam) or from the session's primary school ("current").
+// Permissions are evaluated against the role the user holds in the target school,
+// not the union of roles across all schools (Phase 2: per-school role evaluation).
+// An optional audit.Recorder can be passed to record 403 denials.
+func RequireSchool(perm Permission, schoolIDParam string, recorder ...*audit.Recorder) fiber.Handler {
+	var rec *audit.Recorder
+	if len(recorder) > 0 {
+		rec = recorder[0]
+	}
+
+	return func(c fiber.Ctx) error {
+		rolesRaw, ok := c.Locals("roles").([]string)
+		if !ok || len(rolesRaw) == 0 {
+			if rec != nil {
+				rec.Record(c.Context(), audit.Event{
+					Type:     audit.EventAuthorizationDenied,
+					RequestID: c.Locals("request_id").(string),
+					Outcome:  "denied",
+					IP:       c.IP(),
+					Details:  map[string]string{"permission": string(perm), "reason": "no_session"},
+				})
+			}
+			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
+				Code:    string(apperr.UNAUTHENTICATED),
+				Message: "authentication required",
+			})
+		}
+
+		schoolIDsRaw, ok := c.Locals("school_ids").([]uuid.UUID)
+		if !ok || len(schoolIDsRaw) == 0 {
+			if rec != nil {
+				rec.Record(c.Context(), audit.Event{
+					Type:     audit.EventAuthorizationDenied,
+					RequestID: c.Locals("request_id").(string),
+					Outcome:  "denied",
+					IP:       c.IP(),
+					Details:  map[string]string{"permission": string(perm), "reason": "no_active_school_membership"},
+				})
+			}
+			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+				Code:    string(apperr.FORBIDDEN),
+				Message: "no active school membership",
+			})
+		}
+
+		// Resolve target school ID
+		var targetSchoolID uuid.UUID
+		if schoolIDParam == "current" {
+			targetSchoolID = schoolIDsRaw[0]
+		} else {
+			paramVal := c.Params(schoolIDParam)
+			if paramVal == "" {
+				return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+					Code:    string(apperr.INVALID_REQUEST),
+					Message: "school_id parameter required",
+				})
+			}
+			var err error
+			targetSchoolID, err = uuid.Parse(paramVal)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+					Code:    string(apperr.INVALID_REQUEST),
+					Message: "invalid school_id",
+				})
+			}
+		}
+
+		// Find the role the user holds in the target school
+		// rolesRaw and schoolIDsRaw are parallel arrays (index-aligned)
+		var targetRole Role
+		found := false
+		for i, sid := range schoolIDsRaw {
+			if sid == targetSchoolID {
+				targetRole = Role(strings.ToLower(rolesRaw[i]))
+				found = true
+				break
+			}
+		}
+		if !found {
+			if rec != nil {
+				rec.Record(c.Context(), audit.Event{
+					Type:     audit.EventAuthorizationDenied,
+					RequestID: c.Locals("request_id").(string),
+					Outcome:  "denied",
+					IP:       c.IP(),
+					Details:  map[string]string{"permission": string(perm), "reason": "no_membership_in_target_school"},
+				})
+			}
+			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+				Code:    string(apperr.FORBIDDEN),
+				Message: "no membership in target school",
+			})
+		}
+
+		// Check permission against the role in the target school only
+		if !HasPermission([]Role{targetRole}, perm) {
+			if rec != nil {
+				rec.Record(c.Context(), audit.Event{
+					Type:     audit.EventAuthorizationDenied,
+					RequestID: c.Locals("request_id").(string),
+					Outcome:  "denied",
+					IP:       c.IP(),
+					Details:  map[string]string{"permission": string(perm), "reason": "insufficient_permission_in_school"},
+				})
+			}
+			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+				Code:    string(apperr.FORBIDDEN),
+				Message: "insufficient permission in this school",
+			})
+		}
+
+		return c.Next()
+	}
 }
 
 // ScopeFor returns the tenant-scoped context key for a permission (BE-021).

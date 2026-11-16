@@ -134,7 +134,7 @@ func newIntegrationService(t *testing.T, db *sql.DB) *service.Service {
 	t.Helper()
 	queries := storegen.New(db)
 	repo := identityStore.New(queries)
-	svc, err := service.New(repo, nil, db, "")
+	svc, err := service.New(repo, nil, db, "", 0)
 	require.NoError(t, err)
 	return svc
 }

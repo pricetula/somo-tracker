@@ -2,12 +2,23 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@12.11.2 --activate
+# Install pnpm (pin to v12 to match pnpm-lock.yaml format)
+RUN npm install -g pnpm@12
 
-# Install deps (cached layer)
+# Install dependencies
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm config set minimum-release-age 0 && pnpm approve-builds @parcel/watcher unrs-resolver && pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
-# Vite dev server with HMR
+COPY . .
+
+# Expose Next.js dev port
 EXPOSE 3000
-CMD ["pnpm", "dev"]
+
+# Start dev server. HOSTNAME=0.0.0.0 is required so the dev server
+# accepts connections from outside the container (docker port mapping).
+# Install dependencies at runtime because the anonymous /app/node_modules
+# volume shadows the image-installed node_modules.
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+CMD ["sh", "-c", "pnpm install --frozen-lockfile && pnpm run dev"]

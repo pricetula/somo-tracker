@@ -197,6 +197,47 @@ func (q *Queries) DeletePKCECode(ctx context.Context, pendingOnboardingID uuid.U
 	return err
 }
 
+const getGuardianStudents = `-- name: GetGuardianStudents :many
+SELECT gsl.student_id
+FROM memberships m
+INNER JOIN guardian_student_links gsl ON gsl.guardian_id = m.id
+INNER JOIN schools sc ON sc.id = m.school_id
+WHERE m.user_id = $1
+  AND sc.tenant_id = $2
+  AND m.deleted_at IS NULL
+  AND gsl.deleted_at IS NULL
+`
+
+type GetGuardianStudentsParams struct {
+	UserID   uuid.UUID
+	TenantID uuid.UUID
+}
+
+// Returns student IDs linked to a guardian (via their membership) in a tenant.
+// Scoped to tenant via schools.tenant_id. Read-only join across identity + students domains (BE-003).
+func (q *Queries) GetGuardianStudents(ctx context.Context, arg GetGuardianStudentsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, getGuardianStudents, arg.UserID, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var student_id uuid.UUID
+		if err := rows.Scan(&student_id); err != nil {
+			return nil, err
+		}
+		items = append(items, student_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMembershipByUserAndSchool = `-- name: GetMembershipByUserAndSchool :one
 SELECT id, user_id, school_id, role, created_at
 FROM memberships
@@ -544,4 +585,70 @@ func (q *Queries) GetUserByStytchMemberID(ctx context.Context, stytchMemberID uu
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listSchoolsByTenant = `-- name: ListSchoolsByTenant :many
+SELECT s.id, s.tenant_id, s.name, s.code, s.country_id, s.education_system_id, s.created_at, s.updated_at
+FROM schools s
+WHERE s.tenant_id = $1
+ORDER BY s.name
+`
+
+type ListSchoolsByTenantRow struct {
+	ID                uuid.UUID
+	TenantID          uuid.UUID
+	Name              string
+	Code              string
+	CountryID         uuid.UUID
+	EducationSystemID uuid.UUID
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (q *Queries) ListSchoolsByTenant(ctx context.Context, tenantID uuid.UUID) ([]ListSchoolsByTenantRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSchoolsByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSchoolsByTenantRow
+	for rows.Next() {
+		var i ListSchoolsByTenantRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Code,
+			&i.CountryID,
+			&i.EducationSystemID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setMembershipActive = `-- name: SetMembershipActive :exec
+UPDATE memberships
+SET is_active = (id = $2), updated_at = NOW()
+WHERE user_id = $1
+`
+
+type SetMembershipActiveParams struct {
+	UserID uuid.UUID
+	ID     uuid.UUID
+}
+
+func (q *Queries) SetMembershipActive(ctx context.Context, arg SetMembershipActiveParams) error {
+	_, err := q.db.ExecContext(ctx, setMembershipActive, arg.UserID, arg.ID)
+	return err
 }

@@ -6,27 +6,28 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 // Config holds typed application configuration loaded from environment.
 // Secrets are injected via Doppler, never from .env files (BE-033).
 type Config struct {
-	Env           string
-	PostgresDSN   string
-	RedisAddr     string
-	ServerPort    string
-	LogLevel      string
-	StytchEnv     string
+	Env             string
+	PostgresDSN     string
+	RedisAddr       string
+	ServerPort      string
+	LogLevel        string
+	StytchEnv       string
 	StytchProjectID string
-	StytchSecret  string
+	StytchSecret    string
 	// Security
-	EmailHMACKey  string
-	ISTEncryptionKey string // 32-byte base64 key for AES-256-GCM encryption of IST
-	CORSOrigins   string
-	CookieDomain  string
+	EmailHMACKey         string
+	ISTEncryptionKey     string // 32-byte base64 key for AES-256-GCM encryption of IST
+	CORSOrigins          string
+	CookieDomain         string
 	CSPReportOnlyEnabled bool
-	CSPReportOnlyURI   string
-	CSPReportOnlyPolicy string
+	CSPReportOnlyURI     string
+	CSPReportOnlyPolicy  string
 	// Email provider quotas
 	EmailProviderHourlyCap int
 	EmailProviderDailyCap  int
@@ -34,6 +35,13 @@ type Config struct {
 	RateLimitMagicLinkIPPerMin      int
 	RateLimitMagicLinkEmailPer15Min int
 	RateLimitTokenExchangeIPPerMin  int
+	RateLimitLogoutIPPerMin         int
+	RateLimitProvisionIPPerMin      int
+	RateLimitPublicIPPerMin         int
+
+	// Session policy - configurable via env
+	SessionIdleTimeout time.Duration // sliding window, default 7 days
+	SessionAbsoluteMax time.Duration // absolute maximum, default 30 days
 
 	// Reference data seeding
 	SeedReferenceData bool
@@ -78,8 +86,15 @@ func Load() (*Config, error) {
 	ipPerMin := parseIntEnv("RATE_LIMIT_MAGIC_LINK_IP_PER_MIN", 10)
 	emailPer15Min := parseIntEnv("RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN", 3)
 	tokenIPPerMin := parseIntEnv("RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN", 10)
+	logoutIPPerMin := parseIntEnv("RATE_LIMIT_LOGOUT_IP_PER_MIN", 5)
+	provisionIPPerMin := parseIntEnv("RATE_LIMIT_PROVISION_IP_PER_MIN", 5)
+	publicIPPerMin := parseIntEnv("RATE_LIMIT_PUBLIC_IP_PER_MIN", 30)
 	tenantIPPerMin := parseIntEnv("RATE_LIMIT_TENANT_MAGIC_LINK_IP_PER_MIN", 5)
 	tenantEmailPer15Min := parseIntEnv("RATE_LIMIT_TENANT_MAGIC_LINK_EMAIL_PER_15_MIN", 2)
+
+	// Session policy defaults
+	idleTimeout := parseDurationEnv("SESSION_IDLE_TIMEOUT", 7*24*time.Hour)  // 7 days
+	absoluteMax := parseDurationEnv("SESSION_ABSOLUTE_MAX", 30*24*time.Hour) // 30 days
 
 	// Reference data seeding - opt-in in production, on in dev/test
 	seedRefData := firstNonEmpty("SEED_REFERENCE_DATA", "")
@@ -91,28 +106,33 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		Env:            env,
-		PostgresDSN:    postgresDSN,
-		RedisAddr:      redisAddr,
-		ServerPort:     serverPort,
-		LogLevel:       logLevel,
-		StytchEnv:      stytchEnv,
-		StytchProjectID: stytchProjectID,
-		StytchSecret:   stytchSecret,
-		EmailHMACKey:   emailHMACKey,
-		ISTEncryptionKey: istEncryptionKey,
-		CORSOrigins:    corsOrigins,
-		CookieDomain:   cookieDomain,
-		CSPReportOnlyEnabled: cspReportOnlyEnabled == "true" || cspReportOnlyEnabled == "1",
-		CSPReportOnlyURI: cspReportOnlyURI,
-		CSPReportOnlyPolicy: cspReportOnlyPolicy,
-		EmailProviderHourlyCap: hourlyCap,
-		EmailProviderDailyCap:  dailyCap,
-		RateLimitMagicLinkIPPerMin:      ipPerMin,
-		RateLimitMagicLinkEmailPer15Min: emailPer15Min,
-		RateLimitTokenExchangeIPPerMin:  tokenIPPerMin,
+		Env:                                   env,
+		PostgresDSN:                           postgresDSN,
+		RedisAddr:                             redisAddr,
+		ServerPort:                            serverPort,
+		LogLevel:                              logLevel,
+		StytchEnv:                             stytchEnv,
+		StytchProjectID:                       stytchProjectID,
+		StytchSecret:                          stytchSecret,
+		EmailHMACKey:                          emailHMACKey,
+		ISTEncryptionKey:                      istEncryptionKey,
+		CORSOrigins:                           corsOrigins,
+		CookieDomain:                          cookieDomain,
+		CSPReportOnlyEnabled:                  cspReportOnlyEnabled == "true" || cspReportOnlyEnabled == "1",
+		CSPReportOnlyURI:                      cspReportOnlyURI,
+		CSPReportOnlyPolicy:                   cspReportOnlyPolicy,
+		EmailProviderHourlyCap:                hourlyCap,
+		EmailProviderDailyCap:                 dailyCap,
+		RateLimitMagicLinkIPPerMin:            ipPerMin,
+		RateLimitMagicLinkEmailPer15Min:       emailPer15Min,
+		RateLimitTokenExchangeIPPerMin:        tokenIPPerMin,
+		RateLimitLogoutIPPerMin:               logoutIPPerMin,
+		RateLimitProvisionIPPerMin:            provisionIPPerMin,
+		RateLimitPublicIPPerMin:               publicIPPerMin,
 		RateLimitTenantMagicLinkIPPerMin:      tenantIPPerMin,
 		RateLimitTenantMagicLinkEmailPer15Min: tenantEmailPer15Min,
+		SessionIdleTimeout:                    idleTimeout,
+		SessionAbsoluteMax:                    absoluteMax,
 		SeedReferenceData:                     seedReferenceData,
 	}
 	if err := cfg.Validate(); err != nil {
@@ -187,6 +207,18 @@ func parseIntEnv(key string, defaultVal int) int {
 		return defaultVal
 	}
 	return i
+}
+
+func parseDurationEnv(key string, defaultVal time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return defaultVal
+	}
+	return d
 }
 
 func firstNonEmpty(keys ...string) string {

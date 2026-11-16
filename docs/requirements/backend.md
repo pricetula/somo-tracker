@@ -39,6 +39,8 @@ Source: `backend/AGENTS.md`. One line per rule; full rule text lives in the sour
 | BE-043 | Status/check fields use `ENUM`, not `TEXT CHECK` |
 | BE-044 | Composite indexes for frequent lookup pairs |
 | BE-045 | No JSON schema validation unless specified; default `'{}'` |
+| BE-046 | Bulk delete uses `DELETE /api/v1/{resource}` with body `{ "ids": ["uuid1", "uuid2", ...] }` instead of `DELETE /api/v1/{resource}/{id}` |
+| BE-047 | Bulk delete operations are atomic — either all IDs deleted successfully or none; per BE-012 one transaction per service call |
 
 ## Tenancy, session, authorization
 

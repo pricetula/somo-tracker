@@ -70,6 +70,31 @@ func (q *Queries) DeleteStudent(ctx context.Context, studentID uuid.UUID) error 
 	return err
 }
 
+const getGuardianMembershipID = `-- name: GetGuardianMembershipID :one
+SELECT m.id
+FROM memberships m
+INNER JOIN schools sc ON sc.id = m.school_id
+WHERE m.user_id = $1
+  AND sc.tenant_id = $2
+  AND m.deleted_at IS NULL
+  AND m.is_active = true
+LIMIT 1
+`
+
+type GetGuardianMembershipIDParams struct {
+	UserID   uuid.UUID
+	TenantID uuid.UUID
+}
+
+// Returns the active membership ID for a guardian user in a tenant.
+// Used to resolve object-level access for guardian-student relationships.
+func (q *Queries) GetGuardianMembershipID(ctx context.Context, arg GetGuardianMembershipIDParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, getGuardianMembershipID, arg.UserID, arg.TenantID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getStudent = `-- name: GetStudent :one
 SELECT student_id, school_id, admission_number, national_number, full_name, date_of_birth, gender, metadata, created_at, updated_at, deleted_at
 FROM students
@@ -81,6 +106,50 @@ LIMIT 1
 
 func (q *Queries) GetStudent(ctx context.Context, studentID uuid.UUID) (Student, error) {
 	row := q.db.QueryRowContext(ctx, getStudent, studentID)
+	var i Student
+	err := row.Scan(
+		&i.StudentID,
+		&i.SchoolID,
+		&i.AdmissionNumber,
+		&i.NationalNumber,
+		&i.FullName,
+		&i.DateOfBirth,
+		&i.Gender,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getStudentForGuardian = `-- name: GetStudentForGuardian :one
+SELECT s.student_id, s.school_id, s.admission_number, s.national_number, s.full_name, s.date_of_birth, s.gender, s.metadata, s.created_at, s.updated_at, s.deleted_at
+FROM students s
+WHERE s.student_id = $1
+  AND s.deleted_at IS NULL
+  AND s.school_id IN (SELECT id FROM schools WHERE tenant_id = current_tenant_id())
+  AND EXISTS (
+    SELECT 1
+    FROM guardian_student_links gsl
+    INNER JOIN memberships m ON m.id = gsl.guardian_id
+    WHERE gsl.student_id = s.student_id
+      AND m.user_id = $2
+      AND m.deleted_at IS NULL
+      AND gsl.deleted_at IS NULL
+  )
+LIMIT 1
+`
+
+type GetStudentForGuardianParams struct {
+	StudentID uuid.UUID
+	UserID    uuid.UUID
+}
+
+// Returns a student only if the guardian is linked to them via guardian_student_links.
+// Tenant-scoped via schools.tenant_id = current_tenant_id() (RLS).
+func (q *Queries) GetStudentForGuardian(ctx context.Context, arg GetStudentForGuardianParams) (Student, error) {
+	row := q.db.QueryRowContext(ctx, getStudentForGuardian, arg.StudentID, arg.UserID)
 	var i Student
 	err := row.Scan(
 		&i.StudentID,

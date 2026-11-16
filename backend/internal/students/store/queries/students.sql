@@ -50,3 +50,34 @@ WHERE s.deleted_at IS NULL
   AND s.school_id IN (SELECT id FROM schools WHERE tenant_id = current_tenant_id())
 ORDER BY s.full_name ASC, s.student_id ASC
 LIMIT $2;
+
+-- name: GetGuardianMembershipID :one
+-- Returns the active membership ID for a guardian user in a tenant.
+-- Used to resolve object-level access for guardian-student relationships.
+SELECT m.id
+FROM memberships m
+INNER JOIN schools sc ON sc.id = m.school_id
+WHERE m.user_id = $1
+  AND sc.tenant_id = $2
+  AND m.deleted_at IS NULL
+  AND m.is_active = true
+LIMIT 1;
+
+-- name: GetStudentForGuardian :one
+-- Returns a student only if the guardian is linked to them via guardian_student_links.
+-- Tenant-scoped via schools.tenant_id = current_tenant_id() (RLS).
+SELECT s.student_id, s.school_id, s.admission_number, s.national_number, s.full_name, s.date_of_birth, s.gender, s.metadata, s.created_at, s.updated_at, s.deleted_at
+FROM students s
+WHERE s.student_id = $1
+  AND s.deleted_at IS NULL
+  AND s.school_id IN (SELECT id FROM schools WHERE tenant_id = current_tenant_id())
+  AND EXISTS (
+    SELECT 1
+    FROM guardian_student_links gsl
+    INNER JOIN memberships m ON m.id = gsl.guardian_id
+    WHERE gsl.student_id = s.student_id
+      AND m.user_id = $2
+      AND m.deleted_at IS NULL
+      AND gsl.deleted_at IS NULL
+  )
+LIMIT 1;

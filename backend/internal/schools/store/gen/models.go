@@ -211,6 +211,7 @@ type AppSession struct {
 	ExpiresAt             time.Time
 	RevokedAt             sql.NullTime
 	DeletedAt             sql.NullTime
+	LastSeenAt            sql.NullTime
 }
 
 type ClassLevel struct {

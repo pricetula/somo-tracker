@@ -3,10 +3,10 @@ import { createWorkersResponseStoreServiceBindingConfig } from "@vinext/cloudfla
 
 const responseStore = await createWorkersResponseStoreServiceBindingConfig({
   worker: {
-    name: "somotracker-frontend-response-store",
+    name: "somo-tracker-frontend-response-store",
     compatibilityDate: "2026-11-16",
   },
-  bucket: "somotracker-frontend-response-store-cache-bodies",
+  bucket: "somo-tracker-frontend-response-store-cache-bodies",
 });
 
 export const responseStoreServiceBinding = responseStore.serviceBindingWorker;
@@ -14,7 +14,7 @@ export const responseStoreServiceBinding = responseStore.serviceBindingWorker;
 export default defineConfig({
   worker: defineWorker({
     ...responseStore.applicationWorker,
-    name: "somotracker-frontend",
+    name: "somo-tracker-frontend",
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-16",
     assets: {

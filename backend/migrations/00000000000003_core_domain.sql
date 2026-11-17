@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     deleted_at TIMESTAMPTZ
 );
 
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS stytch_organization_id UUID UNIQUE;
 CREATE INDEX IF NOT EXISTS idx_tenant_stytch_org ON tenants (stytch_organization_id) WHERE stytch_organization_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_tenants_deleted_at ON tenants (deleted_at) WHERE deleted_at IS NULL;
 
@@ -80,6 +81,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_tenant ON users (tenant_id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stytch_member_id UUID UNIQUE;
 CREATE INDEX IF NOT EXISTS idx_user_stytch_member ON users (stytch_member_id) WHERE stytch_member_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_tenant_email ON users (tenant_id, email_normalized);
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users (deleted_at) WHERE deleted_at IS NULL;

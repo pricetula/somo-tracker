@@ -1,6 +1,6 @@
-import { getAuthUser } from '@/lib/auth'
-import { clearSession } from '@/lib/api'
-import { Button } from '@/components/ui/button'
+import { getAuthUser } from "@/lib/auth";
+import { clearSession } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 /**
  * Dashboard page — protected route inside (authorized) group.
@@ -10,17 +10,17 @@ import { Button } from '@/components/ui/button'
  * React cache() deduplicates the /api/v1/me call with the layout's call.
  */
 export default async function DashboardPage() {
-  const user = await getAuthUser()
+  const user = await getAuthUser();
 
   if (!user) {
     // Should not happen — layout already gated — but fail closed anyway.
-    return null
+    return null;
   }
 
   async function handleLogout() {
     // Call BFF logout — Go revokes session + clears HttpOnly cookie,
     // then redirects to /login
-    await clearSession()
+    await clearSession();
   }
 
   return (
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="mt-2 text-muted-foreground">
-            Welcome back, {user.fullName}
+            Welcome backo, {user.fullName}
           </p>
         </div>
         <Button onClick={handleLogout} variant="destructive">
@@ -46,9 +46,7 @@ export default async function DashboardPage() {
           <h2 className="text-sm font-medium text-muted-foreground">
             Active school
           </h2>
-          <p className="mt-1">
-            {user.activeSchool?.name ?? 'None'}
-          </p>
+          <p className="mt-1">{user.activeSchool?.name ?? "None"}</p>
         </div>
         <div className="border rounded-lg p-4">
           <h2 className="text-sm font-medium text-muted-foreground">
@@ -69,5 +67,5 @@ export default async function DashboardPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -48,6 +48,7 @@ services:
       STYTCH_SECRET: ${STYTCH_SECRET}
       STYTCH_ENV: ${STYTCH_ENV:-test}
       EMAIL_HMAC_KEY: ${EMAIL_HMAC_KEY}
+      MIGRATIONS_DIR: migrations
       PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       PUBLIC_API_URL: ${PUBLIC_API_URL}
     ports:

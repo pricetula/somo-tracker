@@ -168,3 +168,83 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		}
 	}
 }
+
+// TestMigration_DownAllMigrations verifies that all migrations can be rolled
+// down cleanly. Run locally with: go test -tags=integration -v -run TestMigration_DownAllMigrations ./internal/database/
+func TestMigration_DownAllMigrations(t *testing.T) {
+	ctx := context.Background()
+
+	postgresC, err := postgres.RunContainer(ctx, testcontainers.WithImage("postgres:18"),
+		postgres.WithDatabase("somotracker_test_down"),
+		postgres.WithUsername("somotracker"),
+		postgres.WithPassword("somotracker"),
+		testcontainers.WithWaitStrategy(wait.ForLog("database system is ready to accept connections").WithOccurrence(2).WithStartupTimeout(30*time.Second)),
+	)
+	if err != nil {
+		t.Fatalf("start postgres container: %v", err)
+	}
+	defer func() {
+		_ = postgresC.Terminate(ctx)
+	}()
+
+	dsn, err := postgresC.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		t.Fatalf("connection string: %v", err)
+	}
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	// Apply all migrations up first
+	goose.SetTableName("goose_db_version")
+	if err := goose.UpContext(ctx, db, "../../migrations"); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+
+	version, err := goose.GetDBVersion(db)
+	if err != nil {
+		t.Fatalf("get version: %v", err)
+	}
+	if version != 9 {
+		t.Fatalf("expected schema version 9 after up, got %d", version)
+	}
+	t.Logf("schema version after up: %d", version)
+
+	// Roll all the way down
+	if err := goose.DownToContext(ctx, db, "../../migrations", 0); err != nil {
+		t.Fatalf("migrate down: %v", err)
+	}
+
+	version, err = goose.GetDBVersion(db)
+	if err != nil {
+		t.Fatalf("get version after down: %v", err)
+	}
+	if version != 0 {
+		t.Fatalf("expected schema version 0 after down, got %d", version)
+	}
+	t.Logf("schema version after down: %d", version)
+
+	// Verify all domain tables are gone
+	tables := []string{
+		"pending_onboarding", "app_session", "onboarding_ticket",
+		"tenants", "users", "schools", "memberships", "pkce_codes",
+		"countries", "education_systems", "class_levels",
+		"students", "guardian_student_links",
+		"subjects", "topics", "subtopics",
+		"streams",
+	}
+	for _, q := range tables {
+		var count int
+		if err := db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '%s'", q)).Scan(&count); err != nil {
+			t.Errorf("query %s: %v", q, err)
+			continue
+		}
+		if count != 0 {
+			t.Errorf("expected %s table to be dropped after down, count=%d", q, count)
+		}
+	}
+	t.Log("all tables dropped successfully after down migration")
+}

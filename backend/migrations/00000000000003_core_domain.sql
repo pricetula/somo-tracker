@@ -53,7 +53,7 @@ CREATE INDEX class_levels_sys_seq_idx ON class_levels (education_system_id, sequ
 CREATE INDEX idx_class_levels_deleted_at ON class_levels (deleted_at) WHERE deleted_at IS NULL;
 
 -- Tenant: organization boundary for data isolation.
-CREATE TABLE IF NOT EXISTS tenants (
+CREATE TABLE tenants (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     name TEXT NOT NULL UNIQUE,
     stytch_organization_id UUID UNIQUE,
@@ -64,11 +64,12 @@ CREATE TABLE IF NOT EXISTS tenants (
 );
 
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS stytch_organization_id UUID UNIQUE;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_tenant_stytch_org ON tenants (stytch_organization_id) WHERE stytch_organization_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_tenants_deleted_at ON tenants (deleted_at) WHERE deleted_at IS NULL;
 
 -- User: identity per tenant.
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     email_normalized TEXT NOT NULL,
@@ -83,11 +84,12 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_user_tenant ON users (tenant_id);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS stytch_member_id UUID UNIQUE;
 CREATE INDEX IF NOT EXISTS idx_user_stytch_member ON users (stytch_member_id) WHERE stytch_member_id IS NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_users_tenant_email ON users (tenant_id, email_normalized);
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users (deleted_at) WHERE deleted_at IS NULL;
 
 -- School: institution within a tenant.
-CREATE TABLE IF NOT EXISTS schools (
+CREATE TABLE schools (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -103,10 +105,11 @@ CREATE TABLE IF NOT EXISTS schools (
 CREATE INDEX IF NOT EXISTS idx_school_tenant ON schools (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_schools_country_id ON schools (country_id);
 CREATE INDEX IF NOT EXISTS idx_schools_education_system_id ON schools (education_system_id);
+ALTER TABLE schools ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_schools_deleted_at ON schools (deleted_at) WHERE deleted_at IS NULL;
 
 -- Membership: User <-> School role binding.
-CREATE TABLE IF NOT EXISTS memberships (
+CREATE TABLE memberships (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
@@ -125,6 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_memberships_school_role ON memberships (school_id
 CREATE INDEX IF NOT EXISTS idx_memberships_is_active ON memberships (is_active) WHERE is_active = true;
 CREATE INDEX IF NOT EXISTS idx_memberships_school_tenant ON memberships (school_id, user_id);
 CREATE UNIQUE INDEX memberships_active_user_uniq_idx ON memberships (user_id) WHERE is_active = true;
+ALTER TABLE memberships ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_memberships_deleted_at ON memberships (deleted_at) WHERE deleted_at IS NULL;
 
 -- +goose Down

@@ -3,9 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -62,8 +60,6 @@ func Load() (*Config, error) {
 	var redisAddr string
 	if redisURL == "" {
 		redisAddr = "localhost:6379"
-	} else if strings.HasPrefix(redisURL, "redis://") {
-		redisAddr = parseRedisAddr(redisURL)
 	} else {
 		redisAddr = redisURL
 	}
@@ -238,22 +234,4 @@ func firstNonEmpty(keys ...string) string {
 		}
 	}
 	return ""
-}
-
-func parseRedisAddr(raw string) string {
-	// Accept redis://host:port or redis://user:pass@host:port/db
-	u, err := url.Parse(raw)
-	if err != nil {
-		return raw
-	}
-	host := u.Host
-	if host == "" {
-		return raw
-	}
-	// Strip possible userinfo if present without scheme parsing
-	if strings.Contains(host, "@") {
-		parts := strings.SplitN(host, "@", 2)
-		host = parts[1]
-	}
-	return host
 }

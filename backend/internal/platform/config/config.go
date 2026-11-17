@@ -58,14 +58,14 @@ func Load() (*Config, error) {
 
 	postgresDSN := firstNonEmpty("DATABASE_URL", "POSTGRES_DSN", "")
 
-	redisAddr := firstNonEmpty("REDIS_ADDR", "")
-	if redisAddr == "" {
-		if redisURL := os.Getenv("REDIS_URL"); redisURL != "" {
-			redisAddr = parseRedisAddr(redisURL)
-		}
-	}
-	if redisAddr == "" {
+	redisURL := firstNonEmpty("REDIS_URL", "")
+	var redisAddr string
+	if redisURL == "" {
 		redisAddr = "localhost:6379"
+	} else if strings.HasPrefix(redisURL, "redis://") {
+		redisAddr = parseRedisAddr(redisURL)
+	} else {
+		redisAddr = redisURL
 	}
 
 	serverPort := firstNonEmpty("PORT", "SERVER_PORT", "8080")
@@ -155,7 +155,7 @@ func (c *Config) Validate() error {
 		return errors.New("DATABASE_URL/POSTGRES_DSN is required")
 	}
 	if c.RedisAddr == "" {
-		return errors.New("REDIS_ADDR/REDIS_URL is required")
+		return errors.New("REDIS_URL is required")
 	}
 	if c.StytchProjectID == "" {
 		return errors.New("STYTCH_PROJECT_ID is required")
@@ -166,7 +166,7 @@ func (c *Config) Validate() error {
 	if c.Env == "production" {
 		// Production must not use insecure defaults
 		if c.RedisAddr == "localhost:6379" {
-			return errors.New("REDIS_ADDR must be set to a managed Redis endpoint in production")
+			return errors.New("REDIS_URL must be set to a managed Redis endpoint in production")
 		}
 		if c.EmailHMACKey == "" {
 			return errors.New("EMAIL_HMAC_KEY is required in production")

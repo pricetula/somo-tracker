@@ -59,7 +59,7 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 	// Verify all migrations applied cleanly and schema integrity holds.
 	tables := []string{
 		"pending_onboarding", "app_session", "onboarding_ticket",
-		"tenants", "users", "schools", "memberships", "pkce_codes",
+		"tenants", "users", "schools", "memberships",
 		"countries", "education_systems", "class_levels",
 		"students", "guardian_student_links",
 		"subjects", "topics", "subtopics",
@@ -72,7 +72,6 @@ func TestMigration_AllMigrationsPass(t *testing.T) {
 		"idx_tenant_stytch_org", "idx_user_tenant", "idx_user_stytch_member",
 		"idx_school_tenant",
 		"idx_membership_user", "idx_membership_school",
-		"idx_pkce_expires",
 		"students_school_id_idx",
 		"students_admission_number_idx",
 		"students_full_name_idx",
@@ -230,7 +229,7 @@ func TestMigration_DownAllMigrations(t *testing.T) {
 	// Verify all domain tables are gone
 	tables := []string{
 		"pending_onboarding", "app_session", "onboarding_ticket",
-		"tenants", "users", "schools", "memberships", "pkce_codes",
+		"tenants", "users", "schools", "memberships",
 		"countries", "education_systems", "class_levels",
 		"students", "guardian_student_links",
 		"subjects", "topics", "subtopics",

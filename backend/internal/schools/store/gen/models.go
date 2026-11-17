@@ -319,15 +319,6 @@ type PendingOnboarding struct {
 	DeletedAt               sql.NullTime
 }
 
-type PkceCode struct {
-	PendingOnboardingID uuid.UUID
-	CodeVerifierHash    []byte
-	ExpiresAt           time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-	DeletedAt           sql.NullTime
-}
-
 type School struct {
 	ID                uuid.UUID
 	TenantID          uuid.UUID

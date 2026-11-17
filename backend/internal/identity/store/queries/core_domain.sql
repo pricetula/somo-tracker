@@ -71,22 +71,6 @@ FROM memberships
 WHERE user_id = $1 AND school_id = $2
 LIMIT 1;
 
--- name: CreatePKCECode :exec
-INSERT INTO pkce_codes (pending_onboarding_id, code_verifier_hash, expires_at)
-VALUES ($1, $2, $3)
-ON CONFLICT (pending_onboarding_id) DO UPDATE SET
-  code_verifier_hash = EXCLUDED.code_verifier_hash,
-  expires_at = EXCLUDED.expires_at;
-
--- name: GetPKCECode :one
-SELECT pending_onboarding_id, code_verifier_hash, expires_at, created_at
-FROM pkce_codes
-WHERE pending_onboarding_id = $1 AND expires_at > NOW()
-LIMIT 1;
-
--- name: DeletePKCECode :exec
-DELETE FROM pkce_codes WHERE pending_onboarding_id = $1;
-
 -- name: GetTenantMembershipRole :one
 SELECT m.role
 FROM memberships m

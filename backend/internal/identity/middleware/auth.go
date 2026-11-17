@@ -28,11 +28,6 @@ type AuthMiddleware struct {
 type SessionValidator interface {
 	ValidateSession(ctx context.Context, tokenHash []byte) (*service.SessionContext, error)
 	ValidateSessionWithMemberships(ctx context.Context, tokenHash []byte) (*service.SessionContext, []service.MembershipContext, error)
-	GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]service.MembershipContext, error)
-	GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
-	GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
-	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
-	RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error
 }
 
 // MembershipContext holds membership info for RBAC decisions
@@ -109,8 +104,7 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 			}
 		}
 		if len(activeRoles) == 0 {
-			// User removed from all schools - revoke session immediately
-			_ = m.svc.RevokeSession(c.Context(), sessionCtx.SessionID)
+			// User removed from all schools - session invalid
 			if m.auditRecorder != nil {
 				m.auditRecorder.Record(c.Context(), audit.Event{
 					Type:     audit.EventSessionRevoked,
@@ -436,184 +430,6 @@ func (r *RBACMiddleware) RequireSchoolAccess(schoolIDParam string) fiber.Handler
 
 		// Store for downstream handlers
 		c.Locals("authorized_school_id", targetSchoolID)
-		return c.Next()
-	}
-}
-
-// RequireGuardianAccess ensures guardian can only access their own children
-// studentIDParam is the path parameter name (e.g., "student_id")
-func (r *RBACMiddleware) RequireGuardianAccess(studentIDParam string) fiber.Handler {
-	return func(c fiber.Ctx) error {
-		userID, ok := c.Locals("user_id").(uuid.UUID)
-		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-				Code:    "UNAUTHENTICATED",
-				Message: "user not in session",
-			})
-		}
-
-		tenantID, ok := c.Locals("tenant_id").(uuid.UUID)
-		if !ok {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "tenant not in session",
-			})
-		}
-
-		// Check if user has guardian role
-		userRoles, ok := c.Locals("roles").([]string)
-		if !ok {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "roles not found",
-			})
-		}
-
-		isGuardian := false
-		for _, role := range userRoles {
-			if role == "guardian" {
-				isGuardian = true
-				break
-			}
-		}
-
-		if !isGuardian {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "guardian role required",
-			})
-		}
-
-		// Get student ID from path
-		paramVal := c.Params(studentIDParam)
-		if paramVal == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-				Code:    "INVALID_REQUEST",
-				Message: "student_id parameter required",
-			})
-		}
-		studentID, err := uuid.Parse(paramVal)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-				Code:    "INVALID_REQUEST",
-				Message: "invalid student_id",
-			})
-		}
-
-		// Fetch guardian's authorized students
-		authorizedStudents, err := r.svc.GetGuardianStudents(c.Context(), userID, tenantID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-				Code:    "INTERNAL_ERROR",
-				Message: "failed to verify guardian access",
-			})
-		}
-
-		// Check if student is in guardian's list
-		authorized := false
-		for _, sid := range authorizedStudents {
-			if sid == studentID {
-				authorized = true
-				break
-			}
-		}
-
-		if !authorized {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "not authorized to access this student",
-			})
-		}
-
-		return c.Next()
-	}
-}
-
-// RequireTeacherAccess ensures teacher can only access their assigned classes
-// classIDParam is the path parameter name (e.g., "class_id")
-func (r *RBACMiddleware) RequireTeacherAccess(classIDParam string) fiber.Handler {
-	return func(c fiber.Ctx) error {
-		userID, ok := c.Locals("user_id").(uuid.UUID)
-		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-				Code:    "UNAUTHENTICATED",
-				Message: "user not in session",
-			})
-		}
-
-		tenantID, ok := c.Locals("tenant_id").(uuid.UUID)
-		if !ok {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "tenant not in session",
-			})
-		}
-
-		// Check if user has teacher role
-		userRoles, ok := c.Locals("roles").([]string)
-		if !ok {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "roles not found",
-			})
-		}
-
-		isTeacher := false
-		for _, role := range userRoles {
-			if role == "teacher" {
-				isTeacher = true
-				break
-			}
-		}
-
-		if !isTeacher {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "teacher role required",
-			})
-		}
-
-		// Get class ID from path
-		paramVal := c.Params(classIDParam)
-		if paramVal == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-				Code:    "INVALID_REQUEST",
-				Message: "class_id parameter required",
-			})
-		}
-		classID, err := uuid.Parse(paramVal)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-				Code:    "INVALID_REQUEST",
-				Message: "invalid class_id",
-			})
-		}
-
-		// Fetch teacher's authorized classes
-		authorizedClasses, err := r.svc.GetTeacherClasses(c.Context(), userID, tenantID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-				Code:    "INTERNAL_ERROR",
-				Message: "failed to verify teacher access",
-			})
-		}
-
-		// Check if class is in teacher's list
-		authorized := false
-		for _, cid := range authorizedClasses {
-			if cid == classID {
-				authorized = true
-				break
-			}
-		}
-
-		if !authorized {
-			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
-				Code:    "FORBIDDEN",
-				Message: "not authorized to access this class",
-			})
-		}
-
 		return c.Next()
 	}
 }

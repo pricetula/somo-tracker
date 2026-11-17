@@ -37,7 +37,7 @@ services:
       CSP_REPORT_ONLY_ENABLED: "false"
       CSP_REPORT_ONLY_POLICY: default-src 'self'
       POSTGRES_DSN: ${POSTGRES_DSN:-postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable}
-      REDIS_ADDR: redis:6379
+      REDIS_URL: redis://redis:6379
       SERVER_PORT: 8080
       EMAIL_PROVIDER_HOURLY_CAP: "1000"
       EMAIL_PROVIDER_DAILY_CAP: "10000"

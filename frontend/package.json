@@ -12,7 +12,7 @@
     "build:vinext": "vite build",
     "start:vinext": "vite preview",
     "deploy:vinext": "vinext-cloudflare deploy --warm-cache",
-    "deploy:response-store": "cf deploy --prebuilt --mode production --worker somotracker-frontend-response-store"
+    "deploy:response-store": "cf deploy --prebuilt --mode production --worker somo-tracker-frontend-response-store"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

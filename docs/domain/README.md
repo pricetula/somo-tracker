@@ -21,7 +21,7 @@ Entity list by migration file. Every table has exactly one owning domain; only t
 | `pending_onboarding` | Resumable onboarding state per normalized email; unique `idempotency_key`; status enum `pending|provisioning|completed|failed_retryable` |
 | `app_session` | Opaque sessions; `token_hash` (SHA-256 of token), `stytch_member_session_id`, `expires_at`, `revoked_at` |
 | `onboarding_ticket` | Short-lived onboarding ticket; encrypted IST ciphertext/nonce; `used_at`, `expires_at` |
-| `pkce_codes` | PKCE codes for magic-link flow |
+
 
 ### `00000000000003_core_domain.sql` — owning domain: core (tenancy / identity base)
 

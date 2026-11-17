@@ -29,6 +29,10 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
+        // Include cookies so the browser stores the Set-Cookie (pkce_verifier)
+        // returned by the BFF. Without this the PKCE cookie can be dropped on
+        // some clients, causing MISSING_PKCE on authenticate-token.
+        credentials: 'include',
       })
 
       if (!res.ok) {

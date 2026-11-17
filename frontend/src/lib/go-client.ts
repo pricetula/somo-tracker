@@ -72,9 +72,11 @@ export async function goRequest(
     cache: 'no-store',
   })
 
-  const responseHeaders: Record<string, string> = {}
+  // Forward all upstream headers, preserving Set-Cookie (including multiple
+  // Set-Cookie headers) which a plain Record would silently drop.
+  const responseHeaders = new Headers()
   res.headers.forEach((v, k) => {
-    responseHeaders[k] = v
+    responseHeaders.append(k, v)
   })
 
   return new NextResponse(await res.arrayBuffer(), {

@@ -81,8 +81,8 @@ func Load() (*Config, error) {
 	hourlyCap := parseIntEnv("EMAIL_PROVIDER_HOURLY_CAP", 1000)
 	dailyCap := parseIntEnv("EMAIL_PROVIDER_DAILY_CAP", 10000)
 	// Rate limits with defaults per spec
-	ipPerMin := parseIntEnv("RATE_LIMIT_MAGIC_LINK_IP_PER_MIN", 10)
-	emailPer15Min := parseIntEnv("RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN", 3)
+	ipPerMin := parseIntEnv("RATE_LIMIT_MAGIC_LINK_IP_PER_MIN", 20)
+	emailPer15Min := parseIntEnv("RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN", 10)
 	tokenIPPerMin := parseIntEnv("RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN", 10)
 	logoutIPPerMin := parseIntEnv("RATE_LIMIT_LOGOUT_IP_PER_MIN", 5)
 	provisionIPPerMin := parseIntEnv("RATE_LIMIT_PROVISION_IP_PER_MIN", 5)

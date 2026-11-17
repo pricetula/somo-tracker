@@ -48,6 +48,8 @@ type Config struct {
 	// Tenant-scoped rate limits
 	RateLimitTenantMagicLinkIPPerMin      int
 	RateLimitTenantMagicLinkEmailPer15Min int
+	// Migrations directory
+	MigrationsDir string // path to goose migration SQL files
 }
 
 // Load reads configuration from environment variables with Doppler aliases.
@@ -105,6 +107,8 @@ func Load() (*Config, error) {
 		seedReferenceData = true
 	}
 
+	migrationsDir := firstNonEmpty("MIGRATIONS_DIR", "migrations")
+
 	cfg := &Config{
 		Env:                                   env,
 		PostgresDSN:                           postgresDSN,
@@ -134,6 +138,7 @@ func Load() (*Config, error) {
 		SessionIdleTimeout:                    idleTimeout,
 		SessionAbsoluteMax:                    absoluteMax,
 		SeedReferenceData:                     seedReferenceData,
+		MigrationsDir:                         migrationsDir,
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err

@@ -39,23 +39,25 @@ func NewSDKClientWithEnv(projectID, secret, env string) *SDKClient {
 	return &SDKClient{api: api}
 }
 
-func (c *SDKClient) SendDiscoveryMagicLink(ctx context.Context, email string, loginURL string) error {
+func (c *SDKClient) SendDiscoveryMagicLink(ctx context.Context, email string, loginURL string, pkceCodeChallenge string) error {
 	if c.api == nil {
 		return context.DeadlineExceeded
 	}
 	_, err := c.api.MagicLinks.Email.Discovery.Send(ctx, &magicEmailDisc.SendParams{
 		EmailAddress:         email,
 		DiscoveryRedirectURL: loginURL,
+		PkceCodeChallenge:    pkceCodeChallenge,
 	})
 	return err
 }
 
-func (c *SDKClient) AuthenticateDiscovery(ctx context.Context, token string) (*DiscoveryAuthResponse, error) {
+func (c *SDKClient) AuthenticateDiscovery(ctx context.Context, token string, pkceCodeVerifier string) (*DiscoveryAuthResponse, error) {
 	if c.api == nil {
 		return nil, context.DeadlineExceeded
 	}
 	resp, err := c.api.MagicLinks.Discovery.Authenticate(ctx, &magicDisc.AuthenticateParams{
 		DiscoveryMagicLinksToken: token,
+		PkceCodeVerifier:         pkceCodeVerifier,
 	})
 	if err != nil {
 		return nil, err

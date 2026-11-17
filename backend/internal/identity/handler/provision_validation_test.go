@@ -23,11 +23,11 @@ import (
 // mockStytchHandlerForValidation implements stytch.Client for validation tests
 type mockStytchHandlerForValidation struct{}
 
-func (m *mockStytchHandlerForValidation) SendDiscoveryMagicLink(ctx context.Context, email, loginURL string) error {
+func (m *mockStytchHandlerForValidation) SendDiscoveryMagicLink(ctx context.Context, email, loginURL, challenge string) error {
 	return nil
 }
 
-func (m *mockStytchHandlerForValidation) AuthenticateDiscovery(ctx context.Context, token string) (*stytch.DiscoveryAuthResponse, error) {
+func (m *mockStytchHandlerForValidation) AuthenticateDiscovery(ctx context.Context, token, pkceCodeVerifier string) (*stytch.DiscoveryAuthResponse, error) {
 	return nil, nil
 }
 

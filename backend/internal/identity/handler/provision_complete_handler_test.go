@@ -405,11 +405,11 @@ type mockStytchHandler struct {
 	failCreateOrg bool
 }
 
-func (m *mockStytchHandler) SendDiscoveryMagicLink(ctx context.Context, email, loginURL string) error {
+func (m *mockStytchHandler) SendDiscoveryMagicLink(ctx context.Context, email, loginURL, challenge string) error {
 	return nil
 }
 
-func (m *mockStytchHandler) AuthenticateDiscovery(ctx context.Context, token string) (*stytch.DiscoveryAuthResponse, error) {
+func (m *mockStytchHandler) AuthenticateDiscovery(ctx context.Context, token, pkceCodeVerifier string) (*stytch.DiscoveryAuthResponse, error) {
 	return &stytch.DiscoveryAuthResponse{
 		Email:           "test@example.com",
 		IntermediateSessionToken: "test-ist",

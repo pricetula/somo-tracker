@@ -185,13 +185,31 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 		}
 	}
 
-	// Call service
-	if _, err := h.svc.RequestMagicLink(c.Context(), req.Email); err != nil {
+	// Call service - returns PKCE verifier to store in cookie
+	pkceVerifier, err := h.svc.RequestMagicLink(c.Context(), req.Email)
+	if err != nil {
 		// Don't reveal if email exists (generic success per spec)
 		// Log error internally
 		logger.Error(c.Context(), err, "RequestMagicLink failed")
 		return c.Status(fiber.StatusOK).JSON(RequestMagicLinkResponse{Success: true})
 	}
+
+	// Store PKCE verifier in HttpOnly cookie for callback
+	pkceCookieName := "__Host-pkce_verifier"
+	pkceSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+	if h.cfg.Env != "production" {
+		pkceCookieName = "pkce_verifier"
+		pkceSecure = false
+	}
+	c.Cookie(&fiber.Cookie{
+		Name:     pkceCookieName,
+		Value:    pkceVerifier,
+		Path:     "/",
+		HTTPOnly: true,
+		Secure:   pkceSecure,
+		SameSite: fiber.CookieSameSiteLaxMode,
+		MaxAge:   int(10 * time.Minute / time.Second),
+	})
 
 	// Generic success - don't reveal account existence
 	return c.Status(fiber.StatusOK).JSON(RequestMagicLinkResponse{Success: true})
@@ -214,9 +232,18 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 	}
 
 	// IP rate limit for token exchange is enforced by the PublicRateLimit middleware.
+	// Get PKCE verifier from cookie
+	pkceCookieName := "__Host-pkce_verifier"
+	if h.cfg.Env != "production" {
+		pkceCookieName = "pkce_verifier"
+	}
+	pkceVerifier := c.Cookies(pkceCookieName)
+	if pkceVerifier == "" {
+		return apperr.New(apperr.MISSING_PKCE, "PKCE verifier missing, please restart login flow")
+	}
 
 	// Call service
-	ticketToken, onboardingState, sessionToken, err := h.svc.AuthenticateToken(c.Context(), req.Token)
+	ticketToken, onboardingState, sessionToken, err := h.svc.AuthenticateToken(c.Context(), req.Token, pkceVerifier)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrRateLimited) {
 			return apperr.New(apperr.INVALID_TOKEN, "invalid or expired magic link")
@@ -224,6 +251,23 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 		logger.Error(c.Context(), err, "AuthenticateToken failed")
 		return apperr.New(apperr.INTERNAL_ERROR, "authentication failed")
 	}
+
+	// Clear PKCE cookie
+	pkceCookieName = "__Host-pkce_verifier"
+	pkceSecure := h.cfg.Env == "production" && c.Scheme() == "https"
+	if h.cfg.Env != "production" {
+		pkceCookieName = "pkce_verifier"
+		pkceSecure = false
+	}
+	c.Cookie(&fiber.Cookie{
+		Name:     pkceCookieName,
+		Value:    "",
+		Path:     "/",
+		HTTPOnly: true,
+		Secure:   pkceSecure,
+		SameSite: fiber.CookieSameSiteLaxMode,
+		MaxAge:   -1,
+	})
 
 	// If session was created for returning user, set session cookie
 	if sessionToken != nil {

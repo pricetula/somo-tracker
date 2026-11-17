@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
  *
  * User enters their email to request a magic link.
  * POSTs to BFF /api/auth/request-magic-link → Go /api/v1/auth/request-magic-link.
- * Go sends the magic link via Stytch.
+ * Go sets the __Host-pkce_verifier cookie and sends the magic link via Stytch.
  * User clicks the link in email → Stytch redirects to /auth/callback?token=...
  */
 export default function LoginPage() {

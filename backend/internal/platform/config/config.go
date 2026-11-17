@@ -3,9 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -56,12 +54,7 @@ func Load() (*Config, error) {
 
 	postgresDSN := firstNonEmpty("DATABASE_URL", "POSTGRES_DSN", "")
 
-	redisAddr := firstNonEmpty("REDIS_ADDR", "")
-	if redisAddr == "" {
-		if redisURL := os.Getenv("REDIS_URL"); redisURL != "" {
-			redisAddr = parseRedisAddr(redisURL)
-		}
-	}
+	redisAddr := firstNonEmpty("REDIS_URL", "")
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
 	}
@@ -150,7 +143,7 @@ func (c *Config) Validate() error {
 		return errors.New("DATABASE_URL/POSTGRES_DSN is required")
 	}
 	if c.RedisAddr == "" {
-		return errors.New("REDIS_ADDR/REDIS_URL is required")
+		return errors.New("REDIS_URL is required")
 	}
 	if c.StytchProjectID == "" {
 		return errors.New("STYTCH_PROJECT_ID is required")
@@ -161,7 +154,7 @@ func (c *Config) Validate() error {
 	if c.Env == "production" {
 		// Production must not use insecure defaults
 		if c.RedisAddr == "localhost:6379" {
-			return errors.New("REDIS_ADDR must be set to a managed Redis endpoint in production")
+			return errors.New("REDIS_URL must be set to a managed Redis endpoint in production")
 		}
 		if c.EmailHMACKey == "" {
 			return errors.New("EMAIL_HMAC_KEY is required in production")
@@ -233,22 +226,4 @@ func firstNonEmpty(keys ...string) string {
 		}
 	}
 	return ""
-}
-
-func parseRedisAddr(raw string) string {
-	// Accept redis://host:port or redis://user:pass@host:port/db
-	u, err := url.Parse(raw)
-	if err != nil {
-		return raw
-	}
-	host := u.Host
-	if host == "" {
-		return raw
-	}
-	// Strip possible userinfo if present without scheme parsing
-	if strings.Contains(host, "@") {
-		parts := strings.SplitN(host, "@", 2)
-		host = parts[1]
-	}
-	return host
 }

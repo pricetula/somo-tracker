@@ -2,6 +2,8 @@ package redis
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,14 +15,28 @@ type Client struct {
 }
 
 // New creates Redis client. AOF enabled, noeviction for queue.
+// addr accepts a full Redis URL (redis://[:password@]host:port/db) or bare host:port.
 func New(ctx context.Context, addr string) (*Client, error) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:         addr,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-		PoolSize:     10,
-		MinIdleConns: 2,
-	})
+	var opt *redis.Options
+	var err error
+
+	if strings.HasPrefix(addr, "redis://") {
+		opt, err = redis.ParseURL(addr)
+		if err != nil {
+			return nil, fmt.Errorf("parse redis URL: %w", err)
+		}
+	} else {
+		opt = &redis.Options{
+			Addr: addr,
+		}
+	}
+
+	opt.ReadTimeout = 3 * time.Second
+	opt.WriteTimeout = 3 * time.Second
+	opt.PoolSize = 10
+	opt.MinIdleConns = 2
+
+	rdb := redis.NewClient(opt)
 
 	// Verify connection
 	if err := rdb.Ping(ctx).Err(); err != nil {

@@ -50,12 +50,12 @@ func TestSessionCookieDomain(t *testing.T) {
 
 func TestValidate_ProductionRequiresISTEncryptionKey(t *testing.T) {
 	cfg := &Config{
-		Env:            "production",
-		PostgresDSN:    "postgres://...",
-		RedisAddr:      "redis:6379",
+		Env:             "production",
+		PostgresDSN:     "postgres://...",
+		RedisAddr:       "redis:6379",
 		StytchProjectID: "proj",
-		StytchSecret:   "secret",
-		EmailHMACKey:   "hmac-key",
+		StytchSecret:    "secret",
+		EmailHMACKey:    "hmac-key",
 		// ISTEncryptionKey missing
 	}
 
@@ -66,13 +66,13 @@ func TestValidate_ProductionRequiresISTEncryptionKey(t *testing.T) {
 
 func TestValidate_ProductionRequiresManagedRedis(t *testing.T) {
 	cfg := &Config{
-		Env:                "production",
-		PostgresDSN:        "postgres://...",
-		RedisAddr:          "localhost:6379",
-		StytchProjectID:    "proj",
-		StytchSecret:       "secret",
-		EmailHMACKey:       "hmac-key",
-		ISTEncryptionKey:   "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+		Env:              "production",
+		PostgresDSN:      "postgres://...",
+		RedisAddr:        "localhost:6379",
+		StytchProjectID:  "proj",
+		StytchSecret:     "secret",
+		EmailHMACKey:     "hmac-key",
+		ISTEncryptionKey: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
 	}
 
 	err := cfg.Validate()
@@ -82,13 +82,13 @@ func TestValidate_ProductionRequiresManagedRedis(t *testing.T) {
 
 func TestValidate_ProductionRequiresEmailHMACKey(t *testing.T) {
 	cfg := &Config{
-		Env:                "production",
-		PostgresDSN:        "postgres://...",
-		RedisAddr:          "redis:6379",
-		StytchProjectID:    "proj",
-		StytchSecret:       "secret",
+		Env:             "production",
+		PostgresDSN:     "postgres://...",
+		RedisAddr:       "redis:6379",
+		StytchProjectID: "proj",
+		StytchSecret:    "secret",
 		// EmailHMACKey missing
-		ISTEncryptionKey:   "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+		ISTEncryptionKey: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
 	}
 
 	err := cfg.Validate()
@@ -98,11 +98,11 @@ func TestValidate_ProductionRequiresEmailHMACKey(t *testing.T) {
 
 func TestValidate_DevelopmentAllowsDefaults(t *testing.T) {
 	cfg := &Config{
-		Env:                "development",
-		PostgresDSN:        "postgres://...",
-		RedisAddr:          "localhost:6379",
-		StytchProjectID:    "proj",
-		StytchSecret:       "secret",
+		Env:             "development",
+		PostgresDSN:     "postgres://...",
+		RedisAddr:       "localhost:6379",
+		StytchProjectID: "proj",
+		StytchSecret:    "secret",
 		// No EmailHMACKey, ISTEncryptionKey required in dev
 	}
 
@@ -114,7 +114,7 @@ func TestLoad_FromEnvironment(t *testing.T) {
 	// Save original env
 	origEnv := os.Getenv("APP_ENV")
 	origDSN := os.Getenv("DATABASE_URL")
-	origRedis := os.Getenv("REDIS_ADDR")
+	origRedis := os.Getenv("REDIS_URL")
 	origPort := os.Getenv("PORT")
 	origStytchEnv := os.Getenv("STYTCH_ENV")
 	origProj := os.Getenv("STYTCH_PROJECT_ID")
@@ -123,7 +123,7 @@ func TestLoad_FromEnvironment(t *testing.T) {
 	// Set test env
 	_ = os.Setenv("APP_ENV", "test")
 	_ = os.Setenv("DATABASE_URL", "postgres://test")
-	_ = os.Setenv("REDIS_ADDR", "redis:6379")
+	_ = os.Setenv("REDIS_URL", "redis:6379")
 	_ = os.Setenv("PORT", "9090")
 	_ = os.Setenv("STYTCH_ENV", "test")
 	_ = os.Setenv("STYTCH_PROJECT_ID", "test-proj")
@@ -142,7 +142,7 @@ func TestLoad_FromEnvironment(t *testing.T) {
 	// Restore
 	_ = os.Setenv("APP_ENV", origEnv)
 	_ = os.Setenv("DATABASE_URL", origDSN)
-	_ = os.Setenv("REDIS_ADDR", origRedis)
+	_ = os.Setenv("REDIS_URL", origRedis)
 	_ = os.Setenv("PORT", origPort)
 	_ = os.Setenv("STYTCH_ENV", origStytchEnv)
 	_ = os.Setenv("STYTCH_PROJECT_ID", origProj)
@@ -164,7 +164,7 @@ func TestLoad_SeedReferenceDataDefaults(t *testing.T) {
 
 	// Set required env
 	_ = os.Setenv("DATABASE_URL", "postgres://test")
-	_ = os.Setenv("REDIS_ADDR", "redis:6379")
+	_ = os.Setenv("REDIS_URL", "redis:6379")
 	_ = os.Setenv("STYTCH_PROJECT_ID", "test-proj")
 	_ = os.Setenv("STYTCH_SECRET", "test-secret")
 	_ = os.Setenv("EMAIL_HMAC_KEY", "test-hmac-key")
@@ -193,23 +193,4 @@ func TestLoad_SeedReferenceDataDefaults(t *testing.T) {
 	// Restore
 	_ = os.Setenv("APP_ENV", origEnv)
 	_ = os.Setenv("SEED_REFERENCE_DATA", origSeed)
-}
-
-func TestParseRedisAddr(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"redis://localhost:6379", "localhost:6379"},
-		{"redis://user:pass@localhost:6379/0", "localhost:6379"},
-		{"redis://:pass@localhost:6379", "localhost:6379"},
-		{"localhost:6379", "localhost:6379"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.input, func(t *testing.T) {
-			got := parseRedisAddr(tc.input)
-			require.Equal(t, tc.expected, got)
-		})
-	}
 }

@@ -11,7 +11,7 @@ import (
 )
 
 // Test_AC12_RateLimitAtomicity provides a placeholder for AC-12 rate-limit tests.
-// Full test requires a Redis instance. It is skipped in CI without REDIS_ADDR.
+// Full test requires a Redis instance. It is skipped in CI without REDIS_URL.
 func Test_AC12_RateLimitAtomicity(t *testing.T) {
 	addr := "localhost:6379"
 	client := redis.NewClient(&redis.Options{Addr: addr})

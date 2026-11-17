@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
  *
  * User enters their email to request a magic link.
  * POSTs to BFF /api/auth/request-magic-link → Go /api/v1/auth/request-magic-link.
- * Go sets the __Host-pkce_verifier cookie and sends the magic link via Stytch.
+ * Go sends the magic link via Stytch.
  * User clicks the link in email → Stytch redirects to /auth/callback?token=...
  */
 export default function LoginPage() {
@@ -29,9 +29,6 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
-        // Include cookies so the browser stores the Set-Cookie (pkce_verifier)
-        // returned by the BFF. Without this the PKCE cookie can be dropped on
-        // some clients, causing MISSING_PKCE on authenticate-token.
         credentials: 'include',
       })
 

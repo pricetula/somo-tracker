@@ -5,10 +5,10 @@ import "context"
 // Client is the Stytch B2B adapter interface.
 type Client interface {
 	// Discovery magic link
-	SendDiscoveryMagicLink(ctx context.Context, email string, loginURL string, pkceCodeChallenge string) error
+	SendDiscoveryMagicLink(ctx context.Context, email string, loginURL string) error
 
 	// Authenticate discovery token
-	AuthenticateDiscovery(ctx context.Context, token string, pkceCodeVerifier string) (*DiscoveryAuthResponse, error)
+	AuthenticateDiscovery(ctx context.Context, token string) (*DiscoveryAuthResponse, error)
 
 	// Exchange IST for session
 	ExchangeDiscoverySession(ctx context.Context, intermediateSessionToken string) (*DiscoveryExchangeResponse, error)

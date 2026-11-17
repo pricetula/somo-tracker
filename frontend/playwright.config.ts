@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * E2E config for PKCE magic-link flow tests.
+ * E2E config for magic-link flow tests.
  *
  * Requires two services running before tests:
  *   - Frontend dev server:  pnpm dev        (http://localhost:3000)

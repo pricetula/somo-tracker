@@ -1,9 +1,9 @@
 /**
- * Mock Go backend for PKCE magic-link e2e testing.
+ * Mock Go backend for magic-link e2e testing.
  *
  * Mimics the two auth handlers:
- *   POST /api/v1/auth/request-magic-link  -> sets pkce_verifier cookie, returns 200
- *   POST /api/v1/auth/authenticate-token  -> REQUIRES pkce_verifier cookie, else 400 MISSING_PKCE
+ *   POST /api/v1/auth/request-magic-link  -> returns 200
+ *   POST /api/v1/auth/authenticate-token  -> returns 200 with a mock ticket
  *
  * Run:  node server.js   (listens on :8080)
  * Frontend must set PUBLIC_API_URL=http://localhost:8080
@@ -27,16 +27,6 @@ app.post('/api/v1/auth/request-magic-link', (req, res) => {
     })
   }
 
-  const pkceVerifier = require('crypto').randomBytes(32).toString('hex')
-
-  res.cookie('pkce_verifier', pkceVerifier, {
-    path: '/',
-    httpOnly: true,
-    secure: false, // localhost over http
-    sameSite: 'lax',
-    maxAge: 10 * 60 * 1000,
-  })
-
   return res.status(200).json({ success: true })
 })
 
@@ -48,7 +38,6 @@ app.post('/api/auth/request-magic-link', (req, res) => {
 
 // POST /api/v1/auth/authenticate-token
 app.post('/api/v1/auth/authenticate-token', (req, res) => {
-  const pkceVerifier = req.cookies['pkce_verifier']
   const { token } = req.body
 
   if (!token) {
@@ -58,22 +47,6 @@ app.post('/api/v1/auth/authenticate-token', (req, res) => {
       errors: {},
     })
   }
-  if (!pkceVerifier) {
-    return res.status(400).json({
-      code: 'MISSING_PKCE',
-      message: 'PKCE verifier missing, please restart login flow',
-      errors: {},
-      request_id: 'mock_req_' + Date.now(),
-    })
-  }
-
-  // Clear pkce cookie like Go does after successful authenticate
-  res.clearCookie('pkce_verifier', {
-    path: '/',
-    httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
-  })
 
   return res.status(200).json({
     ticket_token: 'mock_ticket_' + Date.now(),

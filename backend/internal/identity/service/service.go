@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -23,8 +22,6 @@ import (
 const (
 	// Token entropy: 32 bytes = 256 bits
 	sessionTokenBytes = 32
-	// PKCE code verifier length (32 bytes = 43 base64url chars, per RFC 7636)
-	pkceVerifierBytes = 32
 	// Onboarding ticket TTL (matches IST TTL)
 	onboardingTicketTTL = 10 * time.Minute
 )
@@ -153,30 +150,20 @@ func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionK
 }
 
 // RequestMagicLink initiates Stytch Discovery magic link flow.
-func (s *Service) RequestMagicLink(ctx context.Context, email string) (string, error) {
-	// Generate PKCE code_verifier
-	verifier, err := generateRandomString(pkceVerifierBytes)
-	if err != nil {
-		return "", fmt.Errorf("generate PKCE verifier: %w", err)
-	}
-
-	// Compute code_challenge S256
-	challenge := pkceCodeChallenge(verifier)
-
+func (s *Service) RequestMagicLink(ctx context.Context, email string) error {
 	// Build login URL for Stytch callback from PUBLIC_APP_URL
 	appURL := os.Getenv("PUBLIC_APP_URL")
 	if appURL == "" {
-		return "", fmt.Errorf("PUBLIC_APP_URL is required for Stytch magic link callback")
+		return fmt.Errorf("PUBLIC_APP_URL is required for Stytch magic link callback")
 	}
 	loginURL := strings.TrimRight(appURL, "/") + "/auth/callback"
 
-	// Call Stytch B2B Discovery magic links/email with PKCE code challenge
-	if err := s.stytch.SendDiscoveryMagicLink(ctx, email, loginURL, challenge); err != nil {
-		return "", fmt.Errorf("stytch send magic link: %w", err)
+	// Call Stytch B2B Discovery magic links/email
+	if err := s.stytch.SendDiscoveryMagicLink(ctx, email, loginURL); err != nil {
+		return fmt.Errorf("stytch send magic link: %w", err)
 	}
 
-	// Return PKCE verifier for handler to store in cookie
-	return verifier, nil
+	return nil
 }
 
 // generateRandomString generates a cryptographically secure random string.
@@ -188,21 +175,10 @@ func generateRandomString(n int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// pkceCodeChallenge computes S256 code challenge from verifier (RFC 7636).
-func pkceCodeChallenge(verifier string) string {
-	h := sha256.Sum256([]byte(verifier))
-	return base64URLEncode(h[:])
-}
-
-// base64URLEncode encodes bytes to base64url without padding.
-func base64URLEncode(b []byte) string {
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
 // AuthenticateToken verifies one-time Stytch token, upserts pending onboarding and creates ticket.
-func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier string) (string, *OnboardingState, *string, error) {
-	// 1. Call Stytch b2b/discovery/authenticate with token + pkce_code_verifier
-	resp, err := s.stytch.AuthenticateDiscovery(ctx, token, pkceCodeVerifier)
+func (s *Service) AuthenticateToken(ctx context.Context, token string) (string, *OnboardingState, *string, error) {
+	// 1. Call Stytch b2b/discovery/authenticate with token
+	resp, err := s.stytch.AuthenticateDiscovery(ctx, token)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("stytch authenticate: %w", err)
 	}

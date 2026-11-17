@@ -23,7 +23,7 @@ import (
 const (
 	// Token entropy: 32 bytes = 256 bits
 	sessionTokenBytes = 32
-	// PKCE code verifier length (43-128 chars per RFC 7636)
+	// PKCE code verifier length (32 bytes = 43 base64url chars, per RFC 7636)
 	pkceVerifierBytes = 32
 	// Onboarding ticket TTL (matches IST TTL)
 	onboardingTicketTTL = 10 * time.Minute
@@ -170,7 +170,7 @@ func (s *Service) RequestMagicLink(ctx context.Context, email string) (string, e
 	}
 	loginURL := strings.TrimRight(appURL, "/") + "/auth/callback"
 
-	// Call Stytch B2B Discovery magic_links/email
+	// Call Stytch B2B Discovery magic links/email with PKCE code challenge
 	if err := s.stytch.SendDiscoveryMagicLink(ctx, email, loginURL, challenge); err != nil {
 		return "", fmt.Errorf("stytch send magic link: %w", err)
 	}
@@ -188,7 +188,7 @@ func generateRandomString(n int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// pkceCodeChallenge computes S256 code challenge from verifier.
+// pkceCodeChallenge computes S256 code challenge from verifier (RFC 7636).
 func pkceCodeChallenge(verifier string) string {
 	h := sha256.Sum256([]byte(verifier))
 	return base64URLEncode(h[:])

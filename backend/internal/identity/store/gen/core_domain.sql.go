@@ -45,25 +45,6 @@ func (q *Queries) CreateMembership(ctx context.Context, arg CreateMembershipPara
 	return i, err
 }
 
-const createPKCECode = `-- name: CreatePKCECode :exec
-INSERT INTO pkce_codes (pending_onboarding_id, code_verifier_hash, expires_at)
-VALUES ($1, $2, $3)
-ON CONFLICT (pending_onboarding_id) DO UPDATE SET
-  code_verifier_hash = EXCLUDED.code_verifier_hash,
-  expires_at = EXCLUDED.expires_at
-`
-
-type CreatePKCECodeParams struct {
-	PendingOnboardingID uuid.UUID
-	CodeVerifierHash    []byte
-	ExpiresAt           time.Time
-}
-
-func (q *Queries) CreatePKCECode(ctx context.Context, arg CreatePKCECodeParams) error {
-	_, err := q.db.ExecContext(ctx, createPKCECode, arg.PendingOnboardingID, arg.CodeVerifierHash, arg.ExpiresAt)
-	return err
-}
-
 const createSchool = `-- name: CreateSchool :one
 INSERT INTO schools (tenant_id, name, code, country_id, education_system_id)
 VALUES ($1, $2, $3, $4, $5)
@@ -188,15 +169,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
-const deletePKCECode = `-- name: DeletePKCECode :exec
-DELETE FROM pkce_codes WHERE pending_onboarding_id = $1
-`
-
-func (q *Queries) DeletePKCECode(ctx context.Context, pendingOnboardingID uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deletePKCECode, pendingOnboardingID)
-	return err
-}
-
 const getGuardianStudents = `-- name: GetGuardianStudents :many
 SELECT gsl.student_id
 FROM memberships m
@@ -312,32 +284,6 @@ func (q *Queries) GetMembershipsByUserID(ctx context.Context, userID uuid.UUID) 
 		return nil, err
 	}
 	return items, nil
-}
-
-const getPKCECode = `-- name: GetPKCECode :one
-SELECT pending_onboarding_id, code_verifier_hash, expires_at, created_at
-FROM pkce_codes
-WHERE pending_onboarding_id = $1 AND expires_at > NOW()
-LIMIT 1
-`
-
-type GetPKCECodeRow struct {
-	PendingOnboardingID uuid.UUID
-	CodeVerifierHash    []byte
-	ExpiresAt           time.Time
-	CreatedAt           time.Time
-}
-
-func (q *Queries) GetPKCECode(ctx context.Context, pendingOnboardingID uuid.UUID) (GetPKCECodeRow, error) {
-	row := q.db.QueryRowContext(ctx, getPKCECode, pendingOnboardingID)
-	var i GetPKCECodeRow
-	err := row.Scan(
-		&i.PendingOnboardingID,
-		&i.CodeVerifierHash,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-	)
-	return i, err
 }
 
 const getSchoolByID = `-- name: GetSchoolByID :one

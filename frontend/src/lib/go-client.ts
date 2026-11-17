@@ -13,16 +13,10 @@ function pkceCookieName(): string {
     : 'pkce_verifier'
 }
 
-function onboardingCookieName(): string {
-  return process.env.NODE_ENV === 'production'
-    ? '__Host-onboarding'
-    : 'onboarding'
-}
-
 /**
  * goRequest forwards a request to the Go backend, attaching the HttpOnly
- * session, PKCE verifier, and onboarding cookies from the browser so Go can
- * validate the session and authenticate magic-link tokens.
+ * session and PKCE verifier cookies from the browser so Go can validate the
+ * session and authenticate magic-link tokens.
  * Set-Cookie headers from Go responses are forwarded back to the browser.
  * Origin is forwarded on mutating methods for Go CSRF middleware.
  */
@@ -38,7 +32,15 @@ export async function goRequest(
   const cookieStore = await cookies()
   const sessionToken = cookieStore.get(sessionCookieName())?.value
   const pkceVerifier = cookieStore.get(pkceCookieName())?.value
-  const onboardingTicket = cookieStore.get(onboardingCookieName())?.value
+
+  // Forward cookies as proper "name=value" pairs so the backend can parse them.
+  const cookieParts: string[] = []
+  if (sessionToken) {
+    cookieParts.push(`${sessionCookieName()}=${sessionToken}`)
+  }
+  if (pkceVerifier) {
+    cookieParts.push(`${pkceCookieName()}=${pkceVerifier}`)
+  }
 
   const headers: Record<string, string> = {}
   if (init.headers) {
@@ -55,11 +57,8 @@ export async function goRequest(
     }
   }
 
-  const cookiesToForward = [sessionToken, pkceVerifier, onboardingTicket]
-    .filter(Boolean)
-    .join(' ')
-  if (cookiesToForward) {
-    headers['Cookie'] = `${headers['Cookie'] ?? ''} ${cookiesToForward}`.trim()
+  if (cookieParts.length) {
+    headers['Cookie'] = `${headers['Cookie'] ?? ''} ${cookieParts.join('; ')}`.trim()
   }
 
   const method = init.method ?? 'GET'

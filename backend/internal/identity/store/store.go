@@ -259,17 +259,6 @@ func toMembershipByUserAndSchool(row storegen.GetMembershipByUserAndSchoolRow) s
 	return toMembershipCommon(row.ID, row.UserID, row.SchoolID, row.Role, row.CreatedAt)
 }
 
-func toPkceCode(row storegen.GetPKCECodeRow) storegen.PkceCode {
-	return storegen.PkceCode{
-		PendingOnboardingID: row.PendingOnboardingID,
-		CodeVerifierHash:    row.CodeVerifierHash,
-		ExpiresAt:           row.ExpiresAt,
-		CreatedAt:           row.CreatedAt,
-		UpdatedAt:           row.CreatedAt,
-		DeletedAt:           sql.NullTime{},
-	}
-}
-
 // Pending onboarding
 func (s *Store) GetPendingOnboardingByEmail(ctx context.Context, email string) (storegen.PendingOnboarding, error) {
 	row, err := s.q.GetPendingOnboardingByEmail(ctx, email)
@@ -422,23 +411,6 @@ func (s *Store) GetMembershipByUserAndSchool(ctx context.Context, userID, school
 		SchoolID: schoolID,
 	})
 	return toMembershipByUserAndSchool(row), err
-}
-
-func (s *Store) CreatePKCECode(ctx context.Context, pendingOnboardingID uuid.UUID, codeVerifierHash []byte, expiresAt time.Time) error {
-	return s.q.CreatePKCECode(ctx, storegen.CreatePKCECodeParams{
-		PendingOnboardingID: pendingOnboardingID,
-		CodeVerifierHash:    codeVerifierHash,
-		ExpiresAt:           expiresAt,
-	})
-}
-
-func (s *Store) GetPKCECode(ctx context.Context, pendingOnboardingID uuid.UUID) (storegen.PkceCode, error) {
-	row, err := s.q.GetPKCECode(ctx, pendingOnboardingID)
-	return toPkceCode(row), err
-}
-
-func (s *Store) DeletePKCECode(ctx context.Context, pendingOnboardingID uuid.UUID) error {
-	return s.q.DeletePKCECode(ctx, pendingOnboardingID)
 }
 
 func (s *Store) GetTenantMembershipRole(ctx context.Context, userID, tenantID uuid.UUID) (string, error) {

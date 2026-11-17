@@ -10,6 +10,7 @@
 # Node
 frontend/node_modules
 marketing/node_modules
+mock-backend/node_modules
 frontend/.next
 
 # Go

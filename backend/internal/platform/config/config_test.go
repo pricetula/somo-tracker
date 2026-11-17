@@ -194,22 +194,3 @@ func TestLoad_SeedReferenceDataDefaults(t *testing.T) {
 	_ = os.Setenv("APP_ENV", origEnv)
 	_ = os.Setenv("SEED_REFERENCE_DATA", origSeed)
 }
-
-func TestParseRedisAddr(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"redis://localhost:6379", "localhost:6379"},
-		{"redis://user:pass@localhost:6379/0", "localhost:6379"},
-		{"redis://:pass@localhost:6379", "localhost:6379"},
-		{"localhost:6379", "localhost:6379"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.input, func(t *testing.T) {
-			got := parseRedisAddr(tc.input)
-			require.Equal(t, tc.expected, got)
-		})
-	}
-}

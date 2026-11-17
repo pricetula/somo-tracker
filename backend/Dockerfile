@@ -8,5 +8,6 @@ RUN go build -o /bin/api ./cmd/api
 FROM alpine:latest
 RUN apk add --no-cache wget
 COPY --from=build /bin/api /bin/api
+COPY --from=build /app/migrations /migrations
 EXPOSE 8080
 ENTRYPOINT ["/bin/api"]

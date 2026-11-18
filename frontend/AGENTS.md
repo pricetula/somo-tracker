@@ -34,7 +34,7 @@ All auth cookies are `HttpOnly` and set on the Next.js host. Next.js API routes 
 | Cookie | Purpose | TTL | Set by |
 |--------|---------|-----|--------|
 | `__Host-session_token` / `session_token_development` | Auth session | 30 days | Go → Next.js → Browser |
-| `__Host-pkce_verifier` / `pkce_verifier_development` | PKCE during login | 10 min | Go → Next.js → Browser |
+
 | `__Host-onboarding` / `onboarding_development` | Onboarding ticket | 10 min | Go → Next.js → Browser |
 
 ### API routes (BFF proxy)

@@ -33,7 +33,7 @@ Forbidden: `utils`, `helpers`, `common`, `misc` packages; DI frameworks, globals
 
 ### Identity domain (implemented)
 
-`internal/identity/{handler,service,store/}` + `internal/identity/middleware/`. Handlers: magic-link request, token authenticate, logout, onboarding get/update/complete. Service: session + membership resolution, invitation/session logic. Store: sqlc-generated queries for `app_session`, `onboarding_ticket`, `pending_onboarding`, `pkce_codes`, `core_domain` tables.
+`internal/identity/{handler,service,store/}` + `internal/identity/middleware/`. Handlers: magic-link request, token authenticate, logout, onboarding get/update/complete. Service: session + membership resolution, invitation/session logic. Store: sqlc-generated queries for `app_session`, `onboarding_ticket`, `pending_onboarding`, `core_domain` tables.
 
 Middleware: `RequireAuth`, `TenantMiddleware`, RBAC middleware, CSRF middleware.
 

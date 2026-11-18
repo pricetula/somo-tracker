@@ -7,17 +7,10 @@ function sessionCookieName(): string {
     : 'session_token_development'
 }
 
-function pkceCookieName(): string {
-  return process.env.NODE_ENV === 'production'
-    ? '__Host-pkce_verifier'
-    : 'pkce_verifier'
-}
-
 /**
  * goRequest forwards a request to the Go backend, attaching the HttpOnly
- * session and PKCE verifier cookies from the browser so Go can validate the
- * session and authenticate magic-link tokens.
- * Set-Cookie headers from Go responses are forwarded back to the browser.
+ * session cookie from the browser. Set-Cookie headers from Go responses are
+ * forwarded back to the browser.
  * Origin is forwarded on mutating methods for Go CSRF middleware.
  */
 export async function goRequest(
@@ -31,15 +24,11 @@ export async function goRequest(
 
   const cookieStore = await cookies()
   const sessionToken = cookieStore.get(sessionCookieName())?.value
-  const pkceVerifier = cookieStore.get(pkceCookieName())?.value
 
   // Forward cookies as proper "name=value" pairs so the backend can parse them.
   const cookieParts: string[] = []
   if (sessionToken) {
     cookieParts.push(`${sessionCookieName()}=${sessionToken}`)
-  }
-  if (pkceVerifier) {
-    cookieParts.push(`${pkceCookieName()}=${pkceVerifier}`)
   }
 
   const headers: Record<string, string> = {}
@@ -72,9 +61,11 @@ export async function goRequest(
     cache: 'no-store',
   })
 
-  const responseHeaders: Record<string, string> = {}
+  // Forward all upstream headers, preserving Set-Cookie (including multiple
+  // Set-Cookie headers) which a plain Record would silently drop.
+  const responseHeaders = new Headers()
   res.headers.forEach((v, k) => {
-    responseHeaders[k] = v
+    responseHeaders.append(k, v)
   })
 
   return new NextResponse(await res.arrayBuffer(), {

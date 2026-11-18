@@ -5,30 +5,28 @@ import (
 	"database/sql"
 	"log/slog"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"somotracker/internal/platform/db"
 )
 
 // Seed seeds reference data (countries, education systems, class levels)
 // idempotently in a single transaction.
 type Seed struct {
-	pool *pgxpool.Pool
-	log  *slog.Logger
+	db  *sql.DB
+	log *slog.Logger
 }
 
 // New creates a Seed.
-func New(pool *pgxpool.Pool) *Seed {
+func New(db *sql.DB) *Seed {
 	return &Seed{
-		pool: pool,
-		log:  slog.Default(),
+		db:  db,
+		log: slog.Default(),
 	}
 }
 
 // Run executes the seed. Idempotent: uses ON CONFLICT DO NOTHING on all tables.
 // Runs in a single transaction via TxManager for atomicity.
 func (s *Seed) Run(ctx context.Context) error {
-	txManager := db.NewTxManager(s.pool)
+	txManager := db.NewTxManager(s.db)
 	return txManager.Run(ctx, func(ctx context.Context) error {
 		if err := s.seedCountries(ctx); err != nil {
 			return err
@@ -56,14 +54,14 @@ func (s *Seed) seedCountries(ctx context.Context) error {
 
 	for _, c := range countries {
 		var id string
-		err := s.pool.QueryRow(ctx, `
+		err := s.db.QueryRowContext(ctx, `
 			INSERT INTO countries (country_name, country_code)
 			VALUES ($1, $2)
 			ON CONFLICT (country_code) DO NOTHING
 			RETURNING id
 		`, c.name, c.code).Scan(&id)
 		if err != nil {
-			if err == sql.ErrNoRows || err == pgx.ErrNoRows {
+			if err == sql.ErrNoRows {
 				s.log.Info("country already exists", "code", c.code)
 				continue
 			}
@@ -87,7 +85,7 @@ func (s *Seed) seedEducationSystems(ctx context.Context) error {
 
 	for _, sys := range systems {
 		var id string
-		err := s.pool.QueryRow(ctx, `
+		err := s.db.QueryRowContext(ctx, `
 			INSERT INTO education_systems (country_id, system_name)
 			SELECT c.id, $1
 			FROM countries c
@@ -96,7 +94,7 @@ func (s *Seed) seedEducationSystems(ctx context.Context) error {
 			RETURNING id
 		`, sys.systemName, sys.countryCode).Scan(&id)
 		if err != nil {
-			if err == sql.ErrNoRows || err == pgx.ErrNoRows {
+			if err == sql.ErrNoRows {
 				s.log.Info("education system already exists", "system", sys.systemName)
 				continue
 			}
@@ -130,7 +128,7 @@ func (s *Seed) seedClassLevels(ctx context.Context) error {
 
 	for _, lvl := range levels {
 		var id string
-		err := s.pool.QueryRow(ctx, `
+		err := s.db.QueryRowContext(ctx, `
 			INSERT INTO class_levels (education_system_id, tier_stage, local_label, sequence_index)
 			SELECT es.id, $1, $2, $3
 			FROM education_systems es
@@ -140,7 +138,7 @@ func (s *Seed) seedClassLevels(ctx context.Context) error {
 			RETURNING id
 		`, lvl.tierStage, lvl.localLabel, lvl.seqIndex, lvl.systemName).Scan(&id)
 		if err != nil {
-			if err == sql.ErrNoRows || err == pgx.ErrNoRows {
+			if err == sql.ErrNoRows {
 				s.log.Info("class level already exists", "label", lvl.localLabel)
 				continue
 			}

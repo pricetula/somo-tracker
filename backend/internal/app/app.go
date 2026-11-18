@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,43 +12,29 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/helmet"
 	"github.com/gofiber/fiber/v3/middleware/recover"
-	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
 
 	identityHandler "somotracker/internal/identity/handler"
 	identityMiddleware "somotracker/internal/identity/middleware"
 	identityService "somotracker/internal/identity/service"
 	identityStore "somotracker/internal/identity/store"
 	storegen "somotracker/internal/identity/store/gen"
-	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/audit"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/db"
 	"somotracker/internal/platform/httpserver"
-	"somotracker/internal/platform/migrator"
-	"somotracker/internal/platform/ratelimit"
 	redisPkg "somotracker/internal/platform/redis"
 	"somotracker/internal/platform/seed"
 	"somotracker/internal/platform/stytch"
-	schoolHandler "somotracker/internal/schools/handler"
-	schoolService "somotracker/internal/schools/service"
-	schoolStore "somotracker/internal/schools/store"
-	schoolStoreGen "somotracker/internal/schools/store/gen"
-	studentHandler "somotracker/internal/students/handler"
-	studentService "somotracker/internal/students/service"
-	studentStore "somotracker/internal/students/store"
-	studentStoreGen "somotracker/internal/students/store/gen"
 )
 
 // App is the HTTP API composition root.
 type App struct {
 	cfg           *config.Config
 	dbPool        *db.Pool
-	sqlDB         *sql.DB
 	redisClient   *redisPkg.Client
 	server        *httpserver.Server
-	rateLimiter   *ratelimit.Limiter
 	auditRecorder *audit.Recorder
+	txManager     *db.TxManager
 }
 
 // New creates the API app with manual DI (BE-005).
@@ -62,28 +47,14 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	// SQL DB for migrations and sqlc queries
-	sqlDB, err := sql.Open("pgx", cfg.PostgresDSN)
-	if err != nil {
-		dbPool.Close()
-		return nil, err
-	}
-
-	// Migrator runs Goose migrations on startup
-	m := migrator.New(sqlDB, cfg.MigrationsDir)
-	if _, err := m.Up(ctx); err != nil {
-		_ = sqlDB.Close()
-		dbPool.Close()
-		return nil, err
-	}
-
 	// Seed reference data after migrations (opt-in via SEED_REFERENCE_DATA)
+	// Migrations must be run as a separate deploy step (not on app startup)
+	// with a privileged role while the app connects as a non-owner role.
 	if cfg.SeedReferenceData {
 		slog.Info("seeding reference data")
-		seeder := seed.New(dbPool.Pool)
+		seeder := seed.New(dbPool.DB)
 		if err := seeder.Run(ctx); err != nil {
-			_ = sqlDB.Close()
-			dbPool.Close()
+			_ = dbPool.Close()
 			return nil, err
 		}
 	}
@@ -91,8 +62,7 @@ func New(cfg *config.Config) (*App, error) {
 	// Redis client
 	redisClient, err := redisPkg.New(ctx, cfg.RedisAddr)
 	if err != nil {
-		_ = sqlDB.Close()
-		dbPool.Close()
+		_ = dbPool.Close()
 		return nil, err
 	}
 
@@ -102,14 +72,16 @@ func New(cfg *config.Config) (*App, error) {
 	// Audit recorder
 	auditRecorder := audit.New(slog.Default())
 
+	// Transaction manager for per-service boundaries and RLS GUC
+	txManager := db.NewTxManager(dbPool.DB)
+
 	return &App{
 		cfg:           cfg,
 		dbPool:        dbPool,
-		sqlDB:         sqlDB,
 		redisClient:   redisClient,
 		server:        server,
-		rateLimiter:   ratelimit.New(redisClient.Client, cfg.EmailHMACKey),
 		auditRecorder: auditRecorder,
+		txManager:     txManager,
 	}, nil
 }
 
@@ -153,61 +125,51 @@ func (a *App) Start(ctx context.Context) error {
 
 	// Initialize services
 	stytchClient := stytch.NewSDKClient(a.cfg.StytchProjectID, a.cfg.StytchSecret)
-	queries := storegen.New(a.sqlDB)
-	identityStore := identityStore.New(queries)
-	identitySvc, err := identityService.New(identityStore, stytchClient, a.sqlDB, a.cfg.ISTEncryptionKey, a.cfg.SessionIdleTimeout)
+	queries := storegen.New(a.dbPool)
+	identityStore := identityStore.New(queries, a.dbPool)
+	identitySvc, err := identityService.New(identityStore, stytchClient, a.cfg.ISTEncryptionKey, a.cfg.SessionIdleTimeout)
 	if err != nil {
 		return fmt.Errorf("init identity service: %w", err)
 	}
 
-	// Rate limiter with in-memory fallback
-	a.rateLimiter = ratelimit.New(a.redisClient.Client, a.cfg.EmailHMACKey)
-
-	// Initialize rate limit middleware
-	rateLimitMiddleware := httpserver.NewRateLimitMiddleware(a.rateLimiter, a.cfg)
-
-	// Start memory fallback cleanup goroutine
-	go a.rateLimiterCleanup(ctx)
-
-	identityHandler := identityHandler.New(identitySvc, a.cfg, a.rateLimiter, a.auditRecorder)
+	identityHandler := identityHandler.New(identitySvc, a.cfg, a.auditRecorder)
 
 	// Create auth middleware
 	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg, a.auditRecorder)
-	_ = identityMiddleware.NewRBACMiddleware(identitySvc)
 
-	// Students domain
-	studentStore := studentStore.New(studentStoreGen.New(a.sqlDB))
-	studentSvc := studentService.New(studentStore, db.NewTxManager(a.dbPool.Pool))
-	studentHandler := studentHandler.New(studentSvc)
+	// Wrap every request in a transaction so RLS GUC (SET LOCAL) is set
+	// inside a transaction by TxManager.Run, and all store operations share
+	// the same transaction context via db.GetTx(ctx).
+	app.Use(func(c fiber.Ctx) error {
+		return a.txManager.Run(c.Context(), func(ctx context.Context) error {
+			c.SetContext(ctx)
+			return c.Next()
+		})
+	})
 
-	// Schools domain
-	schoolStore := schoolStore.New(schoolStoreGen.New(a.sqlDB))
-	schoolSvc := schoolService.New(schoolStore, db.NewTxManager(a.dbPool.Pool))
-	schoolHandler := schoolHandler.New(schoolSvc)
+	// API v1 routes — one group, sub-groups for different middleware chains.
+	// This avoids registering the same path prefix on multiple independent
+	// groups, which can cause duplicate route handling.
+	api := a.server.App().Group("/api/v1")
 
 	// Public routes (no auth required)
-	publicAPI := a.server.App().Group("/api/v1")
-	publicAPI.Use(rateLimitMiddleware.PublicRateLimit())
+	publicAPI := api.Group("")
 	identityHandler.RegisterRoutes(publicAPI)
 
 	// Protected routes (require authentication + tenant context)
-	protectedAPI := a.server.App().Group("/api/v1")
-	protectedAPI.Use(rateLimitMiddleware.UnauthenticatedRateLimit()) // Early IP limiter before RequireAuth
-	protectedAPI.Use(authMiddleware.RequireAuth())
-	protectedAPI.Use(authMiddleware.TenantMiddleware())
-	protectedAPI.Use(a.setTenantContextMiddleware()) // Sets app.current_tenant_id for RLS
-	protectedAPI.Use(rateLimitMiddleware.ProtectedRateLimit())
-	studentHandler.RegisterRoutes(protectedAPI)
-	schoolHandler.RegisterRoutes(protectedAPI)
-	identityHandler.RegisterAuthenticatedRoutes(protectedAPI)
+	// No protected domain handlers registered yet — deferred to later specs.
+	_ = api.Group("",
+		authMiddleware.RequireAuth(),
+		authMiddleware.TenantMiddleware(),
+	)
 
 	// Mutation routes (require auth + tenant + CSRF)
-	mutationAPI := a.server.App().Group("/api/v1")
-	mutationAPI.Use(authMiddleware.RequireAuth())
-	mutationAPI.Use(authMiddleware.TenantMiddleware())
-	mutationAPI.Use(a.setTenantContextMiddleware())
-	mutationAPI.Use(rateLimitMiddleware.MutationRateLimit())
-	mutationAPI.Use(authMiddleware.CSRFMiddleware())
+	// No mutation handlers registered yet — deferred to later specs.
+	_ = api.Group("",
+		authMiddleware.RequireAuth(),
+		authMiddleware.TenantMiddleware(),
+		authMiddleware.CSRFMiddleware(),
+	)
 
 	// Legacy routes
 	a.server.RegisterRoutes()
@@ -219,7 +181,7 @@ func (a *App) Start(ctx context.Context) error {
 	app.Get("/readyz", func(c fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		if err := a.dbPool.Ping(ctx); err != nil {
+		if err := a.dbPool.PingContext(ctx); err != nil {
 			return c.Status(http.StatusServiceUnavailable).SendString("DB not ready")
 		}
 		if err := a.redisClient.Ping(ctx); err != nil {
@@ -275,77 +237,6 @@ func (a *App) securityHeadersMiddleware() fiber.Handler {
 	}
 }
 
-// setTenantContextMiddleware sets app.current_tenant_id for RLS policies.
-// Uses SET LOCAL so the GUC is transaction-scoped and automatically reset on
-// commit/rollback. Also defers RESET to prevent pool connection leaks for
-// non-transactional queries. Fails closed (5xx) if the GUC cannot be set.
-func (a *App) setTenantContextMiddleware() fiber.Handler {
-	return func(c fiber.Ctx) error {
-		tenantID, ok := c.Locals("tenant_id").(string)
-		if !ok {
-			if tid, ok2 := c.Locals("tenant_id").(uuid.UUID); ok2 {
-				tenantID = tid.String()
-			} else if tid, ok2 := c.Locals("tenant_id").([16]byte); ok2 {
-				tenantID = fmtUUID(tid)
-			}
-		}
-		if tenantID == "" {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"code":    string(apperr.FORBIDDEN),
-				"message": "tenant not found in session",
-			})
-		}
-
-		ctx := context.WithValue(c.Context(), httpserver.TenantIDKey{}, tenantID)
-		c.SetContext(ctx)
-
-		// SET LOCAL is transaction-scoped: automatically reset on COMMIT/ROLLBACK.
-		// Outside a transaction it behaves like SET, so we also defer RESET to
-		// prevent leaking the tenant ID into pooled connections.
-		setSQL := fmt.Sprintf("SET LOCAL app.current_tenant_id = '%s'", tenantID)
-		if _, err := a.dbPool.Exec(c.Context(), setSQL); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"code":    string(apperr.INTERNAL_ERROR),
-				"message": "failed to set tenant context",
-			})
-		}
-		if _, err := a.sqlDB.ExecContext(c.Context(), setSQL); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"code":    string(apperr.INTERNAL_ERROR),
-				"message": "failed to set tenant context",
-			})
-		}
-
-		// Defer RESET to prevent pool connection leaks even outside transactions.
-		defer func() {
-			_, _ = a.dbPool.Exec(context.Background(), "RESET app.current_tenant_id")
-			_, _ = a.sqlDB.ExecContext(context.Background(), "RESET app.current_tenant_id")
-		}()
-
-		return c.Next()
-	}
-}
-
-// rateLimiterCleanup periodically cleans up in-memory rate limit store.
-func (a *App) rateLimiterCleanup(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			a.rateLimiter.MemoryCleanup(24 * time.Hour)
-		}
-	}
-}
-
-// fmtUUID formats a [16]byte as UUID string.
-func fmtUUID(b [16]byte) string {
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
-}
-
 // Shutdown gracefully stops the app.
 func (a *App) Shutdown(ctx context.Context) error {
 	slog.Info("shutting down API")
@@ -355,7 +246,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 	if err := a.redisClient.Close(); err != nil {
 		slog.Error("Redis close failed", "err", err)
 	}
-	a.dbPool.Close()
+	_ = a.dbPool.Close()
 	slog.Info("shutdown complete")
 	return nil
 }
@@ -363,48 +254,4 @@ func (a *App) Shutdown(ctx context.Context) error {
 // LoadConfig loads typed config from environment via Doppler (BE-033).
 func LoadConfig() (*config.Config, error) {
 	return config.Load()
-}
-
-// Worker is the background worker composition root.
-type Worker struct {
-	cfg         *config.Config
-	dbPool      *db.Pool
-	redisClient *redisPkg.Client
-}
-
-// NewWorker creates worker with manual DI.
-func NewWorker(cfg *config.Config) (*Worker, error) {
-	ctx := context.Background()
-
-	dbPool, err := db.New(ctx, cfg.PostgresDSN)
-	if err != nil {
-		return nil, err
-	}
-
-	redisClient, err := redisPkg.New(ctx, cfg.RedisAddr)
-	if err != nil {
-		dbPool.Close()
-		return nil, err
-	}
-
-	return &Worker{
-		cfg:         cfg,
-		dbPool:      dbPool,
-		redisClient: redisClient,
-	}, nil
-}
-
-func (w *Worker) Start(ctx context.Context) error {
-	slog.Info("starting worker")
-	<-ctx.Done()
-	return w.Shutdown(ctx)
-}
-
-func (w *Worker) Shutdown(ctx context.Context) error {
-	slog.Info("shutting down worker")
-	if err := w.redisClient.Close(); err != nil {
-		slog.Error("Redis close failed", "err", err)
-	}
-	w.dbPool.Close()
-	return nil
 }

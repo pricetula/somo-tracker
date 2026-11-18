@@ -29,13 +29,6 @@ type Config struct {
 	// Email provider quotas
 	EmailProviderHourlyCap int
 	EmailProviderDailyCap  int
-	// Rate limits - configurable via env, defaults per spec
-	RateLimitMagicLinkIPPerMin      int
-	RateLimitMagicLinkEmailPer15Min int
-	RateLimitTokenExchangeIPPerMin  int
-	RateLimitLogoutIPPerMin         int
-	RateLimitProvisionIPPerMin      int
-	RateLimitPublicIPPerMin         int
 
 	// Session policy - configurable via env
 	SessionIdleTimeout time.Duration // sliding window, default 7 days
@@ -43,9 +36,6 @@ type Config struct {
 
 	// Reference data seeding
 	SeedReferenceData bool
-	// Tenant-scoped rate limits
-	RateLimitTenantMagicLinkIPPerMin      int
-	RateLimitTenantMagicLinkEmailPer15Min int
 	// Migrations directory
 	MigrationsDir string // path to goose migration SQL files
 }
@@ -80,16 +70,6 @@ func Load() (*Config, error) {
 	// Email provider quotas
 	hourlyCap := parseIntEnv("EMAIL_PROVIDER_HOURLY_CAP", 1000)
 	dailyCap := parseIntEnv("EMAIL_PROVIDER_DAILY_CAP", 10000)
-	// Rate limits with defaults per spec
-	ipPerMin := parseIntEnv("RATE_LIMIT_MAGIC_LINK_IP_PER_MIN", 10)
-	emailPer15Min := parseIntEnv("RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN", 3)
-	tokenIPPerMin := parseIntEnv("RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN", 10)
-	logoutIPPerMin := parseIntEnv("RATE_LIMIT_LOGOUT_IP_PER_MIN", 5)
-	provisionIPPerMin := parseIntEnv("RATE_LIMIT_PROVISION_IP_PER_MIN", 5)
-	publicIPPerMin := parseIntEnv("RATE_LIMIT_PUBLIC_IP_PER_MIN", 30)
-	tenantIPPerMin := parseIntEnv("RATE_LIMIT_TENANT_MAGIC_LINK_IP_PER_MIN", 5)
-	tenantEmailPer15Min := parseIntEnv("RATE_LIMIT_TENANT_MAGIC_LINK_EMAIL_PER_15_MIN", 2)
-
 	// Session policy defaults
 	idleTimeout := parseDurationEnv("SESSION_IDLE_TIMEOUT", 7*24*time.Hour)  // 7 days
 	absoluteMax := parseDurationEnv("SESSION_ABSOLUTE_MAX", 30*24*time.Hour) // 30 days
@@ -123,14 +103,6 @@ func Load() (*Config, error) {
 		CSPReportOnlyPolicy:                   cspReportOnlyPolicy,
 		EmailProviderHourlyCap:                hourlyCap,
 		EmailProviderDailyCap:                 dailyCap,
-		RateLimitMagicLinkIPPerMin:            ipPerMin,
-		RateLimitMagicLinkEmailPer15Min:       emailPer15Min,
-		RateLimitTokenExchangeIPPerMin:        tokenIPPerMin,
-		RateLimitLogoutIPPerMin:               logoutIPPerMin,
-		RateLimitProvisionIPPerMin:            provisionIPPerMin,
-		RateLimitPublicIPPerMin:               publicIPPerMin,
-		RateLimitTenantMagicLinkIPPerMin:      tenantIPPerMin,
-		RateLimitTenantMagicLinkEmailPer15Min: tenantEmailPer15Min,
 		SessionIdleTimeout:                    idleTimeout,
 		SessionAbsoluteMax:                    absoluteMax,
 		SeedReferenceData:                     seedReferenceData,

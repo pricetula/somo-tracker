@@ -8,12 +8,12 @@ function sessionCookieName(): string {
 }
 
 /**
- * goRequest forwards a request to the Go backend, attaching the HttpOnly
- * session cookie from the browser. Set-Cookie headers from Go responses are
- * forwarded back to the browser.
- * Origin is forwarded on mutating methods for Go CSRF middleware.
+ * apiRequest forwards a request to the backend API, attaching the HttpOnly
+ * session cookie from the browser. Set-Cookie headers from the backend
+ * responses are forwarded back to the browser.
+ * Origin is forwarded on mutating methods for CSRF middleware.
  */
-export async function goRequest(
+export async function apiRequest(
   path: string,
   init: RequestInit = {}
 ): Promise<Response> {

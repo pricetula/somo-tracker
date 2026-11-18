@@ -5,8 +5,8 @@ import type { NextRequest } from 'next/server'
  * Next.js 16 Proxy (replaces middleware.ts).
  *
  * Optimistic UX gate: checks cookie PRESENCE only — zero backend calls.
- * Session VALIDATION is enforced by the Go backend on every API request
- * via AuthMiddleware.RequireAuth().
+ * Session VALIDATION is enforced by the backend on every API request
+ * via auth middleware.
  *
  * Cookie __Host-session_token is HttpOnly, so browser JS cannot read it.
  * Proxy runs on the server and can read the incoming Cookie header.
@@ -52,7 +52,7 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - /api/* (BFF API routes — Go handles auth)
+     * - /api/* (BFF API routes — backend handles auth)
      * - /_next/static, /_next/image (static assets)
      * - /favicon.ico, sitemap.xml, robots.txt
      */

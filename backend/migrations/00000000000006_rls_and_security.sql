@@ -5,7 +5,6 @@ CREATE OR REPLACE FUNCTION trigger_set_timestamp() RETURNS TRIGGER LANGUAGE plpg
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON pending_onboarding FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON app_session FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON onboarding_ticket FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
-CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON pkce_codes FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON countries FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON education_systems FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 CREATE TRIGGER trigger_set_timestamp BEFORE UPDATE ON class_levels FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
@@ -40,7 +39,6 @@ ALTER TABLE guardian_student_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pending_onboarding ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_session ENABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_ticket ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pkce_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE countries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE education_systems ENABLE ROW LEVEL SECURITY;
 ALTER TABLE class_levels ENABLE ROW LEVEL SECURITY;
@@ -67,10 +65,6 @@ CREATE POLICY pending_onboarding_tenant_isolation ON pending_onboarding
     USING (tenant_id = current_tenant_id() OR tenant_id IS NULL);
 CREATE POLICY app_session_tenant_isolation ON app_session USING (tenant_id = current_tenant_id());
 CREATE POLICY onboarding_ticket_tenant_isolation ON onboarding_ticket
-    USING (pending_onboarding_id IN (
-        SELECT id FROM pending_onboarding WHERE tenant_id = current_tenant_id() OR tenant_id IS NULL
-    ));
-CREATE POLICY pkce_codes_tenant_isolation ON pkce_codes
     USING (pending_onboarding_id IN (
         SELECT id FROM pending_onboarding WHERE tenant_id = current_tenant_id() OR tenant_id IS NULL
     ));
@@ -101,7 +95,6 @@ ALTER TABLE guardian_student_links FORCE ROW LEVEL SECURITY;
 ALTER TABLE pending_onboarding FORCE ROW LEVEL SECURITY;
 ALTER TABLE app_session FORCE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_ticket FORCE ROW LEVEL SECURITY;
-ALTER TABLE pkce_codes FORCE ROW LEVEL SECURITY;
 ALTER TABLE countries FORCE ROW LEVEL SECURITY;
 ALTER TABLE education_systems FORCE ROW LEVEL SECURITY;
 ALTER TABLE class_levels FORCE ROW LEVEL SECURITY;
@@ -123,7 +116,6 @@ DROP POLICY IF EXISTS streams_isolate ON streams;
 DROP POLICY IF EXISTS subtopics_isolate ON subtopics;
 DROP POLICY IF EXISTS topics_isolate ON topics;
 DROP POLICY IF EXISTS subjects_isolate ON subjects;
-DROP POLICY IF EXISTS pkce_codes_tenant_isolation ON pkce_codes;
 DROP POLICY IF EXISTS onboarding_ticket_tenant_isolation ON onboarding_ticket;
 DROP POLICY IF EXISTS app_session_tenant_isolation ON app_session;
 DROP POLICY IF EXISTS pending_onboarding_tenant_isolation ON pending_onboarding;
@@ -145,7 +137,6 @@ ALTER TABLE topics DISABLE ROW LEVEL SECURITY;
 ALTER TABLE subtopics DISABLE ROW LEVEL SECURITY;
 ALTER TABLE education_systems DISABLE ROW LEVEL SECURITY;
 ALTER TABLE countries DISABLE ROW LEVEL SECURITY;
-ALTER TABLE pkce_codes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_ticket DISABLE ROW LEVEL SECURITY;
 ALTER TABLE app_session DISABLE ROW LEVEL SECURITY;
 ALTER TABLE pending_onboarding DISABLE ROW LEVEL SECURITY;
@@ -173,7 +164,6 @@ DROP TRIGGER IF EXISTS trigger_set_timestamp ON tenants;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON class_levels;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON education_systems;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON countries;
-DROP TRIGGER IF EXISTS trigger_set_timestamp ON pkce_codes;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON onboarding_ticket;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON app_session;
 DROP TRIGGER IF EXISTS trigger_set_timestamp ON pending_onboarding;

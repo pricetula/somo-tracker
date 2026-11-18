@@ -35,7 +35,6 @@ func TestStatus_ReturnsRegisteredStatus(t *testing.T) {
 		{EMAIL_TAKEN, 409},
 		{INVITE_EXPIRED, 401},
 		{INVALID_TOKEN, 401},
-		{MISSING_PKCE, 400},
 		{INVALID_TICKET, 400},
 		{IDEMPOTENCY_CONFLICT, 409},
 		{PROVISIONING_FAILED, 500},

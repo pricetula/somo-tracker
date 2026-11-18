@@ -34,9 +34,6 @@ function CallbackContent() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),
-          // Send HttpOnly cookies (e.g. __Host-pkce_verifier) so the BFF can
-          // forward them to Go for PKCE validation. Without this the browser
-          // omits cookies and the backend returns MISSING_PKCE.
           credentials: 'include',
         })
 

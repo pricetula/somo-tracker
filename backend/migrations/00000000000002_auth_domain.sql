@@ -58,21 +58,8 @@ CREATE TABLE onboarding_ticket (
 CREATE INDEX IF NOT EXISTS idx_onboarding_ticket_pending ON onboarding_ticket (pending_onboarding_id);
 CREATE INDEX IF NOT EXISTS idx_onboarding_ticket_deleted_at ON onboarding_ticket (deleted_at) WHERE deleted_at IS NULL;
 
-CREATE TABLE pkce_codes (
-    pending_onboarding_id UUID NOT NULL REFERENCES pending_onboarding(id) ON DELETE CASCADE,
-    code_verifier_hash BYTEA NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ,
-    PRIMARY KEY (pending_onboarding_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_pkce_expires ON pkce_codes (expires_at);
-CREATE INDEX IF NOT EXISTS idx_pkce_codes_deleted_at ON pkce_codes (deleted_at) WHERE deleted_at IS NULL;
 
 -- +goose Down
-DROP TABLE IF EXISTS pkce_codes;
 DROP TABLE IF EXISTS onboarding_ticket;
 DROP TABLE IF EXISTS app_session;
 DROP TABLE IF EXISTS pending_onboarding;

@@ -5,13 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -23,8 +21,6 @@ import (
 const (
 	// Token entropy: 32 bytes = 256 bits
 	sessionTokenBytes = 32
-	// PKCE code verifier length (32 bytes = 43 base64url chars, per RFC 7636)
-	pkceVerifierBytes = 32
 	// Onboarding ticket TTL (matches IST TTL)
 	onboardingTicketTTL = 10 * time.Minute
 )
@@ -65,28 +61,10 @@ type OnboardingState struct {
 	AuthState     string // AC-8: discovered organizations state
 }
 
-// ProvisionResult holds the result of provisioning.
-type ProvisionResult struct {
-	TenantID *uuid.UUID
-	UserID   *uuid.UUID
-	SchoolID *uuid.UUID
-}
-
-// ProvisionData holds all data needed for tenant provisioning.
-type ProvisionData struct {
-	SchoolName       string
-	IdempotencyKey   string
-	SchoolCode       string
-	AdminName        string
-	CountryID        uuid.UUID
-	EducationSystemID uuid.UUID
-}
-
 // Service defines business logic for identity domain.
 type Service struct {
 	repo           Repository
 	stytch         stytch.Client
-	db             *sql.DB
 	istEncryption  *ISTEncryption
 	idleTimeout    time.Duration // sliding window idle timeout; zero means disabled
 }
@@ -97,50 +75,23 @@ type Repository interface {
 	GetPendingOnboardingByID(ctx context.Context, id uuid.UUID) (storegen.PendingOnboarding, error)
 	UpsertPendingOnboarding(ctx context.Context, arg storegen.UpsertPendingOnboardingParams) (storegen.PendingOnboarding, error)
 	UpdatePendingOnboardingStep(ctx context.Context, arg storegen.UpdatePendingOnboardingStepParams) error
-	UpdatePendingOnboardingProvisioning(ctx context.Context, id uuid.UUID, stytchOrgID, stytchMemberID uuid.UUID, status string) error
 	CreateAppSession(ctx context.Context, arg storegen.CreateAppSessionParams) (storegen.AppSession, error)
 	GetAppSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.AppSession, error)
 	GetAppSessionByID(ctx context.Context, id uuid.UUID) (storegen.AppSession, error)
 	RevokeAppSession(ctx context.Context, id uuid.UUID) error
 	CreateOnboardingTicket(ctx context.Context, arg storegen.CreateOnboardingTicketParams) (storegen.OnboardingTicket, error)
 	GetOnboardingTicketByHash(ctx context.Context, hash []byte) (storegen.OnboardingTicket, error)
-	MarkOnboardingTicketUsed(ctx context.Context, id uuid.UUID) error
 
-	// Reference data
-	ListCountries(ctx context.Context) ([]storegen.Country, error)
-	ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error)
-
-	// Core domain - for transactional provisioning
-	CreateTenant(ctx context.Context, arg storegen.CreateTenantParams) (storegen.Tenant, error)
-	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID uuid.NullUUID) (storegen.Tenant, error)
-	CreateUser(ctx context.Context, arg storegen.CreateUserParams) (storegen.User, error)
-	GetUserByStytchMemberID(ctx context.Context, stytchMemberID uuid.NullUUID) (storegen.User, error)
-	GetUserByEmail(ctx context.Context, email string) (storegen.User, error)
-	GetUserByEmailAndTenant(ctx context.Context, tenantID uuid.UUID, email string) (storegen.User, error)
-	CreateSchool(ctx context.Context, arg storegen.CreateSchoolParams) (storegen.School, error)
-	CreateMembership(ctx context.Context, arg storegen.CreateMembershipParams) (storegen.Membership, error)
+	// Session
 	GetUserByID(ctx context.Context, id uuid.UUID) (storegen.User, error)
 	GetTenantMembershipRole(ctx context.Context, userID, tenantID uuid.UUID) (string, error)
-
-	// RBAC support
-	GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]MembershipContext, error)
-	GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
-	GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error)
-	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
-	RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error
 	UpdateSessionLastSeen(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error
-
-	// School + membership for /me
-	ListSchoolsByTenant(ctx context.Context, tenantID uuid.UUID) ([]storegen.School, error)
-	SetMembershipActive(ctx context.Context, userID uuid.UUID, membershipID uuid.UUID) error
-
-	// Session with memberships (one DB round-trip)
 	GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (storegen.GetSessionWithMembershipsRow, error)
 }
 
 // New creates service. idleTimeout is the sliding window idle timeout;
 // zero disables idle enforcement (absolute expiry still applies).
-func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionKey string, idleTimeout time.Duration) (*Service, error) {
+func New(repo Repository, stytchClient stytch.Client, istEncryptionKey string, idleTimeout time.Duration) (*Service, error) {
 	var istEnc *ISTEncryption
 	if istEncryptionKey != "" {
 		var err error
@@ -149,34 +100,24 @@ func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionK
 			return nil, fmt.Errorf("init IST encryption: %w", err)
 		}
 	}
-	return &Service{repo: repo, stytch: stytchClient, db: db, istEncryption: istEnc, idleTimeout: idleTimeout}, nil
+	return &Service{repo: repo, stytch: stytchClient, istEncryption: istEnc, idleTimeout: idleTimeout}, nil
 }
 
 // RequestMagicLink initiates Stytch Discovery magic link flow.
-func (s *Service) RequestMagicLink(ctx context.Context, email string) (string, error) {
-	// Generate PKCE code_verifier
-	verifier, err := generateRandomString(pkceVerifierBytes)
-	if err != nil {
-		return "", fmt.Errorf("generate PKCE verifier: %w", err)
-	}
-
-	// Compute code_challenge S256
-	challenge := pkceCodeChallenge(verifier)
-
+func (s *Service) RequestMagicLink(ctx context.Context, email string) error {
 	// Build login URL for Stytch callback from PUBLIC_APP_URL
 	appURL := os.Getenv("PUBLIC_APP_URL")
 	if appURL == "" {
-		return "", fmt.Errorf("PUBLIC_APP_URL is required for Stytch magic link callback")
+		return fmt.Errorf("PUBLIC_APP_URL is required for Stytch magic link callback")
 	}
 	loginURL := strings.TrimRight(appURL, "/") + "/auth/callback"
 
-	// Call Stytch B2B Discovery magic links/email with PKCE code challenge
-	if err := s.stytch.SendDiscoveryMagicLink(ctx, email, loginURL, challenge); err != nil {
-		return "", fmt.Errorf("stytch send magic link: %w", err)
+	// Call Stytch B2B Discovery magic links/email
+	if err := s.stytch.SendDiscoveryMagicLink(ctx, email, loginURL); err != nil {
+		return fmt.Errorf("stytch send magic link: %w", err)
 	}
 
-	// Return PKCE verifier for handler to store in cookie
-	return verifier, nil
+	return nil
 }
 
 // generateRandomString generates a cryptographically secure random string.
@@ -188,21 +129,10 @@ func generateRandomString(n int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// pkceCodeChallenge computes S256 code challenge from verifier (RFC 7636).
-func pkceCodeChallenge(verifier string) string {
-	h := sha256.Sum256([]byte(verifier))
-	return base64URLEncode(h[:])
-}
-
-// base64URLEncode encodes bytes to base64url without padding.
-func base64URLEncode(b []byte) string {
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
 // AuthenticateToken verifies one-time Stytch token, upserts pending onboarding and creates ticket.
-func (s *Service) AuthenticateToken(ctx context.Context, token, pkceCodeVerifier string) (string, *OnboardingState, *string, error) {
-	// 1. Call Stytch b2b/discovery/authenticate with token + pkce_code_verifier
-	resp, err := s.stytch.AuthenticateDiscovery(ctx, token, pkceCodeVerifier)
+func (s *Service) AuthenticateToken(ctx context.Context, token string) (string, *OnboardingState, *string, error) {
+	// 1. Call Stytch b2b/discovery/authenticate with token
+	resp, err := s.stytch.AuthenticateDiscovery(ctx, token)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("stytch authenticate: %w", err)
 	}
@@ -299,340 +229,6 @@ func determineAuthState(orgs []stytch.DiscoveredOrg) string {
 	}
 	// Multiple orgs - user must select
 	return "organization_selection_required"
-}
-
-// ProvisionTenant creates Stytch org/member and local tenant/user/school/membership in a transaction.
-func (s *Service) ProvisionTenant(ctx context.Context, ticketToken string, data ProvisionData) (*ProvisionResult, error) {
-	// 1. Validate ticket
-	ticketHash := sha256.Sum256([]byte(ticketToken))
-	ticket, err := s.repo.GetOnboardingTicketByHash(ctx, ticketHash[:])
-	if err != nil {
-		return nil, ErrInvalidToken
-	}
-
-	// 2. Mark ticket as used
-	if err := s.repo.MarkOnboardingTicketUsed(ctx, ticket.ID); err != nil {
-		return nil, fmt.Errorf("mark ticket used: %w", err)
-	}
-
-	// 3. Get pending onboarding by ID from ticket
-	pending, err := s.repo.GetPendingOnboardingByID(ctx, ticket.PendingOnboardingID)
-	if err != nil {
-		return nil, ErrPendingOnboardingNotFound
-	}
-
-	// 4. Check idempotency
-	if pending.IdempotencyKey.Valid && pending.IdempotencyKey.String == data.IdempotencyKey {
-		// Already processed with this key
-		return &ProvisionResult{
-			TenantID: nullUUIDToPtr(pending.TenantID),
-			UserID:   nil,
-		}, nil
-	}
-
-	// 5. Execute provisioning in transaction
-	return s.provisionInTransaction(ctx, ticket, pending, data)
-}
-
-// provisionInTransaction runs the full provisioning in a database transaction.
-// Reuses existing Stytch IDs if present (retry after partial failure).
-func (s *Service) provisionInTransaction(ctx context.Context, ticket storegen.OnboardingTicket, pending storegen.PendingOnboarding, data ProvisionData) (*ProvisionResult, error) {
-	// GUARD: prevent duplicate tenant/user if this email already completed
-	if pending.Status == "completed" && pending.TenantID.Valid {
-		return nil, fmt.Errorf("already provisioned for email %s (tenant %s): %w", pending.VerifiedEmailNormalized, pending.TenantID.UUID, ErrProvisioningFailed)
-	}
-
-	// GUARD: DB-level - reject if any user exists for this email globally
-	existingUser, err := s.repo.GetUserByEmail(ctx, pending.VerifiedEmailNormalized)
-	if err == nil && existingUser.ID != uuid.Nil {
-		return nil, fmt.Errorf("user already exists for email %s (user %s, tenant %s): %w", pending.VerifiedEmailNormalized, existingUser.ID, existingUser.TenantID, ErrProvisioningFailed)
-	}
-
-	var orgID, memberID uuid.UUID
-
-	// CHECK: Reuse existing Stytch IDs from a previous failed attempt
-	if pending.StytchOrganizationID.Valid && pending.StytchMemberID.Valid {
-		orgID = pending.StytchOrganizationID.UUID
-		memberID = pending.StytchMemberID.UUID
-	} else {
-		// FIRST ATTEMPT: Create Stytch organization and member
-		orgMember, err := s.stytch.CreateOrganizationAndMember(ctx, data.SchoolName, pending.VerifiedEmailNormalized)
-		if err != nil {
-			return nil, fmt.Errorf("create org/member: %w", err)
-		}
-		orgID, err = parseUUID(orgMember.OrganizationID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid organization ID from Stytch: %w", err)
-		}
-		memberID, err = parseUUID(orgMember.MemberID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid member ID from Stytch: %w", err)
-		}
-
-		// Persist Stytch IDs immediately so retries can reuse them
-		if err := s.repo.UpdatePendingOnboardingProvisioning(ctx, pending.ID, orgID, memberID, "provisioning"); err != nil {
-			return nil, fmt.Errorf("persist stytch ids: %w", err)
-		}
-	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Create transactional repository
-	txRepo := storegen.New(tx)
-
-	// Exchange IST for Stytch session - best effort, do not fail provisioning if Stytch is unavailable
-	var ist string
-	if s.istEncryption != nil {
-		decrypted, err := s.istEncryption.Decrypt(string(ticket.IstCiphertext))
-		if err != nil {
-			return nil, fmt.Errorf("decrypt IST: %w", err)
-		}
-		ist = string(decrypted)
-	} else {
-		ist = string(ticket.IstCiphertext) // dev fallback
-	}
-	_, _ = s.stytch.ExchangeDiscoverySession(ctx, ist)
-
-	// Create local Tenant
-	tenant, err := txRepo.CreateTenant(ctx, storegen.CreateTenantParams{
-		Name:                   data.SchoolName,
-		StytchOrganizationID:   uuid.NullUUID{UUID: orgID, Valid: true},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create tenant: %w", err)
-	}
-
-	// Create admin User
-	adminUser, err := txRepo.CreateUser(ctx, storegen.CreateUserParams{
-		TenantID:           tenant.ID,
-		EmailNormalized:    pending.VerifiedEmailNormalized,
-		StytchMemberID:     uuid.NullUUID{UUID: memberID, Valid: true},
-		Name:               data.AdminName,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create user: %w", err)
-	}
-
-	// Generate school code from name
-	schoolCode := generateSchoolCode(data.SchoolName)
-
-	// Create School
-	school, err := txRepo.CreateSchool(ctx, storegen.CreateSchoolParams{
-		TenantID:          tenant.ID,
-		Name:              data.SchoolName,
-		Code:              schoolCode,
-		CountryID:         data.CountryID,
-		EducationSystemID: data.EducationSystemID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create school: %w", err)
-	}
-
-	// Create Membership (OWNER role for first admin)
-	_, err = txRepo.CreateMembership(ctx, storegen.CreateMembershipParams{
-		UserID:   adminUser.ID,
-		SchoolID: school.ID,
-		Role:     storegen.UserRoleOWNER,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create membership: %w", err)
-	}
-
-	// Update PendingOnboarding to completed within transaction
-	_, err = txRepo.UpsertPendingOnboarding(ctx, storegen.UpsertPendingOnboardingParams{
-		VerifiedEmailNormalized: pending.VerifiedEmailNormalized,
-		Status:                  "completed",
-		CurrentStep:             "complete",
-		FormData:                pending.FormData,
-		StytchOrganizationID:    uuid.NullUUID{UUID: orgID, Valid: true},
-		StytchMemberID:          uuid.NullUUID{UUID: memberID, Valid: true},
-		TenantID:                uuid.NullUUID{UUID: tenant.ID, Valid: true},
-		SchoolName:              sqlNullString(data.SchoolName),
-		IdempotencyKey:          sqlNullString(data.IdempotencyKey),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("update pending onboarding: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit transaction: %w", err)
-	}
-
-	return &ProvisionResult{
-		TenantID: &tenant.ID,
-		UserID:   &adminUser.ID,
-		SchoolID: &school.ID,
-	}, nil
-}
-
-// ListCountries returns all non-deleted countries ordered by name.
-func (s *Service) ListCountries(ctx context.Context) ([]storegen.Country, error) {
-	countries, err := s.repo.ListCountries(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list countries: %w", err)
-	}
-	return countries, nil
-}
-
-// ListEducationSystems returns all non-deleted education systems for a country.
-func (s *Service) ListEducationSystems(ctx context.Context, countryID uuid.UUID) ([]storegen.EducationSystem, error) {
-	systems, err := s.repo.ListEducationSystems(ctx, countryID)
-	if err != nil {
-		return nil, fmt.Errorf("list education systems: %w", err)
-	}
-	return systems, nil
-}
-
-// MeResponse is the payload for GET /api/v1/me.
-type MeResponse struct {
-	UserID       string     `json:"user_id"`
-	FullName     string     `json:"full_name"`
-	Email        string     `json:"email"`
-	AvatarURL    *string    `json:"avatar_url"`
-	Role         string     `json:"role"`
-	ActiveSchool *SchoolRef `json:"active_school"`
-	Schools      []SchoolRef `json:"schools"`
-}
-
-// SchoolRef is a lightweight school reference for /me and school switcher.
-type SchoolRef struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-// GetMe returns the authenticated user's profile, active school, and all schools in the tenant.
-func (s *Service) GetMe(ctx context.Context, tokenHash []byte) (*MeResponse, error) {
-	// 1. Validate session + load memberships in one round-trip
-	sessionCtx, memberships, err := s.ValidateSessionWithMemberships(ctx, tokenHash)
-	if err != nil {
-		if err == sql.ErrNoRows || errors.Is(err, ErrSessionNotFound) {
-			return nil, ErrSessionNotFound
-		}
-		return nil, fmt.Errorf("validate session: %w", err)
-	}
-
-	// 2. Get user info
-	user, err := s.repo.GetUserByID(ctx, sessionCtx.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-
-	// 3. List all schools in the tenant
-	schools, err := s.repo.ListSchoolsByTenant(ctx, sessionCtx.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("list schools: %w", err)
-	}
-
-	// 4. Build school lookup for active school resolution
-	schoolByID := make(map[uuid.UUID]storegen.School, len(schools))
-	for i := range schools {
-		schoolByID[schools[i].ID] = schools[i]
-	}
-
-	// 5. Determine active school from memberships (is_active = true)
-	var activeSchool *SchoolRef
-	for _, m := range memberships {
-		if m.IsActive {
-			if school, ok := schoolByID[m.SchoolID]; ok {
-				name := school.Name
-				activeSchool = &SchoolRef{ID: school.ID.String(), Name: name}
-			}
-			break
-		}
-	}
-
-	// 6. Build school refs from memberships (only schools the user is a member of)
-	memberSchoolRefs := make([]SchoolRef, 0, len(memberships))
-	seen := make(map[uuid.UUID]bool)
-	for _, m := range memberships {
-		if seen[m.SchoolID] {
-			continue
-		}
-		seen[m.SchoolID] = true
-		if school, ok := schoolByID[m.SchoolID]; ok {
-			memberSchoolRefs = append(memberSchoolRefs, SchoolRef{
-				ID:   school.ID.String(),
-				Name: school.Name,
-			})
-		}
-	}
-
-	// 7. Determine role from active membership
-	role := ""
-	for _, m := range memberships {
-		if m.IsActive {
-			role = m.Role
-			break
-		}
-	}
-	if role == "" && len(memberships) > 0 {
-		role = memberships[0].Role
-	}
-
-	return &MeResponse{
-		UserID:       sessionCtx.UserID.String(),
-		FullName:     user.Name,
-		Email:        user.EmailNormalized,
-		AvatarURL:    nil, // avatar not stored yet; reserved for future
-		Role:         role,
-		ActiveSchool: activeSchool,
-		Schools:      memberSchoolRefs,
-	}, nil
-}
-
-// ListSchools returns all schools in the tenant for the school switcher dropdown.
-func (s *Service) ListSchools(ctx context.Context, tokenHash []byte) ([]SchoolRef, error) {
-	sessionCtx, _, err := s.ValidateSessionWithMemberships(ctx, tokenHash)
-	if err != nil {
-		if err == sql.ErrNoRows || errors.Is(err, ErrSessionNotFound) {
-			return nil, ErrSessionNotFound
-		}
-		return nil, fmt.Errorf("validate session: %w", err)
-	}
-
-	schools, err := s.repo.ListSchoolsByTenant(ctx, sessionCtx.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("list schools: %w", err)
-	}
-
-	refs := make([]SchoolRef, 0, len(schools))
-	for _, school := range schools {
-		refs = append(refs, SchoolRef{ID: school.ID.String(), Name: school.Name})
-	}
-	return refs, nil
-}
-
-// SwitchActiveSchool sets the given school as the user's active membership.
-func (s *Service) SwitchActiveSchool(ctx context.Context, tokenHash []byte, schoolID uuid.UUID) error {
-	sessionCtx, _, err := s.ValidateSessionWithMemberships(ctx, tokenHash)
-	if err != nil {
-		if err == sql.ErrNoRows || errors.Is(err, ErrSessionNotFound) {
-			return ErrSessionNotFound
-		}
-		return fmt.Errorf("validate session: %w", err)
-	}
-
-	// Verify the school belongs to the tenant and the user has a membership for it
-	if err := s.repo.SetMembershipActive(ctx, sessionCtx.UserID, schoolID); err != nil {
-		return fmt.Errorf("set membership active: %w", err)
-	}
-	return nil
-}
-
-// generateSchoolCode generates a unique school code from name.
-func generateSchoolCode(name string) string {
-	// Simple code generation: first 4 letters + random suffix
-	base := strings.ToUpper(strings.ReplaceAll(name, " ", ""))
-	if len(base) > 4 {
-		base = base[:4]
-	}
-	suffix, _ := generateRandomString(4)
-	return base + "-" + strings.ToUpper(suffix)
 }
 
 // CreateSession creates opaque app session after tenant provisioning.
@@ -761,46 +357,6 @@ func (s *Service) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	return nil
 }
 
-// RevokeSession revokes a session by ID (for RBAC fail-closed)
-func (s *Service) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {
-	return s.repo.RevokeAppSession(ctx, sessionID)
-}
-
-// RevokeAllSessionsForUser revokes all sessions for a user (log out everywhere).
-// Used when roles or memberships change, or on explicit user request.
-func (s *Service) RevokeAllSessionsForUser(ctx context.Context, userID uuid.UUID) error {
-	return s.repo.RevokeAllSessionsForUser(ctx, userID)
-}
-
-// GetUserMemberships returns all active memberships for a user in a tenant
-func (s *Service) GetUserMemberships(ctx context.Context, userID, tenantID uuid.UUID) ([]MembershipContext, error) {
-	// This would typically be a custom query; for now we use the existing method
-	// In practice, you'd add a sqlc query for this
-	role, err := s.repo.GetTenantMembershipRole(ctx, userID, tenantID)
-	if err != nil {
-		return nil, err
-	}
-	if role == "" {
-		return []MembershipContext{}, nil
-	}
-	// We don't have school_id from this method; need a custom query
-	// For now, return empty - this should be implemented with a proper query
-	return []MembershipContext{}, nil
-}
-
-// GetGuardianStudents returns student IDs that a guardian is authorized to access.
-func (s *Service) GetGuardianStudents(ctx context.Context, guardianUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
-	return s.repo.GetGuardianStudents(ctx, guardianUserID, tenantID)
-}
-
-// GetTeacherClasses returns class IDs that a teacher is authorized to access.
-// NOTE: This is a future feature. The teacher_class_links table does not exist yet;
-// this method currently returns empty via the store stub. When implemented, it must
-// resolve teacher->classroom links scoped to tenant via schools.tenant_id.
-func (s *Service) GetTeacherClasses(ctx context.Context, teacherUserID, tenantID uuid.UUID) ([]uuid.UUID, error) {
-	return s.repo.GetTeacherClasses(ctx, teacherUserID, tenantID)
-}
-
 // UpdateOnboardingStep updates the current step and form data for pending onboarding.
 func (s *Service) UpdateOnboardingStep(ctx context.Context, pendingID uuid.UUID, step string, formData map[string]interface{}) error {
 	data, _ := json.Marshal(formData)
@@ -853,25 +409,4 @@ func sqlNullStringToStringPtr(n sql.NullString) *string {
 		return &n.String
 	}
 	return nil
-}
-
-// sqlNullString converts string to sql.NullString
-func sqlNullString(s string) sql.NullString {
-	if s == "" {
-		return sql.NullString{Valid: false}
-	}
-	return sql.NullString{String: s, Valid: true}
-}
-
-// parseUUID attempts to parse a UUID string, falling back to extracting a UUID pattern from prefixed strings.
-func parseUUID(s string) (uuid.UUID, error) {
-	if u, err := uuid.Parse(s); err == nil {
-		return u, nil
-	}
-	// Fallback: extract UUID pattern from string (e.g., prefixed IDs like organization-test-<uuid>)
-	re := regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
-	if m := re.FindString(s); m != "" {
-		return uuid.Parse(m)
-	}
-	return uuid.Nil, fmt.Errorf("invalid UUID string: %s", s)
 }

@@ -7,6 +7,10 @@ RUN npm install -g pnpm@12
 
 # Install dependencies
 COPY package.json pnpm-lock.yaml ./
+# pnpm 12 requires explicit approval for dependency build scripts
+# (workerd, shipped by playwright). Approve once so the approval
+# persists in the image for both build-time and runtime installs.
+RUN pnpm approve-builds workerd -y
 RUN pnpm install --frozen-lockfile
 
 COPY . .

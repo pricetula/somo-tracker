@@ -7,6 +7,8 @@ Rules are enforced by lint, CI, and tests where possible. Run `go vet`, `golangc
 
 This file contains backend-specific rules. Repository-wide rules (commit policy, document-led workflow, cross-application API coordination, security principles) live in the root `AGENTS.md` and apply here too. Application-specific rules do not override repository-wide requirements.
 
+Gaps in numbering are intentional; IDs are never reused.
+
 ## Structure
 
 - **BE-001** Layout: `cmd/<binary>/`, `internal/app/` (composition root), `internal/platform/<capability>/` (infrastructure, no business logic), `internal/<domain>/{handler,service,store}/`. Create no other top-level packages. Never create `utils`, `helpers`, `common` or `misc`.
@@ -35,30 +37,38 @@ This file contains backend-specific rules. Repository-wide rules (commit policy,
 - **BE-016** Every query is tenant-scoped, and school-scoped for school data, in addition to RLS. The app connects as a non-owner DB role, and RLS variables are set per transaction from the session context. Cross-tenant and nonexistent records return the identical 404.
 - **BE-017** The session context (user, tenant, school, role) is loaded once per request by middleware from one query and carried in `context.Context` as a typed struct. Nothing else reads or writes the active school. Never accept a school or tenant ID from the client as scope.
 - **BE-018** The role always comes from the live membership. Never cache it in the session or Redis.
-- **BE-019** Sessions use an opaque random token (at least 256 bits); only its SHA-256 hash is stored. The cookie is `HttpOnly; Secure; SameSite=Lax` with name `__Secure-session_token`, `Domain=domain.com`, `Path=/`, per-environment name suffix to avoid cross-env leakage — `__Host-` prefix cannot be used with `Domain`. Reject unsafe methods whose `Origin` doesn't match. No state changes on GET. Sessions have idle and absolute expiry owned by our DB, and the absolute expiry never exceeds the Stytch session's `expires_at`. Stytch is called at login and logout only, never per request. The magic-link callback is a POST, never a GET. The session stores the Stytch member-session ID for revocation; any Stytch token kept (only if revocation by ID proves impossible) is encrypted at rest. Stytch tokens are never logged. Stytch is reached only through an interface declared in `identity/service` and implemented by the adapter in `platform/stytch`; login, invite and session logic live in the identity service.
+- **BE-019** Session rules:
+  - a. Token: opaque random token (at least 256 bits); only its SHA-256 hash is stored.
+  - b. Cookie: `HttpOnly; Secure; SameSite=Lax`, name `__Secure-session_token`, `Path=/`, per-environment name suffix to avoid cross-env leakage. `Domain=domain.com` is a placeholder — `__Host-` prefix cannot be used with `Domain`. Production (Render) needs an explicit trusted-proxy and cookie-domain rule.
+  - c. CSRF and method safety: reject unsafe methods whose `Origin` doesn't match. No state changes on GET.
+  - d. Expiry: idle and absolute expiry owned by our DB; absolute expiry never exceeds the Stytch session's `expires_at`.
+  - e. Stytch calls: at login and logout only, never per request.
+  - f. Callback: the magic-link callback is a POST, never a GET.
+  - g. Stytch tokens: the session stores the Stytch member-session ID for revocation; any Stytch token kept (only if revocation by ID proves impossible) is encrypted at rest. Stytch tokens are never logged.
+  - h. Stytch interface: reached only through an interface declared in `identity/service` and implemented by the adapter in `platform/stytch`; login, invite and session logic live in the identity service.
 - **BE-020** Every route registers with `authz.Require(perm)` or an explicit `Public()`. Use permissions, never role lists. The permission matrix is data in `platform/authz`.
 - **BE-021** Services obtain a `Scope` from `authz.ScopeFor(ctx, perm)` and pass it to the store, which applies it in the query's WHERE clause. Out-of-scope single records return 404. Field-level restrictions use separate response types backed by restricted query projections; never fetch everything and strip fields.
 
 ## API contract
 
 - **BE-022** Versioning: every API route lives under `/api/v1/` (webhooks included), created as one route group in `platform/httpserver`; handlers register relative paths. API v1 status: **unreleased** (breaking changes allowed; change this word to `released` at the first production deploy). Once released, v1 changes are additive only (new endpoints, new optional response fields). Breaking changes (removing or renaming fields or endpoints, changing types or semantics, adding required request fields, tightening validation, removing enum values) ship as `/api/v2/` alongside v1.
-- **BE-023** The OpenAPI contract for the frontend is the hand-maintained file `docs/api/openapi.yaml` (backend-owned, source of truth). The frontend regenerates its types from it with `pnpm generate:api`. Separately, `swag` generates `backend/docs/swagger.*` from `@swaggo` annotations in handlers (`make generate-swag`); that artifact is not the frontend type source. Use one annotation template per handler and the standard `@Failure` set. Request and response types are named structs, never inline. Cursor pages use one generic wrapper.
+- **BE-023** OpenAPI contract: `docs/api/openapi.yaml` is the backend-owned, hand-maintained source of truth for the frontend. The frontend regenerates its types from it with `pnpm generate:api`. Separately, `swag` generates `backend/docs/swagger.*` from `@swaggo` annotations in handlers (`make generate-swag`); that artifact is not the frontend type source. Contract tests validate real responses against the OpenAPI spec (`docs/api/openapi.yaml`), not against `backend/docs/swagger.*`. Use one annotation template per handler and the standard `@Failure` set. Request and response types are named structs, never inline. Cursor pages use one generic wrapper.
 - **BE-024** Validation uses `go-playground/validator/v10`, plugged into Fiber via `fiber.Config.StructValidator` and used through `c.Bind()`. Validation tags go only on request DTOs in `handler/` (shape, format, length). Business rules are validated in services and returned as `apperr`. Field names come from json tags; each failed tag maps to a stable `errors[].code`. Custom validators are registered once in `platform/validation`.
-- **BE-025** Services return typed errors from `apperr`. One central Fiber error handler renders `{ code, message, errors?, request_id }`; handlers never write error JSON. `code` is a stable SCREAMING_SNAKE enum defined in `apperr` and exported in the spec. Status mapping: 400 `BAD_REQUEST`, 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 422 `VALIDATION_FAILED`, 429 `RATE_LIMITED` (with `Retry-After`), 500 `INTERNAL` (generic message only). `errors[].field` is a dotted path (`guardians.0.phone`).
-- **BE-026** Never serve `/healthz`, `/readyz`, metrics or the spec under `/api`. Trust the forwarded client IP header only from the Vite proxy hop. Authenticated responses set `Cache-Control: no-store`.
+- **BE-025** Services return typed errors from `apperr`. One central Fiber error handler renders `{ code, message, errors?, request_id }`; handlers never write error JSON. `code` is a stable SCREAMING_SNAKE enum defined in `apperr` and exported in the spec. Status mapping: 400 `BAD_REQUEST` (malformed request or bad pagination/parameter values), 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 422 `VALIDATION_FAILED` (field-level validation failures), 429 `RATE_LIMITED` (with `Retry-After`), 500 `INTERNAL` (generic message only). `errors[].field` is a dotted path (`guardians.0.phone`).
+- **BE-026** Never serve `/healthz`, `/readyz`, metrics or the spec under `/api`. Trust the forwarded client IP header only from the Vite proxy hop (placeholder — production needs explicit trusted-proxy configuration). Authenticated responses set `Cache-Control: no-store`.
 
 ## Naming and API conventions
 
-- Packages are lowercase single words; files are snake_case; constructors are `New<Type>`; interfaces have no `I` prefix; sqlc queries are verb-first PascalCase (`GetStudent`, `ListStudentsByName`, `CreateStudent`); migrations are `<timestamp>_<description>.sql`.
-- `context.Context` is the first parameter and is never stored in a struct.
-- Errors: wrap with `%w`, compare with `errors.Is`/`errors.As`, never panic for control flow.
-- JSON field names are **snake_case** per `docs/api/openapi.yaml` and handler DTO json tags (e.g. `school_name`, `idempotency_key`, `verified_email`). Query parameter names are camelCase. IDs are UUID strings. Timestamps are RFC 3339 UTC with `Z`. Date-only fields are `yyyy-MM-dd` strings. Money is an integer in minor units with a `Minor` suffix (`amountMinor`), KES only.
-- Enum values are SCREAMING_SNAKE strings (`PRESENT`, `EE`). Adding an enum value is additive; removing one is breaking.
-- URLs are plural kebab-case nouns (`/api/v1/students/{id}/guardians`). Non-CRUD actions are `POST /<resource>/{id}/<verb>`.
-- A single resource returns the bare object, never an envelope; lists return `{ items, nextCursor }`. Declared fields are always present: no value is `null`, and arrays are `[]`, never null.
-- Updates use `PUT` with the full editable body. No generic `PATCH`.
-- Success codes: 200 reads and updates, 201 creates (returns the created body), 202 queued work, 204 deletes.
-- Create endpoints used by offline clients take a client-generated `id` and are idempotent on it (a repeat returns the existing record). No generic `Idempotency-Key` header in the MVP.
+- **BE-047** Packages are lowercase single words; files are snake_case; constructors are `New<Type>`; interfaces have no `I` prefix; sqlc queries are verb-first PascalCase (`GetStudent`, `ListStudentsByName`, `CreateStudent`); migrations are `<timestamp>_<description>.sql`.
+- **BE-048** `context.Context` is the first parameter and is never stored in a struct.
+- **BE-049** Errors: wrap with `%w`, compare with `errors.Is`/`errors.As`, never panic for control flow.
+- **BE-050** JSON field names are snake_case per `docs/api/openapi.yaml` and handler DTO json tags (e.g. `school_name`, `idempotency_key`, `verified_email`). Query parameter names are camelCase. IDs are UUID strings. Timestamps are RFC 3339 UTC with `Z`. Date-only fields are `yyyy-MM-dd` strings. Money is an integer in minor units with a `Minor` suffix (`amountMinor`), KES only.
+- **BE-051** Enum values are SCREAMING_SNAKE strings (`PRESENT`, `EE`). Adding an enum value is additive; removing one is breaking.
+- **BE-052** URLs are plural kebab-case nouns (`/api/v1/students/{id}/guardians`). Non-CRUD actions are `POST /<resource>/{id}/<verb>`.
+- **BE-053** A single resource returns the bare object, never an envelope; lists return `{ items, nextCursor }`. Declared fields are always present: no value is `null`, and arrays are `[]`, never null.
+- **BE-054** Updates use `PUT` with the full editable body. No generic `PATCH`.
+- **BE-055** Success codes: 200 reads and updates, 201 creates (returns the created body), 202 queued work, 204 deletes.
+- **BE-056** Create endpoints used by offline clients take a client-generated `id` and are idempotent on it (a repeat returns the existing record). No generic `Idempotency-Key` header in the MVP.
 
 ## Jobs, Redis, audit
 
@@ -72,8 +82,11 @@ This file contains backend-specific rules. Repository-wide rules (commit policy,
 - **BE-031** Log with `slog` JSON to stdout only. Log IDs (request, tenant, school, user), route pattern, status, latency and error code. Never log names, phones, emails, health or fee data, tokens, cookies, bodies or SQL arguments. Sensitive types implement `slog.LogValuer`. No `fmt.Print*` and no std `log`. Log an error once, in the central handler; wrap errors with `%w`.
 - **BE-032** Error tracking uses Sentry (`sentry-go`, EU region). Report panics and 5xx only, never 4xx. Keep `SendDefaultPII` off, and scrub in `BeforeSend`: drop request bodies, headers, cookies, query strings and user data. Attach only request, tenant, school and user IDs as tags. No SQL arguments or entity values in messages or breadcrumbs.
 - **BE-033** Secrets come from the environment or a secret manager, never the repo. All config goes through one typed `platform/config`.
-- **BE-046** Adding a new config value or secret: add a field to the `Config` struct in `platform/config/config.go`, read it in `Load()` via `firstNonEmpty` (or `os.Getenv` with a default), assign it in the `cfg := &Config{...}` literal, and reference `cfg.<Field>` at the call site. Never read env directly with `os.Getenv` outside `config.Load()` — that bypasses validation, defaults, and the single config source of truth. If the value is needed in Docker Compose, add it to the `backend` service `environment:` block. If it differs between Render and local, set it per-environment (Render dashboard / Compose), defaulting to `"migrations"` or another sensible local value.
 - **BE-034** CSV and spreadsheet exports neutralize formula injection (cells starting `=`, `+`, `-`, `@`). Cap upload size and validate file types.
+
+## Configuration
+
+- **BE-046** Adding a new config value or secret: add a field to the `Config` struct in `platform/config/config.go`, read it in `Load()` via `firstNonEmpty` (or `os.Getenv` with a default), assign it in the `cfg := &Config{...}` literal, and reference `cfg.<Field>` at the call site. Never read env directly with `os.Getenv` outside `config.Load()` — that bypasses validation, defaults, and the single config source of truth. The rule statement lives here; the step-by-step procedure (field → `Load()` → literal → call site, Docker Compose `environment:` block, per-environment Render/Compose values) is in the How-to section below.
 
 ## Quality
 
@@ -82,7 +95,7 @@ This file contains backend-specific rules. Repository-wide rules (commit policy,
 
 ## Migrations and schema rules
 
-- **BE-037** New SQL requires `migrator_integration_test.go` verification: every migration must create its tables, indexes, enums, and FKs, and the insert test must succeed across tables (or omit new rows explicitly).
+- **BE-037** New SQL requires `migrator_integration_test.go` verification: every migration must create its tables, indexes, enums, and FKs, and the insert test must succeed across tables (or omit new rows explicitly). The rule statement lives here; the migrator test procedure is in the How-to section below.
 - **BE-038** UUID defaults are always `uuidv7()` on latest PG; never `gen_random_uuid()`.
 - **BE-039** `updated_at` maintained via DB trigger (`trigger_set_timestamp`), not only app code.
 - **BE-040** Every multi-tenant table has `ENABLE ROW LEVEL SECURITY` plus an isolation policy; cross-tenant queries return identical 404s.
@@ -92,11 +105,73 @@ This file contains backend-specific rules. Repository-wide rules (commit policy,
 - **BE-044** Composite indexes for frequent lookup pairs (e.g. `users(tenant_id, email_normalized)`).
 - **BE-045** No JSON schema validation unless specified; default `'{}'` is sufficient.
 
-## Dependencies and scope
+## Dependencies, scope, and definition of done
 
 - Dependencies: add none without approval.
 - Scope: change only what the task requires; don't refactor unrelated code.
+- Definition of done: `go vet`, `golangci-lint` and `go test ./...` pass. `sqlc generate` and `swag init` produce no diff. `govulncheck` is clean. New endpoints have the tests required by BE-036, and requirement IDs are referenced per BE-035.
 
-## Definition of done
+## How-to
 
-`go vet`, `golangci-lint` and `go test ./...` pass. `sqlc generate` and `swag init` produce no diff. `govulncheck` is clean. New endpoints have the tests required by BE-036, and requirement IDs are referenced per BE-035.
+- **BE-037 procedure (migrator test):** create `backend/internal/platform/migrator/migrator_integration_test.go`; the test runs each migration up, verifies tables/indexes/enums/FKs exist, and runs an insert test across affected tables (or omits new rows explicitly).
+- **BE-046 procedure (new config value):** add a field to `Config` in `platform/config/config.go`; read it in `Load()` via `firstNonEmpty` (or `os.Getenv` with a default); assign it in the `cfg := &Config{...}` literal; reference `cfg.<Field>` at the call site. If needed in Docker Compose, add it to the `backend` service `environment:` block. If it differs between Render and local, set it per-environment, defaulting to a sensible local value.
+
+## Enforcement map
+
+| Rule ID | Enforced by | Status |
+|---------|-------------|--------|
+| BE-001 | review only | unknown |
+| BE-002 | review only | unknown |
+| BE-003 | review only | unknown |
+| BE-004 | review only | unknown |
+| BE-005 | review only | unknown |
+| BE-006 | review only | unknown |
+| BE-007 | review only | unknown |
+| BE-008 | review only | unknown |
+| BE-009 | sqlc, review | exists |
+| BE-010 | review only | unknown |
+| BE-012 | review only | unknown |
+| BE-013 | sqlc, review | exists |
+| BE-014 | review only | unknown |
+| BE-015 | review only | unknown |
+| BE-016 | test (BE-036), review | exists |
+| BE-017 | review only | unknown |
+| BE-018 | review only | unknown |
+| BE-019 | review only | unknown |
+| BE-020 | review only | unknown |
+| BE-021 | review only | unknown |
+| BE-022 | review only | unknown |
+| BE-023 | CI check (generate-check, swag), review | exists |
+| BE-024 | review only | unknown |
+| BE-025 | test (apperr), review | exists |
+| BE-026 | review only | unknown |
+| BE-047 | review only | proposed |
+| BE-048 | review only | proposed |
+| BE-049 | review only | proposed |
+| BE-050 | review only | proposed |
+| BE-051 | review only | proposed |
+| BE-052 | review only | proposed |
+| BE-053 | review only | proposed |
+| BE-054 | review only | proposed |
+| BE-055 | review only | proposed |
+| BE-056 | review only | proposed |
+| BE-027 | review only | unknown |
+| BE-028 | review only | unknown |
+| BE-029 | review only | unknown |
+| BE-030 | review only | unknown |
+| BE-031 | review only | unknown |
+| BE-032 | review only | unknown |
+| BE-033 | review only | unknown |
+| BE-034 | review only | unknown |
+| BE-035 | review only | unknown |
+| BE-036 | test, review | exists |
+| BE-037 | CI check (migration bot), test | exists |
+| BE-038 | sqlc, review | exists |
+| BE-039 | review only | unknown |
+| BE-040 | review only | unknown |
+| BE-041 | review only | unknown |
+| BE-042 | review only | unknown |
+| BE-043 | review only | unknown |
+| BE-044 | review only | unknown |
+| BE-045 | review only | unknown |
+| BE-046 | review only | unknown |

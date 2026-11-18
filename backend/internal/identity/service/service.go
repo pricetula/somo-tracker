@@ -65,7 +65,6 @@ type OnboardingState struct {
 type Service struct {
 	repo           Repository
 	stytch         stytch.Client
-	db             *sql.DB
 	istEncryption  *ISTEncryption
 	idleTimeout    time.Duration // sliding window idle timeout; zero means disabled
 }
@@ -92,7 +91,7 @@ type Repository interface {
 
 // New creates service. idleTimeout is the sliding window idle timeout;
 // zero disables idle enforcement (absolute expiry still applies).
-func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionKey string, idleTimeout time.Duration) (*Service, error) {
+func New(repo Repository, stytchClient stytch.Client, istEncryptionKey string, idleTimeout time.Duration) (*Service, error) {
 	var istEnc *ISTEncryption
 	if istEncryptionKey != "" {
 		var err error
@@ -101,7 +100,7 @@ func New(repo Repository, stytchClient stytch.Client, db *sql.DB, istEncryptionK
 			return nil, fmt.Errorf("init IST encryption: %w", err)
 		}
 	}
-	return &Service{repo: repo, stytch: stytchClient, db: db, istEncryption: istEnc, idleTimeout: idleTimeout}, nil
+	return &Service{repo: repo, stytch: stytchClient, istEncryption: istEnc, idleTimeout: idleTimeout}, nil
 }
 
 // RequestMagicLink initiates Stytch Discovery magic link flow.
@@ -230,17 +229,6 @@ func determineAuthState(orgs []stytch.DiscoveredOrg) string {
 	}
 	// Multiple orgs - user must select
 	return "organization_selection_required"
-}
-
-// generateSchoolCode generates a unique school code from name.
-func generateSchoolCode(name string) string {
-	// Simple code generation: first 4 letters + random suffix
-	base := strings.ToUpper(strings.ReplaceAll(name, " ", ""))
-	if len(base) > 4 {
-		base = base[:4]
-	}
-	suffix, _ := generateRandomString(4)
-	return base + "-" + strings.ToUpper(suffix)
 }
 
 // CreateSession creates opaque app session after tenant provisioning.

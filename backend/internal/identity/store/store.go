@@ -7,17 +7,50 @@ import (
 
 	"github.com/google/uuid"
 	storegen "somotracker/internal/identity/store/gen"
+	"somotracker/internal/platform/db"
 )
 
 // Store implements Repository for identity domain.
-// SQL lives in queries/*.sql, generated to gen/ by sqlc (BE-009).
+// SQL lives in queries/*.sql, compiled by sqlc into store/gen/ (never hand-edited).
 type Store struct {
-	q *storegen.Queries
+	q    *storegen.Queries
+	pool *db.Pool
 }
 
 // New creates store.
-func New(q *storegen.Queries) *Store {
-	return &Store{q: q}
+func New(q *storegen.Queries, pool *db.Pool) *Store {
+	return &Store{q: q, pool: pool}
+}
+
+// getQuerier returns a *storegen.Queries bound to the transaction from context
+// if one exists (set by TxManager.Run via the request middleware). Otherwise it
+// acquires a dedicated connection from the pool, sets the tenant GUC for RLS,
+// and returns a release function that resets the GUC and releases the connection.
+// This ensures the same connection is used for SET LOCAL and the query, which is
+// required for RLS with a connection pool.
+func (s *Store) getQuerier(ctx context.Context) (*storegen.Queries, func(), error) {
+	if tx := db.GetTx(ctx); tx != nil {
+		return storegen.New(tx), func() {}, nil
+	}
+
+	conn, err := s.pool.Conn(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := db.SetTenantGUC(ctx, func(ctx context.Context, sql string, args ...any) (any, error) {
+		return conn.ExecContext(ctx, sql, args...)
+	}); err != nil {
+		_ = conn.Close()
+		return nil, nil, err
+	}
+
+	q := storegen.New(conn)
+	release := func() {
+		_, _ = conn.ExecContext(context.Background(), "RESET app.current_tenant_id")
+		_ = conn.Close()
+	}
+	return q, release, nil
 }
 
 // Conversion helpers
@@ -170,74 +203,172 @@ func toUserByID(row storegen.GetUserByIDRow) storegen.User {
 
 // Pending onboarding
 func (s *Store) GetPendingOnboardingByEmail(ctx context.Context, email string) (storegen.PendingOnboarding, error) {
-	row, err := s.q.GetPendingOnboardingByEmail(ctx, email)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.PendingOnboarding{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.GetPendingOnboardingByEmail(ctx, email)
 	return toPendingOnboarding(row), err
 }
 
 func (s *Store) GetPendingOnboardingByID(ctx context.Context, id uuid.UUID) (storegen.PendingOnboarding, error) {
-	row, err := s.q.GetPendingOnboardingByID(ctx, id)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.PendingOnboarding{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.GetPendingOnboardingByID(ctx, id)
 	return toPendingOnboardingByID(row), err
 }
 
 func (s *Store) UpsertPendingOnboarding(ctx context.Context, arg storegen.UpsertPendingOnboardingParams) (storegen.PendingOnboarding, error) {
-	row, err := s.q.UpsertPendingOnboarding(ctx, arg)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.PendingOnboarding{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.UpsertPendingOnboarding(ctx, arg)
 	return toPendingOnboardingUpsert(row), err
 }
 
 func (s *Store) UpdatePendingOnboardingStep(ctx context.Context, arg storegen.UpdatePendingOnboardingStepParams) error {
-	return s.q.UpdatePendingOnboardingStep(ctx, arg)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return err
+	}
+	if release != nil {
+		defer release()
+	}
+	return q.UpdatePendingOnboardingStep(ctx, arg)
 }
 
 // App session
 func (s *Store) CreateAppSession(ctx context.Context, arg storegen.CreateAppSessionParams) (storegen.AppSession, error) {
-	row, err := s.q.CreateAppSession(ctx, arg)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.AppSession{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.CreateAppSession(ctx, arg)
 	return toAppSession(row), err
 }
 
 func (s *Store) GetAppSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.AppSession, error) {
-	row, err := s.q.GetAppSessionByTokenHash(ctx, tokenHash)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.AppSession{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.GetAppSessionByTokenHash(ctx, tokenHash)
 	return toAppSessionByToken(row), err
 }
 
 func (s *Store) GetAppSessionByID(ctx context.Context, id uuid.UUID) (storegen.AppSession, error) {
-	row, err := s.q.GetAppSessionByID(ctx, id)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.AppSession{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.GetAppSessionByID(ctx, id)
 	return toAppSessionByID(row), err
 }
 
 func (s *Store) RevokeAppSession(ctx context.Context, id uuid.UUID) error {
-	return s.q.RevokeAppSession(ctx, id)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return err
+	}
+	if release != nil {
+		defer release()
+	}
+	return q.RevokeAppSession(ctx, id)
 }
 
 func (s *Store) UpdateSessionLastSeen(ctx context.Context, sessionID uuid.UUID, idleThreshold time.Duration) error {
-	return s.q.UpdateSessionLastSeen(ctx, storegen.UpdateSessionLastSeenParams{
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return err
+	}
+	if release != nil {
+		defer release()
+	}
+	return q.UpdateSessionLastSeen(ctx, storegen.UpdateSessionLastSeenParams{
 		ID:           sessionID,
 		Column2:      idleThreshold,
 	})
 }
 
 func (s *Store) GetSessionWithMemberships(ctx context.Context, tokenHash []byte) (storegen.GetSessionWithMembershipsRow, error) {
-	return s.q.GetSessionWithMemberships(ctx, tokenHash)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.GetSessionWithMembershipsRow{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	return q.GetSessionWithMemberships(ctx, tokenHash)
 }
 
 // Onboarding ticket
 func (s *Store) CreateOnboardingTicket(ctx context.Context, arg storegen.CreateOnboardingTicketParams) (storegen.OnboardingTicket, error) {
-	row, err := s.q.CreateOnboardingTicket(ctx, arg)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.OnboardingTicket{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.CreateOnboardingTicket(ctx, arg)
 	return toOnboardingTicketCreate(row), err
 }
 
 func (s *Store) GetOnboardingTicketByHash(ctx context.Context, hash []byte) (storegen.OnboardingTicket, error) {
-	row, err := s.q.GetOnboardingTicketByHash(ctx, hash)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.OnboardingTicket{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.GetOnboardingTicketByHash(ctx, hash)
 	return toOnboardingTicket(row), err
 }
 
 // Session
 func (s *Store) GetUserByID(ctx context.Context, id uuid.UUID) (storegen.User, error) {
-	row, err := s.q.GetUserByID(ctx, id)
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return storegen.User{}, err
+	}
+	if release != nil {
+		defer release()
+	}
+	row, err := q.GetUserByID(ctx, id)
 	return toUserByID(row), err
 }
 
 func (s *Store) GetTenantMembershipRole(ctx context.Context, userID, tenantID uuid.UUID) (string, error) {
-	role, err := s.q.GetTenantMembershipRole(ctx, storegen.GetTenantMembershipRoleParams{
+	q, release, err := s.getQuerier(ctx)
+	if err != nil {
+		return "", err
+	}
+	if release != nil {
+		defer release()
+	}
+	role, err := q.GetTenantMembershipRole(ctx, storegen.GetTenantMembershipRoleParams{
 		ID:       userID,
 		TenantID: tenantID,
 	})

@@ -489,13 +489,3 @@ func (h *Handler) clearSessionCookie(c fiber.Ctx) {
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
-
-// mustParseUUID parses a UUID string and panics on error.
-// Callers should validate before calling; this is used after validation has passed.
-func mustParseUUID(s string) uuid.UUID {
-	id, err := uuid.Parse(s)
-	if err != nil {
-		return uuid.UUID{}
-	}
-	return id
-}

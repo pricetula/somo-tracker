@@ -13,20 +13,18 @@ import (
 	"somotracker/internal/platform/audit"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/logger"
-	"somotracker/internal/platform/ratelimit"
 )
 
 // Handler is HTTP handler for identity domain (thin, BE-006).
 type Handler struct {
 	svc           *service.Service
 	cfg           *config.Config
-	rl            *ratelimit.Limiter
 	auditRecorder *audit.Recorder
 }
 
 // New creates handler.
-func New(svc *service.Service, cfg *config.Config, rl *ratelimit.Limiter, auditRecorder *audit.Recorder) *Handler {
-	return &Handler{svc: svc, cfg: cfg, rl: rl, auditRecorder: auditRecorder}
+func New(svc *service.Service, cfg *config.Config, auditRecorder *audit.Recorder) *Handler {
+	return &Handler{svc: svc, cfg: cfg, auditRecorder: auditRecorder}
 }
 
 // DTOs are defined per endpoint, not domain structs (BE-007).
@@ -101,41 +99,6 @@ func (h *Handler) RequestMagicLink(c fiber.Ctx) error {
 		return apperr.New(apperr.INVALID_EMAIL, "invalid email address")
 	}
 
-	// Rate limiting and provider quotas
-	if h.rl != nil {
-		// Per-email limit for magic-link (prevents enumeration via rate limit differences).
-		// Per-IP limit is enforced by the PublicRateLimit middleware to avoid double counting.
-		allowed, err := h.rl.AllowEmail(c.Context(), "magic-link", req.Email, h.cfg.RateLimitMagicLinkEmailPer15Min, 15*time.Minute)
-		if err != nil {
-			logger.Error(c.Context(), err, "email rate limit check failed")
-			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
-		}
-		if !allowed {
-			return apperr.New(apperr.RATE_LIMITED, "Too many requests")
-		}
-
-		// Tenant-scoped limits (prevent cross-tenant DoS)
-		// Note: At this point we don't have tenant ID yet, so we use global limits
-		// The tenant-scoped limits would apply after authentication
-
-		allowed, err = h.rl.AllowGlobal(c.Context(), "email-provider-hourly", h.cfg.EmailProviderHourlyCap, time.Hour)
-		if err != nil {
-			logger.Error(c.Context(), err, "email provider hourly quota check failed")
-			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
-		}
-		if !allowed {
-			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
-		}
-		allowed, err = h.rl.AllowGlobal(c.Context(), "email-provider-daily", h.cfg.EmailProviderDailyCap, 24*time.Hour)
-		if err != nil {
-			logger.Error(c.Context(), err, "email provider daily quota check failed")
-			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
-		}
-		if !allowed {
-			return apperr.New(apperr.SERVICE_UNAVAILABLE, "If the email address is eligible, a sign-in link will be sent.")
-		}
-	}
-
 	// Call service
 	if err := h.svc.RequestMagicLink(c.Context(), req.Email); err != nil {
 		// Don't reveal if email exists (generic success per spec)
@@ -164,7 +127,6 @@ func (h *Handler) AuthenticateToken(c fiber.Ctx) error {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
 	}
 
-	// IP rate limit for token exchange is enforced by the PublicRateLimit middleware.
 	// Call service
 	ticketToken, onboardingState, sessionToken, err := h.svc.AuthenticateToken(c.Context(), req.Token)
 	if err != nil {

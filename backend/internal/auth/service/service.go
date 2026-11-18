@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -158,6 +159,21 @@ func computeHMAC(secret string, challengeID uuid.UUID, code string) []byte {
 	return mac.Sum(nil)
 }
 
+// generateSessionToken creates a 256-bit opaque random session token.
+func generateSessionToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+// hashToken computes SHA-256 of the raw token.
+func hashToken(token string) []byte {
+	sum := sha256.Sum256([]byte(token))
+	return sum[:]
+}
+
 // VerifyOTPRequest is the input for verifying an OTP.
 type VerifyOTPRequest struct {
 	ChallengeID uuid.UUID
@@ -209,8 +225,45 @@ func (s *Service) VerifyOTP(ctx context.Context, req VerifyOTPRequest) (VerifyOT
 		return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "mark challenge used", err)
 	}
 
+	// Resolve user by email
+	user, err := s.store.GetUserByNormalizedEmail(ctx, challenge.EmailNormalized)
+	if err != nil {
+		if errors.Is(err, errNoRows) {
+			return VerifyOTPResponse{}, apperr.New(apperr.INVALID_TOKEN, "no account found for this email")
+		}
+		return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "get user", err)
+	}
+
+	// Get user's schools
+	schools, err := s.store.GetSchoolsByUser(ctx, user.ID)
+	if err != nil {
+		return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "get user schools", err)
+	}
+
+	// Determine active school: auto-select if exactly one, NULL if multiple
+	var activeSchoolID uuid.NullUUID
+	if len(schools) == 1 {
+		activeSchoolID = uuid.NullUUID{UUID: schools[0].ID, Valid: true}
+	}
+
+	// Generate opaque session token
+	rawToken, err := generateSessionToken()
+	if err != nil {
+		return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "generate session token", err)
+	}
+	tokenHash := hashToken(rawToken)
+
+	expiresAt := time.Now().Add(s.cfg.SessionAbsoluteTimeout())
+
+	// Create session
+	_, err = s.store.CreateSession(ctx, tokenHash, user.ID, user.OrganizationID, activeSchoolID, expiresAt)
+	if err != nil {
+		return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "create session", err)
+	}
+
 	return VerifyOTPResponse{
-		OK:      true,
-		Message: "Code verified successfully.",
+		OK:           true,
+		Message:      "Code verified successfully.",
+		SessionToken: rawToken,
 	}, nil
 }

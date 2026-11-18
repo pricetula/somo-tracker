@@ -22,7 +22,6 @@ import (
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/db"
 	"somotracker/internal/platform/httpserver"
-	"somotracker/internal/platform/ratelimit"
 	redisPkg "somotracker/internal/platform/redis"
 	"somotracker/internal/platform/seed"
 	"somotracker/internal/platform/stytch"
@@ -34,7 +33,6 @@ type App struct {
 	dbPool        *db.Pool
 	redisClient   *redisPkg.Client
 	server        *httpserver.Server
-	rateLimiter   *ratelimit.Limiter
 	auditRecorder *audit.Recorder
 	txManager     *db.TxManager
 }
@@ -82,7 +80,6 @@ func New(cfg *config.Config) (*App, error) {
 		dbPool:        dbPool,
 		redisClient:   redisClient,
 		server:        server,
-		rateLimiter:   ratelimit.New(redisClient.Client, cfg.EmailHMACKey),
 		auditRecorder: auditRecorder,
 		txManager:     txManager,
 	}, nil
@@ -135,16 +132,7 @@ func (a *App) Start(ctx context.Context) error {
 		return fmt.Errorf("init identity service: %w", err)
 	}
 
-	// Rate limiter with in-memory fallback
-	a.rateLimiter = ratelimit.New(a.redisClient.Client, a.cfg.EmailHMACKey)
-
-	// Initialize rate limit middleware
-	rateLimitMiddleware := httpserver.NewRateLimitMiddleware(a.rateLimiter, a.cfg)
-
-	// Start memory fallback cleanup goroutine
-	go a.rateLimiterCleanup(ctx)
-
-	identityHandler := identityHandler.New(identitySvc, a.cfg, a.rateLimiter, a.auditRecorder)
+	identityHandler := identityHandler.New(identitySvc, a.cfg, a.auditRecorder)
 
 	// Create auth middleware
 	authMiddleware := identityMiddleware.NewAuthMiddleware(identitySvc, a.cfg, a.auditRecorder)
@@ -165,16 +153,14 @@ func (a *App) Start(ctx context.Context) error {
 	api := a.server.App().Group("/api/v1")
 
 	// Public routes (no auth required)
-	publicAPI := api.Group("", rateLimitMiddleware.PublicRateLimit())
+	publicAPI := api.Group("")
 	identityHandler.RegisterRoutes(publicAPI)
 
 	// Protected routes (require authentication + tenant context)
 	// No protected domain handlers registered yet — deferred to later specs.
 	_ = api.Group("",
-		rateLimitMiddleware.UnauthenticatedRateLimit(), // Early IP limiter before RequireAuth
 		authMiddleware.RequireAuth(),
 		authMiddleware.TenantMiddleware(),
-		rateLimitMiddleware.ProtectedRateLimit(),
 	)
 
 	// Mutation routes (require auth + tenant + CSRF)
@@ -182,7 +168,6 @@ func (a *App) Start(ctx context.Context) error {
 	_ = api.Group("",
 		authMiddleware.RequireAuth(),
 		authMiddleware.TenantMiddleware(),
-		rateLimitMiddleware.MutationRateLimit(),
 		authMiddleware.CSRFMiddleware(),
 	)
 
@@ -249,20 +234,6 @@ func (a *App) securityHeadersMiddleware() fiber.Handler {
 		}
 
 		return c.Next()
-	}
-}
-
-// rateLimiterCleanup periodically cleans up in-memory rate limit store.
-func (a *App) rateLimiterCleanup(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			a.rateLimiter.MemoryCleanup(24 * time.Hour)
-		}
 	}
 }
 

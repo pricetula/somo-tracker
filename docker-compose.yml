@@ -51,6 +51,8 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY}
       BREVO_SENDER_EMAIL: noreply@somotracker.com
       BREVO_SENDER_NAME: Somotracker
+      TURNSTILE_ENABLED: ${TURNSTILE_ENABLED:-false}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
       MIGRATIONS_DIR: migrations
       PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       PUBLIC_API_URL: ${PUBLIC_API_URL}

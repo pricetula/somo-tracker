@@ -15,7 +15,6 @@ import (
 	"somotracker/internal/auth/service"
 	"somotracker/internal/auth/store"
 	storegen "somotracker/internal/auth/store/gen"
-	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/brevo"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/db"
@@ -158,48 +157,6 @@ func (a *App) Shutdown(ctx context.Context) error {
 // LoadConfig loads configuration from environment.
 func LoadConfig() (*config.Config, error) {
 	return config.Load()
-}
-
-// ErrorHandler is a centralized Fiber error handler that renders standardized errors.
-func ErrorHandler() fiber.ErrorHandler {
-	return func(c fiber.Ctx, err error) error {
-		code := http.StatusInternalServerError
-		appCode := apperr.INTERNAL_ERROR
-		message := "internal error"
-
-		if e, ok := err.(*fiber.Error); ok {
-			code = e.Code
-			message = e.Message
-		} else if appErr, ok := err.(*apperr.Error); ok {
-			switch appErr.Code {
-			case apperr.INVALID_REQUEST, apperr.INVALID_EMAIL, apperr.TURNSTILE_REQUIRED, apperr.TURNSTILE_INVALID:
-				code = http.StatusBadRequest
-			case apperr.RATE_LIMITED:
-				code = http.StatusTooManyRequests
-			case apperr.UNAUTHENTICATED:
-				code = http.StatusUnauthorized
-			case apperr.FORBIDDEN:
-				code = http.StatusForbidden
-			case apperr.NOT_FOUND:
-				code = http.StatusNotFound
-			case apperr.CONFLICT:
-				code = http.StatusConflict
-			case apperr.VALIDATION_FAILED:
-				code = http.StatusUnprocessableEntity
-			case apperr.INVALID_TOKEN:
-				code = http.StatusUnauthorized
-			default:
-				code = http.StatusInternalServerError
-			}
-			appCode = appErr.Code
-			message = appErr.Message
-		}
-
-		return c.Status(code).JSON(fiber.Map{
-			"code":    appCode,
-			"message": message,
-		})
-	}
 }
 
 // runMigrations applies all pending database migrations and logs the version.

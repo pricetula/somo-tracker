@@ -42,19 +42,20 @@ func (q *Queries) CreateEmailOutbox(ctx context.Context, arg CreateEmailOutboxPa
 }
 
 const createLoginChallenge = `-- name: CreateLoginChallenge :one
-INSERT INTO login_challenges (email_normalized, purpose, code_mac, expires_at, attempt_count, max_attempts)
-VALUES ($1, 'login', $2, $3, 0, 5)
+INSERT INTO login_challenges (id, email_normalized, purpose, code_mac, expires_at, attempt_count, max_attempts)
+VALUES ($1, $2, 'login', $3, $4, 0, 5)
 RETURNING id, email_normalized, purpose, code_mac, expires_at, attempt_count, max_attempts, used_at, invalidated_at, created_at
 `
 
 type CreateLoginChallengeParams struct {
+	ID     uuid.UUID
 	EmailNormalized string
 	CodeMac         []byte
 	ExpiresAt       time.Time
 }
 
 func (q *Queries) CreateLoginChallenge(ctx context.Context, arg CreateLoginChallengeParams) (LoginChallenge, error) {
-	row := q.db.QueryRowContext(ctx, createLoginChallenge, arg.EmailNormalized, arg.CodeMac, arg.ExpiresAt)
+	row := q.db.QueryRowContext(ctx, createLoginChallenge, arg.ID, arg.EmailNormalized, arg.CodeMac, arg.ExpiresAt)
 	var i LoginChallenge
 	err := row.Scan(
 		&i.ID,

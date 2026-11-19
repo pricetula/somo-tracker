@@ -40,8 +40,9 @@ type RequestOTPRequest struct {
 
 // RequestOTPResponse is the response body.
 type RequestOTPResponse struct {
-	OK      bool   `json:"ok"`
-	Message string `json:"message"`
+	OK           bool   `json:"ok"`
+	Message      string `json:"message"`
+	ChallengeID  string `json:"challenge_id"`
 }
 
 // VerifyOTPRequest is the request body for POST /api/v1/auth/otp/verify.

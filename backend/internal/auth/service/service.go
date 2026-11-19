@@ -27,14 +27,14 @@ var errNoRows = pgx.ErrNoRows
 
 // Service handles auth business logic: OTP, sessions, school context.
 type Service struct {
-	store      *store.Store
+	store      store.StoreInterface
 	codeSender brevo.CodeSender
 	cfg        *config.Config
 	log        *logger.Logger
 }
 
 // New creates an auth service.
-func New(s *store.Store, cs brevo.CodeSender, cfg *config.Config, log *logger.Logger) *Service {
+func New(s store.StoreInterface, cs brevo.CodeSender, cfg *config.Config, log *logger.Logger) *Service {
 	return &Service{store: s, codeSender: cs, cfg: cfg, log: log}
 }
 
@@ -46,8 +46,9 @@ type RequestOTPRequest struct {
 
 // RequestOTPResponse is the response for requesting an OTP.
 type RequestOTPResponse struct {
-	OK      bool   `json:"ok"`
-	Message string `json:"message"`
+	OK           bool   `json:"ok"`
+	Message      string `json:"message"`
+	ChallengeID  string `json:"challenge_id"`
 }
 
 // RequestOTP handles the OTP request flow.
@@ -82,7 +83,7 @@ func (s *Service) RequestOTP(ctx context.Context, req RequestOTPRequest) (Reques
 
 	expiresAt := time.Now().Add(s.cfg.OTPValidity())
 
-	challenge, err := s.store.CreateLoginChallenge(ctx, normalizedEmail, codeMac, expiresAt)
+	challenge, err := s.store.CreateLoginChallenge(ctx, challengeID, normalizedEmail, codeMac, expiresAt)
 	if err != nil {
 		return RequestOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "create login challenge", err)
 	}
@@ -104,8 +105,9 @@ func (s *Service) RequestOTP(ctx context.Context, req RequestOTPRequest) (Reques
 
 	// Always return generic success - never reveal account existence
 	return RequestOTPResponse{
-		OK:      true,
-		Message: "If an account exists for this email, a code has been sent.",
+		OK:           true,
+		Message:      "If an account exists for this email, a code has been sent.",
+		ChallengeID:  challenge.ID.String(),
 	}, nil
 }
 

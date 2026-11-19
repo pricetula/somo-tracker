@@ -45,7 +45,7 @@ func (s *Sender) SendCode(ctx context.Context, email string, code string) error 
 		"to": []map[string]string{
 			{
 				"email": email,
-				"name":  "",
+				"name":  email,
 			},
 		},
 		"subject": "Your Somotracker verification code",

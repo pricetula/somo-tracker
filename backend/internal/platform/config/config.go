@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -52,7 +54,7 @@ func firstNonEmpty(keys ...string) string {
 
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
-	return &Config{
+	cfg := &Config{
 		AppEnv:        firstNonEmpty("APP_ENV", "ENV"),
 		LogLevel:      firstNonEmpty("LOG_LEVEL", "info"),
 		ServerPort:    firstNonEmpty("SERVER_PORT", "8080"),
@@ -76,7 +78,44 @@ func Load() (*Config, error) {
 		RateLimitOTPRequestEmailPer15Min: 3,
 
 		SeedReferenceData: firstNonEmpty("SEED_REFERENCE_DATA") == "true",
-	}, nil
+	}
+
+	// Validate required configuration at startup so missing secrets surface
+	// immediately (e.g. an empty BREVO_API_KEY) instead of as confusing
+	// per-request failures such as a 401 from the email provider.
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	return cfg, nil
+}
+
+// validate ensures all required configuration is present. Fields without a
+// sensible default must be provided by the operator (injected by Doppler into
+// docker-compose at runtime, not checked into .env).
+func (c *Config) validate() error {
+	required := map[string]string{
+		"POSTGRES_DSN":   c.PostgresDSN,
+		"BREVO_API_KEY":  c.BrevoAPIKey,
+		"EMAIL_HMAC_KEY": c.EmailHMACKey,
+	}
+	var missing []string
+	for k, v := range required {
+		if v == "" {
+			missing = append(missing, k)
+		}
+	}
+
+	// When Turnstile is enabled its secret must be present for server-side
+	// verification; otherwise requests fail with a confusing config error.
+	if c.TurnstileEnabled && c.TurnstileSecretKey == "" {
+		missing = append(missing, "TURNSTILE_SECRET_KEY")
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // MustLoad loads config and panics on error.

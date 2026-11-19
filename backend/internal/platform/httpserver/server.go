@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -10,6 +11,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/recover"
+
+	"somotracker/internal/platform/apperr"
 )
 
 // Server wraps a Fiber app.
@@ -22,16 +25,42 @@ func New(env string) *Server {
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := http.StatusInternalServerError
-			msg := "internal error"
+			appCode := apperr.INTERNAL_ERROR
+			message := "internal error"
 
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
-				msg = e.Message
+				message = e.Message
+			} else if appErr, ok := err.(*apperr.Error); ok {
+				switch appErr.Code {
+				case apperr.INVALID_REQUEST, apperr.INVALID_EMAIL, apperr.TURNSTILE_REQUIRED, apperr.TURNSTILE_INVALID:
+					code = http.StatusBadRequest
+				case apperr.RATE_LIMITED:
+					code = http.StatusTooManyRequests
+				case apperr.UNAUTHENTICATED:
+					code = http.StatusUnauthorized
+				case apperr.FORBIDDEN:
+					code = http.StatusForbidden
+				case apperr.NOT_FOUND:
+					code = http.StatusNotFound
+				case apperr.CONFLICT:
+					code = http.StatusConflict
+				case apperr.VALIDATION_FAILED:
+					code = http.StatusUnprocessableEntity
+				case apperr.INVALID_TOKEN:
+					code = http.StatusUnauthorized
+				default:
+					code = http.StatusInternalServerError
+				}
+				appCode = appErr.Code
+				message = appErr.Message
 			}
 
+			slog.Error("request failed", "err", err, "path", c.Path(), "status", code)
+
 			return c.Status(code).JSON(fiber.Map{
-				"code":    "INTERNAL_ERROR",
-				"message": msg,
+				"code":    appCode,
+				"message": message,
 			})
 		},
 	})

@@ -2,12 +2,14 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/pressly/goose/v3"
 
 	"somotracker/internal/auth/handler"
 	"somotracker/internal/auth/service"
@@ -43,6 +45,12 @@ func New(cfg *config.Config) (*App, error) {
 	dbPool, err := db.New(ctx, cfg.PostgresDSN)
 	if err != nil {
 		return nil, fmt.Errorf("connect database: %w", err)
+	}
+
+	// Run database migrations on startup
+	if err := runMigrations(ctx, dbPool.StdlibDB, cfg, log); err != nil {
+		dbPool.Close()
+		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
 	// Redis client
@@ -192,4 +200,23 @@ func ErrorHandler() fiber.ErrorHandler {
 			"message": message,
 		})
 	}
+}
+
+// runMigrations applies all pending database migrations and logs the version.
+func runMigrations(ctx context.Context, db *sql.DB, cfg *config.Config, log *logger.Logger) error {
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("set goose dialect: %w", err)
+	}
+
+	if err := goose.Up(db, cfg.MigrationsDir); err != nil {
+		return fmt.Errorf("apply migrations: %w", err)
+	}
+
+	version, err := goose.GetDBVersion(db)
+	if err != nil {
+		return fmt.Errorf("get migration version: %w", err)
+	}
+
+	log.Info(ctx, "migrations applied", "version", version, "dir", cfg.MigrationsDir)
+	return nil
 }

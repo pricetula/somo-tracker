@@ -26,6 +26,9 @@ type Config struct {
 	TurnstileEnabled  bool
 	TurnstileSecretKey string
 
+	// Migrations
+	MigrationsDir string
+
 	// CORS
 	CORSOrigins string
 
@@ -64,6 +67,8 @@ func Load() (*Config, error) {
 
 		TurnstileEnabled:  firstNonEmpty("TURNSTILE_ENABLED") == "true",
 		TurnstileSecretKey: firstNonEmpty("TURNSTILE_SECRET_KEY"),
+
+		MigrationsDir: firstNonEmpty("MIGRATIONS_DIR", "migrations"),
 
 		CORSOrigins: firstNonEmpty("CORS_ORIGINS", "*"),
 

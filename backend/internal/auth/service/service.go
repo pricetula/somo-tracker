@@ -6,7 +6,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,8 +65,9 @@ func (s *Service) RequestOTP(ctx context.Context, req RequestOTPRequest) (Reques
 		if req.TurnstileToken == "" {
 			return RequestOTPResponse{}, apperr.New(apperr.TURNSTILE_REQUIRED, "turnstile token required")
 		}
-		// TODO: verify turnstile token server-side via Cloudflare Siteverify
-		_ = req.TurnstileToken
+		if err := s.verifyTurnstile(ctx, req.TurnstileToken); err != nil {
+			return RequestOTPResponse{}, err
+		}
 	}
 
 	// Generate 6-digit OTP code
@@ -149,6 +154,50 @@ func generateOTP() (string, error) {
 		result += string(rune('0' + digit))
 	}
 	return result, nil
+}
+
+// verifyTurnstile validates a Turnstile token against Cloudflare's Siteverify API.
+func (s *Service) verifyTurnstile(ctx context.Context, token string) error {
+	if s.cfg.TurnstileSecretKey == "" {
+		return apperr.New(apperr.INTERNAL_ERROR, "turnstile not configured")
+	}
+
+	data := url.Values{}
+	data.Set("secret", s.cfg.TurnstileSecretKey)
+	data.Set("response", token)
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"https://challenges.cloudflare.com/turnstile/v0/siteverify",
+		strings.NewReader(data.Encode()),
+	)
+	if err != nil {
+		return apperr.Wrap(apperr.INTERNAL_ERROR, "build turnstile request", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return apperr.Wrap(apperr.INTERNAL_ERROR, "turnstile request failed", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	var result struct {
+		Success     bool     `json:"success"`
+		ChallengeTS string   `json:"challenge_ts"`
+		Hostname    string   `json:"hostname"`
+		ErrorCodes  []string `json:"error-codes"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		return apperr.Wrap(apperr.INTERNAL_ERROR, "decode turnstile response", err)
+	}
+
+	if !result.Success {
+		return apperr.New(apperr.TURNSTILE_INVALID, "turnstile verification failed")
+	}
+
+	return nil
 }
 
 // computeHMAC computes HMAC-SHA256(server_secret, challenge_id || code).

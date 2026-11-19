@@ -45,38 +45,53 @@ export default function LoginPage() {
   const turnstileRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<number | null>(null)
 
-  // Load the Turnstile API script once.
+  // Load the Turnstile API script and render the widget once it's ready.
+  // We guard against a race where `window.turnstile` isn't available yet
+  // when the effect first runs by attaching a load listener on the script.
   useEffect(() => {
+    if (!siteKey || typeof window === 'undefined') return
+
+    const renderWidget = () => {
+      const turnstile = window.turnstile
+      if (!turnstile || !turnstileRef.current) return
+
+      const id = turnstile.render(turnstileRef.current, {
+        sitekey: siteKey,
+        callback: (token: string) => setTurnstileToken(token),
+        'expired-callback': () => setTurnstileToken(''),
+      })
+      widgetIdRef.current = id
+    }
+
+    // Already loaded?
+    if (window.turnstile) {
+      renderWidget()
+      return
+    }
+
     const script = document.createElement('script')
     script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
     script.async = true
     script.defer = true
-    document.head.appendChild(script)
-    return () => {
-      document.head.removeChild(script)
+
+    const onLoad = () => {
+      renderWidget()
     }
-  }, [])
 
-  // Render the Turnstile widget once the API is available.
-  useEffect(() => {
-    if (!siteKey || typeof window === 'undefined') return
-    const turnstile = window.turnstile
-    if (!turnstile) return
-    if (!turnstileRef.current) return
-
-    const id = turnstile.render(turnstileRef.current, {
-      sitekey: siteKey,
-      callback: (token: string) => setTurnstileToken(token),
-      'expired-callback': () => setTurnstileToken(''),
-    })
-    widgetIdRef.current = id
+    script.addEventListener('load', onLoad)
+    document.head.appendChild(script)
 
     return () => {
+      script.removeEventListener('load', onLoad)
+      document.head.removeChild(script)
       if (widgetIdRef.current != null) {
-        turnstile.remove(widgetIdRef.current)
-        widgetIdRef.current = null
+        const turnstile = window.turnstile
+        if (turnstile) {
+          turnstile.remove(widgetIdRef.current)
+          widgetIdRef.current = null
+        }
+        setTurnstileToken('')
       }
-      setTurnstileToken('')
     }
   }, [siteKey])
 

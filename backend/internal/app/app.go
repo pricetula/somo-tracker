@@ -118,7 +118,7 @@ func (a *App) Start(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- a.server.Start(ctx, ":"+a.cfg.ServerPort)
+		errCh <- a.server.Start(ctx, a.cfg.ServerPort)
 	}()
 
 	select {

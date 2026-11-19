@@ -3,6 +3,7 @@ package httpserver
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -37,10 +38,10 @@ func New(env string) *Server {
 
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     ParseOrigins(os.Getenv("CORS_ORIGINS")),
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cookie"},
-		AllowCredentials: true,
+		AllowCredentials: os.Getenv("CORS_ORIGINS") != "" && os.Getenv("CORS_ORIGINS") != "*",
 	}))
 
 	return &Server{app: app}

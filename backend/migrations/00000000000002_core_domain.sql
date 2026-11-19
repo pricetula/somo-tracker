@@ -27,7 +27,8 @@ CREATE TABLE users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
-    UNIQUE (normalized_email)
+    UNIQUE (normalized_email),
+    UNIQUE (organization_id, id)
 );
 
 CREATE INDEX idx_users_organization ON users (organization_id);
@@ -43,7 +44,8 @@ CREATE TABLE schools (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
-    UNIQUE (organization_id, name)
+    UNIQUE (organization_id, name),
+    UNIQUE (organization_id, id)
 );
 
 CREATE INDEX idx_schools_organization ON schools (organization_id);

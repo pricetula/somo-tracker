@@ -1,209 +1,157 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
-// Config holds typed application configuration loaded from environment.
-// Secrets are injected via Doppler, never from .env files (BE-033).
+// Config holds all configuration loaded from environment variables.
+// Secrets are injected by Doppler at runtime; none are read from the repo.
 type Config struct {
-	Env             string
-	PostgresDSN     string
-	RedisAddr       string
-	ServerPort      string
-	LogLevel        string
-	StytchEnv       string
-	StytchProjectID string
-	StytchSecret    string
-	// Security
-	EmailHMACKey         string
-	ISTEncryptionKey     string // 32-byte base64 key for AES-256-GCM encryption of IST
-	CORSOrigins          string
-	CookieDomain         string
-	CSPReportOnlyEnabled bool
-	CSPReportOnlyURI     string
-	CSPReportOnlyPolicy  string
-	// Email provider quotas
-	EmailProviderHourlyCap int
-	EmailProviderDailyCap  int
+	AppEnv        string
+	LogLevel      string
+	ServerPort    string
+	DatabaseURL   string
+	RedisURL      string
 
-	// Session policy - configurable via env
-	SessionIdleTimeout time.Duration // sliding window, default 7 days
-	SessionAbsoluteMax time.Duration // absolute maximum, default 30 days
+	// Brevo email provider
+	BrevoAPIKey    string
+	BrevoSenderEmail string
+	BrevoSenderName  string
 
-	// Reference data seeding
-	SeedReferenceData bool
-	// Migrations directory
-	MigrationsDir string // path to goose migration SQL files
+	// OTP security
+	EmailHMACKey string
+
+	// Turnstile (Cloudflare bot protection)
+	TurnstileEnabled  bool
+	TurnstileSecretKey string
+
+	// CORS
+	CORSOrigins string
+
+	// Rate limits
+	RateLimitOTPRequestIPPerMin   int
+	RateLimitOTPRequestEmailPer15Min int
+
+	// Session cookie name (REQUIRED, no default). Must be "session" in dev, "__Host-session" in prod.
+	SessionCookieName string
 }
 
-// Load reads configuration from environment variables with Doppler aliases.
-func Load() (*Config, error) {
-	env := firstNonEmpty("APP_ENV", "ENV", "development")
-
-	postgresDSN := firstNonEmpty("DATABASE_URL", "POSTGRES_DSN", "")
-
-	redisURL := firstNonEmpty("REDIS_URL", "")
-	var redisAddr string
-	if redisURL == "" {
-		redisAddr = "localhost:6379"
-	} else {
-		redisAddr = redisURL
-	}
-
-	serverPort := firstNonEmpty("PORT", "SERVER_PORT", "8080")
-	logLevel := firstNonEmpty("LOG_LEVEL", "info")
-	stytchEnv := firstNonEmpty("STYTCH_ENV", "test")
-	stytchProjectID := firstNonEmpty("STYTCH_PROJECT_ID", "")
-	stytchSecret := firstNonEmpty("STYTCH_SECRET", "")
-
-	emailHMACKey := firstNonEmpty("EMAIL_HMAC_KEY", "")
-	istEncryptionKey := firstNonEmpty("IST_ENCRYPTION_KEY", "")
-	corsOrigins := firstNonEmpty("CORS_ORIGINS", "PUBLIC_APP_URL", "")
-	cookieDomain := firstNonEmpty("COOKIE_DOMAIN", "")
-	cspReportOnlyEnabled := firstNonEmpty("CSP_REPORT_ONLY_ENABLED", "false")
-	cspReportOnlyURI := firstNonEmpty("CSP_REPORT_ONLY_URI", "")
-	cspReportOnlyPolicy := firstNonEmpty("CSP_REPORT_ONLY_POLICY", "default-src 'self'")
-	// Email provider quotas
-	hourlyCap := parseIntEnv("EMAIL_PROVIDER_HOURLY_CAP", 1000)
-	dailyCap := parseIntEnv("EMAIL_PROVIDER_DAILY_CAP", 10000)
-	// Session policy defaults
-	idleTimeout := parseDurationEnv("SESSION_IDLE_TIMEOUT", 7*24*time.Hour)  // 7 days
-	absoluteMax := parseDurationEnv("SESSION_ABSOLUTE_MAX", 30*24*time.Hour) // 30 days
-
-	// Reference data seeding - opt-in in production, on in dev/test
-	seedRefData := firstNonEmpty("SEED_REFERENCE_DATA", "")
-	seedReferenceData := false
-	if seedRefData != "" {
-		seedReferenceData = seedRefData == "true" || seedRefData == "1"
-	} else if env == "development" || env == "test" {
-		seedReferenceData = true
-	}
-
-	migrationsDir := firstNonEmpty("MIGRATIONS_DIR", "migrations")
-
-	cfg := &Config{
-		Env:                                   env,
-		PostgresDSN:                           postgresDSN,
-		RedisAddr:                             redisAddr,
-		ServerPort:                            serverPort,
-		LogLevel:                              logLevel,
-		StytchEnv:                             stytchEnv,
-		StytchProjectID:                       stytchProjectID,
-		StytchSecret:                          stytchSecret,
-		EmailHMACKey:                          emailHMACKey,
-		ISTEncryptionKey:                      istEncryptionKey,
-		CORSOrigins:                           corsOrigins,
-		CookieDomain:                          cookieDomain,
-		CSPReportOnlyEnabled:                  cspReportOnlyEnabled == "true" || cspReportOnlyEnabled == "1",
-		CSPReportOnlyURI:                      cspReportOnlyURI,
-		CSPReportOnlyPolicy:                   cspReportOnlyPolicy,
-		EmailProviderHourlyCap:                hourlyCap,
-		EmailProviderDailyCap:                 dailyCap,
-		SessionIdleTimeout:                    idleTimeout,
-		SessionAbsoluteMax:                    absoluteMax,
-		SeedReferenceData:                     seedReferenceData,
-		MigrationsDir:                         migrationsDir,
-	}
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
-
-// Validate checks required configuration for the current environment.
-func (c *Config) Validate() error {
-	if c.Env != "development" && c.Env != "test" && c.Env != "production" {
-		return errors.New("APP_ENV must be development, test, or production")
-	}
-	if c.PostgresDSN == "" {
-		return errors.New("DATABASE_URL/POSTGRES_DSN is required")
-	}
-	if c.RedisAddr == "" {
-		return errors.New("REDIS_URL is required")
-	}
-	if c.StytchProjectID == "" {
-		return errors.New("STYTCH_PROJECT_ID is required")
-	}
-	if c.StytchSecret == "" {
-		return errors.New("STYTCH_SECRET is required")
-	}
-	if c.Env == "production" {
-		// Production must not use insecure defaults
-		if c.RedisAddr == "localhost:6379" {
-			return errors.New("REDIS_URL must be set to a managed Redis endpoint in production")
-		}
-		if c.EmailHMACKey == "" {
-			return errors.New("EMAIL_HMAC_KEY is required in production")
-		}
-		if c.ISTEncryptionKey == "" {
-			return errors.New("IST_ENCRYPTION_KEY is required in production (32-byte base64)")
-		}
-		// Cookie domain should not be set for __Host- prefix cookies
-		// __Host- prefix ignores Domain attribute; warn in logs if set
-		_ = c.CookieDomain // explicitly unused
-	}
-	return nil
-}
-
-// SessionCookieName returns the cookie name for the current environment.
-// In production, uses __Host- prefix (requires Secure, Path=/, no Domain).
-// In development/test, uses session_token_<env>.
-func (c *Config) SessionCookieName() string {
-	base := "__Host-session_token"
-	if c.Env != "" && c.Env != "production" {
-		return "session_token_" + c.Env
-	}
-	return base
-}
-
-// SessionCookieDomain returns the cookie domain.
-// For __Host- prefix cookies, this must be empty (browser ignores Domain).
-func (c *Config) SessionCookieDomain() string {
-	if c.Env == "production" {
-		return "" // __Host- prefix requires no Domain attribute
-	}
-	return c.CookieDomain
-}
-
-func parseIntEnv(key string, defaultVal int) int {
-	v := os.Getenv(key)
-	if v == "" {
-		return defaultVal
-	}
-	var i int
-	_, err := fmt.Sscanf(v, "%d", &i)
-	if err != nil || i <= 0 {
-		return defaultVal
-	}
-	return i
-}
-
-func parseDurationEnv(key string, defaultVal time.Duration) time.Duration {
-	v := os.Getenv(key)
-	if v == "" {
-		return defaultVal
-	}
-	d, err := time.ParseDuration(v)
-	if err != nil {
-		return defaultVal
-	}
-	return d
-}
-
+// firstNonEmpty returns the first non-empty environment variable value.
 func firstNonEmpty(keys ...string) string {
-	for i, k := range keys {
-		v := os.Getenv(k)
-		if v != "" {
-			return v
-		}
-		// last key may be default
-		if i == len(keys)-1 {
+	for _, k := range keys {
+		if v := os.Getenv(k); v != "" {
 			return v
 		}
 	}
 	return ""
+}
+
+// Load reads configuration from environment variables.
+// All values must be provided via Doppler at runtime — no fallbacks.
+// Missing required values are caught by validate().
+func Load() (*Config, error) {
+	cfg := &Config{
+		AppEnv:        firstNonEmpty("APP_ENV"),
+		LogLevel:      firstNonEmpty("LOG_LEVEL"),
+		ServerPort:    firstNonEmpty("SERVER_PORT"),
+		DatabaseURL:   firstNonEmpty("DATABASE_URL"),
+		RedisURL:      firstNonEmpty("REDIS_URL"),
+
+		BrevoAPIKey:    firstNonEmpty("BREVO_API_KEY"),
+		BrevoSenderEmail: firstNonEmpty("BREVO_SENDER_EMAIL"),
+		BrevoSenderName:  firstNonEmpty("BREVO_SENDER_NAME"),
+
+		EmailHMACKey: firstNonEmpty("EMAIL_HMAC_KEY"),
+
+		TurnstileEnabled:  firstNonEmpty("TURNSTILE_ENABLED") == "true",
+		TurnstileSecretKey: firstNonEmpty("TURNSTILE_SECRET_KEY"),
+
+		CORSOrigins: firstNonEmpty("CORS_ORIGINS"),
+
+		RateLimitOTPRequestIPPerMin:   10,
+		RateLimitOTPRequestEmailPer15Min: 3,
+
+		// REQUIRED - no default. Must be set via Doppler.
+		SessionCookieName: firstNonEmpty("SESSION_COOKIE_NAME"),
+	}
+
+	// Validate required configuration at startup so missing secrets surface
+	// immediately (e.g. an empty BREVO_API_KEY) instead of as confusing
+	// per-request failures such as a 401 from the email provider.
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	return cfg, nil
+}
+
+// validate ensures all required configuration is present. Fields without a
+// sensible default must be provided by the operator (injected by Doppler into
+// docker-compose at runtime, not checked into .env).
+func (c *Config) validate() error {
+	required := map[string]string{
+		"DATABASE_URL":       c.DatabaseURL,
+		"BREVO_API_KEY":      c.BrevoAPIKey,
+		"EMAIL_HMAC_KEY":     c.EmailHMACKey,
+		"SESSION_COOKIE_NAME": c.SessionCookieName,
+	}
+	var missing []string
+	for k, v := range required {
+		if v == "" {
+			missing = append(missing, k)
+		}
+	}
+
+	// When Turnstile is enabled its secret must be present for server-side
+	// verification; otherwise requests fail with a confusing config error.
+	if c.TurnstileEnabled && c.TurnstileSecretKey == "" {
+		missing = append(missing, "TURNSTILE_SECRET_KEY")
+	}
+
+	// In production, session cookie MUST use __Host- prefix
+	if c.AppEnv == "production" && !strings.HasPrefix(c.SessionCookieName, "__Host-") {
+		missing = append(missing, "SESSION_COOKIE_NAME (must start with __Host- in production)")
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+// MustLoad loads config and panics on error.
+func MustLoad() *Config {
+	cfg, err := Load()
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+// SessionIdleTimeout returns the idle timeout duration.
+func (c *Config) SessionIdleTimeout() time.Duration {
+	return 7 * 24 * time.Hour
+}
+
+// SessionAbsoluteTimeout returns the absolute session lifetime.
+func (c *Config) SessionAbsoluteTimeout() time.Duration {
+	return 30 * 24 * time.Hour
+}
+
+// OTPValidity returns the OTP validity window.
+func (c *Config) OTPValidity() time.Duration {
+	return 10 * time.Minute
+}
+
+// OTPMaxAttempts returns the maximum OTP verification attempts.
+func (c *Config) OTPMaxAttempts() int {
+	return 5
+}
+
+// IsProduction returns true if running in production environment.
+func (c *Config) IsProduction() bool {
+	return c.AppEnv == "production"
 }

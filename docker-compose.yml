@@ -31,38 +31,52 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     environment:
-      APP_ENV: development
-      LOG_LEVEL: debug
-      CORS_ORIGINS: ${PUBLIC_APP_URL}
-      CSP_REPORT_ONLY_ENABLED: "false"
-      CSP_REPORT_ONLY_POLICY: default-src 'self'
-      POSTGRES_DSN: ${POSTGRES_DSN:-postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable}
-      REDIS_URL: redis://redis:6379
-      SERVER_PORT: 8080
-      EMAIL_PROVIDER_HOURLY_CAP: "1000"
-      EMAIL_PROVIDER_DAILY_CAP: "10000"
-      RATE_LIMIT_MAGIC_LINK_IP_PER_MIN: "10"
-      RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN: "3"
-      RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN: "10"
+      APP_ENV: ${APP_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      CSP_REPORT_ONLY_ENABLED: ${CSP_REPORT_ONLY_ENABLED}
+      CSP_REPORT_ONLY_POLICY: ${CSP_REPORT_ONLY_POLICY}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      SERVER_PORT: ${SERVER_PORT}
+      EMAIL_PROVIDER_HOURLY_CAP: ${EMAIL_PROVIDER_HOURLY_CAP}
+      EMAIL_PROVIDER_DAILY_CAP: ${EMAIL_PROVIDER_DAILY_CAP}
+      RATE_LIMIT_MAGIC_LINK_IP_PER_MIN: ${RATE_LIMIT_MAGIC_LINK_IP_PER_MIN}
+      RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN: ${RATE_LIMIT_MAGIC_LINK_EMAIL_PER_15_MIN}
+      RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN: ${RATE_LIMIT_TOKEN_EXCHANGE_IP_PER_MIN}
       STYTCH_PROJECT_ID: ${STYTCH_PROJECT_ID}
       STYTCH_SECRET: ${STYTCH_SECRET}
-      STYTCH_ENV: ${STYTCH_ENV:-test}
+      STYTCH_ENV: ${STYTCH_ENV}
       EMAIL_HMAC_KEY: ${EMAIL_HMAC_KEY}
-      MIGRATIONS_DIR: migrations
+      BREVO_API_KEY: ${BREVO_API_KEY}
+      BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL}
+      BREVO_SENDER_NAME: ${BREVO_SENDER_NAME}
+      TURNSTILE_ENABLED: ${TURNSTILE_ENABLED}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       PUBLIC_API_URL: ${PUBLIC_API_URL}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
     ports:
-      - "8080:8080"
+      - "3030:3030"
     volumes:
       - ./backend:/app
       - /app/bin
+      - ./backend/migrations:/app/migrations
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3030/healthz",
+        ]
       interval: 5m
       timeout: 5s
       retries: 5
@@ -73,11 +87,15 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     environment:
-      PUBLIC_API_URL: http://backend:8080
+      # Internal backend URL for server-side API calls (BFF)
+      PUBLIC_API_URL: http://backend:3030
       PUBLIC_APP_URL: ${PUBLIC_APP_URL}
-      NODE_ENV: development
-      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+      NODE_ENV: ${NODE_ENV}
+      HOSTNAME: ${HOSTNAME}
       PORT: 3000
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
+      APP_ENV: ${APP_ENV}
     ports:
       - "3000:3000"
     volumes:
@@ -87,12 +105,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
-      interval: 5m
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
 volumes:
   pgdata:

@@ -14,6 +14,7 @@ import type { NextRequest } from 'next/server'
 
 const PUBLIC_ROUTES = ['/login', '/auth/callback', '/']
 const PROTECTED_PREFIXES = ['/dashboard', '/students', '/schools']
+const ONBOARDING_ROUTES = ['/onboarding', '/api/auth/onboard']
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -29,19 +30,34 @@ export function proxy(request: NextRequest) {
 
   const isPublic = PUBLIC_ROUTES.includes(pathname)
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
+  const isOnboarding = ONBOARDING_ROUTES.some((p) => pathname === p || pathname.startsWith(p + '/'))
 
   // Read HttpOnly session cookie (server-side only)
   const sessionToken =
     request.cookies.get('__Host-session_token')?.value ??
     request.cookies.get('session_token_development')?.value
 
-  // Protected route without session cookie → redirect to login
-  if (isProtected && !sessionToken) {
+  // Read onboarding flag cookie (set by backend when temp session issued)
+  const needsOnboarding = request.cookies.get('needs_onboarding')?.value === 'true'
+
+  // No session at all
+  if (!sessionToken) {
+    if (isPublic) {
+      return NextResponse.next()
+    }
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Public route with session cookie → redirect to dashboard
-  if (isPublic && sessionToken) {
+  // Has temp session (onboarding not complete)
+  if (needsOnboarding) {
+    if (isOnboarding) {
+      return NextResponse.next()
+    }
+    return NextResponse.redirect(new URL('/onboarding', request.url))
+  }
+
+  // Full session - redirect away from onboarding/login
+  if (isPublic || isOnboarding) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

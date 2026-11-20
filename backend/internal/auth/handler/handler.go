@@ -102,6 +102,18 @@ func (h *Handler) VerifyOTP(c fiber.Ctx) error {
 		sessionTTL := h.cfg.SessionAbsoluteTimeout()
 		if resp.NeedsOnboarding {
 			sessionTTL = 30 * time.Minute
+			// Set onboarding flag cookie so frontend proxy can route without
+			// calling the backend. HttpOnly so JS can't read it, but proxy.ts
+			// (server-side) can.
+			c.Cookie(&fiber.Cookie{
+				Name:     "needs_onboarding",
+				Value:    "true",
+				Path:     "/",
+				HTTPOnly: true,
+				Secure:   c.Scheme() == "https",
+				SameSite: fiber.CookieSameSiteLaxMode,
+				MaxAge:   int(sessionTTL.Seconds()),
+			})
 		}
 		h.setSessionCookie(c, resp.SessionToken, time.Now().Add(sessionTTL))
 	}
@@ -147,6 +159,9 @@ func (h *Handler) Onboard(c fiber.Ctx) error {
 	if err := h.svc.Onboard(c.Context(), session.UserID, session.OrganizationID, req.OrganizationName, req.SchoolName, req.UserName); err != nil {
 		return err
 	}
+
+	// Clear onboarding flag cookie
+	clearOnboardingCookie(c)
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"ok":               true,
@@ -239,6 +254,19 @@ func (h *Handler) setSessionCookie(c fiber.Ctx, token string, expiresAt time.Tim
 func (h *Handler) clearSessionCookie(c fiber.Ctx) {
 	c.Cookie(&fiber.Cookie{
 		Name:     h.sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HTTPOnly: true,
+		Secure:   c.Scheme() == "https",
+		SameSite: fiber.CookieSameSiteLaxMode,
+		MaxAge:   -1,
+	})
+}
+
+// clearOnboardingCookie removes the needs_onboarding flag cookie.
+func clearOnboardingCookie(c fiber.Ctx) {
+	c.Cookie(&fiber.Cookie{
+		Name:     "needs_onboarding",
 		Value:    "",
 		Path:     "/",
 		HTTPOnly: true,

@@ -30,7 +30,10 @@ function onboardingCookieName(): string {
   return 'needs_onboarding'
 }
 
+let configValidated = false
+
 function validateConfig() {
+  if (configValidated) return
   const sessionName = sessionCookieName()
   const appEnv = process.env.APP_ENV
   console.log('[proxy] config', { sessionCookie: sessionName, onboardingCookie: onboardingCookieName(), appEnv })
@@ -38,10 +41,10 @@ function validateConfig() {
   if (appEnv === 'production' && !sessionName.startsWith('__Host-')) {
     throw new Error('SESSION_COOKIE_NAME must start with __Host- in production')
   }
+  configValidated = true
 }
 
 const PUBLIC_ROUTES = ['/login', '/auth/callback']
-const PROTECTED_PREFIXES = ['/dashboard', '/students', '/schools']
 const ONBOARDING_ROUTES = ['/onboarding', '/api/auth/onboard']
 
 export function proxy(request: NextRequest) {
@@ -60,9 +63,7 @@ export function proxy(request: NextRequest) {
   }
 
   const isPublic = PUBLIC_ROUTES.includes(pathname)
-  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
   const isOnboarding = ONBOARDING_ROUTES.some((p) => pathname === p || pathname.startsWith(p + '/'))
-  const isRoot = pathname === '/'
 
   // Read HttpOnly session cookie (server-side only)
   const sessionToken = request.cookies.get(sessionCookieName())?.value
@@ -87,9 +88,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/onboarding', request.url))
   }
 
-  // Full session - redirect away from onboarding/login/root
-  if (isPublic || isOnboarding || isRoot) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  // Full session - redirect away from onboarding/login; root IS the dashboard so let it through
+  if (isPublic || isOnboarding) {
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   return NextResponse.next()

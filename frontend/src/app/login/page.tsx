@@ -24,7 +24,7 @@ declare global {
  *
  * Step 1: User completes Turnstile + enters email → POST /api/auth/otp/request → backend sends OTP via email
  * Step 2: User enters 6-digit code → POST /api/auth/otp/verify → backend creates session
- * Step 3: Redirect to /dashboard
+ * Step 3: Redirect to /
  *
  * Turnstile (Cloudflare) is rendered on the email step. The site key must be
  * exposed to the browser as NEXT_PUBLIC_TURNSTILE_SITE_KEY. The secret key
@@ -175,7 +175,7 @@ export default function LoginPage() {
         // Session cookie is set by backend via Set-Cookie on the response.
         // Use window.location.assign for hard navigation (not client-side router)
         // so the browser sends the new cookies on the follow-up request.
-        const nextPath = data.needs_onboarding ? "/onboarding" : "/dashboard";
+        const nextPath = data.needs_onboarding ? "/onboarding" : "/";
         window.location.assign(nextPath);
       } catch {
         setError("Failed to verify code. Please try again.");

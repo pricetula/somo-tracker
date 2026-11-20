@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
  * Collects organization name, school name, and user name in a single POST
  * to /api/auth/onboard. Requires a valid temporary session cookie (set by
  * the backend during OTP verification). On success, the session is upgraded
- * to full and the middleware redirects to /dashboard.
+ * to full and the middleware redirects to /.
  */
 export default function OnboardingPage() {
   const router = useRouter()
@@ -44,8 +44,8 @@ export default function OnboardingPage() {
           return
         }
 
-        // Session upgraded to full by backend. Middleware redirects to /dashboard.
-        router.replace('/dashboard')
+        // Session upgraded to full by backend. Middleware redirects to /.
+        router.replace('/')
       } catch {
         setError('Failed to complete onboarding. Please try again.')
         setLoading(false)

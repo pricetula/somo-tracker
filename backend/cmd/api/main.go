@@ -16,24 +16,18 @@ func main() {
 
 	cfg, err := app.LoadConfig()
 	if err != nil {
-		slog.Error("config load failed", "err", err)
+		slog.Error("failed to load config", "err", err)
 		os.Exit(1)
 	}
 
-	app, err := app.New(cfg)
+	a, err := app.New(cfg)
 	if err != nil {
-		slog.Error("app create failed", "err", err)
+		slog.Error("failed to create app", "err", err)
 		os.Exit(1)
 	}
 
-	if err := app.Start(ctx); err != nil {
-		slog.Error("app start failed", "err", err)
+	if err := a.Start(ctx); err != nil {
+		slog.Error("server stopped with error", "err", err)
 		os.Exit(1)
-	}
-
-	<-ctx.Done()
-	slog.Info("shutting down")
-	if err := app.Shutdown(ctx); err != nil {
-		slog.Error("shutdown failed", "err", err)
 	}
 }

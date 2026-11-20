@@ -1,7 +1,13 @@
-import { goRequest } from '@/lib/go-client'
+import { apiRequest } from '@/lib/api-client'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST() {
-  return goRequest('/api/v1/auth/logout', { method: 'POST' })
+export async function POST(req: Request) {
+  return apiRequest('/api/v1/auth/logout', {
+    method: 'POST',
+    body: await req.arrayBuffer(),
+    headers: {
+      'Content-Type': req.headers.get('content-type') ?? 'application/json',
+    },
+  })
 }

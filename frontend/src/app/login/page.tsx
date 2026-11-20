@@ -1,114 +1,268 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { useState, useCallback, useEffect, useRef } from "react";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        element: HTMLElement,
+        opts: {
+          sitekey: string;
+          callback: (token: string) => void;
+          "expired-callback"?: () => void;
+        },
+      ) => number;
+      remove: (widgetId: number) => void;
+      getResponse: (widgetId?: number) => string | null;
+    };
+  }
+}
 
 /**
- * Login page — public route.
+ * Login page — email entry for OTP authentication.
  *
- * User enters their email to request a magic link.
- * POSTs to BFF /api/auth/request-magic-link → Go /api/v1/auth/request-magic-link.
- * Go sends the magic link via Stytch.
- * User clicks the link in email → Stytch redirects to /auth/callback?token=...
+ * Step 1: User completes Turnstile + enters email → POST /api/auth/otp/request → backend sends OTP via email
+ * Step 2: User enters 6-digit code → POST /api/auth/otp/verify → backend creates session
+ * Step 3: Redirect to /
+ *
+ * Turnstile (Cloudflare) is rendered on the email step. The site key must be
+ * exposed to the browser as NEXT_PUBLIC_TURNSTILE_SITE_KEY. The secret key
+ * never reaches the browser — it is verified server-side by the Go backend.
  */
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [sent, setSent] = useState(false)
+  const [step, setStep] = useState<"email" | "otp">("email");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeId, setChallengeId] = useState("");
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-    try {
-      const res = await fetch('/api/auth/request-magic-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-        credentials: 'include',
-      })
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<number | null>(null);
 
-      if (!res.ok) {
-        // Generic success per backend — don't reveal if email exists
-        setSent(true)
-        setEmail('')
-        return
-      }
-
-      const data = await res.json()
-      if (data.success) {
-        setSent(true)
-        setEmail('')
-      } else {
-        setError('Failed to send magic link. Please try again.')
-      }
-    } catch {
-      setError('Failed to send magic link. Please try again.')
-    } finally {
-      setLoading(false)
+  function removeTurnstileWidget() {
+    if (widgetIdRef.current == null) return;
+    const turnstile = window.turnstile;
+    if (turnstile) {
+      turnstile.remove(widgetIdRef.current);
     }
+    widgetIdRef.current = null;
+    setTurnstileToken("");
   }
 
-  if (sent) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold">Check your email</h1>
-            <p className="mt-2 text-muted-foreground">
-              A magic link has been sent to {email}. Click it to sign in.
-            </p>
-          </div>
-          <Button onClick={() => router.push('/login')}>
-            Back to login
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  // Load the Turnstile API script and render the widget once it's ready.
+  // We guard against a race where `window.turnstile` isn't available yet
+  // when the effect first runs by attaching a load listener on the script.
+  useEffect(() => {
+    if (!siteKey || typeof window === "undefined") return;
+
+    const renderWidget = () => {
+      const turnstile = window.turnstile;
+      if (!turnstile || !turnstileRef.current) return;
+
+      const id = turnstile.render(turnstileRef.current, {
+        sitekey: siteKey,
+        callback: (token: string) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(""),
+      });
+      widgetIdRef.current = id;
+    };
+
+    // Already loaded?
+    if (window.turnstile) {
+      renderWidget();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.defer = true;
+
+    const onLoad = () => {
+      renderWidget();
+    };
+
+    script.addEventListener("load", onLoad);
+    document.head.appendChild(script);
+
+    return () => {
+      script.removeEventListener("load", onLoad);
+      document.head.removeChild(script);
+      removeTurnstileWidget();
+    };
+  }, [siteKey]);
+
+  // Clean up the Turnstile widget whenever we leave the email step.
+  // The widget is rendered inside the email-step form, so when the user
+  // submits and step flips to 'otp', React removes the widget's DOM node.
+  // Without calling turnstile.remove() here, Cloudflare warns:
+  // "Cannot find Widget ... consider using turnstile.remove() to clean up a widget."
+  useEffect(() => {
+    return () => {
+      removeTurnstileWidget();
+    };
+  }, [step]);
+
+  const requestOTP = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      setLoading(true);
+
+      // Turnstile is enforced by the backend when TURNSTILE_ENABLED=true.
+      // Fail fast here only when a site key is configured so the UX is clear.
+      if (siteKey && !turnstileToken) {
+        setError("Please complete the security check above.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/auth/otp/request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email, turnstile_token: turnstileToken }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setError(body.message || "Failed to send code. Please try again.");
+          setLoading(false);
+          return;
+        }
+
+        const data = await res.json();
+        setChallengeId(data.challenge_id || "");
+        setStep("otp");
+      } catch {
+        setError("Failed to send code. Please try again.");
+        setLoading(false);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [email, turnstileToken, siteKey],
+  );
+
+  const verifyOTP = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      setLoading(true);
+
+      try {
+        const res = await fetch("/api/auth/otp/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ challenge_id: challengeId, code }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setError(body.message || "Invalid code. Please try again.");
+          setLoading(false);
+          return;
+        }
+
+        const data = await res.json();
+        // Session cookie is set by backend via Set-Cookie on the response.
+        // Use window.location.assign for hard navigation (not client-side router)
+        // so the browser sends the new cookies on the follow-up request.
+        const nextPath = data.needs_onboarding ? "/onboarding" : "/";
+        window.location.assign(nextPath);
+      } catch {
+        setError("Failed to verify code. Please try again.");
+        setLoading(false);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [code, challengeId],
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Sign in</h1>
-          <p className="mt-2 text-muted-foreground">
-            Enter your school email to receive a magic link.
-          </p>
-        </div>
+        {step === "email" && (
+          <>
+            <h1 className="text-3xl font-bold">Sign in</h1>
+            <p className="text-muted-foreground">
+              Enter your email to receive a verification code.
+            </p>
+            <form onSubmit={requestOTP} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-medium">
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
+                />
+              </div>
 
-        {error && (
-          <div className="rounded-md border border-red-500 bg-red-50 p-4">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
+              {siteKey && <div ref={turnstileRef} className="cf-turnstile" />}
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <button
+                type="submit"
+                disabled={
+                  loading || !email || (Boolean(siteKey) && !turnstileToken)
+                }
+                className="w-full inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? "Sending…" : "Send code"}
+              </button>
+            </form>
+          </>
         )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email address
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="name@school.ac.ke"
-            />
-          </div>
-
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Sending magic link…' : 'Send magic link'}
-          </Button>
-        </form>
+        {step === "otp" && (
+          <>
+            <h1 className="text-3xl font-bold">Verify code</h1>
+            <p className="text-muted-foreground">
+              Enter the 6-digit code sent to{" "}
+              <strong className="font-medium">{email}</strong>.
+            </p>
+            <form onSubmit={verifyOTP} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="code" className="block text-sm font-medium">
+                  Verification code
+                </label>
+                <input
+                  id="code"
+                  type="text"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  required
+                  disabled={loading}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 letter-spacing-widest"
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading || code.length !== 6}
+                className="w-full inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? "Verifying…" : "Verify"}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
-  )
+  );
 }

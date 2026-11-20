@@ -61,7 +61,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-md space-y-6">
         <h1 className="text-3xl font-bold">Set up your organization</h1>
         <p className="text-muted-foreground">
-          Welcome! Let's create your organization and school to get started.
+          Welcome! Let&rsquo;s create your organization and school to get started.
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">

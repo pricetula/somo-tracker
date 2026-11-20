@@ -89,7 +89,7 @@ func (s *Service) RequestOTP(ctx context.Context, req RequestOTPRequest) (Reques
 
 	expiresAt := time.Now().Add(s.cfg.OTPValidity())
 
-	challenge, err := s.store.CreateLoginChallenge(ctx, challengeID, normalizedEmail, codeMac, expiresAt)
+	challenge, err := s.store.CreateLoginChallenge(ctx, normalizedEmail, codeMac, expiresAt)
 	if err != nil {
 		return RequestOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "create login challenge", err)
 	}
@@ -332,14 +332,16 @@ func (s *Service) VerifyOTP(ctx context.Context, req VerifyOTPRequest) (VerifyOT
 
 	// Temp session TTL: 30 minutes for onboarding, full timeout otherwise
 	sessionTTL := s.cfg.SessionAbsoluteTimeout()
+	sessionType := "full"
 	if justCreated {
 		sessionTTL = 30 * time.Minute
+		sessionType = "temporary"
 	}
 
 	expiresAt := time.Now().Add(sessionTTL)
 
 	// Create session
-	_, err = s.store.CreateSession(ctx, tokenHash, user.ID, user.OrganizationID, activeSchoolID, expiresAt)
+	_, err = s.store.CreateSession(ctx, tokenHash, user.ID, user.OrganizationID, activeSchoolID, sessionType, expiresAt)
 	if err != nil {
 		return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "create session", err)
 	}

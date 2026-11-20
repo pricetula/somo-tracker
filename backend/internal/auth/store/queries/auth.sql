@@ -5,13 +5,48 @@ ON CONFLICT (normalized_email) DO NOTHING
 RETURNING id, organization_id, email, normalized_email, status, email_verified_at, created_at, updated_at, deleted_at;
 
 -- name: GetUserByNormalizedEmail :one
-SELECT id, organization_id, email, normalized_email, status, email_verified_at, created_at, updated_at, deleted_at
+SELECT id, organization_id, email, normalized_email, name, status, email_verified_at, created_at, updated_at, deleted_at
 FROM users
 WHERE normalized_email = $1 AND deleted_at IS NULL;
 
+-- name: CreateOrganization :one
+INSERT INTO organizations (name, status)
+VALUES ($1, 'ACTIVE')
+RETURNING id, name, status, created_at, updated_at, deleted_at, onboarding_completed_at;
+
+-- name: CreateUser :one
+INSERT INTO users (organization_id, email, normalized_email, name, status, email_verified_at)
+VALUES ($1, $2, $3, $4, 'ACTIVE', NOW())
+RETURNING id, organization_id, email, normalized_email, name, status, email_verified_at, created_at, updated_at, deleted_at;
+
+-- name: CreateSchool :one
+INSERT INTO schools (organization_id, name, status)
+VALUES ($1, $2, 'ACTIVE')
+RETURNING id, organization_id, name, status, created_at, updated_at, deleted_at;
+
+-- name: UpdateOrganization :exec
+UPDATE organizations
+SET name = $1, onboarding_completed_at = NOW(), updated_at = NOW()
+WHERE id = $2;
+
+-- name: UpdateUser :exec
+UPDATE users
+SET name = $1, updated_at = NOW()
+WHERE id = $2;
+
+-- name: UpdateSessionType :exec
+UPDATE sessions
+SET session_type = 'full'
+WHERE user_id = $1 AND session_type = 'temporary';
+
+-- name: GetSessionByTokenHash :one
+SELECT id, token_hash, user_id, organization_id, active_school_id, session_type, created_at, last_seen_at, expires_at, revoked_at, revocation_reason
+FROM sessions
+WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW();
+
 -- name: CreateLoginChallenge :one
-INSERT INTO login_challenges (email_normalized, purpose, code_mac, expires_at, attempt_count, max_attempts)
-VALUES ($1, 'login', $2, $3, 0, 5)
+INSERT INTO login_challenges (id, email_normalized, purpose, code_mac, expires_at, attempt_count, max_attempts)
+VALUES ($1, $2, 'login', $3, $4, 0, 5)
 RETURNING id, email_normalized, purpose, code_mac, expires_at, attempt_count, max_attempts, used_at, invalidated_at, created_at;
 
 -- name: GetLoginChallengeByID :one
@@ -35,12 +70,12 @@ FROM sessions
 WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW();
 
 -- name: CreateSession :one
-INSERT INTO sessions (token_hash, user_id, organization_id, active_school_id, expires_at)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, token_hash, user_id, organization_id, active_school_id, created_at, last_seen_at, expires_at, revoked_at, revocation_reason;
+INSERT INTO sessions (token_hash, user_id, organization_id, active_school_id, session_type, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, token_hash, user_id, organization_id, active_school_id, session_type, created_at, last_seen_at, expires_at, revoked_at, revocation_reason;
 
 -- name: GetOrganizationsByUser :many
-SELECT o.id, o.name, o.status, o.created_at, o.updated_at, o.deleted_at
+SELECT o.id, o.name, o.status, o.created_at, o.updated_at, o.deleted_at, o.onboarding_completed_at
 FROM organizations o
 JOIN users u ON u.organization_id = o.id
 WHERE u.id = $1 AND u.deleted_at IS NULL AND o.deleted_at IS NULL;

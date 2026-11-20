@@ -169,12 +169,13 @@ type LoginChallenge struct {
 }
 
 type Organization struct {
-	ID        uuid.UUID
-	Name      string
-	Status    OrganizationStatus
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
+	ID                    uuid.UUID
+	Name                  string
+	Status                OrganizationStatus
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	DeletedAt             sql.NullTime
+	OnboardingCompletedAt sql.NullTime
 }
 
 type School struct {
@@ -193,12 +194,12 @@ type Session struct {
 	UserID           uuid.UUID
 	OrganizationID   uuid.UUID
 	ActiveSchoolID   uuid.NullUUID
-	SessionType      string
 	CreatedAt        time.Time
 	LastSeenAt       sql.NullTime
 	ExpiresAt        time.Time
 	RevokedAt        sql.NullTime
 	RevocationReason sql.NullString
+	SessionType      string
 }
 
 type User struct {
@@ -206,12 +207,12 @@ type User struct {
 	OrganizationID  uuid.UUID
 	Email           string
 	NormalizedEmail string
-	Name            string
 	Status          UserStatus
 	EmailVerifiedAt sql.NullTime
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	DeletedAt       sql.NullTime
+	Name            sql.NullString
 }
 
 type UserSchool struct {

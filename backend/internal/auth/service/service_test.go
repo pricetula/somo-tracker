@@ -34,8 +34,8 @@ type mockStore struct {
 	mock.Mock
 }
 
-func (m *mockStore) CreateLoginChallenge(ctx context.Context, challengeID uuid.UUID, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
-	args := m.Called(ctx, challengeID, emailNormalized, codeMac, expiresAt)
+func (m *mockStore) CreateLoginChallenge(ctx context.Context, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
+	args := m.Called(ctx, emailNormalized, codeMac, expiresAt)
 	return args.Get(0).(storegen.LoginChallenge), args.Error(1)
 }
 
@@ -99,8 +99,8 @@ func (m *mockStore) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]s
 	return args.Get(0).([]storegen.School), args.Error(1)
 }
 
-func (m *mockStore) CreateSession(ctx context.Context, tokenHash []byte, userID, orgID uuid.UUID, activeSchoolID uuid.NullUUID, expiresAt time.Time) (storegen.Session, error) {
-	args := m.Called(ctx, tokenHash, userID, orgID, activeSchoolID, expiresAt)
+func (m *mockStore) CreateSession(ctx context.Context, tokenHash []byte, userID, orgID uuid.UUID, activeSchoolID uuid.NullUUID, sessionType string, expiresAt time.Time) (storegen.Session, error) {
+	args := m.Called(ctx, tokenHash, userID, orgID, activeSchoolID, sessionType, expiresAt)
 	return args.Get(0).(storegen.Session), args.Error(1)
 }
 
@@ -133,7 +133,7 @@ func TestRequestOTP_Success(t *testing.T) {
 	challengeID := uuid.New()
 
 	store := &mockStore{}
-	store.On("CreateLoginChallenge", ctx, anyUUID(), email, anyCodeMac(), anyTime()).
+	store.On("CreateLoginChallenge", ctx, email, anyCodeMac(), anyTime()).
 		Return(storegen.LoginChallenge{ID: challengeID, EmailNormalized: email}, nil).
 		Once()
 	store.On("CreateEmailOutbox", ctx, challengeID, mock.Anything).
@@ -196,7 +196,7 @@ func TestRequestOTP_StoreError(t *testing.T) {
 	email := "user@example.com"
 
 	store := &mockStore{}
-	store.On("CreateLoginChallenge", ctx, anyUUID(), email, anyCodeMac(), anyTime()).
+	store.On("CreateLoginChallenge", ctx, email, anyCodeMac(), anyTime()).
 		Return(storegen.LoginChallenge{}, errors.New("db down")).
 		Once()
 
@@ -247,7 +247,7 @@ func TestVerifyOTP_Success(t *testing.T) {
 	store.On("MarkChallengeUsed", ctx, challengeID).Return(nil).Once()
 	store.On("GetUserByNormalizedEmail", ctx, "user@example.com").Return(user, nil).Once()
 	store.On("GetSchoolsByUser", ctx, userID).Return(schools, nil).Once()
-	store.On("CreateSession", ctx, mock.Anything, userID, orgID, mock.Anything, mock.Anything).
+	store.On("CreateSession", ctx, mock.Anything, userID, orgID, mock.Anything, mock.Anything, mock.Anything).
 		Return(storegen.Session{}, nil).Once()
 
 	svc := newTestService(store, &mockBrevoSender{}, cfg)
@@ -421,7 +421,7 @@ func TestVerifyOTP_NoUserFound_CreatesAccount(t *testing.T) {
 		OrganizationID:  newOrgID,
 		Email:           "newuser@example.com",
 		NormalizedEmail: "newuser@example.com",
-		Name:            "",
+		Name:            sql.NullString{},
 		Status:          "ACTIVE",
 	}
 
@@ -436,7 +436,7 @@ func TestVerifyOTP_NoUserFound_CreatesAccount(t *testing.T) {
 	store.On("CreateUser", ctx, newOrgID, "newuser@example.com", "newuser@example.com", "").
 		Return(user, nil).Once()
 	store.On("GetSchoolsByUser", ctx, newUserID).Return([]storegen.School{}, nil).Once()
-	store.On("CreateSession", ctx, mock.Anything, newUserID, newOrgID, mock.Anything, mock.Anything).
+	store.On("CreateSession", ctx, mock.Anything, newUserID, newOrgID, mock.Anything, mock.Anything, mock.Anything).
 		Return(storegen.Session{}, nil).Once()
 
 	sender := &mockBrevoSender{}
@@ -503,7 +503,7 @@ func TestVerifyOTP_CreatesNewUser(t *testing.T) {
 		OrganizationID:  newOrgID,
 		Email:           "newuser@example.com",
 		NormalizedEmail: "newuser@example.com",
-		Name:            "",
+		Name:            sql.NullString{},
 		Status:          "ACTIVE",
 	}
 
@@ -518,7 +518,7 @@ func TestVerifyOTP_CreatesNewUser(t *testing.T) {
 	store.On("CreateUser", ctx, newOrgID, "newuser@example.com", "newuser@example.com", "").
 		Return(user, nil).Once()
 	store.On("GetSchoolsByUser", ctx, newUserID).Return([]storegen.School{}, nil).Once()
-	store.On("CreateSession", ctx, mock.Anything, newUserID, newOrgID, mock.Anything, mock.Anything).
+	store.On("CreateSession", ctx, mock.Anything, newUserID, newOrgID, mock.Anything, mock.Anything, mock.Anything).
 		Return(storegen.Session{}, nil).Once()
 
 	sender := &mockBrevoSender{}

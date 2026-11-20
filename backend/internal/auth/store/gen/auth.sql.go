@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,14 +49,19 @@ RETURNING id, email_normalized, purpose, code_mac, expires_at, attempt_count, ma
 `
 
 type CreateLoginChallengeParams struct {
-	ID     uuid.UUID
+	ID              uuid.UUID
 	EmailNormalized string
 	CodeMac         []byte
 	ExpiresAt       time.Time
 }
 
 func (q *Queries) CreateLoginChallenge(ctx context.Context, arg CreateLoginChallengeParams) (LoginChallenge, error) {
-	row := q.db.QueryRowContext(ctx, createLoginChallenge, arg.ID, arg.EmailNormalized, arg.CodeMac, arg.ExpiresAt)
+	row := q.db.QueryRowContext(ctx, createLoginChallenge,
+		arg.ID,
+		arg.EmailNormalized,
+		arg.CodeMac,
+		arg.ExpiresAt,
+	)
 	var i LoginChallenge
 	err := row.Scan(
 		&i.ID,
@@ -72,10 +78,57 @@ func (q *Queries) CreateLoginChallenge(ctx context.Context, arg CreateLoginChall
 	return i, err
 }
 
+const createOrganization = `-- name: CreateOrganization :one
+INSERT INTO organizations (name, status)
+VALUES ($1, 'ACTIVE')
+RETURNING id, name, status, created_at, updated_at, deleted_at, onboarding_completed_at
+`
+
+func (q *Queries) CreateOrganization(ctx context.Context, name string) (Organization, error) {
+	row := q.db.QueryRowContext(ctx, createOrganization, name)
+	var i Organization
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.OnboardingCompletedAt,
+	)
+	return i, err
+}
+
+const createSchool = `-- name: CreateSchool :one
+INSERT INTO schools (organization_id, name, status)
+VALUES ($1, $2, 'ACTIVE')
+RETURNING id, organization_id, name, status, created_at, updated_at, deleted_at
+`
+
+type CreateSchoolParams struct {
+	OrganizationID uuid.UUID
+	Name           string
+}
+
+func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (School, error) {
+	row := q.db.QueryRowContext(ctx, createSchool, arg.OrganizationID, arg.Name)
+	var i School
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :one
-INSERT INTO sessions (token_hash, user_id, organization_id, active_school_id, expires_at)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, token_hash, user_id, organization_id, active_school_id, created_at, last_seen_at, expires_at, revoked_at, revocation_reason
+INSERT INTO sessions (token_hash, user_id, organization_id, active_school_id, session_type, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, token_hash, user_id, organization_id, active_school_id, session_type, created_at, last_seen_at, expires_at, revoked_at, revocation_reason
 `
 
 type CreateSessionParams struct {
@@ -83,29 +136,95 @@ type CreateSessionParams struct {
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
 	ActiveSchoolID uuid.NullUUID
+	SessionType    string
 	ExpiresAt      time.Time
 }
 
-func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
+type CreateSessionRow struct {
+	ID               uuid.UUID
+	TokenHash        []byte
+	UserID           uuid.UUID
+	OrganizationID   uuid.UUID
+	ActiveSchoolID   uuid.NullUUID
+	SessionType      string
+	CreatedAt        time.Time
+	LastSeenAt       sql.NullTime
+	ExpiresAt        time.Time
+	RevokedAt        sql.NullTime
+	RevocationReason sql.NullString
+}
+
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (CreateSessionRow, error) {
 	row := q.db.QueryRowContext(ctx, createSession,
 		arg.TokenHash,
 		arg.UserID,
 		arg.OrganizationID,
 		arg.ActiveSchoolID,
+		arg.SessionType,
 		arg.ExpiresAt,
 	)
-	var i Session
+	var i CreateSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.TokenHash,
 		&i.UserID,
 		&i.OrganizationID,
 		&i.ActiveSchoolID,
+		&i.SessionType,
 		&i.CreatedAt,
 		&i.LastSeenAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
 		&i.RevocationReason,
+	)
+	return i, err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (organization_id, email, normalized_email, name, status, email_verified_at)
+VALUES ($1, $2, $3, $4, 'ACTIVE', NOW())
+RETURNING id, organization_id, email, normalized_email, name, status, email_verified_at, created_at, updated_at, deleted_at
+`
+
+type CreateUserParams struct {
+	OrganizationID  uuid.UUID
+	Email           string
+	NormalizedEmail string
+	Name            sql.NullString
+}
+
+type CreateUserRow struct {
+	ID              uuid.UUID
+	OrganizationID  uuid.UUID
+	Email           string
+	NormalizedEmail string
+	Name            sql.NullString
+	Status          UserStatus
+	EmailVerifiedAt sql.NullTime
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       sql.NullTime
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
+	row := q.db.QueryRowContext(ctx, createUser,
+		arg.OrganizationID,
+		arg.Email,
+		arg.NormalizedEmail,
+		arg.Name,
+	)
+	var i CreateUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.NormalizedEmail,
+		&i.Name,
+		&i.Status,
+		&i.EmailVerifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -116,9 +235,22 @@ FROM sessions
 WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()
 `
 
-func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (Session, error) {
+type GetActiveSessionRow struct {
+	ID               uuid.UUID
+	TokenHash        []byte
+	UserID           uuid.UUID
+	OrganizationID   uuid.UUID
+	ActiveSchoolID   uuid.NullUUID
+	CreatedAt        time.Time
+	LastSeenAt       sql.NullTime
+	ExpiresAt        time.Time
+	RevokedAt        sql.NullTime
+	RevocationReason sql.NullString
+}
+
+func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (GetActiveSessionRow, error) {
 	row := q.db.QueryRowContext(ctx, getActiveSession, tokenHash)
-	var i Session
+	var i GetActiveSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.TokenHash,
@@ -171,9 +303,21 @@ type GetOrCreateUserParams struct {
 	NormalizedEmail string
 }
 
-func (q *Queries) GetOrCreateUser(ctx context.Context, arg GetOrCreateUserParams) (User, error) {
+type GetOrCreateUserRow struct {
+	ID              uuid.UUID
+	OrganizationID  uuid.UUID
+	Email           string
+	NormalizedEmail string
+	Status          UserStatus
+	EmailVerifiedAt sql.NullTime
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       sql.NullTime
+}
+
+func (q *Queries) GetOrCreateUser(ctx context.Context, arg GetOrCreateUserParams) (GetOrCreateUserRow, error) {
 	row := q.db.QueryRowContext(ctx, getOrCreateUser, arg.OrganizationID, arg.Email, arg.NormalizedEmail)
-	var i User
+	var i GetOrCreateUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -189,7 +333,7 @@ func (q *Queries) GetOrCreateUser(ctx context.Context, arg GetOrCreateUserParams
 }
 
 const getOrganizationsByUser = `-- name: GetOrganizationsByUser :many
-SELECT o.id, o.name, o.status, o.created_at, o.updated_at, o.deleted_at
+SELECT o.id, o.name, o.status, o.created_at, o.updated_at, o.deleted_at, o.onboarding_completed_at
 FROM organizations o
 JOIN users u ON u.organization_id = o.id
 WHERE u.id = $1 AND u.deleted_at IS NULL AND o.deleted_at IS NULL
@@ -211,6 +355,7 @@ func (q *Queries) GetOrganizationsByUser(ctx context.Context, id uuid.UUID) ([]O
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.OnboardingCompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -263,170 +408,29 @@ func (q *Queries) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]Sch
 	return items, nil
 }
 
-const getUserByNormalizedEmail = `-- name: GetUserByNormalizedEmail :one
-SELECT id, organization_id, email, normalized_email, status, email_verified_at, created_at, updated_at, deleted_at
-FROM users
-WHERE normalized_email = $1 AND deleted_at IS NULL
-`
-
-func (q *Queries) GetUserByNormalizedEmail(ctx context.Context, normalizedEmail string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByNormalizedEmail, normalizedEmail)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.Email,
-		&i.NormalizedEmail,
-		&i.Status,
-		&i.EmailVerifiedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const createOrganization = `-- name: CreateOrganization :one
-INSERT INTO organizations (name, status)
-VALUES ($1, 'ACTIVE')
-RETURNING id, name, status, created_at, updated_at, deleted_at
-`
-
-type CreateOrganizationParams struct {
-	Name string
-}
-
-func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error) {
-	row := q.db.QueryRowContext(ctx, createOrganization, arg.Name)
-	var i Organization
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const createUser = `-- name: CreateUser :one
-INSERT INTO users (organization_id, email, normalized_email, name, status, email_verified_at)
-VALUES ($1, $2, $3, $4, 'ACTIVE', NOW())
-RETURNING id, organization_id, email, normalized_email, name, status, email_verified_at, created_at, updated_at, deleted_at
-`
-
-type CreateUserParams struct {
-	OrganizationID  uuid.UUID
-	Email           string
-	NormalizedEmail string
-	Name            string
-}
-
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser, arg.OrganizationID, arg.Email, arg.NormalizedEmail, arg.Name)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.Email,
-		&i.NormalizedEmail,
-		&i.Name,
-		&i.Status,
-		&i.EmailVerifiedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const createSchool = `-- name: CreateSchool :one
-INSERT INTO schools (organization_id, name, status)
-VALUES ($1, $2, 'ACTIVE')
-RETURNING id, organization_id, name, status, created_at, updated_at, deleted_at
-`
-
-type CreateSchoolParams struct {
-	OrganizationID uuid.UUID
-	Name           string
-}
-
-func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (School, error) {
-	row := q.db.QueryRowContext(ctx, createSchool, arg.OrganizationID, arg.Name)
-	var i School
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.Name,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const updateOrganization = `-- name: UpdateOrganization :exec
-UPDATE organizations
-SET name = $1, onboarding_completed_at = NOW(), updated_at = NOW()
-WHERE id = $2
-`
-
-type UpdateOrganizationParams struct {
-	Name   string
-	ID     uuid.UUID
-}
-
-func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) error {
-	_, err := q.db.ExecContext(ctx, updateOrganization, arg.Name, arg.ID)
-	return err
-}
-
-const updateUser = `-- name: UpdateUser :exec
-UPDATE users
-SET name = $1, updated_at = NOW()
-WHERE id = $2
-`
-
-type UpdateUserParams struct {
-	Name string
-	ID   uuid.UUID
-}
-
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
-	_, err := q.db.ExecContext(ctx, updateUser, arg.Name, arg.ID)
-	return err
-}
-
-const updateSessionType = `-- name: UpdateSessionType :exec
-UPDATE sessions
-SET session_type = 'full'
-WHERE user_id = $1 AND session_type = 'temporary'
-`
-
-type UpdateSessionTypeParams struct {
-	UserID uuid.UUID
-}
-
-func (q *Queries) UpdateSessionType(ctx context.Context, arg UpdateSessionTypeParams) error {
-	_, err := q.db.ExecContext(ctx, updateSessionType, arg.UserID)
-	return err
-}
-
 const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
 SELECT id, token_hash, user_id, organization_id, active_school_id, session_type, created_at, last_seen_at, expires_at, revoked_at, revocation_reason
 FROM sessions
 WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()
 `
 
-type GetSessionByTokenHashParams struct {
-	TokenHash []byte
+type GetSessionByTokenHashRow struct {
+	ID               uuid.UUID
+	TokenHash        []byte
+	UserID           uuid.UUID
+	OrganizationID   uuid.UUID
+	ActiveSchoolID   uuid.NullUUID
+	SessionType      string
+	CreatedAt        time.Time
+	LastSeenAt       sql.NullTime
+	ExpiresAt        time.Time
+	RevokedAt        sql.NullTime
+	RevocationReason sql.NullString
 }
 
-func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (Session, error) {
+func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (GetSessionByTokenHashRow, error) {
 	row := q.db.QueryRowContext(ctx, getSessionByTokenHash, tokenHash)
-	var i Session
+	var i GetSessionByTokenHashRow
 	err := row.Scan(
 		&i.ID,
 		&i.TokenHash,
@@ -443,6 +447,43 @@ func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (
 	return i, err
 }
 
+const getUserByNormalizedEmail = `-- name: GetUserByNormalizedEmail :one
+SELECT id, organization_id, email, normalized_email, name, status, email_verified_at, created_at, updated_at, deleted_at
+FROM users
+WHERE normalized_email = $1 AND deleted_at IS NULL
+`
+
+type GetUserByNormalizedEmailRow struct {
+	ID              uuid.UUID
+	OrganizationID  uuid.UUID
+	Email           string
+	NormalizedEmail string
+	Name            sql.NullString
+	Status          UserStatus
+	EmailVerifiedAt sql.NullTime
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       sql.NullTime
+}
+
+func (q *Queries) GetUserByNormalizedEmail(ctx context.Context, normalizedEmail string) (GetUserByNormalizedEmailRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserByNormalizedEmail, normalizedEmail)
+	var i GetUserByNormalizedEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.NormalizedEmail,
+		&i.Name,
+		&i.Status,
+		&i.EmailVerifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const markChallengeUsed = `-- name: MarkChallengeUsed :exec
 UPDATE login_challenges
 SET used_at = NOW()
@@ -451,5 +492,48 @@ WHERE id = $1 AND used_at IS NULL
 
 func (q *Queries) MarkChallengeUsed(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, markChallengeUsed, id)
+	return err
+}
+
+const updateOrganization = `-- name: UpdateOrganization :exec
+UPDATE organizations
+SET name = $1, onboarding_completed_at = NOW(), updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateOrganizationParams struct {
+	Name string
+	ID   uuid.UUID
+}
+
+func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) error {
+	_, err := q.db.ExecContext(ctx, updateOrganization, arg.Name, arg.ID)
+	return err
+}
+
+const updateSessionType = `-- name: UpdateSessionType :exec
+UPDATE sessions
+SET session_type = 'full'
+WHERE user_id = $1 AND session_type = 'temporary'
+`
+
+func (q *Queries) UpdateSessionType(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, updateSessionType, userID)
+	return err
+}
+
+const updateUser = `-- name: UpdateUser :exec
+UPDATE users
+SET name = $1, updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateUserParams struct {
+	Name sql.NullString
+	ID   uuid.UUID
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
+	_, err := q.db.ExecContext(ctx, updateUser, arg.Name, arg.ID)
 	return err
 }

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,22 +23,52 @@ func New(q *storegen.Queries, pool *db.Pool) *Store {
 
 // GetUserByNormalizedEmail retrieves a user by normalized email.
 func (s *Store) GetUserByNormalizedEmail(ctx context.Context, email string) (storegen.User, error) {
-	return s.q.GetUserByNormalizedEmail(ctx, email)
+	row, err := s.q.GetUserByNormalizedEmail(ctx, email)
+	if err != nil {
+		return storegen.User{}, err
+	}
+	return storegen.User{
+		ID:              row.ID,
+		OrganizationID:  row.OrganizationID,
+		Email:           row.Email,
+		NormalizedEmail: row.NormalizedEmail,
+		Name:            row.Name,
+		Status:          row.Status,
+		EmailVerifiedAt: row.EmailVerifiedAt,
+		CreatedAt:       row.CreatedAt,
+		UpdatedAt:       row.UpdatedAt,
+		DeletedAt:       row.DeletedAt,
+	}, nil
 }
 
 // CreateOrganization creates a new organization.
 func (s *Store) CreateOrganization(ctx context.Context, name string) (storegen.Organization, error) {
-	return s.q.CreateOrganization(ctx, storegen.CreateOrganizationParams{Name: name})
+	return s.q.CreateOrganization(ctx, name)
 }
 
 // CreateUser creates a new user with email_verified_at set (OTP-verified email).
 func (s *Store) CreateUser(ctx context.Context, orgID uuid.UUID, email, normalizedEmail, name string) (storegen.User, error) {
-	return s.q.CreateUser(ctx, storegen.CreateUserParams{
+	row, err := s.q.CreateUser(ctx, storegen.CreateUserParams{
 		OrganizationID:  orgID,
 		Email:           email,
 		NormalizedEmail: normalizedEmail,
-		Name:            name,
+		Name:            sql.NullString{String: name, Valid: true},
 	})
+	if err != nil {
+		return storegen.User{}, err
+	}
+	return storegen.User{
+		ID:              row.ID,
+		OrganizationID:  row.OrganizationID,
+		Email:           row.Email,
+		NormalizedEmail: row.NormalizedEmail,
+		Name:            row.Name,
+		Status:          row.Status,
+		EmailVerifiedAt: row.EmailVerifiedAt,
+		CreatedAt:       row.CreatedAt,
+		UpdatedAt:       row.UpdatedAt,
+		DeletedAt:       row.DeletedAt,
+	}, nil
 }
 
 // CreateSchool creates a new school within an organization.
@@ -59,27 +90,40 @@ func (s *Store) UpdateOrganization(ctx context.Context, orgID uuid.UUID, name st
 // UpdateUser updates a user's display name.
 func (s *Store) UpdateUser(ctx context.Context, userID uuid.UUID, name string) error {
 	return s.q.UpdateUser(ctx, storegen.UpdateUserParams{
-		Name: name,
+		Name: sql.NullString{String: name, Valid: true},
 		ID:   userID,
 	})
 }
 
 // UpdateSessionType upgrades all temporary sessions for a user to full.
 func (s *Store) UpdateSessionType(ctx context.Context, userID uuid.UUID) error {
-	return s.q.UpdateSessionType(ctx, storegen.UpdateSessionTypeParams{
-		UserID: userID,
-	})
+	return s.q.UpdateSessionType(ctx, userID)
 }
 
 // GetSessionByTokenHash retrieves a session by its token hash.
 func (s *Store) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.Session, error) {
-	return s.q.GetSessionByTokenHash(ctx, tokenHash)
+	row, err := s.q.GetSessionByTokenHash(ctx, tokenHash)
+	if err != nil {
+		return storegen.Session{}, err
+	}
+	return storegen.Session{
+		ID:               row.ID,
+		TokenHash:        row.TokenHash,
+		UserID:           row.UserID,
+		OrganizationID:   row.OrganizationID,
+		ActiveSchoolID:   row.ActiveSchoolID,
+		SessionType:      row.SessionType,
+		CreatedAt:        row.CreatedAt,
+		LastSeenAt:       row.LastSeenAt,
+		ExpiresAt:        row.ExpiresAt,
+		RevokedAt:        row.RevokedAt,
+		RevocationReason: row.RevocationReason,
+	}, nil
 }
 
 // CreateLoginChallenge creates a new login challenge.
-func (s *Store) CreateLoginChallenge(ctx context.Context, challengeID uuid.UUID, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
+func (s *Store) CreateLoginChallenge(ctx context.Context, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
 	return s.q.CreateLoginChallenge(ctx, storegen.CreateLoginChallengeParams{
-		ID:             challengeID,
 		EmailNormalized: emailNormalized,
 		CodeMac:         codeMac,
 		ExpiresAt:       expiresAt,
@@ -106,18 +150,50 @@ func (s *Store) CreateEmailOutbox(ctx context.Context, challengeID uuid.UUID, en
 
 // GetActiveSession retrieves an active session by token hash.
 func (s *Store) GetActiveSession(ctx context.Context, tokenHash []byte) (storegen.Session, error) {
-	return s.q.GetActiveSession(ctx, tokenHash)
+	row, err := s.q.GetActiveSession(ctx, tokenHash)
+	if err != nil {
+		return storegen.Session{}, err
+	}
+	return storegen.Session{
+		ID:               row.ID,
+		TokenHash:        row.TokenHash,
+		UserID:           row.UserID,
+		OrganizationID:   row.OrganizationID,
+		ActiveSchoolID:   row.ActiveSchoolID,
+		CreatedAt:        row.CreatedAt,
+		LastSeenAt:       row.LastSeenAt,
+		ExpiresAt:        row.ExpiresAt,
+		RevokedAt:        row.RevokedAt,
+		RevocationReason: row.RevocationReason,
+	}, nil
 }
 
 // CreateSession creates a new session.
-func (s *Store) CreateSession(ctx context.Context, tokenHash []byte, userID, orgID uuid.UUID, activeSchoolID uuid.NullUUID, expiresAt time.Time) (storegen.Session, error) {
-	return s.q.CreateSession(ctx, storegen.CreateSessionParams{
+func (s *Store) CreateSession(ctx context.Context, tokenHash []byte, userID, orgID uuid.UUID, activeSchoolID uuid.NullUUID, sessionType string, expiresAt time.Time) (storegen.Session, error) {
+	row, err := s.q.CreateSession(ctx, storegen.CreateSessionParams{
 		TokenHash:       tokenHash,
 		UserID:          userID,
 		OrganizationID:  orgID,
 		ActiveSchoolID:  activeSchoolID,
+		SessionType:     sessionType,
 		ExpiresAt:       expiresAt,
 	})
+	if err != nil {
+		return storegen.Session{}, err
+	}
+	return storegen.Session{
+		ID:               row.ID,
+		TokenHash:        row.TokenHash,
+		UserID:           row.UserID,
+		OrganizationID:   row.OrganizationID,
+		ActiveSchoolID:   row.ActiveSchoolID,
+		SessionType:      row.SessionType,
+		CreatedAt:        row.CreatedAt,
+		LastSeenAt:       row.LastSeenAt,
+		ExpiresAt:        row.ExpiresAt,
+		RevokedAt:        row.RevokedAt,
+		RevocationReason: row.RevocationReason,
+	}, nil
 }
 
 // GetOrganizationsByUser lists organizations a user belongs to.

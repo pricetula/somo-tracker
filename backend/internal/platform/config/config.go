@@ -35,9 +35,6 @@ type Config struct {
 	RateLimitOTPRequestIPPerMin   int
 	RateLimitOTPRequestEmailPer15Min int
 
-	// Feature flags
-	SeedReferenceData bool
-
 	// Session cookie name (REQUIRED, no default). Must be "session" in dev, "__Host-session" in prod.
 	SessionCookieName string
 }
@@ -76,8 +73,6 @@ func Load() (*Config, error) {
 
 		RateLimitOTPRequestIPPerMin:   10,
 		RateLimitOTPRequestEmailPer15Min: 3,
-
-		SeedReferenceData: firstNonEmpty("SEED_REFERENCE_DATA") == "true",
 
 		// REQUIRED - no default. Must be set via Doppler.
 		SessionCookieName: firstNonEmpty("SESSION_COOKIE_NAME"),

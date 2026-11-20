@@ -19,7 +19,6 @@ All configuration is injected by **Doppler** at runtime. Nothing is read from th
 | `TURNSTILE_ENABLED` | Yes | `true` / `false` | Enable Cloudflare Turnstile bot protection |
 | `TURNSTILE_SECRET_KEY` | Yes (if enabled) | `0x...` | Turnstile secret key for server-side verification |
 | `CORS_ORIGINS` | Yes | `http://localhost:3000` | Allowed CORS origins |
-| `SEED_REFERENCE_DATA` | No | `true` / `false` | Seed reference data on startup |
 
 ## Frontend Environment Variables
 

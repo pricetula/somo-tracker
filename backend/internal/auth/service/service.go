@@ -89,7 +89,7 @@ func (s *Service) RequestOTP(ctx context.Context, req RequestOTPRequest) (Reques
 
 	expiresAt := time.Now().Add(s.cfg.OTPValidity())
 
-	challenge, err := s.store.CreateLoginChallenge(ctx, normalizedEmail, codeMac, expiresAt)
+	challenge, err := s.store.CreateLoginChallenge(ctx, challengeID, normalizedEmail, codeMac, expiresAt)
 	if err != nil {
 		return RequestOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "create login challenge", err)
 	}

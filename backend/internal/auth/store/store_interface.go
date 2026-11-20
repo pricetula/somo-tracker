@@ -11,7 +11,7 @@ import (
 // StoreInterface defines the methods the auth service needs from the store.
 // *Store satisfies this interface automatically.
 type StoreInterface interface {
-	CreateLoginChallenge(ctx context.Context, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error)
+	CreateLoginChallenge(ctx context.Context, challengeID uuid.UUID, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error)
 	CreateEmailOutbox(ctx context.Context, challengeID uuid.UUID, encryptedPayload []byte) (storegen.EmailOutbox, error)
 	GetLoginChallengeByID(ctx context.Context, id uuid.UUID) (storegen.LoginChallenge, error)
 	MarkChallengeUsed(ctx context.Context, id uuid.UUID) error

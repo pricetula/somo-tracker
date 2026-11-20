@@ -122,8 +122,9 @@ func (s *Store) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (st
 }
 
 // CreateLoginChallenge creates a new login challenge.
-func (s *Store) CreateLoginChallenge(ctx context.Context, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
+func (s *Store) CreateLoginChallenge(ctx context.Context, challengeID uuid.UUID, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
 	return s.q.CreateLoginChallenge(ctx, storegen.CreateLoginChallengeParams{
+		ID:             challengeID,
 		EmailNormalized: emailNormalized,
 		CodeMac:         codeMac,
 		ExpiresAt:       expiresAt,

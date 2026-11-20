@@ -34,8 +34,8 @@ type mockStore struct {
 	mock.Mock
 }
 
-func (m *mockStore) CreateLoginChallenge(ctx context.Context, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
-	args := m.Called(ctx, emailNormalized, codeMac, expiresAt)
+func (m *mockStore) CreateLoginChallenge(ctx context.Context, challengeID uuid.UUID, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
+	args := m.Called(ctx, challengeID, emailNormalized, codeMac, expiresAt)
 	return args.Get(0).(storegen.LoginChallenge), args.Error(1)
 }
 
@@ -115,6 +115,10 @@ func testConfig() *config.Config {
 	}
 }
 
+func anyUUID() interface{} {
+	return mock.MatchedBy(func(id uuid.UUID) bool { return id != uuid.Nil })
+}
+
 func anyCodeMac() interface{} {
 	return mock.MatchedBy(func(b []byte) bool { return len(b) == 32 })
 }
@@ -129,7 +133,7 @@ func TestRequestOTP_Success(t *testing.T) {
 	challengeID := uuid.New()
 
 	store := &mockStore{}
-	store.On("CreateLoginChallenge", ctx, email, anyCodeMac(), anyTime()).
+	store.On("CreateLoginChallenge", ctx, anyUUID(), email, anyCodeMac(), anyTime()).
 		Return(storegen.LoginChallenge{ID: challengeID, EmailNormalized: email}, nil).
 		Once()
 	store.On("CreateEmailOutbox", ctx, challengeID, mock.Anything).
@@ -192,7 +196,7 @@ func TestRequestOTP_StoreError(t *testing.T) {
 	email := "user@example.com"
 
 	store := &mockStore{}
-	store.On("CreateLoginChallenge", ctx, email, anyCodeMac(), anyTime()).
+	store.On("CreateLoginChallenge", ctx, anyUUID(), email, anyCodeMac(), anyTime()).
 		Return(storegen.LoginChallenge{}, errors.New("db down")).
 		Once()
 

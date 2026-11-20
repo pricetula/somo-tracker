@@ -34,9 +34,7 @@ export function proxy(request: NextRequest) {
   const isRoot = pathname === '/'
 
   // Read HttpOnly session cookie (server-side only)
-  const sessionToken =
-    request.cookies.get('__Host-session_token')?.value ??
-    request.cookies.get('session_token_development')?.value
+  const sessionToken = request.cookies.get('__Host-session')?.value
 
   // Read onboarding flag cookie (set by backend when temp session issued)
   const needsOnboarding = request.cookies.get('needs_onboarding')?.value === 'true'

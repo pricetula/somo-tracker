@@ -2,9 +2,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 function sessionCookieName(): string {
-  return process.env.NODE_ENV === 'production'
-    ? '__Host-session_token'
-    : 'session_token_development'
+  return '__Host-session'
 }
 
 /**

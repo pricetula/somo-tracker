@@ -16,6 +16,12 @@ This includes:
 
 ---
 
+## Secret Management
+
+- **Doppler injects all secrets at runtime.** The `.env` file contains only placeholder defaults and is **not** used for real secrets.
+- Secrets (`STYTCH_*`, `BREVO_API_KEY`, `EMAIL_HMAC_KEY`, `SESSION_COOKIE_NAME`, etc.) are injected by Doppler into the running environment, never checked into the repo.
+- Do not add real secret values to `.env`.
+
 ## Database Version Standard
 
 - **PostgreSQL 18** is the standard version everywhere: `docker-compose.yml`, integration tests, and any local dev DB.

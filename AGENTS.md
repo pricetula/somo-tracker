@@ -19,7 +19,7 @@ This includes:
 ## Secret Management & Config
 
 - **Doppler injects all configuration at runtime.** No fallback defaults in `config.go` — every value comes from the environment (`firstNonEmpty` with no default string).
-- Required values (`POSTGRES_DSN`, `BREVO_API_KEY`, `EMAIL_HMAC_KEY`, `SESSION_COOKIE_NAME`) are validated at startup in `config.validate()`.
+- Required values (`DATABASE_URL`, `BREVO_API_KEY`, `EMAIL_HMAC_KEY`, `SESSION_COOKIE_NAME`) are validated at startup in `config.validate()`.
 - Do not add real secret values to `.env` (which is gitignored anyway).
 
 ## Integration Tests

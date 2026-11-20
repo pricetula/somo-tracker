@@ -41,7 +41,7 @@ func New(cfg *config.Config) (*App, error) {
 	log := logger.New(cfg.LogLevel)
 
 	// Database pool
-	dbPool, err := db.New(ctx, cfg.PostgresDSN)
+	dbPool, err := db.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("connect database: %w", err)
 	}

@@ -74,7 +74,7 @@ func TestStartup_AppCreatesSuccessfully(t *testing.T) {
 		AppEnv:            "development",
 		LogLevel:          "debug",
 		ServerPort:        "3030",
-		PostgresDSN:       pgDSN,
+		DatabaseURL:       pgDSN,
 		RedisURL:          redisURL,
 		SessionCookieName: "session",
 		BrevoAPIKey:       "test-brevo-key",

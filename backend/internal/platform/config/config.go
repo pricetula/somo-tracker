@@ -13,7 +13,7 @@ type Config struct {
 	AppEnv        string
 	LogLevel      string
 	ServerPort    string
-	PostgresDSN   string
+	DatabaseURL   string
 	RedisURL      string
 
 	// Brevo email provider
@@ -60,7 +60,7 @@ func Load() (*Config, error) {
 		AppEnv:        firstNonEmpty("APP_ENV"),
 		LogLevel:      firstNonEmpty("LOG_LEVEL"),
 		ServerPort:    firstNonEmpty("SERVER_PORT"),
-		PostgresDSN:   firstNonEmpty("POSTGRES_DSN"),
+		DatabaseURL:   firstNonEmpty("DATABASE_URL"),
 		RedisURL:      firstNonEmpty("REDIS_URL"),
 
 		BrevoAPIKey:    firstNonEmpty("BREVO_API_KEY"),
@@ -98,7 +98,7 @@ func Load() (*Config, error) {
 // docker-compose at runtime, not checked into .env).
 func (c *Config) validate() error {
 	required := map[string]string{
-		"POSTGRES_DSN":       c.PostgresDSN,
+		"DATABASE_URL":       c.DatabaseURL,
 		"BREVO_API_KEY":      c.BrevoAPIKey,
 		"EMAIL_HMAC_KEY":     c.EmailHMACKey,
 		"SESSION_COOKIE_NAME": c.SessionCookieName,

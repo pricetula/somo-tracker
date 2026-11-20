@@ -238,11 +238,13 @@ type VerifyOTPRequest struct {
 }
 
 // VerifyOTPResponse is the response for verifying an OTP.
+// SessionToken is internal only (used by handler to set HttpOnly cookie).
+// It is NOT serialized to JSON for the browser.
 type VerifyOTPResponse struct {
-	OK             bool   `json:"ok"`
-	Message        string `json:"message"`
-	SessionToken   string `json:"session_token,omitempty"`
-	NeedsOnboarding bool  `json:"needs_onboarding"`
+	OK              bool   `json:"ok"`
+	Message         string `json:"message"`
+	SessionToken    string `json:"-"`
+	NeedsOnboarding bool   `json:"needs_onboarding"`
 }
 
 // VerifyOTP handles OTP verification and session creation.

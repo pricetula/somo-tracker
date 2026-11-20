@@ -2,7 +2,19 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 function sessionCookieName(): string {
-  return '__Host-session'
+  const name = process.env.SESSION_COOKIE_NAME
+  if (!name) {
+    throw new Error('SESSION_COOKIE_NAME is not configured')
+  }
+  return name
+}
+
+function onboardingCookieName(): string {
+  const sessionName = sessionCookieName()
+  if (sessionName.startsWith('__Host-')) {
+    return '__Host-needs_onboarding'
+  }
+  return 'needs_onboarding'
 }
 
 /**
@@ -53,6 +65,13 @@ export async function apiRequest(
     headers['Origin'] = process.env.PUBLIC_APP_URL ?? ''
   }
 
+  // Forward client IP for rate limiting (Cloudflare sets CF-Connecting-IP)
+  const incomingHeaders = new Headers(init.headers)
+  const cfConnectingIP = incomingHeaders.get('CF-Connecting-IP')
+  if (cfConnectingIP) {
+    headers['X-Forwarded-For'] = cfConnectingIP
+  }
+
   const res = await fetch(`${apiUrl}${path}`, {
     ...init,
     headers,
@@ -61,10 +80,17 @@ export async function apiRequest(
 
   // Forward all upstream headers, preserving Set-Cookie (including multiple
   // Set-Cookie headers) which a plain Record would silently drop.
+  // Use getSetCookie() to get all Set-Cookie headers.
   const responseHeaders = new Headers()
   res.headers.forEach((v, k) => {
-    responseHeaders.append(k, v)
+    if (k.toLowerCase() !== 'set-cookie') {
+      responseHeaders.set(k, v)
+    }
   })
+  // Append all Set-Cookie headers individually
+  for (const cookie of res.headers.getSetCookie()) {
+    responseHeaders.append('Set-Cookie', cookie)
+  }
 
   return new NextResponse(await res.arrayBuffer(), {
     status: res.status,

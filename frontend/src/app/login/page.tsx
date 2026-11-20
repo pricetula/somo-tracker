@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 
 declare global {
   interface Window {
@@ -32,7 +31,6 @@ declare global {
  * never reaches the browser — it is verified server-side by the Go backend.
  */
 export default function LoginPage() {
-  const router = useRouter();
   const [step, setStep] = useState<"email" | "otp">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -175,12 +173,10 @@ export default function LoginPage() {
 
         const data = await res.json();
         // Session cookie is set by backend via Set-Cookie on the response.
-        // Middleware will redirect to /onboarding if needs_onboarding is true.
-        if (data.needs_onboarding) {
-          router.replace("/onboarding");
-        } else {
-          router.replace("/dashboard");
-        }
+        // Use window.location.assign for hard navigation (not client-side router)
+        // so the browser sends the new cookies on the follow-up request.
+        const nextPath = data.needs_onboarding ? "/onboarding" : "/dashboard";
+        window.location.assign(nextPath);
       } catch {
         setError("Failed to verify code. Please try again.");
         setLoading(false);
@@ -188,7 +184,7 @@ export default function LoginPage() {
         setLoading(false);
       }
     },
-    [code, challengeId, router],
+    [code, challengeId],
   );
 
   return (

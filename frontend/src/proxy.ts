@@ -8,15 +8,46 @@ import type { NextRequest } from 'next/server'
  * Session VALIDATION is enforced by the backend on every API request
  * via auth middleware.
  *
- * Cookie __Host-session_token is HttpOnly, so browser JS cannot read it.
+ * Cookie name comes from SESSION_COOKIE_NAME env var (matches backend).
+ * In development: "session" (no __Host- prefix, works on HTTP)
+ * In production: "__Host-session" (requires HTTPS)
  * Proxy runs on the server and can read the incoming Cookie header.
  */
+
+function sessionCookieName(): string {
+  const name = process.env.SESSION_COOKIE_NAME
+  if (!name) {
+    throw new Error('SESSION_COOKIE_NAME is not configured')
+  }
+  return name
+}
+
+function onboardingCookieName(): string {
+  const sessionName = sessionCookieName()
+  if (sessionName.startsWith('__Host-')) {
+    return '__Host-needs_onboarding'
+  }
+  return 'needs_onboarding'
+}
+
+function validateConfig() {
+  const sessionName = sessionCookieName()
+  const appEnv = process.env.APP_ENV
+  console.log('[proxy] config', { sessionCookie: sessionName, onboardingCookie: onboardingCookieName(), appEnv })
+
+  if (appEnv === 'production' && !sessionName.startsWith('__Host-')) {
+    throw new Error('SESSION_COOKIE_NAME must start with __Host- in production')
+  }
+}
 
 const PUBLIC_ROUTES = ['/login', '/auth/callback']
 const PROTECTED_PREFIXES = ['/dashboard', '/students', '/schools']
 const ONBOARDING_ROUTES = ['/onboarding', '/api/auth/onboard']
 
 export function proxy(request: NextRequest) {
+  // Validate config on first request (lazy, not at build time)
+  validateConfig()
+
   const { pathname } = request.nextUrl
 
   // Never proxy API routes, static assets, or Next.js internals
@@ -34,10 +65,10 @@ export function proxy(request: NextRequest) {
   const isRoot = pathname === '/'
 
   // Read HttpOnly session cookie (server-side only)
-  const sessionToken = request.cookies.get('__Host-session')?.value
+  const sessionToken = request.cookies.get(sessionCookieName())?.value
 
   // Read onboarding flag cookie (set by backend when temp session issued)
-  const needsOnboarding = request.cookies.get('needs_onboarding')?.value === 'true'
+  const needsOnboarding = request.cookies.get(onboardingCookieName())?.value === 'true'
 
   // No session at all
   if (!sessionToken) {

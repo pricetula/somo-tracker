@@ -40,6 +40,9 @@ type Config struct {
 
 	// Feature flags
 	SeedReferenceData bool
+
+	// Session cookie name (REQUIRED, no default). Must be "session" in dev, "__Host-session" in prod.
+	SessionCookieName string
 }
 
 // firstNonEmpty returns the first non-empty environment variable value.
@@ -55,7 +58,7 @@ func firstNonEmpty(keys ...string) string {
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{
-		AppEnv:        firstNonEmpty("APP_ENV", "ENV"),
+		AppEnv:        firstNonEmpty("APP_ENV"),
 		LogLevel:      firstNonEmpty("LOG_LEVEL", "info"),
 		ServerPort:    firstNonEmpty("SERVER_PORT", "8080"),
 		PostgresDSN:   firstNonEmpty("POSTGRES_DSN"),
@@ -78,6 +81,9 @@ func Load() (*Config, error) {
 		RateLimitOTPRequestEmailPer15Min: 3,
 
 		SeedReferenceData: firstNonEmpty("SEED_REFERENCE_DATA") == "true",
+
+		// REQUIRED - no default. Must be set via Doppler.
+		SessionCookieName: firstNonEmpty("SESSION_COOKIE_NAME"),
 	}
 
 	// Validate required configuration at startup so missing secrets surface
@@ -95,9 +101,10 @@ func Load() (*Config, error) {
 // docker-compose at runtime, not checked into .env).
 func (c *Config) validate() error {
 	required := map[string]string{
-		"POSTGRES_DSN":   c.PostgresDSN,
-		"BREVO_API_KEY":  c.BrevoAPIKey,
-		"EMAIL_HMAC_KEY": c.EmailHMACKey,
+		"POSTGRES_DSN":       c.PostgresDSN,
+		"BREVO_API_KEY":      c.BrevoAPIKey,
+		"EMAIL_HMAC_KEY":     c.EmailHMACKey,
+		"SESSION_COOKIE_NAME": c.SessionCookieName,
 	}
 	var missing []string
 	for k, v := range required {
@@ -110,6 +117,11 @@ func (c *Config) validate() error {
 	// verification; otherwise requests fail with a confusing config error.
 	if c.TurnstileEnabled && c.TurnstileSecretKey == "" {
 		missing = append(missing, "TURNSTILE_SECRET_KEY")
+	}
+
+	// In production, session cookie MUST use __Host- prefix
+	if c.AppEnv == "production" && !strings.HasPrefix(c.SessionCookieName, "__Host-") {
+		missing = append(missing, "SESSION_COOKIE_NAME (must start with __Host- in production)")
 	}
 
 	if len(missing) > 0 {
@@ -145,4 +157,9 @@ func (c *Config) OTPValidity() time.Duration {
 // OTPMaxAttempts returns the maximum OTP verification attempts.
 func (c *Config) OTPMaxAttempts() int {
 	return 5
+}
+
+// IsProduction returns true if running in production environment.
+func (c *Config) IsProduction() bool {
+	return c.AppEnv == "production"
 }

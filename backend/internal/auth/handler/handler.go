@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"crypto/sha256"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -16,20 +18,42 @@ import (
 
 // Handler is the HTTP handler for the auth domain.
 type Handler struct {
-	svc               *service.Service
-	cfg               *config.Config
-	log               *logger.Logger
-	sessionCookieName string
+	svc                  *service.Service
+	cfg                  *config.Config
+	log                  *logger.Logger
+	sessionCookieName    string
+	onboardingCookieName string
 }
 
 // New creates an auth handler.
 func New(svc *service.Service, cfg *config.Config, log *logger.Logger) *Handler {
+	sessionCookieName := cfg.SessionCookieName
+	// Derive onboarding cookie name from session cookie name
+	onboardingCookieName := deriveOnboardingCookieName(sessionCookieName)
+
+	log.Info(context.Background(), "auth handler initialized",
+		"session_cookie", sessionCookieName,
+		"onboarding_cookie", onboardingCookieName,
+		"app_env", cfg.AppEnv,
+		"is_production", cfg.IsProduction(),
+	)
+
 	return &Handler{
-		svc:               svc,
-		cfg:               cfg,
-		log:               log,
-		sessionCookieName: "__Host-session",
+		svc:                  svc,
+		cfg:                  cfg,
+		log:                  log,
+		sessionCookieName:    sessionCookieName,
+		onboardingCookieName: onboardingCookieName,
 	}
+}
+
+// deriveOnboardingCookieName derives the onboarding cookie name from session cookie name.
+// If session cookie starts with "__Host-", onboarding cookie must also start with "__Host-".
+func deriveOnboardingCookieName(sessionCookieName string) string {
+	if strings.HasPrefix(sessionCookieName, "__Host-") {
+		return "__Host-needs_onboarding"
+	}
+	return "needs_onboarding"
 }
 
 // RequestOTPRequest is the request body for POST /api/v1/auth/otp/request.
@@ -52,11 +76,11 @@ type VerifyOTPRequest struct {
 }
 
 // VerifyOTPResponse is the response body.
+// SessionToken is NOT returned to the browser - it's only set via HttpOnly cookie.
 type VerifyOTPResponse struct {
-	OK             bool   `json:"ok"`
-	Message        string `json:"message"`
-	SessionToken   string `json:"session_token,omitempty"`
-	NeedsOnboarding bool  `json:"needs_onboarding"`
+	OK              bool   `json:"ok"`
+	Message         string `json:"message"`
+	NeedsOnboarding bool   `json:"needs_onboarding"`
 }
 
 // RequestOTP handles POST /api/v1/auth/otp/request.
@@ -105,20 +129,17 @@ func (h *Handler) VerifyOTP(c fiber.Ctx) error {
 			// Set onboarding flag cookie so frontend proxy can route without
 			// calling the backend. HttpOnly so JS can't read it, but proxy.ts
 			// (server-side) can.
-			c.Cookie(&fiber.Cookie{
-				Name:     "needs_onboarding",
-				Value:    "true",
-				Path:     "/",
-				HTTPOnly: true,
-				Secure:   c.Scheme() == "https",
-				SameSite: fiber.CookieSameSiteLaxMode,
-				MaxAge:   int(sessionTTL.Seconds()),
-			})
+			h.setOnboardingCookie(c, "true", int(sessionTTL.Seconds()))
 		}
 		h.setSessionCookie(c, resp.SessionToken, time.Now().Add(sessionTTL))
 	}
 
-	return c.Status(http.StatusOK).JSON(resp)
+	// Return response WITHOUT session_token - it's in the HttpOnly cookie
+	return c.Status(http.StatusOK).JSON(VerifyOTPResponse{
+		OK:              resp.OK,
+		Message:         resp.Message,
+		NeedsOnboarding: resp.NeedsOnboarding,
+	})
 }
 
 // OnboardRequest is the request body for POST /api/v1/auth/onboard.
@@ -161,7 +182,7 @@ func (h *Handler) Onboard(c fiber.Ctx) error {
 	}
 
 	// Clear onboarding flag cookie
-	clearOnboardingCookie(c)
+	h.clearOnboardingCookie(c)
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"ok":               true,
@@ -172,10 +193,10 @@ func (h *Handler) Onboard(c fiber.Ctx) error {
 
 // SessionResponse is the response body for GET /api/v1/auth/session.
 type SessionResponse struct {
-	OK             bool   `json:"ok"`
-	Authenticated  bool   `json:"authenticated"`
-	SessionType    string `json:"session_type,omitempty"`
-	NeedsOnboarding bool  `json:"needs_onboarding,omitempty"`
+	OK              bool   `json:"ok"`
+	Authenticated   bool   `json:"authenticated"`
+	SessionType     string `json:"session_type,omitempty"`
+	NeedsOnboarding bool   `json:"needs_onboarding,omitempty"`
 }
 
 // Session handles GET /api/v1/auth/session. Returns session info for middleware
@@ -218,6 +239,7 @@ func (h *Handler) Logout(c fiber.Ctx) error {
 		_ = tokenHash // TODO: revoke session in service
 	}
 	h.clearSessionCookie(c)
+	h.clearOnboardingCookie(c)
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"ok":      true,
 		"message": "logged out",
@@ -233,6 +255,13 @@ func (h *Handler) RegisterRoutes(auth fiber.Router) {
 	auth.Post("/logout", h.Logout)
 }
 
+// secureCookie returns true if the cookie should be Secure.
+// In production (APP_ENV=production), always true because TLS is terminated at load balancer.
+// In dev, false for HTTP localhost.
+func (h *Handler) secureCookie() bool {
+	return h.cfg.IsProduction()
+}
+
 // setSessionCookie sets the session cookie on the response.
 func (h *Handler) setSessionCookie(c fiber.Ctx, token string, expiresAt time.Time) {
 	maxAge := int(time.Until(expiresAt).Seconds())
@@ -244,9 +273,10 @@ func (h *Handler) setSessionCookie(c fiber.Ctx, token string, expiresAt time.Tim
 		Value:    token,
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   c.Scheme() == "https",
+		Secure:   h.secureCookie(),
 		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   maxAge,
+		// NO Domain attribute - __Host- cookies forbid it
 	})
 }
 
@@ -257,21 +287,37 @@ func (h *Handler) clearSessionCookie(c fiber.Ctx) {
 		Value:    "",
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   c.Scheme() == "https",
+		Secure:   h.secureCookie(),
 		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   -1,
+		// NO Domain attribute
+	})
+}
+
+// setOnboardingCookie sets the needs_onboarding flag cookie.
+func (h *Handler) setOnboardingCookie(c fiber.Ctx, value string, maxAgeSeconds int) {
+	c.Cookie(&fiber.Cookie{
+		Name:     h.onboardingCookieName,
+		Value:    value,
+		Path:     "/",
+		HTTPOnly: true,
+		Secure:   h.secureCookie(),
+		SameSite: fiber.CookieSameSiteLaxMode,
+		MaxAge:   maxAgeSeconds,
+		// NO Domain attribute
 	})
 }
 
 // clearOnboardingCookie removes the needs_onboarding flag cookie.
-func clearOnboardingCookie(c fiber.Ctx) {
+func (h *Handler) clearOnboardingCookie(c fiber.Ctx) {
 	c.Cookie(&fiber.Cookie{
-		Name:     "needs_onboarding",
+		Name:     h.onboardingCookieName,
 		Value:    "",
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   c.Scheme() == "https",
+		Secure:   h.secureCookie(),
 		SameSite: fiber.CookieSameSiteLaxMode,
 		MaxAge:   -1,
+		// NO Domain attribute
 	})
 }

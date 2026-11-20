@@ -16,11 +16,17 @@ This includes:
 
 ---
 
-## Secret Management
+## Secret Management & Config
 
-- **Doppler injects all secrets at runtime.** The `.env` file contains only placeholder defaults and is **not** used for real secrets.
-- Secrets (`STYTCH_*`, `BREVO_API_KEY`, `EMAIL_HMAC_KEY`, `SESSION_COOKIE_NAME`, etc.) are injected by Doppler into the running environment, never checked into the repo.
-- Do not add real secret values to `.env`.
+- **Doppler injects all configuration at runtime.** No fallback defaults in `config.go` — every value comes from the environment (`firstNonEmpty` with no default string).
+- Required values (`POSTGRES_DSN`, `BREVO_API_KEY`, `EMAIL_HMAC_KEY`, `SESSION_COOKIE_NAME`) are validated at startup in `config.validate()`.
+- Do not add real secret values to `.env` (which is gitignored anyway).
+
+## Integration Tests
+
+- Integration tests run **locally only** (not in CI) via testcontainers, which spins up real PostgreSQL and Redis containers.
+- Run with: `cd backend && go test -tags=integration ./...`
+- Requires Docker to be available locally.
 
 ## Database Version Standard
 

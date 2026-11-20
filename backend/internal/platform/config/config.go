@@ -53,24 +53,26 @@ func firstNonEmpty(keys ...string) string {
 }
 
 // Load reads configuration from environment variables.
+// All values must be provided via Doppler at runtime — no fallbacks.
+// Missing required values are caught by validate().
 func Load() (*Config, error) {
 	cfg := &Config{
 		AppEnv:        firstNonEmpty("APP_ENV"),
-		LogLevel:      firstNonEmpty("LOG_LEVEL", "info"),
-		ServerPort:    firstNonEmpty("SERVER_PORT", "3030"),
+		LogLevel:      firstNonEmpty("LOG_LEVEL"),
+		ServerPort:    firstNonEmpty("SERVER_PORT"),
 		PostgresDSN:   firstNonEmpty("POSTGRES_DSN"),
 		RedisURL:      firstNonEmpty("REDIS_URL"),
 
 		BrevoAPIKey:    firstNonEmpty("BREVO_API_KEY"),
-		BrevoSenderEmail: firstNonEmpty("BREVO_SENDER_EMAIL", "noreply@somotracker.com"),
-		BrevoSenderName:  firstNonEmpty("BREVO_SENDER_NAME", "Somotracker"),
+		BrevoSenderEmail: firstNonEmpty("BREVO_SENDER_EMAIL"),
+		BrevoSenderName:  firstNonEmpty("BREVO_SENDER_NAME"),
 
 		EmailHMACKey: firstNonEmpty("EMAIL_HMAC_KEY"),
 
 		TurnstileEnabled:  firstNonEmpty("TURNSTILE_ENABLED") == "true",
 		TurnstileSecretKey: firstNonEmpty("TURNSTILE_SECRET_KEY"),
 
-		CORSOrigins: firstNonEmpty("CORS_ORIGINS", "*"),
+		CORSOrigins: firstNonEmpty("CORS_ORIGINS"),
 
 		RateLimitOTPRequestIPPerMin:   10,
 		RateLimitOTPRequestEmailPer15Min: 3,
@@ -79,15 +81,6 @@ func Load() (*Config, error) {
 
 		// REQUIRED - no default. Must be set via Doppler.
 		SessionCookieName: firstNonEmpty("SESSION_COOKIE_NAME"),
-	}
-
-	// Fall back to a sensible default when REDIS_URL is unset (firstNonEmpty
-	// treats all arguments as env var keys, so the default string must be
-	// applied here rather than passed as a second argument).
-	// Use the Docker Compose service name "redis" so this works out of the box
-	// in containerized environments where localhost refers to the container itself.
-	if cfg.RedisURL == "" {
-		cfg.RedisURL = "redis://redis:6379"
 	}
 
 	// Validate required configuration at startup so missing secrets surface

@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"somotracker/internal/auth/store"
 	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/brevo"
@@ -24,7 +24,7 @@ import (
 )
 
 // errNoRows is returned when a database query finds no matching row.
-var errNoRows = pgx.ErrNoRows
+var errNoRows = sql.ErrNoRows
 
 // Service handles auth business logic: OTP, sessions, school context.
 type Service struct {

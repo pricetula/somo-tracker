@@ -18,6 +18,10 @@ COPY . .
 # Expose Next.js dev port
 EXPOSE 3000
 
+# Enable file watching polling for Docker volume mounts
+ENV CHOKIDAR_USEPOLLING=true
+ENV WATCHPACK_POLLING=true
+
 # Start dev server. HOSTNAME=0.0.0.0 is required so the dev server
 # accepts connections from outside the container (docker port mapping).
 # Install dependencies at runtime because the anonymous /app/node_modules

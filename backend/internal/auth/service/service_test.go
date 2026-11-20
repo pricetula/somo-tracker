@@ -115,10 +115,6 @@ func testConfig() *config.Config {
 	}
 }
 
-func anyUUID() interface{} {
-	return mock.MatchedBy(func(id uuid.UUID) bool { return id != uuid.Nil })
-}
-
 func anyCodeMac() interface{} {
 	return mock.MatchedBy(func(b []byte) bool { return len(b) == 32 })
 }

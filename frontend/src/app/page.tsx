@@ -3,5 +3,5 @@
  * Kept as a fallback for direct access or misconfiguration.
  */
 export default function RootPage() {
-  return null
+  return <div>Home</div>;
 }

@@ -28,9 +28,6 @@ type Config struct {
 	TurnstileEnabled  bool
 	TurnstileSecretKey string
 
-	// Migrations
-	MigrationsDir string
-
 	// CORS
 	CORSOrigins string
 
@@ -62,7 +59,7 @@ func Load() (*Config, error) {
 		LogLevel:      firstNonEmpty("LOG_LEVEL", "info"),
 		ServerPort:    firstNonEmpty("SERVER_PORT", "8080"),
 		PostgresDSN:   firstNonEmpty("POSTGRES_DSN"),
-		RedisURL:      firstNonEmpty("REDIS_URL", "redis://localhost:6379"),
+		RedisURL:      firstNonEmpty("REDIS_URL"),
 
 		BrevoAPIKey:    firstNonEmpty("BREVO_API_KEY"),
 		BrevoSenderEmail: firstNonEmpty("BREVO_SENDER_EMAIL", "noreply@somotracker.com"),
@@ -73,8 +70,6 @@ func Load() (*Config, error) {
 		TurnstileEnabled:  firstNonEmpty("TURNSTILE_ENABLED") == "true",
 		TurnstileSecretKey: firstNonEmpty("TURNSTILE_SECRET_KEY"),
 
-		MigrationsDir: firstNonEmpty("MIGRATIONS_DIR", "migrations"),
-
 		CORSOrigins: firstNonEmpty("CORS_ORIGINS", "*"),
 
 		RateLimitOTPRequestIPPerMin:   10,
@@ -84,6 +79,15 @@ func Load() (*Config, error) {
 
 		// REQUIRED - no default. Must be set via Doppler.
 		SessionCookieName: firstNonEmpty("SESSION_COOKIE_NAME"),
+	}
+
+	// Fall back to a sensible default when REDIS_URL is unset (firstNonEmpty
+	// treats all arguments as env var keys, so the default string must be
+	// applied here rather than passed as a second argument).
+	// Use the Docker Compose service name "redis" so this works out of the box
+	// in containerized environments where localhost refers to the container itself.
+	if cfg.RedisURL == "" {
+		cfg.RedisURL = "redis://redis:6379"
 	}
 
 	// Validate required configuration at startup so missing secrets surface

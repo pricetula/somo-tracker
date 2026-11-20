@@ -37,7 +37,7 @@ func setupTestDB(t *testing.T) *db.Pool {
 	// Start PostgreSQL container
 	var err error
 	pgContainer, err = postgres.Run(ctx,
-		"postgres:16-alpine",
+		"postgres:18",
 		postgres.WithDatabase("somotracker"),
 		postgres.WithUsername("somotracker"),
 		postgres.WithPassword("somotracker"),
@@ -232,8 +232,6 @@ func runMigrations(ctx context.Context, t *testing.T, stdlibDB *sql.DB) error {
 		if idx := strings.Index(sqlContent, "-- +goose Down"); idx != -1 {
 			sqlContent = sqlContent[:idx]
 		}
-		// For testing, replace uuidv7() with gen_random_uuid() since the function may not exist
-		sqlContent = strings.ReplaceAll(sqlContent, "uuidv7()", "gen_random_uuid()")
 		t.Logf("Running migration: %s, content length: %d", m, len(sqlContent))
 		_, err = stdlibDB.ExecContext(ctx, sqlContent)
 		if err != nil {

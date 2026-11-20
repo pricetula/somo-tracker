@@ -47,7 +47,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	// Run database migrations on startup
-	if err := runMigrations(ctx, dbPool.StdlibDB, cfg, log); err != nil {
+	if err := runMigrations(ctx, dbPool.StdlibDB, log); err != nil {
 		dbPool.Close()
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
@@ -159,13 +159,17 @@ func LoadConfig() (*config.Config, error) {
 	return config.Load()
 }
 
+// migrationsDir is the fixed path to the SQL migration files. It lives in the
+// repo and never changes at runtime, so it is not configuration.
+const migrationsDir = "./migrations"
+
 // runMigrations applies all pending database migrations and logs the version.
-func runMigrations(ctx context.Context, db *sql.DB, cfg *config.Config, log *logger.Logger) error {
+func runMigrations(ctx context.Context, db *sql.DB, log *logger.Logger) error {
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("set goose dialect: %w", err)
 	}
 
-	if err := goose.Up(db, cfg.MigrationsDir); err != nil {
+	if err := goose.Up(db, migrationsDir); err != nil {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 
@@ -174,6 +178,6 @@ func runMigrations(ctx context.Context, db *sql.DB, cfg *config.Config, log *log
 		return fmt.Errorf("get migration version: %w", err)
 	}
 
-	log.Info(ctx, "migrations applied", "version", version, "dir", cfg.MigrationsDir)
+	log.Info(ctx, "migrations applied", "version", version, "dir", migrationsDir)
 	return nil
 }

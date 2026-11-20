@@ -53,7 +53,6 @@ services:
       BREVO_SENDER_NAME: ${BREVO_SENDER_NAME}
       TURNSTILE_ENABLED: ${TURNSTILE_ENABLED}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
-      MIGRATIONS_DIR: ${MIGRATIONS_DIR}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       PUBLIC_API_URL: ${PUBLIC_API_URL}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
@@ -62,6 +61,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/bin
+      - ./backend/migrations:/app/migrations
     depends_on:
       postgres:
         condition: service_healthy

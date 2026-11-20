@@ -1,17 +1,7 @@
-'use client'
-
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-
 /**
- * Root page — redirects to /login when unauthenticated.
+ * Root page — unreachable via proxy.ts (all / paths redirect server-side).
+ * Kept as a fallback for direct access or misconfiguration.
  */
 export default function RootPage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    router.replace('/login')
-  }, [router])
-
   return null
 }

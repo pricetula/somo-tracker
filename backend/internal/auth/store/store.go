@@ -25,6 +25,57 @@ func (s *Store) GetUserByNormalizedEmail(ctx context.Context, email string) (sto
 	return s.q.GetUserByNormalizedEmail(ctx, email)
 }
 
+// CreateOrganization creates a new organization.
+func (s *Store) CreateOrganization(ctx context.Context, name string) (storegen.Organization, error) {
+	return s.q.CreateOrganization(ctx, storegen.CreateOrganizationParams{Name: name})
+}
+
+// CreateUser creates a new user with email_verified_at set (OTP-verified email).
+func (s *Store) CreateUser(ctx context.Context, orgID uuid.UUID, email, normalizedEmail, name string) (storegen.User, error) {
+	return s.q.CreateUser(ctx, storegen.CreateUserParams{
+		OrganizationID:  orgID,
+		Email:           email,
+		NormalizedEmail: normalizedEmail,
+		Name:            name,
+	})
+}
+
+// CreateSchool creates a new school within an organization.
+func (s *Store) CreateSchool(ctx context.Context, orgID uuid.UUID, name string) (storegen.School, error) {
+	return s.q.CreateSchool(ctx, storegen.CreateSchoolParams{
+		OrganizationID: orgID,
+		Name:           name,
+	})
+}
+
+// UpdateOrganization updates an organization's name and marks onboarding completed.
+func (s *Store) UpdateOrganization(ctx context.Context, orgID uuid.UUID, name string) error {
+	return s.q.UpdateOrganization(ctx, storegen.UpdateOrganizationParams{
+		Name: name,
+		ID:   orgID,
+	})
+}
+
+// UpdateUser updates a user's display name.
+func (s *Store) UpdateUser(ctx context.Context, userID uuid.UUID, name string) error {
+	return s.q.UpdateUser(ctx, storegen.UpdateUserParams{
+		Name: name,
+		ID:   userID,
+	})
+}
+
+// UpdateSessionType upgrades all temporary sessions for a user to full.
+func (s *Store) UpdateSessionType(ctx context.Context, userID uuid.UUID) error {
+	return s.q.UpdateSessionType(ctx, storegen.UpdateSessionTypeParams{
+		UserID: userID,
+	})
+}
+
+// GetSessionByTokenHash retrieves a session by its token hash.
+func (s *Store) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.Session, error) {
+	return s.q.GetSessionByTokenHash(ctx, tokenHash)
+}
+
 // CreateLoginChallenge creates a new login challenge.
 func (s *Store) CreateLoginChallenge(ctx context.Context, challengeID uuid.UUID, emailNormalized string, codeMac []byte, expiresAt time.Time) (storegen.LoginChallenge, error) {
 	return s.q.CreateLoginChallenge(ctx, storegen.CreateLoginChallengeParams{

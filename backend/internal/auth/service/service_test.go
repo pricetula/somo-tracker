@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -56,6 +57,41 @@ func (m *mockStore) MarkChallengeUsed(ctx context.Context, id uuid.UUID) error {
 func (m *mockStore) GetUserByNormalizedEmail(ctx context.Context, email string) (storegen.User, error) {
 	args := m.Called(ctx, email)
 	return args.Get(0).(storegen.User), args.Error(1)
+}
+
+func (m *mockStore) CreateOrganization(ctx context.Context, name string) (storegen.Organization, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).(storegen.Organization), args.Error(1)
+}
+
+func (m *mockStore) CreateUser(ctx context.Context, orgID uuid.UUID, email, normalizedEmail, name string) (storegen.User, error) {
+	args := m.Called(ctx, orgID, email, normalizedEmail, name)
+	return args.Get(0).(storegen.User), args.Error(1)
+}
+
+func (m *mockStore) CreateSchool(ctx context.Context, orgID uuid.UUID, name string) (storegen.School, error) {
+	args := m.Called(ctx, orgID, name)
+	return args.Get(0).(storegen.School), args.Error(1)
+}
+
+func (m *mockStore) UpdateOrganization(ctx context.Context, orgID uuid.UUID, name string) error {
+	args := m.Called(ctx, orgID, name)
+	return args.Error(0)
+}
+
+func (m *mockStore) UpdateUser(ctx context.Context, userID uuid.UUID, name string) error {
+	args := m.Called(ctx, userID, name)
+	return args.Error(0)
+}
+
+func (m *mockStore) UpdateSessionType(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
+func (m *mockStore) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.Session, error) {
+	args := m.Called(ctx, tokenHash)
+	return args.Get(0).(storegen.Session), args.Error(1)
 }
 
 func (m *mockStore) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]storegen.School, error) {
@@ -354,7 +390,7 @@ func TestVerifyOTP_AlreadyUsed(t *testing.T) {
 	store.AssertExpectations(t)
 }
 
-func TestVerifyOTP_NoUserFound(t *testing.T) {
+func TestVerifyOTP_NoUserFound_CreatesAccount(t *testing.T) {
 	ctx := context.Background()
 	challengeID := uuid.New()
 	code := "123456"
@@ -364,7 +400,7 @@ func TestVerifyOTP_NoUserFound(t *testing.T) {
 
 	challenge := storegen.LoginChallenge{
 		ID:              challengeID,
-		EmailNormalized: "user@example.com",
+		EmailNormalized: "newuser@example.com",
 		CodeMac:         codeMac,
 		ExpiresAt:       time.Now().Add(10 * time.Minute),
 		AttemptCount:    0,
@@ -372,20 +408,49 @@ func TestVerifyOTP_NoUserFound(t *testing.T) {
 		UsedAt:          sql.NullTime{},
 	}
 
+	newOrgID := uuid.New()
+	newUserID := uuid.New()
+
+	org := storegen.Organization{
+		ID:     newOrgID,
+		Name:   fmt.Sprintf("org-%s", challengeID.String()[:8]),
+		Status: "ACTIVE",
+	}
+	user := storegen.User{
+		ID:              newUserID,
+		OrganizationID:  newOrgID,
+		Email:           "newuser@example.com",
+		NormalizedEmail: "newuser@example.com",
+		Name:            "",
+		Status:          "ACTIVE",
+	}
+
 	store := &mockStore{}
 	store.On("GetLoginChallengeByID", ctx, challengeID).Return(challenge, nil).Once()
 	store.On("MarkChallengeUsed", ctx, challengeID).Return(nil).Once()
-	store.On("GetUserByNormalizedEmail", ctx, "user@example.com").
+	store.On("GetUserByNormalizedEmail", ctx, "newuser@example.com").
 		Return(storegen.User{}, errNoRows).Once()
+	store.On("CreateOrganization", ctx, fmt.Sprintf("org-%s", challengeID.String()[:8])).
+		Return(org, nil).Once()
+	store.On("CreateSchool", ctx, newOrgID, "School").Return(storegen.School{}, nil).Once()
+	store.On("CreateUser", ctx, newOrgID, "newuser@example.com", "newuser@example.com", "").
+		Return(user, nil).Once()
+	store.On("GetSchoolsByUser", ctx, newUserID).Return([]storegen.School{}, nil).Once()
+	store.On("CreateSession", ctx, mock.Anything, newUserID, newOrgID, mock.Anything, mock.Anything).
+		Return(storegen.Session{}, nil).Once()
 
-	svc := newTestService(store, &mockBrevoSender{}, cfg)
+	sender := &mockBrevoSender{}
+	svc := newTestService(store, sender, cfg)
 
-	_, err := svc.VerifyOTP(ctx, VerifyOTPRequest{ChallengeID: challengeID, Code: code})
+	resp, err := svc.VerifyOTP(ctx, VerifyOTPRequest{ChallengeID: challengeID, Code: code})
 
-	require.Error(t, err)
-	assert.Equal(t, apperr.INVALID_TOKEN, err.(*apperr.Error).Code)
+	require.NoError(t, err)
+	assert.True(t, resp.OK)
+	assert.NotEmpty(t, resp.SessionToken)
+	assert.True(t, resp.NeedsOnboarding)
 
 	store.AssertExpectations(t)
+	sender.AssertExpectations(t)
 }
 
 func TestVerifyOTP_StoreError(t *testing.T) {
@@ -400,6 +465,105 @@ func TestVerifyOTP_StoreError(t *testing.T) {
 	svc := newTestService(store, &mockBrevoSender{}, testConfig())
 
 	_, err := svc.VerifyOTP(ctx, VerifyOTPRequest{ChallengeID: challengeID, Code: code})
+
+	require.Error(t, err)
+	assert.Equal(t, apperr.INTERNAL_ERROR, err.(*apperr.Error).Code)
+
+	store.AssertExpectations(t)
+}
+
+func TestVerifyOTP_CreatesNewUser(t *testing.T) {
+	ctx := context.Background()
+	challengeID := uuid.New()
+	code := "123456"
+
+	cfg := testConfig()
+	codeMac := computeHMAC(cfg.EmailHMACKey, challengeID, code)
+
+	challenge := storegen.LoginChallenge{
+		ID:              challengeID,
+		EmailNormalized: "newuser@example.com",
+		CodeMac:         codeMac,
+		ExpiresAt:       time.Now().Add(10 * time.Minute),
+		AttemptCount:    0,
+		MaxAttempts:     5,
+		UsedAt:          sql.NullTime{},
+	}
+
+	newOrgID := uuid.New()
+	newUserID := uuid.New()
+
+	org := storegen.Organization{
+		ID:     newOrgID,
+		Name:   "newuser",
+		Status: "ACTIVE",
+	}
+	user := storegen.User{
+		ID:              newUserID,
+		OrganizationID:  newOrgID,
+		Email:           "newuser@example.com",
+		NormalizedEmail: "newuser@example.com",
+		Name:            "",
+		Status:          "ACTIVE",
+	}
+
+	store := &mockStore{}
+	store.On("GetLoginChallengeByID", ctx, challengeID).Return(challenge, nil).Once()
+	store.On("MarkChallengeUsed", ctx, challengeID).Return(nil).Once()
+	store.On("GetUserByNormalizedEmail", ctx, "newuser@example.com").
+		Return(storegen.User{}, errNoRows).Once()
+	store.On("CreateOrganization", ctx, mock.Anything).
+		Return(org, nil).Once()
+	store.On("CreateSchool", ctx, newOrgID, "School").Return(storegen.School{}, nil).Once()
+	store.On("CreateUser", ctx, newOrgID, "newuser@example.com", "newuser@example.com", "").
+		Return(user, nil).Once()
+	store.On("GetSchoolsByUser", ctx, newUserID).Return([]storegen.School{}, nil).Once()
+	store.On("CreateSession", ctx, mock.Anything, newUserID, newOrgID, mock.Anything, mock.Anything).
+		Return(storegen.Session{}, nil).Once()
+
+	sender := &mockBrevoSender{}
+	svc := newTestService(store, sender, cfg)
+
+	resp, err := svc.VerifyOTP(ctx, VerifyOTPRequest{ChallengeID: challengeID, Code: code})
+
+	require.NoError(t, err)
+	assert.True(t, resp.OK)
+	assert.NotEmpty(t, resp.SessionToken)
+
+	store.AssertExpectations(t)
+	sender.AssertExpectations(t)
+}
+
+func TestOnboard_Success(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	store := &mockStore{}
+	store.On("UpdateOrganization", ctx, orgID, "My Org").Return(nil).Once()
+	store.On("UpdateUser", ctx, userID, "John Doe").Return(nil).Once()
+	store.On("CreateSchool", ctx, orgID, "My School").Return(storegen.School{}, nil).Once()
+	store.On("UpdateSessionType", ctx, userID).Return(nil).Once()
+
+	svc := newTestService(store, &mockBrevoSender{}, testConfig())
+
+	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe")
+
+	require.NoError(t, err)
+	store.AssertExpectations(t)
+}
+
+func TestOnboard_StoreError(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	store := &mockStore{}
+	store.On("UpdateOrganization", ctx, orgID, "My Org").Return(errors.New("db down")).Once()
+
+	svc := newTestService(store, &mockBrevoSender{}, testConfig())
+
+	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe")
 
 	require.Error(t, err)
 	assert.Equal(t, apperr.INTERNAL_ERROR, err.(*apperr.Error).Code)

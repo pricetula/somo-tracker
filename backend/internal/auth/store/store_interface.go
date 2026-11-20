@@ -16,6 +16,13 @@ type StoreInterface interface {
 	GetLoginChallengeByID(ctx context.Context, id uuid.UUID) (storegen.LoginChallenge, error)
 	MarkChallengeUsed(ctx context.Context, id uuid.UUID) error
 	GetUserByNormalizedEmail(ctx context.Context, email string) (storegen.User, error)
+	CreateOrganization(ctx context.Context, name string) (storegen.Organization, error)
+	CreateUser(ctx context.Context, orgID uuid.UUID, email, normalizedEmail, name string) (storegen.User, error)
+	CreateSchool(ctx context.Context, orgID uuid.UUID, name string) (storegen.School, error)
+	UpdateOrganization(ctx context.Context, orgID uuid.UUID, name string) error
+	UpdateUser(ctx context.Context, userID uuid.UUID, name string) error
+	UpdateSessionType(ctx context.Context, userID uuid.UUID) error
+	GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.Session, error)
 	GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]storegen.School, error)
 	CreateSession(ctx context.Context, tokenHash []byte, userID, orgID uuid.UUID, activeSchoolID uuid.NullUUID, expiresAt time.Time) (storegen.Session, error)
 }

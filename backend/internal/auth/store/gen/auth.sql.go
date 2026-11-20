@@ -286,6 +286,163 @@ func (q *Queries) GetUserByNormalizedEmail(ctx context.Context, normalizedEmail 
 	return i, err
 }
 
+const createOrganization = `-- name: CreateOrganization :one
+INSERT INTO organizations (name, status)
+VALUES ($1, 'ACTIVE')
+RETURNING id, name, status, created_at, updated_at, deleted_at
+`
+
+type CreateOrganizationParams struct {
+	Name string
+}
+
+func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error) {
+	row := q.db.QueryRowContext(ctx, createOrganization, arg.Name)
+	var i Organization
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (organization_id, email, normalized_email, name, status, email_verified_at)
+VALUES ($1, $2, $3, $4, 'ACTIVE', NOW())
+RETURNING id, organization_id, email, normalized_email, name, status, email_verified_at, created_at, updated_at, deleted_at
+`
+
+type CreateUserParams struct {
+	OrganizationID  uuid.UUID
+	Email           string
+	NormalizedEmail string
+	Name            string
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, createUser, arg.OrganizationID, arg.Email, arg.NormalizedEmail, arg.Name)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.NormalizedEmail,
+		&i.Name,
+		&i.Status,
+		&i.EmailVerifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const createSchool = `-- name: CreateSchool :one
+INSERT INTO schools (organization_id, name, status)
+VALUES ($1, $2, 'ACTIVE')
+RETURNING id, organization_id, name, status, created_at, updated_at, deleted_at
+`
+
+type CreateSchoolParams struct {
+	OrganizationID uuid.UUID
+	Name           string
+}
+
+func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (School, error) {
+	row := q.db.QueryRowContext(ctx, createSchool, arg.OrganizationID, arg.Name)
+	var i School
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const updateOrganization = `-- name: UpdateOrganization :exec
+UPDATE organizations
+SET name = $1, onboarding_completed_at = NOW(), updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateOrganizationParams struct {
+	Name   string
+	ID     uuid.UUID
+}
+
+func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) error {
+	_, err := q.db.ExecContext(ctx, updateOrganization, arg.Name, arg.ID)
+	return err
+}
+
+const updateUser = `-- name: UpdateUser :exec
+UPDATE users
+SET name = $1, updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateUserParams struct {
+	Name string
+	ID   uuid.UUID
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
+	_, err := q.db.ExecContext(ctx, updateUser, arg.Name, arg.ID)
+	return err
+}
+
+const updateSessionType = `-- name: UpdateSessionType :exec
+UPDATE sessions
+SET session_type = 'full'
+WHERE user_id = $1 AND session_type = 'temporary'
+`
+
+type UpdateSessionTypeParams struct {
+	UserID uuid.UUID
+}
+
+func (q *Queries) UpdateSessionType(ctx context.Context, arg UpdateSessionTypeParams) error {
+	_, err := q.db.ExecContext(ctx, updateSessionType, arg.UserID)
+	return err
+}
+
+const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
+SELECT id, token_hash, user_id, organization_id, active_school_id, session_type, created_at, last_seen_at, expires_at, revoked_at, revocation_reason
+FROM sessions
+WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()
+`
+
+type GetSessionByTokenHashParams struct {
+	TokenHash []byte
+}
+
+func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (Session, error) {
+	row := q.db.QueryRowContext(ctx, getSessionByTokenHash, tokenHash)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.TokenHash,
+		&i.UserID,
+		&i.OrganizationID,
+		&i.ActiveSchoolID,
+		&i.SessionType,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.RevocationReason,
+	)
+	return i, err
+}
+
 const markChallengeUsed = `-- name: MarkChallengeUsed :exec
 UPDATE login_challenges
 SET used_at = NOW()

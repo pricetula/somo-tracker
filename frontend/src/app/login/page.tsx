@@ -173,8 +173,14 @@ export default function LoginPage() {
           return;
         }
 
+        const data = await res.json();
         // Session cookie is set by backend via Set-Cookie on the response.
-        router.replace("/dashboard");
+        // Middleware will redirect to /onboarding if needs_onboarding is true.
+        if (data.needs_onboarding) {
+          router.replace("/onboarding");
+        } else {
+          router.replace("/dashboard");
+        }
       } catch {
         setError("Failed to verify code. Please try again.");
         setLoading(false);

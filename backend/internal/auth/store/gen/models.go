@@ -193,6 +193,7 @@ type Session struct {
 	UserID           uuid.UUID
 	OrganizationID   uuid.UUID
 	ActiveSchoolID   uuid.NullUUID
+	SessionType      string
 	CreatedAt        time.Time
 	LastSeenAt       sql.NullTime
 	ExpiresAt        time.Time
@@ -205,6 +206,7 @@ type User struct {
 	OrganizationID  uuid.UUID
 	Email           string
 	NormalizedEmail string
+	Name            string
 	Status          UserStatus
 	EmailVerifiedAt sql.NullTime
 	CreatedAt       time.Time

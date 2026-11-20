@@ -57,7 +57,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		AppEnv:        firstNonEmpty("APP_ENV"),
 		LogLevel:      firstNonEmpty("LOG_LEVEL", "info"),
-		ServerPort:    firstNonEmpty("SERVER_PORT", "8080"),
+		ServerPort:    firstNonEmpty("SERVER_PORT", "3030"),
 		PostgresDSN:   firstNonEmpty("POSTGRES_DSN"),
 		RedisURL:      firstNonEmpty("REDIS_URL"),
 

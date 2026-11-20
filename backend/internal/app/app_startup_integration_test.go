@@ -73,7 +73,7 @@ func TestStartup_AppCreatesSuccessfully(t *testing.T) {
 	cfg := &config.Config{
 		AppEnv:            "development",
 		LogLevel:          "debug",
-		ServerPort:        "8080",
+		ServerPort:        "3030",
 		PostgresDSN:       pgDSN,
 		RedisURL:          redisURL,
 		SessionCookieName: "session",

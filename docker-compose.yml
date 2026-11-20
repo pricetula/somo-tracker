@@ -57,7 +57,7 @@ services:
       PUBLIC_API_URL: ${PUBLIC_API_URL}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
     ports:
-      - "8080:8080"
+      - "3030:3030"
     volumes:
       - ./backend:/app
       - /app/bin
@@ -68,7 +68,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3030/healthz"]
       interval: 5m
       timeout: 5s
       retries: 5
@@ -80,7 +80,7 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       # Internal backend URL for server-side API calls (BFF)
-      PUBLIC_API_URL: http://backend:8080
+      PUBLIC_API_URL: http://backend:3030
       PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
       NODE_ENV: ${NODE_ENV}

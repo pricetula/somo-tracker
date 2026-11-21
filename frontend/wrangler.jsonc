@@ -16,15 +16,6 @@
       "binding": "IMAGES",
     },
   },
-  "vars": {
-    "PUBLIC_API_URL": "https://api.somotracker.com",
-    "PUBLIC_APP_URL": "https://app.somotracker.com",
-  },
-  "observability": {
-    "logs": {
-      "enabled": true,
-      "invocation_logs": true,
-      "persist": true,
-    },
-  },
+  "vars": {},
+  "observability": {},
 }

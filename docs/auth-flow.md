@@ -33,6 +33,7 @@ This document describes the complete OTP-based authentication flow for the Somot
 **User Action:** Enters email, completes Turnstile challenge, clicks "Send code"
 
 **Frontend Request:**
+
 ```http
 POST /api/auth/otp/request
 Content-Type: application/json
@@ -45,10 +46,12 @@ Cookie: (none)
 ```
 
 **BFF Proxy** (`/api/auth/otp/request` → `/api/v1/auth/otp/request`):
+
 - Forwards request to backend with `credentials: include`
 - No session cookie exists yet
 
 **Backend Processing** (`POST /api/v1/auth/otp/request`):
+
 1. Normalize email (lowercase)
 2. Validate email format
 3. If `TURNSTILE_ENABLED=true`, verify Turnstile token with Cloudflare
@@ -64,6 +67,7 @@ Cookie: (none)
 8. Return challenge ID
 
 **Backend Response:**
+
 ```json
 {
   "ok": true,
@@ -81,6 +85,7 @@ Cookie: (none)
 **User Action:** Enters 6-digit code, clicks "Verify"
 
 **Frontend Request:**
+
 ```http
 POST /api/auth/otp/verify
 Content-Type: application/json
@@ -93,6 +98,7 @@ Cookie: (none)
 ```
 
 **Backend Processing** (`POST /api/v1/auth/otp/verify`):
+
 1. Look up challenge by `challenge_id`
 2. Validate:
    - Not expired (`expires_at > now`)
@@ -127,16 +133,18 @@ Cookie: (none)
     - `needs_onboarding` = "true" (if temporary), HttpOnly
 
 **Backend Response:**
+
 ```json
 {
   "ok": true,
   "message": "Code verified successfully.",
-  "session_token": "a1b2c3d4e5f6...",  // raw token (for reference)
+  "session_token": "a1b2c3d4e5f6...", // raw token (for reference)
   "needs_onboarding": true
 }
 ```
 
 **Frontend:** Receives response, cookies automatically set by browser via BFF proxy forwarding `Set-Cookie` headers. Checks `needs_onboarding`:
+
 - If `true`: `router.replace('/onboarding')`
 - If `false`: `router.replace('/dashboard')`
 
@@ -149,6 +157,7 @@ Cookie: (none)
 **User Action:** Fills org name, school name, user name, clicks "Create organization & school"
 
 **Frontend Request:**
+
 ```http
 POST /api/auth/onboard
 Content-Type: application/json
@@ -164,6 +173,7 @@ Cookie: session=<token>; needs_onboarding=true
 **BFF Proxy:** Forwards to backend with session cookie
 
 **Backend Processing** (`POST /api/v1/auth/onboard`):
+
 1. Read `session` cookie → hash → lookup session
 2. Validate: session exists, type = "temporary"
 3. Update organization: name + `onboarding_completed_at = now()`
@@ -173,6 +183,7 @@ Cookie: session=<token>; needs_onboarding=true
 7. Clear `needs_onboarding` cookie (MaxAge=-1)
 
 **Backend Response:**
+
 ```json
 {
   "ok": true,
@@ -188,6 +199,7 @@ Cookie: session=<token>; needs_onboarding=true
 ### Step 4: Dashboard Access (Frontend: `/dashboard`)
 
 **Proxy Check** (on every navigation):
+
 1. Read `session` cookie
 2. Read `needs_onboarding` cookie
 3. **No session** → redirect `/login`
@@ -201,6 +213,7 @@ Cookie: session=<token>; needs_onboarding=true
 ### Steps 1-2: Same as New User (Email → OTP Verify)
 
 **Difference at Step 2:** User exists in database
+
 - `justCreated = false`
 - `sessionType = "full"` (30 day TTL)
 - `needsOnboarding = false`
@@ -217,6 +230,7 @@ Cookie: session=<token>; needs_onboarding=true
 **Request:** `GET /dashboard` (or any protected route)
 
 **Proxy Check:**
+
 1. Reads `session` cookie from request headers
 2. Reads `needs_onboarding` cookie
 3. **Cookie present, valid session** → allows access (no backend call)
@@ -224,6 +238,7 @@ Cookie: session=<token>; needs_onboarding=true
 5. **No cookie** → redirects `/login`
 
 **Backend Validation:** On every API call, backend middleware validates session:
+
 - Hash token from cookie
 - Lookup in `sessions` table
 - Check `expires_at > now`, `revoked_at IS NULL`
@@ -233,18 +248,20 @@ Cookie: session=<token>; needs_onboarding=true
 
 ## Cookie Configuration
 
-| Environment | Cookie Name | Secure | Notes |
-|-------------|-------------|--------|-------|
-| Development (HTTP) | `session` | `false` | No `__Host-` prefix |
-| Production (HTTPS) | `__Host-session` | `true` | Requires HTTPS, host-only |
+| Environment        | Cookie Name      | Secure  | Notes                     |
+| ------------------ | ---------------- | ------- | ------------------------- |
+| Development (HTTP) | `session`        | `false` | No `__Host-` prefix       |
+| Production (HTTPS) | `__Host-session` | `true`  | Requires HTTPS, host-only |
 
 **Session Cookie Attributes:**
+
 - `HttpOnly: true` (JS cannot read)
 - `SameSite: Lax`
 - `Path: /`
 - `MaxAge`: 30 min (temporary) or 30 days (full)
 
 **Onboarding Flag Cookie:**
+
 - Name: `needs_onboarding`
 - Value: `"true"` or cleared
 - `HttpOnly: true`
@@ -307,22 +324,23 @@ CREATE TABLE organizations (
 ## Error Responses
 
 All errors follow standard format:
+
 ```json
 {
   "code": "ERROR_CODE",
-  "message": "Human readable message"
+  "message": "Human readable messages"
 }
 ```
 
-| Code | HTTP | Scenario |
-|------|------|----------|
-| `INVALID_EMAIL` | 400 | Malformed email |
-| `TURNSTILE_REQUIRED` | 400 | Turnstile enabled but no token |
-| `TURNSTILE_INVALID` | 400 | Turnstile verification failed |
-| `INVALID_TOKEN` | 401 | Wrong/expired/used OTP code |
-| `RATE_LIMITED` | 429 | Too many requests |
-| `UNAUTHENTICATED` | 401 | No/missing session |
-| `INVALID_REQUEST` | 400 | Malformed request body |
+| Code                 | HTTP | Scenario                       |
+| -------------------- | ---- | ------------------------------ |
+| `INVALID_EMAIL`      | 400  | Malformed email                |
+| `TURNSTILE_REQUIRED` | 400  | Turnstile enabled but no token |
+| `TURNSTILE_INVALID`  | 400  | Turnstile verification failed  |
+| `INVALID_TOKEN`      | 401  | Wrong/expired/used OTP code    |
+| `RATE_LIMITED`       | 429  | Too many requests              |
+| `UNAUTHENTICATED`    | 401  | No/missing session             |
+| `INVALID_REQUEST`    | 400  | Malformed request body         |
 
 ---
 
@@ -343,14 +361,14 @@ All errors follow standard format:
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `EMAIL_HMAC_KEY` | Yes | - | 32+ byte secret for OTP HMAC |
-| `BREVO_API_KEY` | Yes | - | Brevo (Sendinblue) API key |
-| `BREVO_SENDER_EMAIL` | No | noreply@somotracker.com | From email |
-| `BREVO_SENDER_NAME` | No | Somotracker | From name |
-| `TURNSTILE_ENABLED` | No | false | Enable Cloudflare Turnstile |
-| `TURNSTILE_SECRET_KEY` | If enabled | - | Turnstile secret key |
-| `SESSION_COOKIE_NAME` | No | session | Cookie name (dev: `session`, prod: `__Host-session`) |
-| `OTP_VALIDITY_MINUTES` | No | 10 | Challenge expiration |
-| `OTP_MAX_ATTEMPTS` | No | 5 | Max verify attempts |
+| Variable               | Required   | Default                 | Description                                          |
+| ---------------------- | ---------- | ----------------------- | ---------------------------------------------------- |
+| `EMAIL_HMAC_KEY`       | Yes        | -                       | 32+ byte secret for OTP HMAC                         |
+| `BREVO_API_KEY`        | Yes        | -                       | Brevo (Sendinblue) API key                           |
+| `BREVO_SENDER_EMAIL`   | No         | noreply@somotracker.com | From email                                           |
+| `BREVO_SENDER_NAME`    | No         | Somotracker             | From name                                            |
+| `TURNSTILE_ENABLED`    | No         | false                   | Enable Cloudflare Turnstile                          |
+| `TURNSTILE_SECRET_KEY` | If enabled | -                       | Turnstile secret key                                 |
+| `SESSION_COOKIE_NAME`  | No         | session                 | Cookie name (dev: `session`, prod: `__Host-session`) |
+| `OTP_VALIDITY_MINUTES` | No         | 10                      | Challenge expiration                                 |
+| `OTP_MAX_ATTEMPTS`     | No         | 5                       | Max verify attempts                                  |

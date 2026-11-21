@@ -17,5 +17,7 @@
     },
   },
   "vars": {},
-  "observability": {},
+  "observability": {
+    "enabled": true,
+  },
 }

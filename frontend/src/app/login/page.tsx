@@ -60,6 +60,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!siteKey || typeof window === "undefined") return;
 
+    console.log("siteKey", siteKey);
     const renderWidget = () => {
       const turnstile = window.turnstile;
       if (!turnstile || !turnstileRef.current) return;

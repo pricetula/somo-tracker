@@ -20,6 +20,7 @@
     },
   },
   "vars": {
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAGHleNH8xjjhEUQL",
     "SESSION_COOKIE_NAME": "__Host-session",
     "PUBLIC_API_URL": "https://api.somotracker.com",
     "PUBLIC_APP_URL": "https://app.somotracker.com",

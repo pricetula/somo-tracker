@@ -56,7 +56,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		AppEnv:        firstNonEmpty("APP_ENV"),
 		LogLevel:      firstNonEmpty("LOG_LEVEL"),
-		ServerPort:    firstNonEmpty("SERVER_PORT"),
+		ServerPort:    firstNonEmpty("PORT"),
 		DatabaseURL:   firstNonEmpty("DATABASE_URL"),
 		RedisURL:      firstNonEmpty("REDIS_URL"),
 

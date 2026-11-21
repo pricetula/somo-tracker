@@ -8,7 +8,7 @@ All configuration is injected by **Doppler** at runtime. Nothing is read from th
 |----------|----------|---------|-------------|
 | `APP_ENV` | Yes | `development` | `development`, `test`, or `production` |
 | `LOG_LEVEL` | Yes | `debug` | `debug`, `info`, `warn`, `error` |
-| `SERVER_PORT` | Yes | `3030` | HTTP port the backend listens on |
+| `PORT` | Yes | `3030` | HTTP port the backend listens on |
 | `DATABASE_URL` | Yes | `postgres://somotracker:somotracker@postgres:5432/somotracker?sslmode=disable` | PostgreSQL connection string |
 | `REDIS_URL` | Yes | `redis://redis:6379` | Redis connection string (Docker service name `redis`) |
 | `BREVO_API_KEY` | Yes | `keys.your_brevo_key` | Brevo email provider API key |

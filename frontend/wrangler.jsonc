@@ -6,17 +6,17 @@
   "main": "vinext/server/fetch-handler",
   "assets": {
     "directory": "./cloudflare/output",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
   },
   "images": {
-    "binding": "IMAGES"
+    "binding": "IMAGES",
   },
   "previews": {
     "images": {
-      "binding": "IMAGES"
-    }
+      "binding": "IMAGES",
+    },
   },
   "observability": {
-    "enabled": true
-  }
+    "enabled": true,
+  },
 }

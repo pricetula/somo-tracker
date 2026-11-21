@@ -16,6 +16,9 @@
       "binding": "IMAGES",
     },
   },
+  "vars": {
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAGHleNH8xjjhEUQL",
+  },
   "observability": {
     "enabled": true,
   },

@@ -60,6 +60,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!siteKey || typeof window === "undefined") return;
 
+    console.log("siteKey", siteKey);
     const renderWidget = () => {
       const turnstile = window.turnstile;
       if (!turnstile || !turnstileRef.current) return;
@@ -189,6 +190,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
+      -----{siteKey}=====
       <div className="w-full max-w-md space-y-6">
         {step === "email" && (
           <>

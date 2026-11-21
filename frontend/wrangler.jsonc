@@ -19,8 +19,16 @@
       "binding": "IMAGES",
     },
   },
-  "vars": {},
+  "vars": {
+    "SESSION_COOKIE_NAME": "__Host-session",
+    "PUBLIC_API_URL": "https://api.somotracker.com",
+    "PUBLIC_APP_URL": "https://app.somotracker.com",
+  },
   "observability": {
     "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+    },
   },
 }

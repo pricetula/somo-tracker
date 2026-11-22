@@ -85,7 +85,15 @@ async function awaitBackendReady(apiUrl: string): Promise<void> {
         console.log("[api-client] backend ready after cold-start", { attempt });
         return;
       }
-      console.log("[api-client] backend cold-start check", { attempt });
+      console.log("[api-client] backend cold-start check", {
+        attempt,
+        url: `${apiUrl}${READINESS_PATH}`,
+        method: "GET",
+        status: res?.status ?? null,
+        render: res?.headers.get("x-render-routing"),
+        mitigated: res?.headers.get("cf-mitigated"),
+        origin: res?.headers.get("x-render-origin-server"),
+      });
     } catch (err) {
       // Network errors during polling are expected while the backend is
       // waking up; log and continue polling.

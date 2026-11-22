@@ -36,6 +36,12 @@ const READINESS_PROBE_TIMEOUT_MS = 60_000;
 /** User-Agent sent on readiness probes to avoid Cloudflare bot challenges on UA-less requests. */
 const READINESS_PROBE_USER_AGENT = "somo-tracker-frontend/1.0";
 
+/** Maximum number of times to retry the original request after a hibernate 429. */
+const MAX_COLD_START_RETRIES = 3;
+
+/** Minimum delay (ms) between cold-start retries to avoid re-triggering Render spin-up. */
+const COLD_START_RETRY_DELAY_MS = 10_000;
+
 /** Error code returned in the structured 503 response when the backend never becomes ready. */
 const COLD_START_ERROR_CODE = "BACKEND_UNAVAILABLE";
 
@@ -48,6 +54,13 @@ function isRenderHibernationResponse(res: Response): boolean {
     res.status === 429 &&
     res.headers.get(RENDER_ROUTING_HEADER) === RENDER_HIBERNATION_VALUE
   );
+}
+
+/**
+ * Promise-based delay used between cold-start retries.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -228,31 +241,66 @@ export async function apiRequest(
     });
 
     try {
-      await awaitBackendReady(apiUrl);
+      let lastRes = res;
 
-      // Replay the original request with the same body, headers, and method.
-      const retryRes = await fetchWithBody(requestBody);
+      for (let retry = 1; retry <= MAX_COLD_START_RETRIES; retry++) {
+        // Wait for the backend to finish booting before replaying the request.
+        await awaitBackendReady(apiUrl);
 
-      // Forward all upstream headers from the retry response.
+        // Replay the original request with the same body, headers, and method.
+        const retryRes = await fetchWithBody(requestBody);
+
+        // If the retry is not a hibernate response, we're done.
+        if (!isRenderHibernationResponse(retryRes)) {
+          lastRes = retryRes;
+          break;
+        }
+
+        // Still hibernating — log and back off before the next attempt.
+        console.log("[api-client] cold-start retry still rate-limited", {
+          path,
+          method,
+          retry,
+          status: retryRes.status,
+          header: retryRes.headers.get(RENDER_ROUTING_HEADER),
+        });
+        lastRes = retryRes;
+
+        // Don't re-trigger spin-up more than once every ~10s.
+        if (retry < MAX_COLD_START_RETRIES) {
+          await sleep(COLD_START_RETRY_DELAY_MS);
+        }
+      }
+
+      // If the last response was still a hibernate 429, give up with 503.
+      if (isRenderHibernationResponse(lastRes)) {
+        console.error(
+          "[api-client] backend did not become ready for cold-start retry",
+          { path, method, retries: MAX_COLD_START_RETRIES },
+        );
+        return coldStartUnavailableResponse();
+      }
+
+      // Forward all upstream headers from the successful retry response.
       const retryResponseHeaders = new Headers();
-      retryRes.headers.forEach((v, k) => {
+      lastRes.headers.forEach((v, k) => {
         if (k.toLowerCase() !== "set-cookie") {
           retryResponseHeaders.set(k, v);
         }
       });
-      for (const cookie of retryRes.headers.getSetCookie()) {
+      for (const cookie of lastRes.headers.getSetCookie()) {
         retryResponseHeaders.append("Set-Cookie", cookie);
       }
 
       console.log("[api-client] cold-start retry succeeded", {
         path,
         method,
-        status: retryRes.status,
+        status: lastRes.status,
       });
 
-      return new NextResponse(await retryRes.arrayBuffer(), {
-        status: retryRes.status,
-        statusText: retryRes.statusText,
+      return new NextResponse(await lastRes.arrayBuffer(), {
+        status: lastRes.status,
+        statusText: lastRes.statusText,
         headers: retryResponseHeaders,
       });
     } catch (err) {

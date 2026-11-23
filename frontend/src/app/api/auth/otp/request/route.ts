@@ -53,7 +53,14 @@ export async function POST(req: Request) {
     );
   }
 
-  await verifyTurnstile(body.turnstile_token);
+  try {
+    await verifyTurnstile(body.turnstile_token);
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ message: err instanceof Error ? err.message : "turnstile verification failed" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   return apiRequest("/api/v1/auth/otp/request", {
     method: "POST",

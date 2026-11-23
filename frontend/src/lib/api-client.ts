@@ -30,17 +30,23 @@ const RENDER_HIBERNATION_VALUE = "hibernate-rate-limited";
 /** Health-check endpoint on the Go backend used to determine readiness. */
 const READINESS_PATH = "/readyz";
 
-/** Maximum time (ms) a single readiness probe is allowed to wait for the backend to boot. */
-const READINESS_PROBE_TIMEOUT_MS = 60_000;
+/** Total deadline for waiting for backend readiness after a hibernate 429. */
+const COLD_START_READINESS_DEADLINE_MS = 120_000;
+
+/** Initial delay (ms) between readiness probes; increases by 10s each attempt. */
+const COLD_START_PROBE_INITIAL_DELAY_MS = 20_000;
+
+/** Increment (ms) added to the probe delay after each attempt. */
+const COLD_START_PROBE_DELAY_INCREMENT_MS = 10_000;
+
+/** Maximum delay (ms) between readiness probes. */
+const COLD_START_PROBE_MAX_DELAY_MS = 40_000;
 
 /** User-Agent sent on readiness probes to avoid Cloudflare bot challenges on UA-less requests. */
 const READINESS_PROBE_USER_AGENT = "somo-tracker-frontend/1.0";
 
 /** Maximum number of times to retry the original request after a hibernate 429. */
 const MAX_COLD_START_RETRIES = 3;
-
-/** Minimum delay (ms) between cold-start retries to avoid re-triggering Render spin-up. */
-const COLD_START_RETRY_DELAY_MS = 10_000;
 
 /** Error code returned in the structured 503 response when the backend never becomes ready. */
 const COLD_START_ERROR_CODE = "BACKEND_UNAVAILABLE";
@@ -79,50 +85,82 @@ function readinessProbeUrl(apiUrl: string): string {
 }
 
 /**
- * Waits for the backend to become ready using a single long-lived fetch.
+ * Polls /readyz until the backend returns 200 OK or the deadline is exceeded.
  *
- * Instead of polling with many short requests (which repeatedly re-triggers
- * Render's spin-up and can trip Cloudflare bot challenges), we open one
- * connection that stays open for up to READINESS_PROBE_TIMEOUT_MS. As long as
- * the client stays connected, the fetch waits for the backend to finish its
- * cold-start boot and return 200 OK.
+ * Uses linear backoff starting at 20s, then 30s, 40s… capped at 40s.
+ * Render cold starts take tens of seconds, so we start with a long delay
+ * rather than hammering the backend with short probes that re-trigger spin-up.
+ *
+ * A 429 hibernate-rate-limited response means the backend is still waking up —
+ * we keep polling rather than treating it as failure. Network errors during
+ * the wake window are likewise expected and retried.
+ *
+ * Two 429 layers exist:
+ *   1. Cloudflare Worker (BFF) at app.somotracker.com — its own rate limiting,
+ *      no x-render-routing header. These pass through unchanged and never
+ *      enter this cold-start path.
+ *   2. Render backend at api.somotracker.com — returns
+ *      x-render-routing: hibernate-rate-limited. Only this triggers retries.
  */
 async function awaitBackendReady(apiUrl: string): Promise<void> {
   const url = `${readinessProbeUrl(apiUrl)}${READINESS_PATH}`;
+  const deadline = Date.now() + COLD_START_READINESS_DEADLINE_MS;
+  let delay = COLD_START_PROBE_INITIAL_DELAY_MS;
 
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      cache: "no-store",
-      signal: AbortSignal.timeout(READINESS_PROBE_TIMEOUT_MS),
-      headers: {
-        "User-Agent": READINESS_PROBE_USER_AGENT,
-        Accept: "*/*",
-        "Cache-Control": "no-store",
-      },
-    });
-
-    if (!res.ok) {
-      console.log("[api-client] backend cold-start check", {
-        url,
-        status: res.status,
-        render: res.headers.get("x-render-routing"),
-        mitigated: res.headers.get("cf-mitigated"),
-      });
-      throw new Error(`Backend readiness check failed with status ${res.status}`);
-    }
-
-    console.log("[api-client] backend ready after cold-start", { url });
-  } catch (err) {
-    if (err instanceof Error && err.name === "TimeoutError") {
-      console.error("[api-client] cold-start probe timed out", { url });
+  for (let attempt = 1; ; attempt++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
       throw new Error("Cold-start deadline exceeded waiting for backend readiness");
     }
-    console.log("[api-client] backend not yet ready", {
-      url,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    throw err;
+
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        signal: AbortSignal.timeout(Math.min(remaining, 30_000)),
+        headers: {
+          "User-Agent": READINESS_PROBE_USER_AGENT,
+          Accept: "*/*",
+          "Cache-Control": "no-store",
+        },
+      });
+
+      if (res.ok) {
+        console.log("[api-client] backend ready after cold-start", { attempt, url });
+        return;
+      }
+
+      // 429 hibernate-rate-limited means the backend is still waking up — keep polling.
+      if (isRenderHibernationResponse(res)) {
+        console.log("[api-client] backend cold-start check", {
+          attempt,
+          url,
+          status: res.status,
+          render: res.headers.get("x-render-routing"),
+        });
+      } else {
+        console.log("[api-client] backend cold-start check", {
+          attempt,
+          url,
+          status: res.status,
+        });
+      }
+    } catch (err) {
+      // Network errors during polling are expected while the backend is waking up.
+      console.log("[api-client] backend not yet ready", {
+        attempt,
+        url,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    const nextRemaining = deadline - Date.now();
+    if (nextRemaining <= 0) {
+      throw new Error("Cold-start deadline exceeded waiting for backend readiness");
+    }
+
+    await sleep(Math.min(delay, nextRemaining));
+    delay = Math.min(delay + COLD_START_PROBE_DELAY_INCREMENT_MS, COLD_START_PROBE_MAX_DELAY_MS);
   }
 }
 
@@ -154,10 +192,17 @@ function coldStartUnavailableResponse(): Response {
  *
  * Render cold-start handling:
  *   If the backend returns 429 with x-render-routing: hibernate-rate-limited,
- *   the function waits for the backend to become healthy using a single
- *   long-lived readiness probe (up to READINESS_PROBE_TIMEOUT_MS), then retries
- *   the original request. If the backend never becomes ready within the probe
- *   timeout, a structured 503 is returned.
+ *   the function polls /readyz with linear backoff (20s, 30s, 40s…) until the
+ *   backend returns 200 OK (up to COLD_START_READINESS_DEADLINE_MS), then
+ *   retries the original request. If the retry is also rate-limited, it polls
+ *   and retries up to MAX_COLD_START_RETRIES times. A structured 503 is
+ *   returned only after all retries are exhausted.
+ *
+ * Two 429 layers exist:
+ *   1. Cloudflare Worker (BFF) at app.somotracker.com — its own rate limiting,
+ *      no x-render-routing header. Passes through unchanged, never retried.
+ *   2. Render backend at api.somotracker.com — x-render-routing:
+ *      hibernate-rate-limited. Only this triggers cold-start retries.
  */
 export async function apiRequest(
   path: string,
@@ -256,7 +301,7 @@ export async function apiRequest(
           break;
         }
 
-        // Still hibernating — log and back off before the next attempt.
+        // Still hibernating — log and retry.
         console.log("[api-client] cold-start retry still rate-limited", {
           path,
           method,
@@ -265,11 +310,6 @@ export async function apiRequest(
           header: retryRes.headers.get(RENDER_ROUTING_HEADER),
         });
         lastRes = retryRes;
-
-        // Don't re-trigger spin-up more than once every ~10s.
-        if (retry < MAX_COLD_START_RETRIES) {
-          await sleep(COLD_START_RETRY_DELAY_MS);
-        }
       }
 
       // If the last response was still a hibernate 429, give up with 503.

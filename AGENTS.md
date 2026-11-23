@@ -39,12 +39,13 @@ This includes:
   - `feat: add Cloudflare Turnstile protection to OTP request flow`
   - `fix: add challengeId dependency to verifyOTP useCallback`
   - `docs: remove stale BASELINE docs`
-- **Branch from main**: Create feature branches from `main`. Never commit directly to `main` unless it's a small, reviewed change.
+- **No direct pushes to `main` or `develop`**: Always create a feature branch from `develop`, then open a pull request against `develop`. Never push directly to `main` or `develop`.
+- **Small, well-documented PRs**: Keep commits focused on one logical change. PRs must be small, well-documented, and target `develop` (not `main`).
+- **PRs against `develop`**: All feature work is merged into `develop` first. `main` is updated via release PRs from `develop`.
 - **Pre-push compliance**: A lefthook pre-push hook runs `go vet`, `golangci-lint`, ESLint, `tsc`, and `go test -short`. All must pass before pushing.
 - **CI on push/PR**: GitHub Actions runs unit tests on every push and PR to `main`. Do not push broken code.
 - **Run tests before committing**: Always run `cd backend && go test ./...` and `cd frontend && pnpm typecheck` before committing.
 - **No secrets in git**: Never commit real secret values to `.env` (gitignored) or any tracked file. Secrets are injected by Doppler at runtime.
-- **One logical change per commit**: Keep commits focused. Don't bundle unrelated changes.
 - **Push to main**: After local verification and pre-push hook success, push to `origin/main`. GitHub CI will validate.
 
 ## Other Rules

@@ -53,8 +53,8 @@ services:
       BREVO_SENDER_NAME: ${BREVO_SENDER_NAME}
       TURNSTILE_ENABLED: ${TURNSTILE_ENABLED}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
-      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
-      PUBLIC_API_URL: ${PUBLIC_API_URL}
+      APP_URL: ${APP_URL}
+      API_URL: ${API_URL}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
     ports:
       - "3030:3030"
@@ -88,9 +88,9 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       # Internal backend URL for server-side API calls (BFF)
-      PUBLIC_API_URL: http://backend:3030
-      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+      API_URL: http://backend:3030
+      APP_URL: ${APP_URL}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY}
       NODE_ENV: ${NODE_ENV}
       HOSTNAME: ${HOSTNAME}
       PORT: 3000

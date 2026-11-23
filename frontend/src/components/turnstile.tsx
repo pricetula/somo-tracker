@@ -11,11 +11,13 @@ interface Turnstile {
   render: (el: Element, opts: TurnstileOpts) => number;
   execute: (id: number | string, opts?: TurnstileExecuteOpts) => Promise<string>;
   reset: (id: number) => void;
+  remove: (id: number) => void;
 }
 
 interface TurnstileOpts {
   sitekey: string;
   action?: string;
+  mode?: string;
 }
 
 interface TurnstileExecuteOpts {
@@ -30,15 +32,17 @@ declare global {
 
 /**
  * Renders an (invisible) Cloudflare Turnstile widget and exposes `verify()`,
- * which returns a fresh token. The widget renders into a hidden container so
- * no UI is shown unless Cloudflare decides a challenge is required.
+ * which returns a fresh token on each call.
  *
- * Requires `NEXT_PUBLIC_TURNSTILE_SITE_KEY` to be set.
+ * Guards against duplicate script tags and duplicate render() calls so the
+ * component is safe to mount/unmount/remount without Cloudflare errors.
  */
-export const Turnstile = forwardRef<TurnstileRef, { siteKey: string }>(
-  function Turnstile({ siteKey }, ref) {
+export const Turnstile = forwardRef<TurnstileRef, {}>(
+  function Turnstile(_props, ref) {
+    const siteKey = "0x4AAAAAAGHleNH8xjjhEUQ";
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<number | null>(null);
+    const scriptAppendedRef = useRef(false);
 
     useImperativeHandle(
       ref,
@@ -62,16 +66,26 @@ export const Turnstile = forwardRef<TurnstileRef, { siteKey: string }>(
         return;
       }
 
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+
       const init = () => {
         const ts = window.turnstile;
         if (!ts) {
           return;
         }
-        const id = ts.render(containerRef.current!, {
-          sitekey: siteKey,
-          action: "login",
-        });
-        widgetIdRef.current = id;
+
+        // Only render once per mount. If already rendered, reuse the id.
+        if (widgetIdRef.current == null) {
+          const id = ts.render(container, {
+            sitekey: siteKey,
+            action: "login",
+            mode: "always",
+          });
+          widgetIdRef.current = id;
+        }
       };
 
       if (window.turnstile) {
@@ -79,15 +93,49 @@ export const Turnstile = forwardRef<TurnstileRef, { siteKey: string }>(
         return;
       }
 
-      const script = document.createElement("script");
-      script.src =
-        "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.async = true;
-      script.onload = init;
-      document.head.appendChild(script);
+      // Only append the script once across all mounts/remounts.
+      if (!scriptAppendedRef.current) {
+        const existing = document.querySelector(
+          'script[src*="challenges.cloudflare.com/turnstile/v0/api.js"]',
+        );
+        if (!existing) {
+          const script = document.createElement("script");
+          script.src =
+            "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+          script.async = true;
+          script.onload = () => {
+            scriptAppendedRef.current = true;
+            init();
+          };
+          document.head.appendChild(script);
+        } else {
+          scriptAppendedRef.current = true;
+          const scriptLoadInterval = setInterval(() => {
+            if (window.turnstile) {
+              clearInterval(scriptLoadInterval);
+              init();
+            }
+          }, 50);
+          setTimeout(() => clearInterval(scriptLoadInterval), 5000);
+        }
+      } else {
+        init();
+      }
+
+      // Cleanup: reset the widget on unmount so remounts work cleanly.
+      return () => {
+        if (widgetIdRef.current != null && window.turnstile) {
+          try {
+            window.turnstile.remove(widgetIdRef.current);
+          } catch {
+            // ignore
+          }
+          widgetIdRef.current = null;
+        }
+      };
     }, [siteKey]);
 
-    return <div ref={containerRef} style={{ display: "none" }} />;
+    return <div ref={containerRef} className="border rounded p-2 text-xs text-muted-foreground" />;
   },
 );
 

@@ -12,6 +12,9 @@ import { Turnstile } from "@/components/turnstile";
  * Step 3: Redirect to /
  *
  * Turnstile site key is hardcoded in the Turnstile component itself.
+ * The Turnstile token is captured in state and sent to the backend alongside
+ * the email. The Go backend verifies the token with Cloudflare before sending
+ * any email.
  */
 export default function LoginForm() {
   const [step, setStep] = useState<"email" | "otp">("email");
@@ -20,6 +23,7 @@ export default function LoginForm() {
   const [challengeId, setChallengeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<React.ComponentRef<typeof Turnstile>>(null);
 
   const requestOTP = useCallback(
@@ -29,12 +33,6 @@ export default function LoginForm() {
       setLoading(true);
 
       try {
-        // Obtain a fresh Turnstile token before requesting OTP.
-        if (!turnstileRef.current) {
-          throw new Error("Turnstile widget is not ready");
-        }
-        const turnstileToken = await turnstileRef.current.verify();
-
         const res = await fetch("/api/auth/otp/request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -44,8 +42,23 @@ export default function LoginForm() {
 
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          setError(body.message || "Failed to send code. Please try again.");
+          if (res.status === 403) {
+            setError(
+              "Verification failed. Please try again.",
+            );
+          } else if (res.status === 502) {
+            setError(
+              "Service temporarily unavailable. Please try again later.",
+            );
+          } else {
+            setError(
+              body.message || "Failed to send code. Please try again.",
+            );
+          }
           setLoading(false);
+          // Reset widget and clear token after every submit attempt.
+          turnstileRef.current?.reset();
+          setTurnstileToken(null);
           return;
         }
 
@@ -57,10 +70,27 @@ export default function LoginForm() {
         setLoading(false);
       } finally {
         setLoading(false);
+        // Reset widget and clear token after every submit attempt,
+        // whether it succeeded or failed.
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
       }
     },
-    [email],
+    [email, turnstileToken],
   );
+
+  const onTurnstileVerify = useCallback((token: string) => {
+    setTurnstileToken(token);
+    setError(null);
+  }, []);
+
+  const onTurnstileExpire = useCallback(() => {
+    setTurnstileToken(null);
+  }, []);
+
+  const onTurnstileError = useCallback(() => {
+    setTurnstileToken(null);
+  }, []);
 
   const verifyOTP = useCallback(
     async (e: React.FormEvent) => {
@@ -120,13 +150,18 @@ export default function LoginForm() {
                   disabled={loading}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
                 />
-                <Turnstile ref={turnstileRef} />
+                <Turnstile
+                  ref={turnstileRef}
+                  onVerify={onTurnstileVerify}
+                  onExpire={onTurnstileExpire}
+                  onError={onTurnstileError}
+                />
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}
               <button
                 type="submit"
-                disabled={loading || !email}
+                disabled={loading || !email || !turnstileToken}
                 className="w-full inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
               >
                 {loading ? "Sending…" : "Send code"}

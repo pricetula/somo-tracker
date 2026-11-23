@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/logger"
+	"somotracker/internal/platform/turnstile"
 )
 
 // Handler is the HTTP handler for the auth domain.
@@ -21,6 +23,7 @@ type Handler struct {
 	svc                  *service.Service
 	cfg                  *config.Config
 	log                  *logger.Logger
+	turnstile            turnstile.Verifier
 	sessionCookieName    string
 	onboardingCookieName string
 }
@@ -31,17 +34,28 @@ func New(svc *service.Service, cfg *config.Config, log *logger.Logger) *Handler 
 	// Derive onboarding cookie name from session cookie name
 	onboardingCookieName := deriveOnboardingCookieName(sessionCookieName)
 
+	// Turnstile verifier for OTP request protection
+	var ts turnstile.Verifier
+	if cfg.TurnstileSecretKey != "" {
+		ts = turnstile.New(turnstile.Config{
+			SecretKey:    cfg.TurnstileSecretKey,
+			ExpectedHost: cfg.TurnstileExpectedHost,
+		})
+	}
+
 	log.Info(context.Background(), "auth handler initialized",
 		"session_cookie", sessionCookieName,
 		"onboarding_cookie", onboardingCookieName,
 		"app_env", cfg.AppEnv,
 		"is_production", cfg.IsProduction(),
+		"turnstile_enabled", ts != nil,
 	)
 
 	return &Handler{
 		svc:                  svc,
 		cfg:                  cfg,
 		log:                  log,
+		turnstile:            ts,
 		sessionCookieName:    sessionCookieName,
 		onboardingCookieName: onboardingCookieName,
 	}
@@ -58,7 +72,8 @@ func deriveOnboardingCookieName(sessionCookieName string) string {
 
 // RequestOTPRequest is the request body for POST /api/v1/auth/otp/request.
 type RequestOTPRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email          string `json:"email" validate:"required,email"`
+	TurnstileToken string `json:"turnstile_token" validate:"required"`
 }
 
 // RequestOTPResponse is the response body.
@@ -87,6 +102,36 @@ func (h *Handler) RequestOTP(c fiber.Ctx) error {
 	var req RequestOTPRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
+	}
+
+	// Require a Turnstile token before doing anything else.
+	if req.TurnstileToken == "" {
+		return apperr.New(apperr.INVALID_REQUEST, "turnstile token required")
+	}
+
+	// Verify the Turnstile token with Cloudflare before generating an OTP,
+	// touching the DB, or sending any email.
+	if h.turnstile != nil {
+		// Use CF-Connecting-IP when behind Cloudflare, otherwise fall back to
+		// the connection's remote IP.
+		remoteIP := c.Get("CF-Connecting-IP")
+		if remoteIP == "" {
+			remoteIP = c.IP()
+		}
+
+		result, err := h.turnstile.Verify(c.Context(), req.TurnstileToken, remoteIP)
+		if err != nil {
+			if errors.Is(err, turnstile.ErrUpstream) {
+				return apperr.New(apperr.BAD_GATEWAY, "turnstile verification unavailable")
+			}
+			// Verification failed (success: false or hostname mismatch).
+			// Log error codes for debugging but do not return them to the client.
+			h.log.Error(c.Context(), err, "turnstile verification failed",
+				"error_codes", result.ErrorCodes,
+				"hostname", result.Hostname,
+			)
+			return apperr.New(apperr.FORBIDDEN, "turnstile verification failed")
+		}
 	}
 
 	resp, err := h.svc.RequestOTP(c.Context(), service.RequestOTPRequest{

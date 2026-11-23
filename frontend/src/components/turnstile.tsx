@@ -5,6 +5,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 export interface TurnstileRef {
   /** Request a fresh Turnstile token for the given action. */
   verify: () => Promise<string>;
+  /** Reset the widget, clearing any active token. */
+  reset: () => void;
 }
 
 interface Turnstile {
@@ -21,10 +23,25 @@ interface TurnstileOpts {
   sitekey: string;
   action?: string;
   mode?: string;
+  /** Callback when a token is successfully generated. */
+  callback?: (token: string) => void;
+  /** Callback when the token expires. */
+  "expired-callback"?: () => void;
+  /** Callback when an error occurs. */
+  "error-callback"?: () => void;
 }
 
 interface TurnstileExecuteOpts {
   action?: string;
+}
+
+export interface TurnstileProps {
+  /** Called when a fresh token is generated. */
+  onVerify?: (token: string) => void;
+  /** Called when the token expires. */
+  onExpire?: () => void;
+  /** Called when an error occurs during verification. */
+  onError?: () => void;
 }
 
 declare global {
@@ -35,13 +52,13 @@ declare global {
 
 /**
  * Renders an (invisible) Cloudflare Turnstile widget and exposes `verify()`,
- * which returns a fresh token on each call.
+ * `reset()`, and token lifecycle callbacks.
  *
  * Guards against duplicate script tags and duplicate render() calls so the
  * component is safe to mount/unmount/remount without Cloudflare errors.
  */
-export const Turnstile = forwardRef<TurnstileRef, {}>(
-  function Turnstile(_props, ref) {
+export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
+  function Turnstile({ onVerify, onExpire, onError }, ref) {
     const siteKey = "0x4AAAAAAGHleNH8xjjhEUQL";
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<number | null>(null);
@@ -59,6 +76,16 @@ export const Turnstile = forwardRef<TurnstileRef, {}>(
             action: "login",
           });
           return token;
+        },
+        reset: () => {
+          const id = widgetIdRef.current;
+          if (id != null && window.turnstile) {
+            try {
+              window.turnstile.reset(id);
+            } catch {
+              // ignore
+            }
+          }
         },
       }),
       [],
@@ -86,6 +113,15 @@ export const Turnstile = forwardRef<TurnstileRef, {}>(
             sitekey: siteKey,
             action: "login",
             mode: "always",
+            callback: (token: string) => {
+              onVerify?.(token);
+            },
+            "expired-callback": () => {
+              onExpire?.();
+            },
+            "error-callback": () => {
+              onError?.();
+            },
           });
           widgetIdRef.current = id;
         }
@@ -125,7 +161,7 @@ export const Turnstile = forwardRef<TurnstileRef, {}>(
         init();
       }
 
-      // Cleanup: reset the widget on unmount so remounts work cleanly.
+      // Cleanup: remove the widget on unmount so remounts work cleanly.
       return () => {
         if (widgetIdRef.current != null && window.turnstile) {
           try {
@@ -136,7 +172,7 @@ export const Turnstile = forwardRef<TurnstileRef, {}>(
           widgetIdRef.current = null;
         }
       };
-    }, [siteKey]);
+    }, [siteKey, onVerify, onExpire, onError]);
 
     return (
       <div

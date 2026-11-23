@@ -27,6 +27,10 @@ type Config struct {
 	// CORS
 	CORSOrigins string
 
+	// Turnstile
+	TurnstileSecretKey     string
+	TurnstileExpectedHost  string
+
 	// Rate limits
 	RateLimitOTPRequestIPPerMin   int
 	RateLimitOTPRequestEmailPer15Min int
@@ -64,6 +68,9 @@ func Load() (*Config, error) {
 
 		CORSOrigins: firstNonEmpty("CORS_ORIGINS"),
 
+		TurnstileSecretKey:    firstNonEmpty("TURNSTILE_SECRET_KEY"),
+		TurnstileExpectedHost: firstNonEmpty("TURNSTILE_EXPECTED_HOST"),
+
 		RateLimitOTPRequestIPPerMin:   10,
 		RateLimitOTPRequestEmailPer15Min: 3,
 
@@ -86,10 +93,11 @@ func Load() (*Config, error) {
 // docker-compose at runtime, not checked into .env).
 func (c *Config) validate() error {
 	required := map[string]string{
-		"DATABASE_URL":       c.DatabaseURL,
-		"BREVO_API_KEY":      c.BrevoAPIKey,
-		"EMAIL_HMAC_KEY":     c.EmailHMACKey,
+		"DATABASE_URL":        c.DatabaseURL,
+		"BREVO_API_KEY":       c.BrevoAPIKey,
+		"EMAIL_HMAC_KEY":      c.EmailHMACKey,
 		"SESSION_COOKIE_NAME": c.SessionCookieName,
+		"TURNSTILE_SECRET_KEY": c.TurnstileSecretKey,
 	}
 	var missing []string
 	for k, v := range required {

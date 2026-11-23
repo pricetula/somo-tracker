@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
 function apiUrl(path: string): string {
-  return new URL(path, process.env.PUBLIC_APP_URL ?? 'http://localhost:3000').href
+  return new URL(path, process.env.APP_URL ?? "http://localhost:3000").href;
 }
 
 /**
@@ -11,8 +11,8 @@ function apiUrl(path: string): string {
  */
 export class SessionExpiredError extends Error {
   constructor() {
-    super('Session expired or revoked')
-    this.name = 'SessionExpiredError'
+    super("Session expired or revoked");
+    this.name = "SessionExpiredError";
   }
 }
 
@@ -25,15 +25,15 @@ export class SessionExpiredError extends Error {
  */
 export async function apiRequest(
   input: string,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<Response> {
-  const res = await fetch(apiUrl(input), init)
+  const res = await fetch(apiUrl(input), init);
 
   if (res.status === 401) {
-    throw new SessionExpiredError()
+    throw new SessionExpiredError();
   }
 
-  return res
+  return res;
 }
 
 /**
@@ -44,6 +44,6 @@ export async function apiRequest(
  * Must be called from a Server Component or Route Handler (uses redirect).
  */
 export async function clearSession(): Promise<never> {
-  await fetch(apiUrl('/api/auth/logout'), { method: 'POST' })
-  redirect('/login')
+  await fetch(apiUrl("/api/auth/logout"), { method: "POST" });
+  redirect("/login");
 }

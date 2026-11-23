@@ -9,7 +9,10 @@ export interface TurnstileRef {
 
 interface Turnstile {
   render: (el: Element, opts: TurnstileOpts) => number;
-  execute: (id: number | string, opts?: TurnstileExecuteOpts) => Promise<string>;
+  execute: (
+    id: number | string,
+    opts?: TurnstileExecuteOpts,
+  ) => Promise<string>;
   reset: (id: number) => void;
   remove: (id: number) => void;
 }
@@ -135,7 +138,12 @@ export const Turnstile = forwardRef<TurnstileRef, {}>(
       };
     }, [siteKey]);
 
-    return <div ref={containerRef} className="border rounded p-2 text-xs text-muted-foreground" />;
+    return (
+      <div
+        ref={containerRef}
+        className="border rounded p-2 text-xs text-muted-foreground"
+      />
+    );
   },
 );
 

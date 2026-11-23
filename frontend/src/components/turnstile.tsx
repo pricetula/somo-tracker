@@ -17,6 +17,7 @@ interface Turnstile {
 interface TurnstileOpts {
   sitekey: string;
   action?: string;
+  mode?: string;
 }
 
 interface TurnstileExecuteOpts {
@@ -81,6 +82,7 @@ export const Turnstile = forwardRef<TurnstileRef, {}>(
           const id = ts.render(container, {
             sitekey: siteKey,
             action: "login",
+            mode: "always",
           });
           widgetIdRef.current = id;
         }
@@ -133,7 +135,7 @@ export const Turnstile = forwardRef<TurnstileRef, {}>(
       };
     }, [siteKey]);
 
-    return <div ref={containerRef} style={{ display: "none" }} />;
+    return <div ref={containerRef} className="border rounded p-2 text-xs text-muted-foreground" />;
   },
 );
 

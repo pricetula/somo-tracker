@@ -42,7 +42,7 @@ declare global {
  */
 export const Turnstile = forwardRef<TurnstileRef, {}>(
   function Turnstile(_props, ref) {
-    const siteKey = "0x4AAAAAAGHleNH8xjjhEUQL";
+    const siteKey = "0x4AAAAAAGHleNH8xjjhEUQ";
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<number | null>(null);
     const scriptAppendedRef = useRef(false);

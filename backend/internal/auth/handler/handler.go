@@ -58,8 +58,7 @@ func deriveOnboardingCookieName(sessionCookieName string) string {
 
 // RequestOTPRequest is the request body for POST /api/v1/auth/otp/request.
 type RequestOTPRequest struct {
-	Email          string `json:"email" validate:"required,email"`
-	TurnstileToken string `json:"turnstile_token,omitempty"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 // RequestOTPResponse is the response body.
@@ -91,8 +90,7 @@ func (h *Handler) RequestOTP(c fiber.Ctx) error {
 	}
 
 	resp, err := h.svc.RequestOTP(c.Context(), service.RequestOTPRequest{
-		Email:          req.Email,
-		TurnstileToken: req.TurnstileToken,
+		Email: req.Email,
 	})
 	if err != nil {
 		return err

@@ -33,7 +33,7 @@ func New(env string) *Server {
 				message = e.Message
 			} else if appErr, ok := err.(*apperr.Error); ok {
 				switch appErr.Code {
-				case apperr.INVALID_REQUEST, apperr.INVALID_EMAIL, apperr.TURNSTILE_REQUIRED, apperr.TURNSTILE_INVALID:
+				case apperr.INVALID_REQUEST, apperr.INVALID_EMAIL:
 					code = http.StatusBadRequest
 				case apperr.RATE_LIMITED:
 					code = http.StatusTooManyRequests

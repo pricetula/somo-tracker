@@ -66,13 +66,7 @@ export async function apiRequest(
     headers["Origin"] = process.env.PUBLIC_APP_URL ?? "";
   }
 
-  // Forward client IP for rate limiting (Cloudflare sets CF-Connecting-IP)
-  // const incomingHeaders = new Headers(init.headers);
-  // const cfConnectingIP = incomingHeaders.get("CF-Connecting-IP");
-  // if (cfConnectingIP) {
-  //   headers["X-Forwarded-For"] = cfConnectingIP;
-  // }
-
+  // Forward client IP for rate limiting
   const res = await fetch(`${apiUrl}${path}`, {
     ...init,
     headers,

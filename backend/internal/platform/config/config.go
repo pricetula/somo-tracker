@@ -24,10 +24,6 @@ type Config struct {
 	// OTP security
 	EmailHMACKey string
 
-	// Turnstile (Cloudflare bot protection)
-	TurnstileEnabled  bool
-	TurnstileSecretKey string
-
 	// CORS
 	CORSOrigins string
 
@@ -66,9 +62,6 @@ func Load() (*Config, error) {
 
 		EmailHMACKey: firstNonEmpty("EMAIL_HMAC_KEY"),
 
-		TurnstileEnabled:  firstNonEmpty("TURNSTILE_ENABLED") == "true",
-		TurnstileSecretKey: firstNonEmpty("TURNSTILE_SECRET_KEY"),
-
 		CORSOrigins: firstNonEmpty("CORS_ORIGINS"),
 
 		RateLimitOTPRequestIPPerMin:   10,
@@ -103,12 +96,6 @@ func (c *Config) validate() error {
 		if v == "" {
 			missing = append(missing, k)
 		}
-	}
-
-	// When Turnstile is enabled its secret must be present for server-side
-	// verification; otherwise requests fail with a confusing config error.
-	if c.TurnstileEnabled && c.TurnstileSecretKey == "" {
-		missing = append(missing, "TURNSTILE_SECRET_KEY")
 	}
 
 	// In production, session cookie MUST use __Host- prefix

@@ -110,8 +110,7 @@ func newTestService(s store.StoreInterface, cs *mockBrevoSender, cfg *config.Con
 
 func testConfig() *config.Config {
 	return &config.Config{
-		EmailHMACKey:     "test-hmac-key-32-bytes-long!!",
-		TurnstileEnabled: false,
+		EmailHMACKey: "test-hmac-key-32-bytes-long!!",
 	}
 }
 
@@ -168,24 +167,6 @@ func TestRequestOTP_InvalidEmail(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, apperr.INVALID_EMAIL, err.(*apperr.Error).Code)
-
-	store.AssertExpectations(t)
-	sender.AssertExpectations(t)
-}
-
-func TestRequestOTP_TurnstileRequired(t *testing.T) {
-	ctx := context.Background()
-	cfg := testConfig()
-	cfg.TurnstileEnabled = true
-
-	store := &mockStore{}
-	sender := &mockBrevoSender{}
-	svc := newTestService(store, sender, cfg)
-
-	_, err := svc.RequestOTP(ctx, RequestOTPRequest{Email: "user@example.com"})
-
-	require.Error(t, err)
-	assert.Equal(t, apperr.TURNSTILE_REQUIRED, err.(*apperr.Error).Code)
 
 	store.AssertExpectations(t)
 	sender.AssertExpectations(t)

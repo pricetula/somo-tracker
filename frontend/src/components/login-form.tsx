@@ -17,6 +17,7 @@ export default function LoginForm() {
   const [step, setStep] = useState<"email" | "otp">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [challengeId, setChallengeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const turnstileRef = useRef<React.ComponentRef<typeof Turnstile>>(null);
@@ -49,6 +50,7 @@ export default function LoginForm() {
         }
 
         const data = await res.json();
+        setChallengeId(data.challenge_id);
         setStep("otp");
       } catch {
         setError("Failed to send code. Please try again.");
@@ -71,7 +73,7 @@ export default function LoginForm() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ challenge_id: challengeId, code }),
         });
 
         if (!res.ok) {

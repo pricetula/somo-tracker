@@ -1,10 +1,12 @@
 import LoginForm from "@/components/login-form";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Login page server component.
  *
- * Reads `TURNSTILE_SITE_KEY` from the server environment (injected by Doppler
- * at runtime on Vercel) and passes it to the client form so the Turnstile
+ * Reads `TURNSTILE_SITE_KEY` from the server environment on every request
+ * (not at build time) and passes it to the client form so the Turnstile
  * widget can render. The secret key is never exposed to the browser — it is
  * used only in the API route for server-side verification.
  */

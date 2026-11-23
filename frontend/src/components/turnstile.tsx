@@ -36,8 +36,9 @@ declare global {
  * Guards against duplicate script tags and duplicate render() calls so the
  * component is safe to mount/unmount/remount without Cloudflare errors.
  */
-export const Turnstile = forwardRef<TurnstileRef, { siteKey: string }>(
-  function Turnstile({ siteKey }, ref) {
+export const Turnstile = forwardRef<TurnstileRef, {}>(
+  function Turnstile(_props, ref) {
+    const siteKey = "0x4AAAAAAGHleNH8xjjhEUQ";
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<number | null>(null);
     const scriptAppendedRef = useRef(false);

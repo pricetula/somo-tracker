@@ -31,13 +31,16 @@ const RENDER_HIBERNATION_VALUE = "hibernate-rate-limited";
 const READINESS_PATH = "/readyz";
 
 /** Total deadline for waiting for backend readiness after a hibernate 429. */
-const COLD_START_READINESS_DEADLINE_MS = 60_000;
+const COLD_START_READINESS_DEADLINE_MS = 120_000;
 
-/** Initial delay (ms) between readiness probes; doubles with each attempt. */
-const COLD_START_PROBE_INITIAL_DELAY_MS = 1_000;
+/** Initial delay (ms) between readiness probes; increases by 10s each attempt. */
+const COLD_START_PROBE_INITIAL_DELAY_MS = 20_000;
+
+/** Increment (ms) added to the probe delay after each attempt. */
+const COLD_START_PROBE_DELAY_INCREMENT_MS = 10_000;
 
 /** Maximum delay (ms) between readiness probes. */
-const COLD_START_PROBE_MAX_DELAY_MS = 8_000;
+const COLD_START_PROBE_MAX_DELAY_MS = 40_000;
 
 /** User-Agent sent on readiness probes to avoid Cloudflare bot challenges on UA-less requests. */
 const READINESS_PROBE_USER_AGENT = "somo-tracker-frontend/1.0";
@@ -84,10 +87,20 @@ function readinessProbeUrl(apiUrl: string): string {
 /**
  * Polls /readyz until the backend returns 200 OK or the deadline is exceeded.
  *
- * Uses exponential backoff (1s, 2s, 4s, 8s…) between probes. A 429
- * hibernate-rate-limited response means the backend is still waking up — we
- * keep polling rather than treating it as failure. Network errors during the
- * wake window are likewise expected and retried.
+ * Uses linear backoff starting at 20s, then 30s, 40s… capped at 40s.
+ * Render cold starts take tens of seconds, so we start with a long delay
+ * rather than hammering the backend with short probes that re-trigger spin-up.
+ *
+ * A 429 hibernate-rate-limited response means the backend is still waking up —
+ * we keep polling rather than treating it as failure. Network errors during
+ * the wake window are likewise expected and retried.
+ *
+ * Two 429 layers exist:
+ *   1. Cloudflare Worker (BFF) at app.somotracker.com — its own rate limiting,
+ *      no x-render-routing header. These pass through unchanged and never
+ *      enter this cold-start path.
+ *   2. Render backend at api.somotracker.com — returns
+ *      x-render-routing: hibernate-rate-limited. Only this triggers retries.
  */
 async function awaitBackendReady(apiUrl: string): Promise<void> {
   const url = `${readinessProbeUrl(apiUrl)}${READINESS_PATH}`;
@@ -147,7 +160,7 @@ async function awaitBackendReady(apiUrl: string): Promise<void> {
     }
 
     await sleep(Math.min(delay, nextRemaining));
-    delay = Math.min(delay * 2, COLD_START_PROBE_MAX_DELAY_MS);
+    delay = Math.min(delay + COLD_START_PROBE_DELAY_INCREMENT_MS, COLD_START_PROBE_MAX_DELAY_MS);
   }
 }
 
@@ -179,11 +192,17 @@ function coldStartUnavailableResponse(): Response {
  *
  * Render cold-start handling:
  *   If the backend returns 429 with x-render-routing: hibernate-rate-limited,
- *   the function polls /readyz with exponential backoff until the backend
- *   returns 200 OK (up to COLD_START_READINESS_DEADLINE_MS), then retries the
- *   original request. If the retry is also rate-limited, it polls and retries
- *   up to MAX_COLD_START_RETRIES times. A structured 503 is returned only
- *   after all retries are exhausted.
+ *   the function polls /readyz with linear backoff (20s, 30s, 40s…) until the
+ *   backend returns 200 OK (up to COLD_START_READINESS_DEADLINE_MS), then
+ *   retries the original request. If the retry is also rate-limited, it polls
+ *   and retries up to MAX_COLD_START_RETRIES times. A structured 503 is
+ *   returned only after all retries are exhausted.
+ *
+ * Two 429 layers exist:
+ *   1. Cloudflare Worker (BFF) at app.somotracker.com — its own rate limiting,
+ *      no x-render-routing header. Passes through unchanged, never retried.
+ *   2. Render backend at api.somotracker.com — x-render-routing:
+ *      hibernate-rate-limited. Only this triggers cold-start retries.
  */
 export async function apiRequest(
   path: string,

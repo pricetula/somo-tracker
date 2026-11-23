@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"somotracker/internal/platform/apperr"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/logger"
+	"somotracker/internal/platform/ratelimit"
 	"somotracker/internal/platform/turnstile"
 )
 
@@ -24,12 +26,13 @@ type Handler struct {
 	cfg                  *config.Config
 	log                  *logger.Logger
 	turnstile            turnstile.Verifier
+	rateLimiter          *ratelimit.Limiter
 	sessionCookieName    string
 	onboardingCookieName string
 }
 
 // New creates an auth handler.
-func New(svc *service.Service, cfg *config.Config, log *logger.Logger) *Handler {
+func New(svc *service.Service, cfg *config.Config, log *logger.Logger, rateLimiter *ratelimit.Limiter) *Handler {
 	sessionCookieName := cfg.SessionCookieName
 	// Derive onboarding cookie name from session cookie name
 	onboardingCookieName := deriveOnboardingCookieName(sessionCookieName)
@@ -49,6 +52,7 @@ func New(svc *service.Service, cfg *config.Config, log *logger.Logger) *Handler 
 		"app_env", cfg.AppEnv,
 		"is_production", cfg.IsProduction(),
 		"turnstile_enabled", ts != nil,
+		"rate_limiter_enabled", rateLimiter != nil,
 	)
 
 	return &Handler{
@@ -56,6 +60,7 @@ func New(svc *service.Service, cfg *config.Config, log *logger.Logger) *Handler 
 		cfg:                  cfg,
 		log:                  log,
 		turnstile:            ts,
+		rateLimiter:          rateLimiter,
 		sessionCookieName:    sessionCookieName,
 		onboardingCookieName: onboardingCookieName,
 	}
@@ -102,6 +107,36 @@ func (h *Handler) RequestOTP(c fiber.Ctx) error {
 	var req RequestOTPRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
+	}
+
+	// Rate limit per email (before any OTP generation or DB access).
+	if h.rateLimiter != nil {
+		emailKey := fmt.Sprintf("ratelimit:otp:email:%s", strings.ToLower(req.Email))
+		allowed, _, err := h.rateLimiter.Allow(c.Context(), emailKey, h.cfg.RateLimitOTPRequestEmailPer15Min, 15*time.Minute)
+		if err != nil {
+			h.log.Error(c.Context(), err, "email rate limit check failed", "email", req.Email)
+			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
+		}
+		if !allowed {
+			return apperr.New(apperr.RATE_LIMITED, "too many requests for this email")
+		}
+	}
+
+	// Rate limit per IP.
+	if h.rateLimiter != nil {
+		remoteIP := c.Get("CF-Connecting-IP")
+		if remoteIP == "" {
+			remoteIP = c.IP()
+		}
+		ipKey := fmt.Sprintf("ratelimit:otp:ip:%s", remoteIP)
+		allowed, _, err := h.rateLimiter.Allow(c.Context(), ipKey, h.cfg.RateLimitOTPRequestIPPerMin, time.Minute)
+		if err != nil {
+			h.log.Error(c.Context(), err, "IP rate limit check failed", "ip", remoteIP)
+			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
+		}
+		if !allowed {
+			return apperr.New(apperr.RATE_LIMITED, "too many requests from this IP")
+		}
 	}
 
 	// Require a Turnstile token before doing anything else.

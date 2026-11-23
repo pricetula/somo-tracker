@@ -335,8 +335,9 @@ All errors follow standard format:
 | Code                 | HTTP | Scenario                       |
 | -------------------- | ---- | ------------------------------ |
 | `INVALID_EMAIL`      | 400  | Malformed email                |
-| `TURNSTILE_REQUIRED` | 400  | Turnstile enabled but no token |
-| `TURNSTILE_INVALID`  | 400  | Turnstile verification failed  |
+| `INVALID_REQUEST`    | 400  | Missing Turnstile token        |
+| `FORBIDDEN`          | 403  | Turnstile verification failed  |
+| `BAD_GATEWAY`        | 502  | Turnstile upstream unavailable |
 | `INVALID_TOKEN`      | 401  | Wrong/expired/used OTP code    |
 | `RATE_LIMITED`       | 429  | Too many requests              |
 | `UNAUTHENTICATED`    | 401  | No/missing session             |

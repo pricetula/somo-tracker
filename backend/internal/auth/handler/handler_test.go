@@ -19,6 +19,7 @@ import (
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/httpserver"
 	"somotracker/internal/platform/logger"
+	"somotracker/internal/platform/ratelimit"
 	"somotracker/internal/platform/turnstile"
 )
 
@@ -114,13 +115,15 @@ func (m *mockCodeSender) SendCode(ctx context.Context, email, code string) error
 	return m.sendErr
 }
 
-func newTestHandler(ts turnstile.Verifier) *Handler {
+func newTestHandler(ts turnstile.Verifier, rl *ratelimit.Limiter) *Handler {
 	cfg := &config.Config{
-		AppEnv:                "development",
-		SessionCookieName:     "session",
-		EmailHMACKey:          "test-hmac-key-32-bytes-long!!",
-		TurnstileSecretKey:    "test-secret",
-		TurnstileExpectedHost: "example.com",
+		AppEnv:                        "development",
+		SessionCookieName:             "session",
+		EmailHMACKey:                  "test-hmac-key-32-bytes-long!!",
+		TurnstileSecretKey:            "test-secret",
+		TurnstileExpectedHost:         "example.com",
+		RateLimitOTPRequestIPPerMin:   10,
+		RateLimitOTPRequestEmailPer15Min: 3,
 	}
 	log := logger.New("info")
 
@@ -131,6 +134,7 @@ func newTestHandler(ts turnstile.Verifier) *Handler {
 		cfg:                  cfg,
 		log:                  log,
 		turnstile:            ts,
+		rateLimiter:          rl,
 		sessionCookieName:    "session",
 		onboardingCookieName: "needs_onboarding",
 	}
@@ -164,7 +168,7 @@ func parseBody(t *testing.T, resp *http.Response) map[string]interface{} {
 }
 
 func TestRequestOTP_MissingTurnstileToken(t *testing.T) {
-	h := newTestHandler(nil)
+	h := newTestHandler(nil, nil)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com"}`
@@ -182,7 +186,7 @@ func TestRequestOTP_TurnstileFailedVerification(t *testing.T) {
 		result: &turnstile.Result{Success: false, ErrorCodes: []string{"invalid-input-response"}},
 		err:    turnstile.ErrVerificationFailed,
 	}
-	h := newTestHandler(ts)
+	h := newTestHandler(ts, nil)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com","turnstile_token":"bad-token"}`
@@ -200,7 +204,7 @@ func TestRequestOTP_TurnstileUpstreamFailure(t *testing.T) {
 		result: nil,
 		err:    turnstile.ErrUpstream,
 	}
-	h := newTestHandler(ts)
+	h := newTestHandler(ts, nil)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com","turnstile_token":"token"}`
@@ -218,7 +222,7 @@ func TestRequestOTP_Success(t *testing.T) {
 		result: &turnstile.Result{Success: true, Hostname: "example.com"},
 		err:    nil,
 	}
-	h := newTestHandler(ts)
+	h := newTestHandler(ts, nil)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com","turnstile_token":"valid-token"}`
@@ -238,7 +242,7 @@ func TestRequestOTP_InvalidEmail(t *testing.T) {
 		result: &turnstile.Result{Success: true, Hostname: "example.com"},
 		err:    nil,
 	}
-	h := newTestHandler(ts)
+	h := newTestHandler(ts, nil)
 	app := setupApp(t, h)
 
 	body := `{"email":"not-an-email","turnstile_token":"valid-token"}`
@@ -252,7 +256,7 @@ func TestRequestOTP_InvalidEmail(t *testing.T) {
 func TestRequestOTP_NoTurnstileVerifier_StillRequiresToken(t *testing.T) {
 	// When no turnstile verifier is configured, the handler still requires
 	// the token field to be present (empty token => 400).
-	h := newTestHandler(nil)
+	h := newTestHandler(nil, nil)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com"}`

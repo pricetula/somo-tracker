@@ -20,6 +20,7 @@ import (
 	"somotracker/internal/platform/db"
 	"somotracker/internal/platform/httpserver"
 	"somotracker/internal/platform/logger"
+	"somotracker/internal/platform/ratelimit"
 	"somotracker/internal/platform/redis"
 )
 
@@ -74,8 +75,11 @@ func New(cfg *config.Config) (*App, error) {
 	// Auth service
 	authSvc := service.New(authStore, codeSender, cfg, log)
 
+	// Rate limiter (Redis-backed)
+	rateLimiter := ratelimit.New(redisClient)
+
 	// Auth handler
-	authHdl := handler.New(authSvc, cfg, log)
+	authHdl := handler.New(authSvc, cfg, log, rateLimiter)
 
 	return &App{
 		cfg:       cfg,

@@ -67,11 +67,11 @@ export async function apiRequest(
   }
 
   // Forward client IP for rate limiting (Cloudflare sets CF-Connecting-IP)
-  const incomingHeaders = new Headers(init.headers);
-  const cfConnectingIP = incomingHeaders.get("CF-Connecting-IP");
-  if (cfConnectingIP) {
-    headers["X-Forwarded-For"] = cfConnectingIP;
-  }
+  // const incomingHeaders = new Headers(init.headers);
+  // const cfConnectingIP = incomingHeaders.get("CF-Connecting-IP");
+  // if (cfConnectingIP) {
+  //   headers["X-Forwarded-For"] = cfConnectingIP;
+  // }
 
   const res = await fetch(`${apiUrl}${path}`, {
     ...init,

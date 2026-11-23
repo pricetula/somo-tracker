@@ -4,10 +4,6 @@ import { useState, useCallback, useRef } from "react";
 
 import { Turnstile } from "@/components/turnstile";
 
-export interface LoginFormProps {
-  siteKey?: string;
-}
-
 /**
  * Login form — email entry for OTP authentication.
  *
@@ -15,10 +11,9 @@ export interface LoginFormProps {
  * Step 2: User enters 6-digit code → POST /api/auth/otp/verify → backend creates session
  * Step 3: Redirect to /
  *
- * Turnstile bot protection is enforced when `siteKey` is provided.
- * A fresh token is obtained on each OTP request and verified by the API route.
+ * Turnstile site key is hardcoded in the Turnstile component itself.
  */
-export default function LoginForm({ siteKey }: LoginFormProps) {
+export default function LoginForm() {
   const [step, setStep] = useState<"email" | "otp">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -33,14 +28,11 @@ export default function LoginForm({ siteKey }: LoginFormProps) {
       setLoading(true);
 
       try {
-        // Obtain a fresh Turnstile token when protection is configured.
-        let turnstileToken: string | undefined;
-        if (siteKey) {
-          if (!turnstileRef.current) {
-            throw new Error("Turnstile widget is not ready");
-          }
-          turnstileToken = await turnstileRef.current.verify();
+        // Obtain a fresh Turnstile token before requesting OTP.
+        if (!turnstileRef.current) {
+          throw new Error("Turnstile widget is not ready");
         }
+        const turnstileToken = await turnstileRef.current.verify();
 
         const res = await fetch("/api/auth/otp/request", {
           method: "POST",
@@ -65,7 +57,7 @@ export default function LoginForm({ siteKey }: LoginFormProps) {
         setLoading(false);
       }
     },
-    [email, siteKey],
+    [email],
   );
 
   const verifyOTP = useCallback(
@@ -126,12 +118,7 @@ export default function LoginForm({ siteKey }: LoginFormProps) {
                   disabled={loading}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
                 />
-
-                {siteKey && (
-                  <div className="flex justify-center">
-                    <Turnstile ref={turnstileRef} siteKey={siteKey} />
-                  </div>
-                )}
+                <Turnstile ref={turnstileRef} />
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}

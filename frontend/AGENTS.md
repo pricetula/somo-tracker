@@ -35,3 +35,4 @@
 - All error boundaries wrap major routes.
 - API mutations pass IDs in request body (not just URL params).
 - Form implementations follow the onboarding-form pattern.
+- Follow git conventions in root `AGENTS.md` (conventional commits, pre-push compliance, no secrets in git).

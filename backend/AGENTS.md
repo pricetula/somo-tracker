@@ -39,3 +39,4 @@
 - No fallback defaults in `config.go`.
 - Migration testing required for every new migration SQL file.
 - Run `go vet ./...` and `golangci-lint run ./...` before committing.
+- Follow git conventions in root `AGENTS.md` (conventional commits, pre-push compliance, no secrets in git).

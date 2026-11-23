@@ -12,3 +12,4 @@
 ## Rules
 - Keep marketing site lightweight; no heavy client-side frameworks.
 - All images optimized; favicon and OG images in `public/`.
+- Follow git conventions in root `AGENTS.md` (conventional commits, pre-push compliance, no secrets in git).

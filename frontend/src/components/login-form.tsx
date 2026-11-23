@@ -123,7 +123,7 @@ export default function LoginForm() {
         setLoading(false);
       }
     },
-    [code],
+    [challengeId, code],
   );
 
   return (

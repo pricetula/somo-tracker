@@ -31,7 +31,7 @@ const RENDER_HIBERNATION_VALUE = "hibernate-rate-limited";
 const READINESS_PATH = "/readyz";
 
 /** Total deadline for waiting for backend readiness after a hibernate 429. */
-const COLD_START_READINESS_DEADLINE_MS = 120_000;
+const COLD_START_READINESS_DEADLINE_MS = 300_000;
 
 /** Initial delay (ms) between readiness probes; increases by 10s each attempt. */
 const COLD_START_PROBE_INITIAL_DELAY_MS = 20_000;
@@ -40,7 +40,7 @@ const COLD_START_PROBE_INITIAL_DELAY_MS = 20_000;
 const COLD_START_PROBE_DELAY_INCREMENT_MS = 10_000;
 
 /** Maximum delay (ms) between readiness probes. */
-const COLD_START_PROBE_MAX_DELAY_MS = 40_000;
+const COLD_START_PROBE_MAX_DELAY_MS = 60_000;
 
 /** User-Agent sent on readiness probes to avoid Cloudflare bot challenges on UA-less requests. */
 const READINESS_PROBE_USER_AGENT = "somo-tracker-frontend/1.0";
@@ -87,9 +87,11 @@ function readinessProbeUrl(apiUrl: string): string {
 /**
  * Polls /readyz until the backend returns 200 OK or the deadline is exceeded.
  *
- * Uses linear backoff starting at 20s, then 30s, 40s… capped at 40s.
- * Render cold starts take tens of seconds, so we start with a long delay
- * rather than hammering the backend with short probes that re-trigger spin-up.
+ * Uses linear backoff starting at 20s, then 30s, 40s… capped at 60s.
+ * Render cold starts take tens of seconds to minutes, so we start with a long
+ * delay and keep it generous — short probes re-trigger Render spin-up and waste
+ * the retry budget. The backoff is deliberately conservative to avoid hitting
+ * Render's rate limits during the wake window.
  *
  * A 429 hibernate-rate-limited response means the backend is still waking up —
  * we keep polling rather than treating it as failure. Network errors during

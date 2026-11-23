@@ -72,9 +72,8 @@ function sleep(ms: number): Promise<void> {
 /**
  * Resolves the base URL to use for readiness probes.
  *
- * Prefers a direct Render origin (RENDER_DIRECT_URL) when configured so the
- * probe bypasses any Cloudflare edge that might challenge UA-less or
- * header-less subrequests. Falls back to PUBLIC_API_URL otherwise.
+ * Prefers a direct Render origin (RENDER_DIRECT_URL) when configured.
+ * Falls back to PUBLIC_API_URL otherwise.
  */
 function readinessProbeUrl(apiUrl: string): string {
   const direct = process.env.RENDER_DIRECT_URL;
@@ -97,12 +96,8 @@ function readinessProbeUrl(apiUrl: string): string {
  * we keep polling rather than treating it as failure. Network errors during
  * the wake window are likewise expected and retried.
  *
- * Two 429 layers exist:
- *   1. Cloudflare Worker (BFF) at app.somotracker.com — its own rate limiting,
- *      no x-render-routing header. These pass through unchanged and never
- *      enter this cold-start path.
- *   2. Render backend at api.somotracker.com — returns
- *      x-render-routing: hibernate-rate-limited. Only this triggers retries.
+ * The Render backend returns x-render-routing: hibernate-rate-limited when
+ * hibernating; only that triggers retries.
  */
 async function awaitBackendReady(apiUrl: string): Promise<void> {
   const url = `${readinessProbeUrl(apiUrl)}${READINESS_PATH}`;
@@ -200,11 +195,8 @@ function coldStartUnavailableResponse(): Response {
  *   and retries up to MAX_COLD_START_RETRIES times. A structured 503 is
  *   returned only after all retries are exhausted.
  *
- * Two 429 layers exist:
- *   1. Cloudflare Worker (BFF) at app.somotracker.com — its own rate limiting,
- *      no x-render-routing header. Passes through unchanged, never retried.
- *   2. Render backend at api.somotracker.com — x-render-routing:
- *      hibernate-rate-limited. Only this triggers cold-start retries.
+ * The Render backend returns x-render-routing: hibernate-rate-limited when
+ * hibernating; only that triggers cold-start retries.
  */
 export async function apiRequest(
   path: string,
@@ -247,13 +239,6 @@ export async function apiRequest(
   const method = init.method ?? "GET";
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
     headers["Origin"] = process.env.PUBLIC_APP_URL ?? "";
-  }
-
-  // Forward client IP for rate limiting (Cloudflare sets CF-Connecting-IP)
-  const incomingHeaders = new Headers(init.headers);
-  const cfConnectingIP = incomingHeaders.get("CF-Connecting-IP");
-  if (cfConnectingIP) {
-    headers["X-Forwarded-For"] = cfConnectingIP;
   }
 
   // Capture the body before the first fetch so it can be replayed if a

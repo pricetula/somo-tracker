@@ -1,34 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (
-        element: HTMLElement,
-        opts: {
-          sitekey: string;
-          callback: (token: string) => void;
-          "expired-callback"?: () => void;
-        },
-      ) => number;
-      remove: (widgetId: number) => void;
-      getResponse: (widgetId?: number) => string | null;
-    };
-  }
-}
+import { useState, useCallback } from "react";
 
 /**
  * Login page — email entry for OTP authentication.
  *
- * Step 1: User completes Turnstile + enters email → POST /api/auth/otp/request → backend sends OTP via email
+ * Step 1: User enters email → POST /api/auth/otp/request → backend sends OTP via email
  * Step 2: User enters 6-digit code → POST /api/auth/otp/verify → backend creates session
  * Step 3: Redirect to /
- *
- * Turnstile (Cloudflare) is rendered on the email step. The site key must be
- * exposed to the browser as NEXT_PUBLIC_TURNSTILE_SITE_KEY. The secret key
- * never reaches the browser — it is verified server-side by the Go backend.
  */
 export default function LoginPage() {
   const [step, setStep] = useState<"email" | "otp">("email");
@@ -36,78 +15,6 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const [challengeId, setChallengeId] = useState("");
-
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-
-  const turnstileRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<number | null>(null);
-
-  function removeTurnstileWidget() {
-    if (widgetIdRef.current == null) return;
-    const turnstile = window.turnstile;
-    if (turnstile) {
-      turnstile.remove(widgetIdRef.current);
-    }
-    widgetIdRef.current = null;
-    setTurnstileToken("");
-  }
-
-  // Load the Turnstile API script and render the widget once it's ready.
-  // We guard against a race where `window.turnstile` isn't available yet
-  // when the effect first runs by attaching a load listener on the script.
-  useEffect(() => {
-    if (!siteKey || typeof window === "undefined") return;
-
-    console.log("siteKey", siteKey);
-    const renderWidget = () => {
-      const turnstile = window.turnstile;
-      if (!turnstile || !turnstileRef.current) return;
-
-      const id = turnstile.render(turnstileRef.current, {
-        sitekey: siteKey,
-        callback: (token: string) => setTurnstileToken(token),
-        "expired-callback": () => setTurnstileToken(""),
-      });
-      widgetIdRef.current = id;
-    };
-
-    // Already loaded?
-    if (window.turnstile) {
-      renderWidget();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-    script.async = true;
-    script.defer = true;
-
-    const onLoad = () => {
-      renderWidget();
-    };
-
-    script.addEventListener("load", onLoad);
-    document.head.appendChild(script);
-
-    return () => {
-      script.removeEventListener("load", onLoad);
-      document.head.removeChild(script);
-      removeTurnstileWidget();
-    };
-  }, [siteKey]);
-
-  // Clean up the Turnstile widget whenever we leave the email step.
-  // The widget is rendered inside the email-step form, so when the user
-  // submits and step flips to 'otp', React removes the widget's DOM node.
-  // Without calling turnstile.remove() here, Cloudflare warns:
-  // "Cannot find Widget ... consider using turnstile.remove() to clean up a widget."
-  useEffect(() => {
-    return () => {
-      removeTurnstileWidget();
-    };
-  }, [step]);
 
   const requestOTP = useCallback(
     async (e: React.FormEvent) => {
@@ -115,20 +22,12 @@ export default function LoginPage() {
       setError(null);
       setLoading(true);
 
-      // Turnstile is enforced by the backend when TURNSTILE_ENABLED=true.
-      // Fail fast here only when a site key is configured so the UX is clear.
-      if (siteKey && !turnstileToken) {
-        setError("Please complete the security check above.");
-        setLoading(false);
-        return;
-      }
-
       try {
         const res = await fetch("/api/auth/otp/request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ email, turnstile_token: turnstileToken }),
+          body: JSON.stringify({ email }),
         });
 
         if (!res.ok) {
@@ -139,7 +38,6 @@ export default function LoginPage() {
         }
 
         const data = await res.json();
-        setChallengeId(data.challenge_id || "");
         setStep("otp");
       } catch {
         setError("Failed to send code. Please try again.");
@@ -148,7 +46,7 @@ export default function LoginPage() {
         setLoading(false);
       }
     },
-    [email, turnstileToken, siteKey],
+    [email],
   );
 
   const verifyOTP = useCallback(
@@ -162,7 +60,7 @@ export default function LoginPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ challenge_id: challengeId, code }),
+          body: JSON.stringify({ code }),
         });
 
         if (!res.ok) {
@@ -185,12 +83,11 @@ export default function LoginPage() {
         setLoading(false);
       }
     },
-    [code, challengeId],
+    [code],
   );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      -----{siteKey}=====
       <div className="w-full max-w-md space-y-6">
         {step === "email" && (
           <>
@@ -215,14 +112,10 @@ export default function LoginPage() {
                 />
               </div>
 
-              {siteKey && <div ref={turnstileRef} className="cf-turnstile" />}
-
               {error && <p className="text-sm text-destructive">{error}</p>}
               <button
                 type="submit"
-                disabled={
-                  loading || !email || (Boolean(siteKey) && !turnstileToken)
-                }
+                disabled={loading || !email}
                 className="w-full inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
               >
                 {loading ? "Sending…" : "Send code"}

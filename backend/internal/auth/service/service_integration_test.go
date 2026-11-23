@@ -84,7 +84,6 @@ func TestIntegration_RequestOTP_VerifyOTP_Onboard(t *testing.T) {
 	queries := store.New(storegen.New(pool.StdlibDB), pool)
 	cfg := &config.Config{
 		EmailHMACKey:     "test-hmac-key-32-bytes-long!!",
-		TurnstileEnabled: false,
 		SessionCookieName: "session",
 		AppEnv: "development",
 	}
@@ -146,7 +145,6 @@ func TestIntegration_NewUserFlow(t *testing.T) {
 	queries := store.New(storegen.New(pool.StdlibDB), pool)
 	cfg := &config.Config{
 		EmailHMACKey:     "test-hmac-key-32-bytes-long!!",
-		TurnstileEnabled: false,
 		SessionCookieName: "session",
 		AppEnv: "development",
 	}

@@ -19,8 +19,6 @@ const (
 	NOT_FOUND         Code = "NOT_FOUND"
 	CONFLICT          Code = "CONFLICT"
 	VALIDATION_FAILED Code = "VALIDATION_FAILED"
-	TURNSTILE_REQUIRED Code = "TURNSTILE_REQUIRED"
-	TURNSTILE_INVALID Code = "TURNSTILE_INVALID"
 )
 
 // Error is a typed application error with a stable code.

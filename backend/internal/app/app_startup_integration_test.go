@@ -81,8 +81,6 @@ func TestStartup_AppCreatesSuccessfully(t *testing.T) {
 		BrevoSenderEmail:  "noreply@somotracker.com",
 		BrevoSenderName:   "Somotracker",
 		EmailHMACKey:      "test-hmac-key-32-bytes-long!!",
-		TurnstileEnabled:  false,
-		TurnstileSecretKey: "",
 		CORSOrigins:       "*",
 	}
 

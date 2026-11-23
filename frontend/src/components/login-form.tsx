@@ -35,12 +35,10 @@ export default function LoginForm({ siteKey }: LoginFormProps) {
       try {
         // Obtain a fresh Turnstile token when protection is configured.
         let turnstileToken: string | undefined;
-        if (siteKey) {
-          if (!turnstileRef.current) {
-            throw new Error("Turnstile widget is not ready");
-          }
-          turnstileToken = await turnstileRef.current.verify();
+        if (!turnstileRef.current) {
+          throw new Error("Turnstile widget is not ready");
         }
+        turnstileToken = await turnstileRef.current.verify();
 
         const res = await fetch("/api/auth/otp/request", {
           method: "POST",
@@ -65,7 +63,7 @@ export default function LoginForm({ siteKey }: LoginFormProps) {
         setLoading(false);
       }
     },
-    [email, siteKey],
+    [email],
   );
 
   const verifyOTP = useCallback(
@@ -126,11 +124,10 @@ export default function LoginForm({ siteKey }: LoginFormProps) {
                   disabled={loading}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
                 />
-                {siteKey && (
-                  <div className="flex justify-center">
-                    <Turnstile ref={turnstileRef} siteKey={siteKey} />
-                  </div>
-                )}
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey="0x4AAAAAAGHleNH8xjjhEUQL"
+                />
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}

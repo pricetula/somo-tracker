@@ -19,7 +19,7 @@ export default defineConfig({
       IMAGES: bindings.images(),
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: bindings.text("0x4AAAAAAGHleNH8xjjhEUQL"),
       SESSION_COOKIE_NAME: bindings.text("__Host-session"),
-      PUBLIC_API_URL: bindings.text("https://api.somotracker.com"),
+      PUBLIC_API_URL: bindings.text("https://somo-tracker.onrender.com"),
       PUBLIC_APP_URL: bindings.text("https://app.somotracker.com"),
     },
   }),

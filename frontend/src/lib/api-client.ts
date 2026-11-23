@@ -27,9 +27,9 @@ export async function apiRequest(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const apiUrl = process.env.PUBLIC_API_URL;
+  const apiUrl = process.env.API_URL;
   if (!apiUrl) {
-    throw new Error("PUBLIC_API_URL is not configured");
+    throw new Error("API_URL is not configured");
   }
 
   const cookieStore = await cookies();
@@ -63,7 +63,7 @@ export async function apiRequest(
 
   const method = init.method ?? "GET";
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    headers["Origin"] = process.env.PUBLIC_APP_URL ?? "";
+    headers["Origin"] = process.env.APP_URL ?? "";
   }
 
   // Forward client IP for rate limiting

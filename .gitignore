@@ -21,9 +21,6 @@ backend/coverage.*
 # Docker
 docker-compose.override.yml
 
-# Design assets
-assets/
-
 # Astro static output
 marketing/dist
 marketing/.astro-cache

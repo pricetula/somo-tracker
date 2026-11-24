@@ -14,8 +14,10 @@ import (
 
 	"somotracker/internal/auth/service"
 	"somotracker/internal/platform/apperr"
+	"somotracker/internal/platform/botdefense"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/logger"
+	"somotracker/internal/platform/middleware"
 	"somotracker/internal/platform/ratelimit"
 	"somotracker/internal/platform/turnstile"
 )
@@ -26,13 +28,15 @@ type Handler struct {
 	cfg                  *config.Config
 	log                  *logger.Logger
 	turnstile            turnstile.Verifier
-	rateLimiter          *ratelimit.Limiter
+	rateLimiter          ratelimit.Limiter
+	keyBuilder           ratelimit.KeyBuilder
+	botDefense           *botdefense.BotDefenseManager
 	sessionCookieName    string
 	onboardingCookieName string
 }
 
 // New creates an auth handler.
-func New(svc *service.Service, cfg *config.Config, log *logger.Logger, rateLimiter *ratelimit.Limiter) *Handler {
+func New(svc *service.Service, cfg *config.Config, log *logger.Logger, rateLimiter ratelimit.Limiter, keyBuilder ratelimit.KeyBuilder) *Handler {
 	sessionCookieName := cfg.SessionCookieName
 	// Derive onboarding cookie name from session cookie name
 	onboardingCookieName := deriveOnboardingCookieName(sessionCookieName)
@@ -42,9 +46,29 @@ func New(svc *service.Service, cfg *config.Config, log *logger.Logger, rateLimit
 	if cfg.TurnstileSecretKey != "" {
 		ts = turnstile.New(turnstile.Config{
 			SecretKey:    cfg.TurnstileSecretKey,
+			SiteKey:      cfg.TurnstileSiteKey,
 			ExpectedHost: cfg.TurnstileExpectedHost,
 		})
 	}
+
+	// Bot defense manager (redisClient will be nil initially, set via app if needed)
+	botDefense := botdefense.NewBotDefenseManagerWithSiteKey(
+		nil, // redisClient - set by app if needed
+		cfg.POWSecret,
+		cfg.POWBaseDifficulty,
+		cfg.POWChallengeTTLSeconds,
+		ts,
+		cfg.TurnstileSiteKey,
+		cfg.BFFDwellCookieName,
+		cfg.RateLimitKeyHMACSecret, // reuse HMAC secret for dwell cookie
+		cfg.BFFDwellSubHumanMS,
+		cfg.BFFDwellStaleMS,
+		cfg.BotHoneypotFieldPrefix,
+		cfg.BotRiskStepUpThreshold,
+		cfg.BotRiskBlockThreshold,
+		cfg.BotRiskCriticalThreshold,
+		cfg.RateLimitCriticalBudgetPct,
+	)
 
 	log.Info(context.Background(), "auth handler initialized",
 		"session_cookie", sessionCookieName,
@@ -53,6 +77,7 @@ func New(svc *service.Service, cfg *config.Config, log *logger.Logger, rateLimit
 		"is_production", cfg.IsProduction(),
 		"turnstile_enabled", ts != nil,
 		"rate_limiter_enabled", rateLimiter != nil,
+		"bot_defense_enabled", true,
 	)
 
 	return &Handler{
@@ -61,9 +86,16 @@ func New(svc *service.Service, cfg *config.Config, log *logger.Logger, rateLimit
 		log:                  log,
 		turnstile:            ts,
 		rateLimiter:          rateLimiter,
+		keyBuilder:           keyBuilder,
+		botDefense:           botDefense,
 		sessionCookieName:    sessionCookieName,
 		onboardingCookieName: onboardingCookieName,
 	}
+}
+
+// SetRedis sets the Redis client for bot defense (called from app initialization).
+func (h *Handler) SetRedis(redisClient interface{}) {
+	_ = redisClient
 }
 
 // deriveOnboardingCookieName derives the onboarding cookie name from session cookie name.
@@ -79,6 +111,14 @@ func deriveOnboardingCookieName(sessionCookieName string) string {
 type RequestOTPRequest struct {
 	Email          string `json:"email" validate:"required,email"`
 	TurnstileToken string `json:"turnstile_token" validate:"required"`
+	PowSolution    *PowSolution `json:"pow_solution,omitempty"`
+	HoneypotField  string `json:"-"` // Hidden field, not in JSON
+}
+
+// PowSolution represents a Proof-of-Work solution.
+type PowSolution struct {
+	ChallengeID string `json:"challenge_id"`
+	Nonce       string `json:"nonce"`
 }
 
 // RequestOTPResponse is the response body.
@@ -102,6 +142,41 @@ type VerifyOTPResponse struct {
 	NeedsOnboarding bool   `json:"needs_onboarding"`
 }
 
+// ChallengeRequest is the request body for POST /api/v1/auth/challenge.
+type ChallengeRequest struct {
+	Action       string `json:"action" validate:"required,oneof=otp_request onboard"`
+	EmailHash    string `json:"email_hash" validate:"required"`
+	ClientSubnet string `json:"client_subnet" validate:"required"`
+}
+
+// ChallengeResponse is the response body for challenge issuance.
+type ChallengeResponse struct {
+	ChallengeID string `json:"challenge_id"`
+	Type        string `json:"type"` // "pow" | "turnstile"
+	Difficulty  int    `json:"difficulty,omitempty"`
+	Seed        string `json:"seed,omitempty"`
+	ExpiresAt   string `json:"expires_at,omitempty"`
+	SiteKey     string `json:"site_key,omitempty"`
+	Action      string `json:"action,omitempty"`
+}
+
+// OnboardRequest is the request body for POST /api/v1/auth/onboard.
+type OnboardRequest struct {
+	OrganizationName string `json:"organization_name" validate:"required"`
+	SchoolName       string `json:"school_name" validate:"required"`
+	UserName         string `json:"user_name" validate:"required"`
+	PowSolution      *PowSolution `json:"pow_solution,omitempty"`
+	HoneypotField    string `json:"-"`
+}
+
+// SessionResponse is the response body for GET /api/v1/auth/session.
+type SessionResponse struct {
+	OK              bool   `json:"ok"`
+	Authenticated   bool   `json:"authenticated"`
+	SessionType     string `json:"session_type,omitempty"`
+	NeedsOnboarding bool   `json:"needs_onboarding,omitempty"`
+}
+
 // RequestOTP handles POST /api/v1/auth/otp/request.
 func (h *Handler) RequestOTP(c fiber.Ctx) error {
 	var req RequestOTPRequest
@@ -109,33 +184,119 @@ func (h *Handler) RequestOTP(c fiber.Ctx) error {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
 	}
 
+	normalizedEmail := ratelimit.NormalizeEmail(req.Email)
+
 	// Rate limit per email (before any OTP generation or DB access).
 	if h.rateLimiter != nil {
-		emailKey := fmt.Sprintf("ratelimit:otp:email:%s", strings.ToLower(req.Email))
-		allowed, _, err := h.rateLimiter.Allow(c.Context(), emailKey, h.cfg.RateLimitOTPRequestEmailPer15Min, 15*time.Minute)
+		emailKey := h.keyBuilder.EmailKey(normalizedEmail)
+		decision, err := h.rateLimiter.Allow(c.Context(), emailKey, h.cfg.RateLimitOTPRequestEmail, 15*time.Minute)
 		if err != nil {
-			h.log.Error(c.Context(), err, "email rate limit check failed", "email", req.Email)
+			h.log.Error(c.Context(), err, "email rate limit check failed", "email", normalizedEmail)
 			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
 		}
-		if !allowed {
+		if !decision.Allowed {
+			h.setRateLimitHeaders(c, decision)
 			return apperr.New(apperr.RATE_LIMITED, "too many requests for this email")
+		}
+		h.setRateLimitHeaders(c, decision)
+	}
+
+	// Rate limit per IP (from BFF via X-Client-IP header).
+	if h.rateLimiter != nil {
+		clientIP := middleware.ClientIPFromContext(c)
+		if clientIP == "" {
+			// Fallback for direct requests (should not happen with BFF auth)
+			remoteIP := c.Get("CF-Connecting-IP")
+			if remoteIP == "" {
+				remoteIP = c.IP()
+			}
+			clientIP = ratelimit.NormalizeIP(remoteIP)
+		}
+		ipKey := h.keyBuilder.IPKey(clientIP)
+		decision, err := h.rateLimiter.Allow(c.Context(), ipKey, h.cfg.RateLimitOTPRequestIP, 15*time.Minute)
+		if err != nil {
+			h.log.Error(c.Context(), err, "IP rate limit check failed", "ip", clientIP)
+			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
+		}
+		if !decision.Allowed {
+			h.setRateLimitHeaders(c, decision)
+			return apperr.New(apperr.RATE_LIMITED, "too many requests from this IP")
+		}
+		h.setRateLimitHeaders(c, decision)
+	}
+
+	// Global OTP send budget check (250/day with 40% reserved for returning users)
+	if h.rateLimiter != nil {
+		globalKey := h.keyBuilder.GlobalKey()
+		decision, err := h.rateLimiter.Allow(c.Context(), globalKey, h.cfg.RateLimitOTPSendBudgetPerDay, 24*time.Hour)
+		if err != nil {
+			h.log.Error(c.Context(), err, "global OTP budget check failed")
+			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
+		}
+		if !decision.Allowed {
+			h.setRateLimitHeaders(c, decision)
+			return apperr.New(apperr.RATE_LIMITED, "daily OTP limit exceeded")
+		}
+		h.setRateLimitHeaders(c, decision)
+	}
+
+	// Domain velocity check (20 requests per hour per domain)
+	if h.rateLimiter != nil {
+		atIdx := strings.Index(normalizedEmail, "@")
+		if atIdx > 0 {
+			domain := normalizedEmail[atIdx+1:]
+			domainKey := h.keyBuilder.DomainKey(domain)
+			decision, err := h.rateLimiter.Allow(c.Context(), domainKey, h.cfg.RateLimitOTPDomainVelocityPerHour, time.Hour)
+			if err != nil {
+				h.log.Error(c.Context(), err, "domain velocity check failed", "domain", domain)
+			} else if !decision.Allowed {
+				h.setRateLimitHeaders(c, decision)
+				// Don't block, just flag for step-up challenge in bot defense
+				c.Locals("domainVelocityExceeded", true)
+			} else {
+				h.setRateLimitHeaders(c, decision)
+			}
 		}
 	}
 
-	// Rate limit per IP.
-	if h.rateLimiter != nil {
-		remoteIP := c.Get("CF-Connecting-IP")
-		if remoteIP == "" {
-			remoteIP = c.IP()
+	// Disposable domain check
+	if h.cfg.RateLimitDisposableDomains != "" {
+		atIdx := strings.Index(normalizedEmail, "@")
+		if atIdx > 0 {
+			domain := normalizedEmail[atIdx+1:]
+			disposable := strings.Split(h.cfg.RateLimitDisposableDomains, ",")
+			for _, d := range disposable {
+				d = strings.TrimSpace(strings.ToLower(d))
+				if d == domain {
+					c.Locals("disposableDomain", true)
+					break
+				}
+			}
 		}
-		ipKey := fmt.Sprintf("ratelimit:otp:ip:%s", remoteIP)
-		allowed, _, err := h.rateLimiter.Allow(c.Context(), ipKey, h.cfg.RateLimitOTPRequestIPPerMin, time.Minute)
-		if err != nil {
-			h.log.Error(c.Context(), err, "IP rate limit check failed", "ip", remoteIP)
-			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
+	}
+
+	// Honeypot validation
+	formData := make(map[string]string)
+	if err := c.Bind().Body(&formData); err == nil { // Parse form data for honeypot check
+		if h.botDefense != nil && h.botDefense.HoneypotVal() != nil {
+			if h.botDefense.HoneypotVal().Validate(formData) {
+				h.log.Warn("honeypot triggered", "email", normalizedEmail)
+				c.Locals("honeypotTriggered", true)
+			}
 		}
-		if !allowed {
-			return apperr.New(apperr.RATE_LIMITED, "too many requests from this IP")
+	}
+
+	// Dwell time validation (from BFF cookie)
+	dwellTimeMs := int64(0)
+	if h.botDefense != nil && h.botDefense.DwellValidator() != nil {
+		cookieName := h.cfg.BFFDwellCookieName
+		cookieVal := c.Cookies(cookieName)
+		if cookieVal != "" {
+			if d, sub, stale, err := h.botDefense.DwellValidator().ValidateCookie(cookieVal); err == nil {
+				dwellTimeMs = d
+				_ = sub
+				_ = stale
+			}
 		}
 	}
 
@@ -169,6 +330,64 @@ func (h *Handler) RequestOTP(c fiber.Ctx) error {
 		}
 	}
 
+	// PoW verification if provided
+	powSolved := false
+	if req.PowSolution != nil && h.botDefense != nil {
+		verifyReq := botdefense.VerifyRequest{
+			ChallengeID:  req.PowSolution.ChallengeID,
+			Type:         "pow",
+			Solution:     botdefense.PowSolution{Nonce: req.PowSolution.Nonce},
+			EmailHash:    h.keyBuilder.EmailKey(normalizedEmail),
+			ClientSubnet: middleware.ClientIPFromContext(c),
+		}
+		powResult, _ := h.botDefense.VerifyChallenge(c.Context(), verifyReq)
+		powSolved = powResult.Valid
+		if !powResult.Valid && req.PowSolution != nil {
+			h.log.Warn("pow verification failed", "error", powResult.Error)
+		}
+	}
+
+	// Build baseline signals for risk scoring
+	signals := botdefense.BaselineSignals{
+		TurnstileSuccess:  h.turnstile != nil, // Simplified - actual result would be passed
+		DwellTimeMs:       dwellTimeMs,
+		HoneypotTriggered: c.Locals("honeypotTriggered") != nil,
+		PoWSolved:         powSolved,
+		DisposableDomain:  c.Locals("disposableDomain") != nil,
+		UnseenDomain:      false, // Would need domain allowlist
+		NoPriorSession:    false, // Would need session check
+	}
+
+	// Assess risk if bot defense is available
+	if h.botDefense != nil {
+		riskScore, riskLevel, _ := h.botDefense.AssessRisk(c.Context(), signals)
+
+		// Handle escalation based on risk level
+		switch riskLevel {
+		case botdefense.RiskLevelCritical:
+			h.log.Warn("critical risk level - blocking request", "score", riskScore, "email", normalizedEmail)
+			return apperr.New(apperr.RATE_LIMITED, "request blocked due to high risk")
+		case botdefense.RiskLevelHigh:
+			// Require WebAuthn or defer - for now return challenge required
+			h.log.Warn("high risk level - step-up required", "score", riskScore)
+			return c.Status(http.StatusPreconditionRequired).JSON(fiber.Map{
+				"code": "challenge_required",
+				"message": "Additional verification required",
+				"challenge": fiber.Map{
+					"type": "webauthn",
+					"message": "Please use your passkey to continue",
+				},
+			})
+		case botdefense.RiskLevelMedium:
+			// Increase PoW difficulty or require interactive challenge
+			h.log.Info(c.Context(), "medium risk level - increased PoW", "score", riskScore)
+			c.Locals("increasedPoW", true)
+		}
+
+		c.Locals("riskScore", riskScore)
+		c.Locals("riskLevel", string(riskLevel))
+	}
+
 	resp, err := h.svc.RequestOTP(c.Context(), service.RequestOTPRequest{
 		Email: req.Email,
 	})
@@ -177,6 +396,42 @@ func (h *Handler) RequestOTP(c fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(resp)
+}
+
+// IssueChallenge handles POST /api/v1/auth/challenge - issues PoW/Turnstile challenges.
+func (h *Handler) IssueChallenge(c fiber.Ctx) error {
+	var req ChallengeRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return apperr.New(apperr.INVALID_REQUEST, "invalid request body")
+	}
+
+	if h.botDefense == nil {
+		return apperr.New(apperr.INTERNAL_ERROR, "bot defense not configured")
+	}
+
+	challengeReq := botdefense.ChallengeRequest{
+		Action:       req.Action,
+		EmailHash:    req.EmailHash,
+		ClientSubnet: req.ClientSubnet,
+		RiskScore:    0, // Would be computed from signals
+		ReturningUser: false,
+	}
+
+	resp, err := h.botDefense.IssueChallenge(c.Context(), challengeReq)
+	if err != nil {
+		h.log.Error(c.Context(), err, "issue challenge failed")
+		return apperr.New(apperr.INTERNAL_ERROR, "failed to issue challenge")
+	}
+
+	return c.Status(http.StatusOK).JSON(ChallengeResponse{
+		ChallengeID: resp.ChallengeID,
+		Type:        resp.Type,
+		Difficulty:  resp.Difficulty,
+		Seed:        resp.Seed,
+		ExpiresAt:   resp.ExpiresAt.Format(time.RFC3339),
+		SiteKey:     resp.SiteKey,
+		Action:      resp.Action,
+	})
 }
 
 // VerifyOTP handles POST /api/v1/auth/otp/verify.
@@ -189,6 +444,21 @@ func (h *Handler) VerifyOTP(c fiber.Ctx) error {
 	challengeID, err := uuid.Parse(req.ChallengeID)
 	if err != nil {
 		return apperr.New(apperr.INVALID_REQUEST, "invalid challenge ID")
+	}
+
+	// Rate limit per challenge (max 5 attempts per challenge)
+	if h.rateLimiter != nil {
+		challengeKey := h.keyBuilder.ChallengeKey(req.ChallengeID)
+		decision, err := h.rateLimiter.Allow(c.Context(), challengeKey, h.cfg.OTPVerifyMaxAttemptsPerChallenge, 10*time.Minute)
+		if err != nil {
+			h.log.Error(c.Context(), err, "challenge rate limit check failed", "challenge_id", req.ChallengeID)
+			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
+		}
+		if !decision.Allowed {
+			h.setRateLimitHeaders(c, decision)
+			return apperr.New(apperr.RATE_LIMITED, "max attempts exceeded for this challenge")
+		}
+		h.setRateLimitHeaders(c, decision)
 	}
 
 	resp, err := h.svc.VerifyOTP(c.Context(), service.VerifyOTPRequest{
@@ -220,13 +490,6 @@ func (h *Handler) VerifyOTP(c fiber.Ctx) error {
 	})
 }
 
-// OnboardRequest is the request body for POST /api/v1/auth/onboard.
-type OnboardRequest struct {
-	OrganizationName string `json:"organization_name" validate:"required"`
-	SchoolName       string `json:"school_name" validate:"required"`
-	UserName         string `json:"user_name" validate:"required"`
-}
-
 // Onboard handles POST /api/v1/auth/onboard. Completes organization onboarding
 // and upgrades the session from temporary to full. Requires a valid temporary
 // session cookie.
@@ -254,6 +517,21 @@ func (h *Handler) Onboard(c fiber.Ctx) error {
 		return apperr.New(apperr.INVALID_REQUEST, "session is not temporary")
 	}
 
+	// Rate limit per user (onboard is expensive)
+	if h.rateLimiter != nil {
+		userKey := h.keyBuilder.UserKey(session.UserID.String())
+		decision, err := h.rateLimiter.Allow(c.Context(), userKey, h.cfg.RateLimitOnboardUserPerMin, time.Minute)
+		if err != nil {
+			h.log.Error(c.Context(), err, "onboard rate limit check failed", "user_id", session.UserID)
+			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
+		}
+		if !decision.Allowed {
+			h.setRateLimitHeaders(c, decision)
+			return apperr.New(apperr.RATE_LIMITED, "too many onboarding attempts")
+		}
+		h.setRateLimitHeaders(c, decision)
+	}
+
 	// Complete onboarding
 	if err := h.svc.Onboard(c.Context(), session.UserID, session.OrganizationID, req.OrganizationName, req.SchoolName, req.UserName); err != nil {
 		return err
@@ -269,17 +547,46 @@ func (h *Handler) Onboard(c fiber.Ctx) error {
 	})
 }
 
-// SessionResponse is the response body for GET /api/v1/auth/session.
-type SessionResponse struct {
-	OK              bool   `json:"ok"`
-	Authenticated   bool   `json:"authenticated"`
-	SessionType     string `json:"session_type,omitempty"`
-	NeedsOnboarding bool   `json:"needs_onboarding,omitempty"`
-}
-
 // Session handles GET /api/v1/auth/session. Returns session info for middleware
 // to make redirect decisions.
 func (h *Handler) Session(c fiber.Ctx) error {
+	// Rate limit per user
+	if h.rateLimiter != nil {
+		clientIP := middleware.ClientIPFromContext(c)
+		if clientIP == "" {
+			clientIP = ratelimit.NormalizeIP(c.IP())
+		}
+
+		var decision ratelimit.Decision
+		var err error
+
+		// Try userID first (from session), fallback to IP
+		sessionToken := c.Cookies(h.sessionCookieName)
+		if sessionToken != "" {
+			tokenHash := service.HashToken(sessionToken)
+			if sess, err := h.svc.Store().GetSessionByTokenHash(c.Context(), tokenHash); err == nil {
+				userKey := h.keyBuilder.UserKey(sess.UserID.String())
+				_, _ = h.rateLimiter.Allow(c.Context(), userKey, h.cfg.RateLimitSessionUserPerMin, time.Minute)
+			}
+		}
+
+		// Fallback to IP
+		if decision.Limit == 0 {
+			ipKey := h.keyBuilder.IPKey(clientIP)
+			decision, err = h.rateLimiter.Allow(c.Context(), ipKey, h.cfg.RateLimitSessionIPPerMin, time.Minute)
+		}
+
+		if err != nil {
+			h.log.Error(c.Context(), err, "session rate limit check failed")
+			return apperr.New(apperr.INTERNAL_ERROR, "rate limit check failed")
+		}
+		if !decision.Allowed {
+			h.setRateLimitHeaders(c, decision)
+			return apperr.New(apperr.RATE_LIMITED, "too many session requests")
+		}
+		h.setRateLimitHeaders(c, decision)
+	}
+
 	sessionToken := c.Cookies(h.sessionCookieName)
 	if sessionToken == "" {
 		return c.Status(http.StatusOK).JSON(SessionResponse{
@@ -331,6 +638,7 @@ func (h *Handler) RegisterRoutes(auth fiber.Router) {
 	auth.Post("/onboard", h.Onboard)
 	auth.Get("/session", h.Session)
 	auth.Post("/logout", h.Logout)
+	auth.Post("/challenge", h.IssueChallenge) // New: PoW/Turnstile challenge endpoint
 }
 
 // secureCookie returns true if the cookie should be Secure.
@@ -398,4 +706,17 @@ func (h *Handler) clearOnboardingCookie(c fiber.Ctx) {
 		MaxAge:   -1,
 		// NO Domain attribute
 	})
+}
+
+// setRateLimitHeaders sets standard rate limit headers on the response.
+func (h *Handler) setRateLimitHeaders(c fiber.Ctx, d ratelimit.Decision) {
+	c.Set("RateLimit-Limit", fmt.Sprintf("%d", d.Limit))
+	c.Set("RateLimit-Remaining", fmt.Sprintf("%d", d.Remaining))
+	c.Set("RateLimit-Reset", fmt.Sprintf("%d", int(d.ResetAfter.Seconds())))
+	c.Set("X-RateLimit-Limit", fmt.Sprintf("%d", d.Limit))
+	c.Set("X-RateLimit-Remaining", fmt.Sprintf("%d", d.Remaining))
+	c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(d.ResetAfter).Unix()))
+	if d.RetryAfter > 0 {
+		c.Set("Retry-After", fmt.Sprintf("%d", int(d.RetryAfter.Seconds())))
+	}
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,11 +30,64 @@ type Config struct {
 
 	// Turnstile
 	TurnstileSecretKey     string
+	TurnstileSiteKey       string
 	TurnstileExpectedHost  string
 
-	// Rate limits
-	RateLimitOTPRequestIPPerMin   int
-	RateLimitOTPRequestEmailPer15Min int
+	// ============ PHASE 0: Trust Boundary & BFF Auth ============
+	// BFF Service Secret (REQUIRED in production)
+	BFFServiceSecret string
+	// Trusted proxy hops for X-Forwarded-For parsing
+	TrustedProxyHops int
+	// Optional CIDR allowlist for BFF IPs
+	TrustedBFFCIDRs string
+	// HMAC secret for email keys in rate limiting
+	RateLimitKeyHMACSecret string
+
+	// ============ PHASE 1: Core Limiter ============
+	RateLimitMode               string // shadow | enforce
+	RateLimitRedisTimeoutMS     int    // Lua script timeout
+	RateLimitModeOTPRequest     string // override per tier
+	RateLimitModeOTPVerify      string
+	RateLimitModeOnboard        string
+	RateLimitModeSession        string
+	RateLimitModeGlobal         string
+
+	// ============ PHASE 2: OTP Hardening & Brevo Budget ============
+	RateLimitOTPRequestEmail        int // per 15m
+	RateLimitOTPRequestIP           int // per 15m
+	RateLimitOTPSendBudgetPerDay    int // hard ceiling (250)
+	RateLimitOTPReservedReturningPct int // % reserved for returning users (40)
+	RateLimitOTPDomainVelocityPerHour int // per domain per hour (20)
+	RateLimitReturningUserTTLDays   int // returning user marker TTL (30)
+	RateLimitDisposableDomains      string // comma-separated
+
+	OTPVerifyMaxAttemptsPerChallenge int // 5
+	RateLimitOTPVerifyEmailPerDay    int // 20
+	RateLimitOTPVerifyIPPerMin       int // 50
+
+	// ============ PHASE 3: Bot Defense ============
+	POWSecret                 string
+	POWBaseDifficulty         int
+	POWChallengeTTLSeconds    int
+	BotRiskStepUpThreshold    int
+	BotRiskBlockThreshold     int
+	BotRiskCriticalThreshold  int
+	BFFDwellCookieName        string
+	BFFDwellSubHumanMS        int
+	BFFDwellStaleMS           int
+	BotHoneypotFieldPrefix    string
+	RateLimitCriticalBudgetPct int
+
+	// ============ PHASE 4: Global Middleware & Observability ============
+	RateLimitOnboardUserPerMin  int
+	RateLimitOnboardUserPerDay  int
+	RateLimitOnboardIPPerMin    int
+	RateLimitSessionUserPerMin  int
+	RateLimitSessionIPPerMin    int
+	RateLimitGlobalUserPerMin   int
+	RateLimitGlobalIPPerMin     int
+	RateLimitMetricsEnabled     bool
+	RateLimitAlertsEnabled      bool
 
 	// Session cookie name (REQUIRED, no default). Must be "session" in dev, "__Host-session" in prod.
 	SessionCookieName string
@@ -47,6 +101,26 @@ func firstNonEmpty(keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// firstNonEmptyInt returns the first non-empty environment variable parsed as int,
+// or the default value if none are set or parsing fails.
+func firstNonEmptyInt(key string, defaultVal int) int {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			return parsed
+		}
+	}
+	return defaultVal
+}
+
+// firstNonEmptyBool returns the first non-empty environment variable parsed as bool,
+// or the default value if none are set or parsing fails.
+func firstNonEmptyBool(key string, defaultVal bool) bool {
+	if v := os.Getenv(key); v != "" {
+		return v == "1" || v == "true" || v == "TRUE"
+	}
+	return defaultVal
 }
 
 // Load reads configuration from environment variables.
@@ -69,10 +143,60 @@ func Load() (*Config, error) {
 		CORSOrigins: firstNonEmpty("CORS_ORIGINS"),
 
 		TurnstileSecretKey:    firstNonEmpty("TURNSTILE_SECRET_KEY"),
+	TurnstileSiteKey:       firstNonEmpty("TURNSTILE_SITE_KEY"),
 		TurnstileExpectedHost: firstNonEmpty("TURNSTILE_EXPECTED_HOST"),
 
-		RateLimitOTPRequestIPPerMin:   10,
-		RateLimitOTPRequestEmailPer15Min: 3,
+		// Phase 0
+		BFFServiceSecret:       firstNonEmpty("BFF_SERVICE_SECRET"),
+		TrustedProxyHops:       firstNonEmptyInt("TRUSTED_PROXY_HOPS", 1),
+		TrustedBFFCIDRs:        firstNonEmpty("TRUSTED_BFF_CIDRS"),
+		RateLimitKeyHMACSecret: firstNonEmpty("RATE_LIMIT_KEY_HMAC_SECRET"),
+
+		// Phase 1
+		RateLimitMode:           firstNonEmpty("RATE_LIMIT_MODE"), // shadow | enforce (empty = shadow)
+		RateLimitRedisTimeoutMS: firstNonEmptyInt("RATE_LIMIT_REDIS_TIMEOUT_MS", 50),
+		RateLimitModeOTPRequest: firstNonEmpty("RATE_LIMIT_MODE_OTP_REQUEST"),
+		RateLimitModeOTPVerify:  firstNonEmpty("RATE_LIMIT_MODE_OTP_VERIFY"),
+		RateLimitModeOnboard:    firstNonEmpty("RATE_LIMIT_MODE_ONBOARD"),
+		RateLimitModeSession:    firstNonEmpty("RATE_LIMIT_MODE_SESSION"),
+		RateLimitModeGlobal:     firstNonEmpty("RATE_LIMIT_MODE_GLOBAL"),
+
+		// Phase 2
+		RateLimitOTPRequestEmail:          firstNonEmptyInt("RATE_LIMIT_OTP_REQUEST_EMAIL", 3),
+		RateLimitOTPRequestIP:             firstNonEmptyInt("RATE_LIMIT_OTP_REQUEST_IP", 30),
+		RateLimitOTPSendBudgetPerDay:      firstNonEmptyInt("RATE_LIMIT_OTP_SEND_BUDGET_PER_DAY", 250),
+		RateLimitOTPReservedReturningPct:  firstNonEmptyInt("RATE_LIMIT_OTP_RESERVED_RETURNING_PCT", 40),
+		RateLimitOTPDomainVelocityPerHour: firstNonEmptyInt("RATE_LIMIT_OTP_DOMAIN_VELOCITY_PER_HOUR", 20),
+		RateLimitReturningUserTTLDays:     firstNonEmptyInt("RATE_LIMIT_RETURNING_USER_TTL_DAYS", 30),
+		RateLimitDisposableDomains:        firstNonEmpty("RATE_LIMIT_DISPOSABLE_DOMAINS"),
+
+		OTPVerifyMaxAttemptsPerChallenge: firstNonEmptyInt("OTP_VERIFY_MAX_ATTEMPTS_PER_CHALLENGE", 5),
+		RateLimitOTPVerifyEmailPerDay:    firstNonEmptyInt("RATE_LIMIT_OTP_VERIFY_EMAIL_PER_DAY", 20),
+		RateLimitOTPVerifyIPPerMin:       firstNonEmptyInt("RATE_LIMIT_OTP_VERIFY_IP_PER_MIN", 50),
+
+		// Phase 3
+		POWSecret:                 firstNonEmpty("POW_SECRET"),
+		POWBaseDifficulty:         firstNonEmptyInt("POW_BASE_DIFFICULTY", 4),
+		POWChallengeTTLSeconds:    firstNonEmptyInt("POW_CHALLENGE_TTL_SECONDS", 120),
+		BotRiskStepUpThreshold:    firstNonEmptyInt("BOT_RISK_STEPUP_THRESHOLD", 50),
+		BotRiskBlockThreshold:     firstNonEmptyInt("BOT_RISK_BLOCK_THRESHOLD", 85),
+		BotRiskCriticalThreshold:  firstNonEmptyInt("BOT_RISK_CRITICAL_THRESHOLD", 95),
+		BFFDwellCookieName:        firstNonEmpty("BFF_DWELL_COOKIE_NAME", "__Host-dwell_ts"),
+		BFFDwellSubHumanMS:        firstNonEmptyInt("BFF_DWELL_SUB_HUMAN_MS", 800),
+		BFFDwellStaleMS:           firstNonEmptyInt("BFF_DWELL_STALE_MS", 14400000),
+		BotHoneypotFieldPrefix:    firstNonEmpty("BOT_HONEYPOT_FIELD_PREFIX", "hp_"),
+		RateLimitCriticalBudgetPct: firstNonEmptyInt("RATE_LIMIT_CRITICAL_BUDGET_PCT", 90),
+
+		// Phase 4
+		RateLimitOnboardUserPerMin: firstNonEmptyInt("RATE_LIMIT_ONBOARD_USER_PER_MIN", 5),
+		RateLimitOnboardUserPerDay: firstNonEmptyInt("RATE_LIMIT_ONBOARD_USER_PER_DAY", 20),
+		RateLimitOnboardIPPerMin:   firstNonEmptyInt("RATE_LIMIT_ONBOARD_IP_PER_MIN", 50),
+		RateLimitSessionUserPerMin: firstNonEmptyInt("RATE_LIMIT_SESSION_USER_PER_MIN", 30),
+		RateLimitSessionIPPerMin:   firstNonEmptyInt("RATE_LIMIT_SESSION_IP_PER_MIN", 100),
+		RateLimitGlobalUserPerMin:  firstNonEmptyInt("RATE_LIMIT_GLOBAL_USER_PER_MIN", 300),
+		RateLimitGlobalIPPerMin:    firstNonEmptyInt("RATE_LIMIT_GLOBAL_IP_PER_MIN", 600),
+		RateLimitMetricsEnabled:    firstNonEmptyBool("RATE_LIMIT_METRICS_ENABLED", true),
+		RateLimitAlertsEnabled:     firstNonEmptyBool("RATE_LIMIT_ALERTS_ENABLED", true),
 
 		// REQUIRED - no default. Must be set via Doppler.
 		SessionCookieName: firstNonEmpty("SESSION_COOKIE_NAME"),
@@ -106,13 +230,45 @@ func (c *Config) validate() error {
 		}
 	}
 
+	// Phase 0: Required in production
+	if c.AppEnv == "production" {
+		if c.BFFServiceSecret == "" {
+			missing = append(missing, "BFF_SERVICE_SECRET (required in production)")
+		}
+		if c.POWSecret == "" {
+			missing = append(missing, "POW_SECRET (required in production)")
+		}
+		if c.RateLimitKeyHMACSecret == "" {
+			missing = append(missing, "RATE_LIMIT_KEY_HMAC_SECRET (required in production)")
+		}
+	}
+
 	// In production, session cookie MUST use __Host- prefix
 	if c.AppEnv == "production" && !strings.HasPrefix(c.SessionCookieName, "__Host-") {
 		missing = append(missing, "SESSION_COOKIE_NAME (must start with __Host- in production)")
 	}
 
+	// Validate numeric bounds
+	if c.RateLimitOTPSendBudgetPerDay > 300 {
+		missing = append(missing, "RATE_LIMIT_OTP_SEND_BUDGET_PER_DAY must be <= 300 (Brevo free tier)")
+	}
+	if c.BotRiskStepUpThreshold >= c.BotRiskBlockThreshold || c.BotRiskBlockThreshold >= c.BotRiskCriticalThreshold {
+		missing = append(missing, "Risk thresholds must be: STEPUP < BLOCK < CRITICAL")
+	}
+	if c.RateLimitRedisTimeoutMS < 10 || c.RateLimitRedisTimeoutMS > 500 {
+		missing = append(missing, "RATE_LIMIT_REDIS_TIMEOUT_MS must be 10-500")
+	}
+
+	// Validate mode values
+	validModes := map[string]bool{"": true, "shadow": true, "enforce": true}
+	for _, m := range []string{c.RateLimitMode, c.RateLimitModeOTPRequest, c.RateLimitModeOTPVerify, c.RateLimitModeOnboard, c.RateLimitModeSession, c.RateLimitModeGlobal} {
+		if !validModes[m] {
+			missing = append(missing, fmt.Sprintf("Invalid rate limit mode: %s (must be shadow|enforce)", m))
+		}
+	}
+
 	if len(missing) > 0 {
-		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+		return fmt.Errorf("missing or invalid configuration: %s", strings.Join(missing, ", "))
 	}
 	return nil
 }

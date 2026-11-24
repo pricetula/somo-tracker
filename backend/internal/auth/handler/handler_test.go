@@ -93,6 +93,10 @@ func (m *mockStore) CreateSession(ctx context.Context, tokenHash []byte, userID,
 	return storegen.Session{}, nil
 }
 
+func (m *mockStore) InvalidateChallengesByEmail(ctx context.Context, emailNormalized string) error {
+	return nil
+}
+
 // Ensure mockStore satisfies store.StoreInterface.
 var _ store.StoreInterface = (*mockStore)(nil)
 
@@ -100,10 +104,15 @@ var _ store.StoreInterface = (*mockStore)(nil)
 type mockTurnstile struct {
 	result *turnstile.Result
 	err    error
+	siteKey string
 }
 
 func (m *mockTurnstile) Verify(ctx context.Context, token, remoteIP string) (*turnstile.Result, error) {
 	return m.result, m.err
+}
+
+func (m *mockTurnstile) SiteKey() string {
+	return m.siteKey
 }
 
 // mockCodeSender implements brevo.CodeSender.
@@ -115,19 +124,123 @@ func (m *mockCodeSender) SendCode(ctx context.Context, email, code string) error
 	return m.sendErr
 }
 
-func newTestHandler(ts turnstile.Verifier, rl *ratelimit.Limiter) *Handler {
+// mockLimiter implements ratelimit.Limiter for testing.
+type mockLimiter struct {
+	allowFunc func(ctx context.Context, key string, limit int, window time.Duration) (ratelimit.Decision, error)
+}
+
+func (m *mockLimiter) Allow(ctx context.Context, key string, limit int, window time.Duration) (ratelimit.Decision, error) {
+	if m.allowFunc != nil {
+		return m.allowFunc(ctx, key, limit, window)
+	}
+	return ratelimit.Decision{Allowed: true, Remaining: 10, Limit: 10}, nil
+}
+
+// Ensure mockLimiter satisfies ratelimit.Limiter.
+var _ ratelimit.Limiter = (*mockLimiter)(nil)
+
+// mockKeyBuilder implements ratelimit.KeyBuilder for testing.
+type mockKeyBuilder struct {
+	emailKeyFunc    func(string) string
+	ipKeyFunc       func(string) string
+	userKeyFunc     func(string) string
+	challengeKeyFunc func(string) string
+	globalKeyFunc   func() string
+	domainKeyFunc   func(string) string
+	tierPrefixFunc  func(string) string
+}
+
+func (m *mockKeyBuilder) EmailKey(email string) string {
+	if m.emailKeyFunc != nil {
+		return m.emailKeyFunc(email)
+	}
+	return "rl:otp_request:email:test"
+}
+func (m *mockKeyBuilder) IPKey(ip string) string {
+	if m.ipKeyFunc != nil {
+		return m.ipKeyFunc(ip)
+	}
+	return "rl:global:ip:test"
+}
+func (m *mockKeyBuilder) UserKey(userID string) string {
+	if m.userKeyFunc != nil {
+		return m.userKeyFunc(userID)
+	}
+	return "rl:global:user:test"
+}
+func (m *mockKeyBuilder) ChallengeKey(challengeID string) string {
+	if m.challengeKeyFunc != nil {
+		return m.challengeKeyFunc(challengeID)
+	}
+	return "rl:otp_verify:challenge:test"
+}
+func (m *mockKeyBuilder) GlobalKey() string {
+	if m.globalKeyFunc != nil {
+		return m.globalKeyFunc()
+	}
+	return "rl:otp_request:global:send_budget"
+}
+func (m *mockKeyBuilder) DomainKey(domain string) string {
+	if m.domainKeyFunc != nil {
+		return m.domainKeyFunc(domain)
+	}
+	return "rl:otp_request:domain:test"
+}
+func (m *mockKeyBuilder) TierPrefix(tier string) string {
+	if m.tierPrefixFunc != nil {
+		return m.tierPrefixFunc(tier)
+	}
+	return "rl:" + tier
+}
+
+// Ensure mockKeyBuilder satisfies ratelimit.KeyBuilder.
+var _ ratelimit.KeyBuilder = (*mockKeyBuilder)(nil)
+
+func newTestHandler(ts turnstile.Verifier, rl ratelimit.Limiter, kb ratelimit.KeyBuilder) *Handler {
 	cfg := &config.Config{
 		AppEnv:                        "development",
 		SessionCookieName:             "session",
 		EmailHMACKey:                  "test-hmac-key-32-bytes-long!!",
 		TurnstileSecretKey:            "test-secret",
 		TurnstileExpectedHost:         "example.com",
-		RateLimitOTPRequestIPPerMin:   10,
-		RateLimitOTPRequestEmailPer15Min: 3,
+		RateLimitOTPRequestEmail:      3,
+		RateLimitOTPRequestIP:         30,
+		RateLimitOTPSendBudgetPerDay:  250,
+		RateLimitOTPReservedReturningPct: 40,
+		RateLimitOTPDomainVelocityPerHour: 20,
+		RateLimitReturningUserTTLDays: 30,
+		RateLimitDisposableDomains:    "",
+		OTPVerifyMaxAttemptsPerChallenge: 5,
+		RateLimitOTPVerifyEmailPerDay: 20,
+		RateLimitOTPVerifyIPPerMin:    50,
+		POWSecret:                     "test-pow-secret-32-bytes-long!!",
+		POWBaseDifficulty:             4,
+		POWChallengeTTLSeconds:        120,
+		BotRiskStepUpThreshold:        50,
+		BotRiskBlockThreshold:         85,
+		BotRiskCriticalThreshold:      95,
+		BFFDwellCookieName:            "__Host-dwell_ts",
+		BFFDwellSubHumanMS:            800,
+		BFFDwellStaleMS:               14400000,
+		BotHoneypotFieldPrefix:        "hp_",
+		RateLimitCriticalBudgetPct:    90,
+		RateLimitOnboardUserPerMin:    5,
+		RateLimitOnboardUserPerDay:    20,
+		RateLimitOnboardIPPerMin:      50,
+		RateLimitSessionUserPerMin:    30,
+		RateLimitSessionIPPerMin:      100,
+		RateLimitGlobalUserPerMin:     300,
+		RateLimitGlobalIPPerMin:       600,
+		RateLimitMetricsEnabled:       true,
+		RateLimitAlertsEnabled:        true,
+		RateLimitKeyHMACSecret:        "test-hmac-secret-32-bytes-long!!",
+		BFFServiceSecret:              "test-bff-secret-32-bytes-long!!",
+		TrustedProxyHops:              1,
+		TrustedBFFCIDRs:               "",
 	}
 	log := logger.New("info")
 
-	svc := service.New(&mockStore{}, &mockCodeSender{}, cfg, log)
+	svc := service.New(&mockStore{}, &mockCodeSender{}, nil, cfg, log)
 
 	return &Handler{
 		svc:                  svc,
@@ -135,6 +248,7 @@ func newTestHandler(ts turnstile.Verifier, rl *ratelimit.Limiter) *Handler {
 		log:                  log,
 		turnstile:            ts,
 		rateLimiter:          rl,
+		keyBuilder:           kb,
 		sessionCookieName:    "session",
 		onboardingCookieName: "needs_onboarding",
 	}
@@ -168,7 +282,12 @@ func parseBody(t *testing.T, resp *http.Response) map[string]interface{} {
 }
 
 func TestRequestOTP_MissingTurnstileToken(t *testing.T) {
-	h := newTestHandler(nil, nil)
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	ts := &mockTurnstile{
+		siteKey: "test-site-key",
+	}
+	h := newTestHandler(ts, rl, kb)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com"}`
@@ -185,8 +304,11 @@ func TestRequestOTP_TurnstileFailedVerification(t *testing.T) {
 	ts := &mockTurnstile{
 		result: &turnstile.Result{Success: false, ErrorCodes: []string{"invalid-input-response"}},
 		err:    turnstile.ErrVerificationFailed,
+		siteKey: "test-site-key",
 	}
-	h := newTestHandler(ts, nil)
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com","turnstile_token":"bad-token"}`
@@ -203,8 +325,11 @@ func TestRequestOTP_TurnstileUpstreamFailure(t *testing.T) {
 	ts := &mockTurnstile{
 		result: nil,
 		err:    turnstile.ErrUpstream,
+		siteKey: "test-site-key",
 	}
-	h := newTestHandler(ts, nil)
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com","turnstile_token":"token"}`
@@ -221,8 +346,11 @@ func TestRequestOTP_Success(t *testing.T) {
 	ts := &mockTurnstile{
 		result: &turnstile.Result{Success: true, Hostname: "example.com"},
 		err:    nil,
+		siteKey: "test-site-key",
 	}
-	h := newTestHandler(ts, nil)
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com","turnstile_token":"valid-token"}`
@@ -241,8 +369,11 @@ func TestRequestOTP_InvalidEmail(t *testing.T) {
 	ts := &mockTurnstile{
 		result: &turnstile.Result{Success: true, Hostname: "example.com"},
 		err:    nil,
+		siteKey: "test-site-key",
 	}
-	h := newTestHandler(ts, nil)
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
 	app := setupApp(t, h)
 
 	body := `{"email":"not-an-email","turnstile_token":"valid-token"}`
@@ -256,7 +387,9 @@ func TestRequestOTP_InvalidEmail(t *testing.T) {
 func TestRequestOTP_NoTurnstileVerifier_StillRequiresToken(t *testing.T) {
 	// When no turnstile verifier is configured, the handler still requires
 	// the token field to be present (empty token => 400).
-	h := newTestHandler(nil, nil)
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(nil, rl, kb)
 	app := setupApp(t, h)
 
 	body := `{"email":"user@example.com"}`
@@ -265,4 +398,64 @@ func TestRequestOTP_NoTurnstileVerifier_StillRequiresToken(t *testing.T) {
 	require.NotNil(t, resp)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+// TestRequestOTP_RateLimitEmail tests that email rate limiting works.
+func TestRequestOTP_RateLimitEmail(t *testing.T) {
+	ts := &mockTurnstile{
+		result: &turnstile.Result{Success: true, Hostname: "example.com"},
+		err:    nil,
+		siteKey: "test-site-key",
+	}
+	rl := &mockLimiter{
+		allowFunc: func(ctx context.Context, key string, limit int, window time.Duration) (ratelimit.Decision, error) {
+			// Simulate rate limit exceeded for email key
+			if strings.Contains(key, "email") {
+				return ratelimit.Decision{Allowed: false, Remaining: 0, Limit: 3, RetryAfter: time.Minute}, nil
+			}
+			return ratelimit.Decision{Allowed: true, Remaining: 10, Limit: 10}, nil
+		},
+	}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
+	app := setupApp(t, h)
+
+	body := `{"email":"user@example.com","turnstile_token":"valid-token"}`
+	resp, err := postJSON(t, app, "/api/v1/auth/otp/request", body)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	m := parseBody(t, resp)
+	assert.Equal(t, "RATE_LIMITED", m["code"])
+}
+
+// TestRequestOTP_RateLimitIP tests that IP rate limiting works.
+func TestRequestOTP_RateLimitIP(t *testing.T) {
+	ts := &mockTurnstile{
+		result: &turnstile.Result{Success: true, Hostname: "example.com"},
+		err:    nil,
+		siteKey: "test-site-key",
+	}
+	rl := &mockLimiter{
+		allowFunc: func(ctx context.Context, key string, limit int, window time.Duration) (ratelimit.Decision, error) {
+			// Simulate rate limit exceeded for IP key
+			if strings.Contains(key, "ip") {
+				return ratelimit.Decision{Allowed: false, Remaining: 0, Limit: 30, RetryAfter: time.Minute}, nil
+			}
+			return ratelimit.Decision{Allowed: true, Remaining: 10, Limit: 10}, nil
+		},
+	}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
+	app := setupApp(t, h)
+
+	body := `{"email":"user@example.com","turnstile_token":"valid-token"}`
+	resp, err := postJSON(t, app, "/api/v1/auth/otp/request", body)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	m := parseBody(t, resp)
+	assert.Equal(t, "RATE_LIMITED", m["code"])
 }

@@ -484,6 +484,17 @@ func (q *Queries) GetUserByNormalizedEmail(ctx context.Context, normalizedEmail 
 	return i, err
 }
 
+const invalidateChallengesByEmail = `-- name: InvalidateChallengesByEmail :exec
+UPDATE login_challenges
+SET invalidated_at = NOW()
+WHERE email_normalized = $1 AND used_at IS NULL AND invalidated_at IS NULL
+`
+
+func (q *Queries) InvalidateChallengesByEmail(ctx context.Context, emailNormalized string) error {
+	_, err := q.db.ExecContext(ctx, invalidateChallengesByEmail, emailNormalized)
+	return err
+}
+
 const markChallengeUsed = `-- name: MarkChallengeUsed :exec
 UPDATE login_challenges
 SET used_at = NOW()

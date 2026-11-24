@@ -104,8 +104,13 @@ func (m *mockStore) CreateSession(ctx context.Context, tokenHash []byte, userID,
 	return args.Get(0).(storegen.Session), args.Error(1)
 }
 
+func (m *mockStore) InvalidateChallengesByEmail(ctx context.Context, emailNormalized string) error {
+	args := m.Called(ctx, emailNormalized)
+	return args.Error(0)
+}
+
 func newTestService(s store.StoreInterface, cs *mockBrevoSender, cfg *config.Config) *Service {
-	return &Service{store: s, codeSender: cs, cfg: cfg, log: logger.Default()}
+	return &Service{store: s, codeSender: cs, redis: nil, cfg: cfg, log: logger.Default()}
 }
 
 func testConfig() *config.Config {
@@ -132,6 +137,9 @@ func TestRequestOTP_Success(t *testing.T) {
 	challengeID := uuid.New()
 
 	store := &mockStore{}
+	store.On("InvalidateChallengesByEmail", ctx, email).
+		Return(nil).
+		Once()
 	store.On("CreateLoginChallenge", ctx, anyUUID(), email, anyCodeMac(), anyTime()).
 		Return(storegen.LoginChallenge{ID: challengeID, EmailNormalized: email}, nil).
 		Once()
@@ -177,6 +185,9 @@ func TestRequestOTP_StoreError(t *testing.T) {
 	email := "user@example.com"
 
 	store := &mockStore{}
+	store.On("InvalidateChallengesByEmail", ctx, email).
+		Return(nil).
+		Once()
 	store.On("CreateLoginChallenge", ctx, anyUUID(), email, anyCodeMac(), anyTime()).
 		Return(storegen.LoginChallenge{}, errors.New("db down")).
 		Once()

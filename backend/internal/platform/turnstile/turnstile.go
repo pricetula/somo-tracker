@@ -32,6 +32,7 @@ type Result struct {
 	ChallengeTS string    `json:"challenge_ts"`
 	Hostname    string    `json:"hostname"`
 	ErrorCodes  []string  `json:"error-codes"`
+	Action      string    `json:"action"`
 }
 
 // Verifier verifies Turnstile tokens with Cloudflare.
@@ -41,6 +42,8 @@ type Verifier interface {
 	// Returns ErrVerificationFailed if Cloudflare reports success: false
 	// or if the hostname does not match the expected host.
 	Verify(ctx context.Context, token, remoteIP string) (*Result, error)
+	// SiteKey returns the public site key for client-side widget.
+	SiteKey() string
 }
 
 // httpClient is the subset of *http.Client used by the verifier.
@@ -53,6 +56,8 @@ type httpClient interface {
 type Config struct {
 	// SecretKey is the Turnstile secret key (server-side only).
 	SecretKey string
+	// SiteKey is the Turnstile site key (client-side, public).
+	SiteKey string
 	// ExpectedHost is the expected hostname in the verification response.
 	// If empty, the hostname check is skipped.
 	ExpectedHost string
@@ -67,6 +72,11 @@ type Config struct {
 // verifier implements Verifier using Cloudflare's siteverify endpoint.
 type verifier struct {
 	cfg Config
+}
+
+// SiteKey returns the public site key for client-side widget.
+func (v *verifier) SiteKey() string {
+	return v.cfg.SiteKey
 }
 
 // New creates a Turnstile Verifier.

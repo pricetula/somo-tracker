@@ -206,3 +206,8 @@ func (s *Store) GetOrganizationsByUser(ctx context.Context, userID uuid.UUID) ([
 func (s *Store) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]storegen.School, error) {
 	return s.q.GetSchoolsByUser(ctx, userID)
 }
+
+// InvalidateChallengesByEmail marks all unused challenges for an email as used.
+func (s *Store) InvalidateChallengesByEmail(ctx context.Context, emailNormalized string) error {
+	return s.q.InvalidateChallengesByEmail(ctx, emailNormalized)
+}

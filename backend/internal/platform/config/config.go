@@ -105,20 +105,47 @@ func firstNonEmpty(keys ...string) string {
 
 // firstNonEmptyInt returns the first non-empty environment variable parsed as int,
 // or the default value if none are set or parsing fails.
-func firstNonEmptyInt(key string, defaultVal int) int {
+
+// firstNonEmptyBool returns the first non-empty environment variable parsed as bool,
+// or the default value if none are set or parsing fails.
+
+// firstNonEmptyIntDev returns the first non-empty environment variable parsed as int,
+// or the default value ONLY in non-production environments.
+// In production, returns 0 (validation will catch missing required values).
+func firstNonEmptyIntDev(key string, defaultVal int) int {
 	if v := os.Getenv(key); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil {
 			return parsed
 		}
 	}
+	if os.Getenv("APP_ENV") == "production" {
+		return 0
+	}
 	return defaultVal
 }
 
-// firstNonEmptyBool returns the first non-empty environment variable parsed as bool,
-// or the default value if none are set or parsing fails.
-func firstNonEmptyBool(key string, defaultVal bool) bool {
+// firstNonEmptyStringDev returns the first non-empty environment variable,
+// or the default value ONLY in non-production environments.
+// In production, returns empty string (validation will catch missing required values).
+func firstNonEmptyStringDev(key string, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	if os.Getenv("APP_ENV") == "production" {
+		return ""
+	}
+	return defaultVal
+}
+
+// firstNonEmptyBoolDev returns the first non-empty environment variable parsed as bool,
+// or the default value ONLY in non-production environments.
+// In production, returns false (validation will catch missing required values).
+func firstNonEmptyBoolDev(key string, defaultVal bool) bool {
 	if v := os.Getenv(key); v != "" {
 		return v == "1" || v == "true" || v == "TRUE"
+	}
+	if os.Getenv("APP_ENV") == "production" {
+		return false
 	}
 	return defaultVal
 }
@@ -147,56 +174,56 @@ func Load() (*Config, error) {
 		TurnstileExpectedHost: firstNonEmpty("TURNSTILE_EXPECTED_HOST"),
 
 		// Phase 0
-		BFFServiceSecret:       firstNonEmpty("BFF_SERVICE_SECRET"),
-		TrustedProxyHops:       firstNonEmptyInt("TRUSTED_PROXY_HOPS", 1),
-		TrustedBFFCIDRs:        firstNonEmpty("TRUSTED_BFF_CIDRS"),
-		RateLimitKeyHMACSecret: firstNonEmpty("RATE_LIMIT_KEY_HMAC_SECRET"),
+		BFFServiceSecret:       firstNonEmptyStringDev("BFF_SERVICE_SECRET", ""),
+		TrustedProxyHops:       firstNonEmptyIntDev("TRUSTED_PROXY_HOPS", 1),
+		TrustedBFFCIDRs:        firstNonEmptyStringDev("TRUSTED_BFF_CIDRS", ""),
+		RateLimitKeyHMACSecret: firstNonEmptyStringDev("RATE_LIMIT_KEY_HMAC_SECRET", ""),
 
 		// Phase 1
-		RateLimitMode:           firstNonEmpty("RATE_LIMIT_MODE"), // shadow | enforce (empty = shadow)
-		RateLimitRedisTimeoutMS: firstNonEmptyInt("RATE_LIMIT_REDIS_TIMEOUT_MS", 50),
-		RateLimitModeOTPRequest: firstNonEmpty("RATE_LIMIT_MODE_OTP_REQUEST"),
-		RateLimitModeOTPVerify:  firstNonEmpty("RATE_LIMIT_MODE_OTP_VERIFY"),
-		RateLimitModeOnboard:    firstNonEmpty("RATE_LIMIT_MODE_ONBOARD"),
-		RateLimitModeSession:    firstNonEmpty("RATE_LIMIT_MODE_SESSION"),
-		RateLimitModeGlobal:     firstNonEmpty("RATE_LIMIT_MODE_GLOBAL"),
+		RateLimitMode:           firstNonEmptyStringDev("RATE_LIMIT_MODE", "shadow"), // shadow | enforce
+		RateLimitRedisTimeoutMS: firstNonEmptyIntDev("RATE_LIMIT_REDIS_TIMEOUT_MS", 50),
+		RateLimitModeOTPRequest: firstNonEmptyStringDev("RATE_LIMIT_MODE_OTP_REQUEST", "shadow"),
+		RateLimitModeOTPVerify:  firstNonEmptyStringDev("RATE_LIMIT_MODE_OTP_VERIFY", "shadow"),
+		RateLimitModeOnboard:    firstNonEmptyStringDev("RATE_LIMIT_MODE_ONBOARD", "shadow"),
+		RateLimitModeSession:    firstNonEmptyStringDev("RATE_LIMIT_MODE_SESSION", "shadow"),
+		RateLimitModeGlobal:     firstNonEmptyStringDev("RATE_LIMIT_MODE_GLOBAL", "shadow"),
 
 		// Phase 2
-		RateLimitOTPRequestEmail:          firstNonEmptyInt("RATE_LIMIT_OTP_REQUEST_EMAIL", 3),
-		RateLimitOTPRequestIP:             firstNonEmptyInt("RATE_LIMIT_OTP_REQUEST_IP", 30),
-		RateLimitOTPSendBudgetPerDay:      firstNonEmptyInt("RATE_LIMIT_OTP_SEND_BUDGET_PER_DAY", 250),
-		RateLimitOTPReservedReturningPct:  firstNonEmptyInt("RATE_LIMIT_OTP_RESERVED_RETURNING_PCT", 40),
-		RateLimitOTPDomainVelocityPerHour: firstNonEmptyInt("RATE_LIMIT_OTP_DOMAIN_VELOCITY_PER_HOUR", 20),
-		RateLimitReturningUserTTLDays:     firstNonEmptyInt("RATE_LIMIT_RETURNING_USER_TTL_DAYS", 30),
-		RateLimitDisposableDomains:        firstNonEmpty("RATE_LIMIT_DISPOSABLE_DOMAINS"),
+		RateLimitOTPRequestEmail:          firstNonEmptyIntDev("RATE_LIMIT_OTP_REQUEST_EMAIL", 3),
+		RateLimitOTPRequestIP:             firstNonEmptyIntDev("RATE_LIMIT_OTP_REQUEST_IP", 30),
+		RateLimitOTPSendBudgetPerDay:      firstNonEmptyIntDev("RATE_LIMIT_OTP_SEND_BUDGET_PER_DAY", 250),
+		RateLimitOTPReservedReturningPct:  firstNonEmptyIntDev("RATE_LIMIT_OTP_RESERVED_RETURNING_PCT", 40),
+		RateLimitOTPDomainVelocityPerHour: firstNonEmptyIntDev("RATE_LIMIT_OTP_DOMAIN_VELOCITY_PER_HOUR", 20),
+		RateLimitReturningUserTTLDays:     firstNonEmptyIntDev("RATE_LIMIT_RETURNING_USER_TTL_DAYS", 30),
+		RateLimitDisposableDomains:        firstNonEmptyStringDev("RATE_LIMIT_DISPOSABLE_DOMAINS", ""),
 
-		OTPVerifyMaxAttemptsPerChallenge: firstNonEmptyInt("OTP_VERIFY_MAX_ATTEMPTS_PER_CHALLENGE", 5),
-		RateLimitOTPVerifyEmailPerDay:    firstNonEmptyInt("RATE_LIMIT_OTP_VERIFY_EMAIL_PER_DAY", 20),
-		RateLimitOTPVerifyIPPerMin:       firstNonEmptyInt("RATE_LIMIT_OTP_VERIFY_IP_PER_MIN", 50),
+		OTPVerifyMaxAttemptsPerChallenge: firstNonEmptyIntDev("OTP_VERIFY_MAX_ATTEMPTS_PER_CHALLENGE", 5),
+		RateLimitOTPVerifyEmailPerDay:    firstNonEmptyIntDev("RATE_LIMIT_OTP_VERIFY_EMAIL_PER_DAY", 20),
+		RateLimitOTPVerifyIPPerMin:       firstNonEmptyIntDev("RATE_LIMIT_OTP_VERIFY_IP_PER_MIN", 50),
 
 		// Phase 3
-		POWSecret:                 firstNonEmpty("POW_SECRET"),
-		POWBaseDifficulty:         firstNonEmptyInt("POW_BASE_DIFFICULTY", 4),
-		POWChallengeTTLSeconds:    firstNonEmptyInt("POW_CHALLENGE_TTL_SECONDS", 120),
-		BotRiskStepUpThreshold:    firstNonEmptyInt("BOT_RISK_STEPUP_THRESHOLD", 50),
-		BotRiskBlockThreshold:     firstNonEmptyInt("BOT_RISK_BLOCK_THRESHOLD", 85),
-		BotRiskCriticalThreshold:  firstNonEmptyInt("BOT_RISK_CRITICAL_THRESHOLD", 95),
-		BFFDwellCookieName:        firstNonEmpty("BFF_DWELL_COOKIE_NAME", "__Host-dwell_ts"),
-		BFFDwellSubHumanMS:        firstNonEmptyInt("BFF_DWELL_SUB_HUMAN_MS", 800),
-		BFFDwellStaleMS:           firstNonEmptyInt("BFF_DWELL_STALE_MS", 14400000),
-		BotHoneypotFieldPrefix:    firstNonEmpty("BOT_HONEYPOT_FIELD_PREFIX", "hp_"),
-		RateLimitCriticalBudgetPct: firstNonEmptyInt("RATE_LIMIT_CRITICAL_BUDGET_PCT", 90),
+		POWSecret:                 firstNonEmptyStringDev("POW_SECRET", ""),
+		POWBaseDifficulty:         firstNonEmptyIntDev("POW_BASE_DIFFICULTY", 4),
+		POWChallengeTTLSeconds:    firstNonEmptyIntDev("POW_CHALLENGE_TTL_SECONDS", 120),
+		BotRiskStepUpThreshold:    firstNonEmptyIntDev("BOT_RISK_STEPUP_THRESHOLD", 50),
+		BotRiskBlockThreshold:     firstNonEmptyIntDev("BOT_RISK_BLOCK_THRESHOLD", 85),
+		BotRiskCriticalThreshold:  firstNonEmptyIntDev("BOT_RISK_CRITICAL_THRESHOLD", 95),
+		BFFDwellCookieName:        firstNonEmptyStringDev("BFF_DWELL_COOKIE_NAME", "__Host-dwell_ts"),
+		BFFDwellSubHumanMS:        firstNonEmptyIntDev("BFF_DWELL_SUB_HUMAN_MS", 800),
+		BFFDwellStaleMS:           firstNonEmptyIntDev("BFF_DWELL_STALE_MS", 14400000),
+		BotHoneypotFieldPrefix:    firstNonEmptyStringDev("BOT_HONEYPOT_FIELD_PREFIX", "hp_"),
+		RateLimitCriticalBudgetPct: firstNonEmptyIntDev("RATE_LIMIT_CRITICAL_BUDGET_PCT", 90),
 
 		// Phase 4
-		RateLimitOnboardUserPerMin: firstNonEmptyInt("RATE_LIMIT_ONBOARD_USER_PER_MIN", 5),
-		RateLimitOnboardUserPerDay: firstNonEmptyInt("RATE_LIMIT_ONBOARD_USER_PER_DAY", 20),
-		RateLimitOnboardIPPerMin:   firstNonEmptyInt("RATE_LIMIT_ONBOARD_IP_PER_MIN", 50),
-		RateLimitSessionUserPerMin: firstNonEmptyInt("RATE_LIMIT_SESSION_USER_PER_MIN", 30),
-		RateLimitSessionIPPerMin:   firstNonEmptyInt("RATE_LIMIT_SESSION_IP_PER_MIN", 100),
-		RateLimitGlobalUserPerMin:  firstNonEmptyInt("RATE_LIMIT_GLOBAL_USER_PER_MIN", 300),
-		RateLimitGlobalIPPerMin:    firstNonEmptyInt("RATE_LIMIT_GLOBAL_IP_PER_MIN", 600),
-		RateLimitMetricsEnabled:    firstNonEmptyBool("RATE_LIMIT_METRICS_ENABLED", true),
-		RateLimitAlertsEnabled:     firstNonEmptyBool("RATE_LIMIT_ALERTS_ENABLED", true),
+		RateLimitOnboardUserPerMin: firstNonEmptyIntDev("RATE_LIMIT_ONBOARD_USER_PER_MIN", 5),
+		RateLimitOnboardUserPerDay: firstNonEmptyIntDev("RATE_LIMIT_ONBOARD_USER_PER_DAY", 20),
+		RateLimitOnboardIPPerMin:   firstNonEmptyIntDev("RATE_LIMIT_ONBOARD_IP_PER_MIN", 50),
+		RateLimitSessionUserPerMin: firstNonEmptyIntDev("RATE_LIMIT_SESSION_USER_PER_MIN", 30),
+		RateLimitSessionIPPerMin:   firstNonEmptyIntDev("RATE_LIMIT_SESSION_IP_PER_MIN", 100),
+		RateLimitGlobalUserPerMin:  firstNonEmptyIntDev("RATE_LIMIT_GLOBAL_USER_PER_MIN", 300),
+		RateLimitGlobalIPPerMin:    firstNonEmptyIntDev("RATE_LIMIT_GLOBAL_IP_PER_MIN", 600),
+		RateLimitMetricsEnabled:    firstNonEmptyBoolDev("RATE_LIMIT_METRICS_ENABLED", true),
+		RateLimitAlertsEnabled:     firstNonEmptyBoolDev("RATE_LIMIT_ALERTS_ENABLED", true),
 
 		// REQUIRED - no default. Must be set via Doppler.
 		SessionCookieName: firstNonEmpty("SESSION_COOKIE_NAME"),
@@ -240,6 +267,115 @@ func (c *Config) validate() error {
 		}
 		if c.RateLimitKeyHMACSecret == "" {
 			missing = append(missing, "RATE_LIMIT_KEY_HMAC_SECRET (required in production)")
+		}
+		if c.TrustedProxyHops == 0 {
+			missing = append(missing, "TRUSTED_PROXY_HOPS (required in production)")
+		}
+		if c.TurnstileSiteKey == "" {
+			missing = append(missing, "TURNSTILE_SITE_KEY (required in production)")
+		}
+		if c.TurnstileExpectedHost == "" {
+			missing = append(missing, "TURNSTILE_EXPECTED_HOST (required in production)")
+		}
+		if c.TurnstileSecretKey == "" {
+			missing = append(missing, "TURNSTILE_SECRET_KEY (required in production)")
+		}
+	}
+
+	// Phase 1: Required in production
+	if c.AppEnv == "production" {
+		if c.RateLimitRedisTimeoutMS == 0 {
+			missing = append(missing, "RATE_LIMIT_REDIS_TIMEOUT_MS (required in production)")
+		}
+	}
+
+	// Phase 2: Required in production
+	if c.AppEnv == "production" {
+		if c.RateLimitOTPRequestEmail == 0 {
+			missing = append(missing, "RATE_LIMIT_OTP_REQUEST_EMAIL (required in production)")
+		}
+		if c.RateLimitOTPRequestIP == 0 {
+			missing = append(missing, "RATE_LIMIT_OTP_REQUEST_IP (required in production)")
+		}
+		if c.RateLimitOTPSendBudgetPerDay == 0 {
+			missing = append(missing, "RATE_LIMIT_OTP_SEND_BUDGET_PER_DAY (required in production)")
+		}
+		if c.RateLimitOTPReservedReturningPct == 0 {
+			missing = append(missing, "RATE_LIMIT_OTP_RESERVED_RETURNING_PCT (required in production)")
+		}
+		if c.RateLimitOTPDomainVelocityPerHour == 0 {
+			missing = append(missing, "RATE_LIMIT_OTP_DOMAIN_VELOCITY_PER_HOUR (required in production)")
+		}
+		if c.RateLimitReturningUserTTLDays == 0 {
+			missing = append(missing, "RATE_LIMIT_RETURNING_USER_TTL_DAYS (required in production)")
+		}
+		if c.OTPVerifyMaxAttemptsPerChallenge == 0 {
+			missing = append(missing, "OTP_VERIFY_MAX_ATTEMPTS_PER_CHALLENGE (required in production)")
+		}
+		if c.RateLimitOTPVerifyEmailPerDay == 0 {
+			missing = append(missing, "RATE_LIMIT_OTP_VERIFY_EMAIL_PER_DAY (required in production)")
+		}
+		if c.RateLimitOTPVerifyIPPerMin == 0 {
+			missing = append(missing, "RATE_LIMIT_OTP_VERIFY_IP_PER_MIN (required in production)")
+		}
+	}
+
+	// Phase 3: Required in production
+	if c.AppEnv == "production" {
+		if c.POWBaseDifficulty == 0 {
+			missing = append(missing, "POW_BASE_DIFFICULTY (required in production)")
+		}
+		if c.POWChallengeTTLSeconds == 0 {
+			missing = append(missing, "POW_CHALLENGE_TTL_SECONDS (required in production)")
+		}
+		if c.BotRiskStepUpThreshold == 0 {
+			missing = append(missing, "BOT_RISK_STEPUP_THRESHOLD (required in production)")
+		}
+		if c.BotRiskBlockThreshold == 0 {
+			missing = append(missing, "BOT_RISK_BLOCK_THRESHOLD (required in production)")
+		}
+		if c.BotRiskCriticalThreshold == 0 {
+			missing = append(missing, "BOT_RISK_CRITICAL_THRESHOLD (required in production)")
+		}
+		if c.BFFDwellCookieName == "" {
+			missing = append(missing, "BFF_DWELL_COOKIE_NAME (required in production)")
+		}
+		if c.BFFDwellSubHumanMS == 0 {
+			missing = append(missing, "BFF_DWELL_SUB_HUMAN_MS (required in production)")
+		}
+		if c.BFFDwellStaleMS == 0 {
+			missing = append(missing, "BFF_DWELL_STALE_MS (required in production)")
+		}
+		if c.BotHoneypotFieldPrefix == "" {
+			missing = append(missing, "BOT_HONEYPOT_FIELD_PREFIX (required in production)")
+		}
+		if c.RateLimitCriticalBudgetPct == 0 {
+			missing = append(missing, "RATE_LIMIT_CRITICAL_BUDGET_PCT (required in production)")
+		}
+	}
+
+	// Phase 4: Required in production
+	if c.AppEnv == "production" {
+		if c.RateLimitOnboardUserPerMin == 0 {
+			missing = append(missing, "RATE_LIMIT_ONBOARD_USER_PER_MIN (required in production)")
+		}
+		if c.RateLimitOnboardUserPerDay == 0 {
+			missing = append(missing, "RATE_LIMIT_ONBOARD_USER_PER_DAY (required in production)")
+		}
+		if c.RateLimitOnboardIPPerMin == 0 {
+			missing = append(missing, "RATE_LIMIT_ONBOARD_IP_PER_MIN (required in production)")
+		}
+		if c.RateLimitSessionUserPerMin == 0 {
+			missing = append(missing, "RATE_LIMIT_SESSION_USER_PER_MIN (required in production)")
+		}
+		if c.RateLimitSessionIPPerMin == 0 {
+			missing = append(missing, "RATE_LIMIT_SESSION_IP_PER_MIN (required in production)")
+		}
+		if c.RateLimitGlobalUserPerMin == 0 {
+			missing = append(missing, "RATE_LIMIT_GLOBAL_USER_PER_MIN (required in production)")
+		}
+		if c.RateLimitGlobalIPPerMin == 0 {
+			missing = append(missing, "RATE_LIMIT_GLOBAL_IP_PER_MIN (required in production)")
 		}
 	}
 

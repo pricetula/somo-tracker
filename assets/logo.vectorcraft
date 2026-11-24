@@ -1,0 +1,1429 @@
+{
+  "format": "vectorcraft",
+  "version": 4,
+  "generator": "VectorCraft 0.23.0",
+  "pdfCompatible": true,
+  "pdf": {
+    "mime": "application/pdf",
+    "blob": [
+      0,
+      15836
+    ]
+  },
+  "document": {
+    "version": 3,
+    "title": "Untitled-1",
+    "units": "Pixels",
+    "rulers": "artboard",
+    "color_mode": "Rgb",
+    "artboards": [
+      {
+        "id": 1,
+        "name": "Artboard 1",
+        "rect": {
+          "x0": 0.0,
+          "y0": 0.0,
+          "x1": 1080.0,
+          "y1": 1080.0
+        },
+        "show_center_mark": false,
+        "show_cross_hairs": false
+      }
+    ],
+    "layers": [
+      {
+        "id": 1,
+        "name": "Layer 1",
+        "kind": {
+          "type": "layer",
+          "color": {
+            "Preset": 0
+          },
+          "template": false,
+          "printable": true,
+          "children": [
+            {
+              "id": 2,
+              "appearance": {
+                "items": [
+                  {
+                    "kind": "fill",
+                    "paint": {
+                      "type": "solid",
+                      "color": {
+                        "model": "rgb",
+                        "r": 0.078431375,
+                        "g": 0.2784314,
+                        "b": 0.9019608
+                      }
+                    }
+                  }
+                ]
+              },
+              "kind": {
+                "type": "compound",
+                "children": [
+                  {
+                    "id": 3,
+                    "appearance": {
+                      "items": [
+                        {
+                          "kind": "fill",
+                          "paint": {
+                            "type": "solid",
+                            "color": {
+                              "model": "rgb",
+                              "r": 0.078431375,
+                              "g": 0.2784314,
+                              "b": 0.9019608
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "kind": {
+                      "type": "path",
+                      "path": {
+                        "subpaths": [
+                          {
+                            "anchors": [
+                              {
+                                "p": [
+                                  155.08294568421132,
+                                  520.8633514404297
+                                ],
+                                "in": [
+                                  155.08294568421132,
+                                  528.8162521362304
+                                ],
+                                "out": [
+                                  155.08294568421132,
+                                  512.9104515075684
+                                ],
+                                "kind": "Smooth"
+                              },
+                              {
+                                "p": [
+                                  169.48294568421136,
+                                  506.4633514404297
+                                ],
+                                "in": [
+                                  161.53004575135003,
+                                  506.4633514404297
+                                ]
+                              },
+                              {
+                                "p": [
+                                  227.08294568421138,
+                                  506.4633514404297
+                                ],
+                                "out": [
+                                  235.0358448541332,
+                                  506.4633514404297
+                                ]
+                              },
+                              {
+                                "p": [
+                                  241.48294568421136,
+                                  520.8633514404297
+                                ],
+                                "in": [
+                                  241.48294568421136,
+                                  512.9104515075684
+                                ],
+                                "out": [
+                                  241.48294568421136,
+                                  528.8162521362304
+                                ],
+                                "kind": "Smooth"
+                              },
+                              {
+                                "p": [
+                                  227.08294568421138,
+                                  535.2633514404297
+                                ],
+                                "in": [
+                                  235.0358448541332,
+                                  535.2633514404297
+                                ]
+                              },
+                              {
+                                "p": [
+                                  169.48294568421136,
+                                  535.2633514404297
+                                ],
+                                "out": [
+                                  161.53004575135003,
+                                  535.2633514404297
+                                ]
+                              }
+                            ],
+                            "closed": true
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "id": 4,
+                    "appearance": {
+                      "items": [
+                        {
+                          "kind": "fill",
+                          "paint": {
+                            "type": "solid",
+                            "color": {
+                              "model": "rgb",
+                              "r": 0.078431375,
+                              "g": 0.2784314,
+                              "b": 0.9019608
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "kind": {
+                      "type": "path",
+                      "path": {
+                        "subpaths": [
+                          {
+                            "anchors": [
+                              {
+                                "p": [
+                                  175.72294507385976,
+                                  559.1366485595703
+                                ],
+                                "in": [
+                                  175.72294507385976,
+                                  567.0895538330078
+                                ],
+                                "out": [
+                                  175.72294507385976,
+                                  551.1837524414062
+                                ],
+                                "kind": "Smooth"
+                              },
+                              {
+                                "p": [
+                                  190.1229450738598,
+                                  544.7366516113282
+                                ],
+                                "in": [
+                                  182.17004590393788,
+                                  544.7366516113282
+                                ]
+                              },
+                              {
+                                "p": [
+                                  247.72294812561756,
+                                  544.7366516113282
+                                ],
+                                "out": [
+                                  255.67584729553948,
+                                  544.7366516113282
+                                ]
+                              },
+                              {
+                                "p": [
+                                  262.12294812561754,
+                                  559.1366485595703
+                                ],
+                                "in": [
+                                  262.12294812561754,
+                                  551.1837524414062
+                                ],
+                                "out": [
+                                  262.12294812561754,
+                                  567.0895538330078
+                                ],
+                                "kind": "Smooth"
+                              },
+                              {
+                                "p": [
+                                  247.72294812561756,
+                                  573.5366485595703
+                                ],
+                                "in": [
+                                  255.67584729553948,
+                                  573.5366485595703
+                                ]
+                              },
+                              {
+                                "p": [
+                                  190.1229450738598,
+                                  573.5366485595703
+                                ],
+                                "out": [
+                                  182.17004590393788,
+                                  573.5366485595703
+                                ]
+                              }
+                            ],
+                            "closed": true
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ],
+                "rule": "NonZero"
+              }
+            },
+            {
+              "id": 5,
+              "kind": {
+                "type": "text",
+                "kind": {
+                  "kind": "point"
+                },
+                "xf": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  262.12294812561754,
+                  573.9813514404298
+                ],
+                "runs": [
+                  {
+                    "text": "Somotracker",
+                    "style": {
+                      "font_family": "Hoefler Text",
+                      "font_style": "Black",
+                      "size": 93.0,
+                      "leading": 23.0,
+                      "tracking": 0.0,
+                      "baseline_shift": 0.0,
+                      "h_scale": 100.0,
+                      "v_scale": 100.0,
+                      "rotation": 0.0,
+                      "fill": {
+                        "type": "solid",
+                        "color": {
+                          "model": "rgb",
+                          "r": 0.0,
+                          "g": 0.0,
+                          "b": 0.0
+                        }
+                      },
+                      "stroke": {
+                        "type": "solid",
+                        "color": {
+                          "model": "rgb",
+                          "r": 0.0,
+                          "g": 0.0,
+                          "b": 0.0
+                        }
+                      },
+                      "stroke_width": 1.0,
+                      "underline": false,
+                      "strikethrough": false,
+                      "all_caps": false
+                    }
+                  }
+                ],
+                "para": {
+                  "justify": "Left",
+                  "justify_auto": true,
+                  "left_indent": 0.0,
+                  "right_indent": 0.0,
+                  "first_line_indent": 0.0,
+                  "space_before": 0.0,
+                  "space_after": 0.0,
+                  "hyphenate": false,
+                  "mojikumi": "lineEndHalf",
+                  "burasagari": "standard"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "swatches": [
+      {
+        "name": "[None]",
+        "paint": {
+          "type": "none"
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "White",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Black",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.0,
+            "g": 0.0,
+            "b": 0.0
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Red",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.92941177,
+            "g": 0.10980392,
+            "b": 0.14117648
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Orange Red",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.94509804,
+            "g": 0.3529412,
+            "b": 0.14117648
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Orange",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.96862745,
+            "g": 0.5764706,
+            "b": 0.11764706
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Amber",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.9843137,
+            "g": 0.6901961,
+            "b": 0.23137255
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Yellow",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.9882353,
+            "g": 0.93333334,
+            "b": 0.12941177
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Yellow Green",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.8509804,
+            "g": 0.8784314,
+            "b": 0.12941177
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Lime",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.54901963,
+            "g": 0.7764706,
+            "b": 0.24705882
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Green",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.22352941,
+            "g": 0.70980394,
+            "b": 0.2901961
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Emerald",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.0,
+            "g": 0.57254905,
+            "b": 0.27058825
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Teal",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.0,
+            "g": 0.40784314,
+            "b": 0.21568628
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Aqua",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.13333334,
+            "g": 0.70980394,
+            "b": 0.4509804
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Cyan Green",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.0,
+            "g": 0.6627451,
+            "b": 0.6156863
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Cyan",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.16078432,
+            "g": 0.67058825,
+            "b": 0.8862745
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Azure",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.0,
+            "g": 0.44313726,
+            "b": 0.7372549
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Blue",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.18039216,
+            "g": 0.19215687,
+            "b": 0.57254905
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Indigo",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.105882354,
+            "g": 0.078431375,
+            "b": 0.39215687
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Violet",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.4,
+            "g": 0.1764706,
+            "b": 0.5686275
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Purple",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.5764706,
+            "g": 0.15294118,
+            "b": 0.56078434
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Magenta",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.61960787,
+            "g": 0.0,
+            "b": 0.3647059
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Rose",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.83137256,
+            "g": 0.078431375,
+            "b": 0.3529412
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Pink",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.92941177,
+            "g": 0.11764706,
+            "b": 0.4745098
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Brown",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.78039217,
+            "g": 0.69803923,
+            "b": 0.6
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Tan",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.6,
+            "g": 0.5254902,
+            "b": 0.45882353
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Coffee",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.4509804,
+            "g": 0.3882353,
+            "b": 0.34117648
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Chocolate",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.3254902,
+            "g": 0.2784314,
+            "b": 0.25490198
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Sand",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.7764706,
+            "g": 0.6117647,
+            "b": 0.42745098
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Copper",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.6509804,
+            "g": 0.4862745,
+            "b": 0.32156864
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Rust",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.54901963,
+            "g": 0.38431373,
+            "b": 0.22352941
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Walnut",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.45882353,
+            "g": 0.29803923,
+            "b": 0.14117648
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Espresso",
+        "paint": {
+          "type": "solid",
+          "color": {
+            "model": "rgb",
+            "r": 0.3764706,
+            "g": 0.21960784,
+            "b": 0.07450981
+          }
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "White, Black",
+        "paint": {
+          "type": "gradient",
+          "gradient": {
+            "kind": "Linear",
+            "stops": [
+              {
+                "offset": 0.0,
+                "color": {
+                  "model": "rgb",
+                  "r": 1.0,
+                  "g": 1.0,
+                  "b": 1.0
+                },
+                "opacity": 1.0,
+                "midpoint": 0.5
+              },
+              {
+                "offset": 1.0,
+                "color": {
+                  "model": "rgb",
+                  "r": 0.0,
+                  "g": 0.0,
+                  "b": 0.0
+                },
+                "opacity": 1.0,
+                "midpoint": 0.5
+              }
+            ]
+          },
+          "angle": 0.0
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Radial White, Black",
+        "paint": {
+          "type": "gradient",
+          "gradient": {
+            "kind": "Radial",
+            "stops": [
+              {
+                "offset": 0.0,
+                "color": {
+                  "model": "rgb",
+                  "r": 1.0,
+                  "g": 1.0,
+                  "b": 1.0
+                },
+                "opacity": 1.0,
+                "midpoint": 0.5
+              },
+              {
+                "offset": 1.0,
+                "color": {
+                  "model": "rgb",
+                  "r": 0.0,
+                  "g": 0.0,
+                  "b": 0.0
+                },
+                "opacity": 1.0,
+                "midpoint": 0.5
+              }
+            ]
+          },
+          "angle": 0.0
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Sunset",
+        "paint": {
+          "type": "gradient",
+          "gradient": {
+            "kind": "Linear",
+            "stops": [
+              {
+                "offset": 0.0,
+                "color": {
+                  "model": "rgb",
+                  "r": 0.9843137,
+                  "g": 0.6901961,
+                  "b": 0.23137255
+                },
+                "opacity": 1.0,
+                "midpoint": 0.5
+              },
+              {
+                "offset": 1.0,
+                "color": {
+                  "model": "rgb",
+                  "r": 0.83137256,
+                  "g": 0.078431375,
+                  "b": 0.3529412
+                },
+                "opacity": 1.0,
+                "midpoint": 0.5
+              }
+            ]
+          },
+          "angle": 0.0
+        },
+        "global": false,
+        "spot": false
+      },
+      {
+        "name": "Ocean",
+        "paint": {
+          "type": "gradient",
+          "gradient": {
+            "kind": "Linear",
+            "stops": [
+              {
+                "offset": 0.0,
+                "color": {
+                  "model": "rgb",
+                  "r": 0.16078432,
+                  "g": 0.67058825,
+                  "b": 0.8862745
+                },
+                "opacity": 1.0,
+                "midpoint": 0.5
+              },
+              {
+                "offset": 1.0,
+                "color": {
+                  "model": "rgb",
+                  "r": 0.18039216,
+                  "g": 0.19215687,
+                  "b": 0.57254905
+                },
+                "opacity": 1.0,
+                "midpoint": 0.5
+              }
+            ]
+          },
+          "angle": 0.0
+        },
+        "global": false,
+        "spot": false
+      }
+    ],
+    "swatch_groups": [
+      {
+        "name": "Grays",
+        "swatches": [
+          {
+            "name": "K=90",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.9
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "K=80",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.8
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "K=70",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.7
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "K=60",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.6
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "K=50",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.5
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "K=40",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.4
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "K=30",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.3
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "K=20",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.2
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "K=10",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "gray",
+                "k": 0.1
+              }
+            },
+            "global": false,
+            "spot": false
+          }
+        ]
+      },
+      {
+        "name": "Brights",
+        "swatches": [
+          {
+            "name": "Bright Red",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "rgb",
+                "r": 1.0,
+                "g": 0.11372549,
+                "b": 0.14509805
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "Bright Yellow",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "rgb",
+                "r": 1.0,
+                "g": 0.9019608,
+                "b": 0.0
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "Bright Green",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "rgb",
+                "r": 0.0,
+                "g": 0.9019608,
+                "b": 0.4627451
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "Bright Blue",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "rgb",
+                "r": 0.16078432,
+                "g": 0.4745098,
+                "b": 1.0
+              }
+            },
+            "global": false,
+            "spot": false
+          },
+          {
+            "name": "Bright Violet",
+            "paint": {
+              "type": "solid",
+              "color": {
+                "model": "rgb",
+                "r": 0.8352941,
+                "g": 0.0,
+                "b": 0.9764706
+              }
+            },
+            "global": false,
+            "spot": false
+          }
+        ]
+      }
+    ],
+    "graphic_styles": [
+      {
+        "name": "Default Graphic Style",
+        "appearance": {
+          "items": [
+            {
+              "kind": "fill",
+              "paint": {
+                "type": "solid",
+                "color": {
+                  "model": "rgb",
+                  "r": 1.0,
+                  "g": 1.0,
+                  "b": 1.0
+                }
+              }
+            },
+            {
+              "kind": "stroke",
+              "paint": {
+                "type": "solid",
+                "color": {
+                  "model": "rgb",
+                  "r": 0.0,
+                  "g": 0.0,
+                  "b": 0.0
+                }
+              },
+              "width": 1.0
+            }
+          ]
+        },
+        "id": 1,
+        "unit_box": true
+      },
+      {
+        "name": "Black Outline",
+        "appearance": {
+          "items": [
+            {
+              "kind": "fill",
+              "paint": {
+                "type": "none"
+              }
+            },
+            {
+              "kind": "stroke",
+              "paint": {
+                "type": "solid",
+                "color": {
+                  "model": "rgb",
+                  "r": 0.0,
+                  "g": 0.0,
+                  "b": 0.0
+                }
+              },
+              "width": 1.0
+            }
+          ]
+        },
+        "id": 2,
+        "unit_box": true
+      },
+      {
+        "name": "Heavy Ink",
+        "appearance": {
+          "items": [
+            {
+              "kind": "fill",
+              "paint": {
+                "type": "solid",
+                "color": {
+                  "model": "rgb",
+                  "r": 0.105882354,
+                  "g": 0.078431375,
+                  "b": 0.39215687
+                }
+              }
+            },
+            {
+              "kind": "stroke",
+              "paint": {
+                "type": "solid",
+                "color": {
+                  "model": "rgb",
+                  "r": 0.0,
+                  "g": 0.0,
+                  "b": 0.0
+                }
+              },
+              "width": 4.0
+            }
+          ]
+        },
+        "id": 3,
+        "unit_box": true
+      },
+      {
+        "name": "Sunshine",
+        "appearance": {
+          "items": [
+            {
+              "kind": "fill",
+              "paint": {
+                "type": "solid",
+                "color": {
+                  "model": "rgb",
+                  "r": 0.9843137,
+                  "g": 0.6901961,
+                  "b": 0.23137255
+                }
+              }
+            },
+            {
+              "kind": "stroke",
+              "paint": {
+                "type": "solid",
+                "color": {
+                  "model": "rgb",
+                  "r": 0.94509804,
+                  "g": 0.3529412,
+                  "b": 0.14117648
+                }
+              },
+              "width": 2.0
+            }
+          ]
+        },
+        "id": 4,
+        "unit_box": true
+      }
+    ],
+    "symbols": [],
+    "guides": [],
+    "grid": {
+      "spacing": 72.0,
+      "subdivisions": 8
+    },
+    "raster_effects_ppi": 72.0,
+    "images": {},
+    "next_id": 7,
+    "metadata": {
+      "author": "",
+      "authorTitle": "",
+      "description": "",
+      "keywords": [],
+      "rating": 0,
+      "copyrightStatus": "unknown",
+      "copyrightNotice": "",
+      "copyrightUrl": "",
+      "created": 1794420998,
+      "modified": 1794427494
+    },
+    "last_view": {
+      "name": "",
+      "center": {
+        "x": 395.87317725962936,
+        "y": 711.036361974936
+      },
+      "zoom": 0.5494722441849595,
+      "rotation": 0.0
+    }
+  },
+  "images": {}
+}
+ VCBLOBS %PDF-1.7
+%€€€€
+
+1 0 obj
+<</Type/Pages/Count 1/Kids[6 0 R]>>
+endobj
+2 0 obj
+<</ProcSet[/PDF/Text/ImageC/ImageB]/Font<</f0 3 0 R>>>>
+endobj
+3 0 obj
+<</Type/Font/Subtype/Type0/BaseFont/AIPTPJ+HoeflerText-Black/Encoding/Identity-H/DescendantFonts[4 0 R]/ToUnicode 8 0 R>>
+endobj
+4 0 obj
+<</Type/Font/Subtype/CIDFontType2/BaseFont/AIPTPJ+HoeflerText-Black/CIDSystemInfo<</Registry(Adobe)/Ordering(Identity)/Supplement 0>>/FontDescriptor 5 0 R/DW 0/CIDToGIDMap/Identity/W[0 0 800 1 1 673 2 2 595 3 3 953 4 4 427 5 5 489 6 6 534 7 7 521 8 8 626 9 9 539]>>
+endobj
+5 0 obj
+<</Type/FontDescriptor/FontName/AIPTPJ+HoeflerText-Black/Flags 131076/FontBBox[-2 -21 970 800]/ItalicAngle 0/Ascent 995.5/Descent -583/CapHeight 690/StemV 168.6/CIDSet 7 0 R/FontFile2 9 0 R>>
+endobj
+6 0 obj
+<</Type/Page/Resources 2 0 R/MediaBox[0 0 1080 1080]/BleedBox[0 0 1080 1080]/TrimBox[0 0 1080 1080]/Parent 1 0 R/Contents 10 0 R>>
+endobj
+7 0 obj
+<</Length 10/Filter/FlateDecode>>
+stream
+xœû  ÀÀ
+endstream
+endobj
+8 0 obj
+<</Length 385/Type/CMap/Filter/FlateDecode/WMode 0>>
+stream
+xœm’MOÃ0†ïıæiFÓñ1M“`£R0Äœ»Ä‘Ö$JÒÃş=Jœ„84Õc¿_'a¯Ûñƒ4;O¯8¼¡7½8^=·¶`lmDß¡/ˆåõs°ÎVÍºÑ*Œ5Z{‰ƒæ?É#”şÄ°ê}0]ÁØ»
+GœÃˆ<A#QNÀ/Æ>Ğyeôª‚±'-W¦‹æ|QæP¾:#¶`¯´t¹ìbß¢š€T"dJ«èZ›Š·'°kôŞÀ”T²·Y	 P¾áAùàN0JÆ.Aâ2'Ñ)}€Ñ`öWrÛ[{ÄhxŠ¢–é_Æá_Ú¡ÌŸ£yJ¨~Bï'‹yƒòóÙÈ*²(ŒDo[®Õ,œs¾„E]×õ2vü“¿§ªİ^|µ.©«%,8ŸM—‰&‰nj¢)Ñšè:Ñí5ÑŒhBtCÊŠè–(ïyGôHtO4Kî²è3^Çù`Dïên#BYi<_«56V¥/½‡áiEÚÔßÂ”ßò
+endstream
+endobj
+9 0 obj
+<</Length 3536/Filter/FlateDecode>>
+stream
+xœİXqpWzÿ½·«•¼^¤•I6ZIØÂÇkYØ>Å^£Ù8ñaãÃœíØ¡ã¸&“ŞĞ”æ2”cêÉdr—a|WæJ	ÕQ¢0¾”r>ÊQ \jTÚ:”Ş åfÂ…crÌ… ©³+‡#m.íd¦´O£ı~ï{ï}û½ïı¾oW‹]`xn|ÌsêŞ‹¿0°Óƒ#ÏoıæÁÀ†	 Áçc;}†Ä9Àpà÷ôöøï[X@¬è5[¸€8 phëØD Ÿ6â$€âØğs½æ«¹ÿˆÓ ¤­½#äÛì@œàÙÖ»uàî.¿ˆd|dxÇy|°Å4û#£#?¹üµï¶)€î45Lºßdö3ï0CÌ “üô›z öé$`øóÌ|3tÒÌÿZ#{É!ÒNbø1áá?Õ£=8‚>¼Œõˆ¡5óÿ´‘vÒ‡¤ ôc„²Zæ“@xDXW¦†8~ÇZ®aæ?éÚpŠ¨ŸÕ1‡˜=†uéÚt-®RÏ¼î0[Ìô0[Rï‘mx•°»»éu¢`ËgìÙq6ÓB‚†û™QÒ@Lxøù¾ †#hK0ñßl¸-$ÇÉ¦ õËGk'ÈqÙÔ{øGô÷2·p$óÓÅ„˜HàNá£Ìs	¿Añş”‰fş6ÒHIŒ¼DÂP»Iöá8.“°	O?ÀmœÀ+è'U†cHbµ†o\Æ^ˆè#iÄqB‹89„Û³I´Ğ2"áFê1%Úğ"ëgÒìË8Fj3»I {_ÃUÃ¬á®şKù\LTâ>> #dù3tbL Íx©1|„b¬‡Š°¡<äÀ„@XLABá—‹"1{°/#—-†RgõPƒç8éñ¬>rìYİÓğDéÏ=«[;½ŞüÕ(mjë\İïõnxı€aSÁÀTX½Ö¥V¯µß0ÑÿI+§~|ºß0ñàU€àl&É1ìF%¾£n)¤…Î :Y»e¹û+îµ%/`Oş¾Åoägñ÷ğƒü¿XüW8•ÿ£Å–,ùyù ^NÍyš+ôÚ½L^;—S¾Ôm‡ Ú¼‚»"êv¨Ox—2Q8<ÕÑãqìr¼é¸ì09Bb²;•t½ï¯¥DMZmÕV[5êRu)—8'Ï¹VÛ"MgµUw¯tIÊ³³K|ş¥şàÒ`¨B‘IR…ªú—úı•ÁÂ¬f‘Óçø—ø¸<»Ä¼4~9}éö¾ó/SÎ'˜]ÔotlğòÄ‹—‰ëş¶77RŞäãÍ¬2¶)v©Šœ™œ½×âh¼»‘ãM¦øíÁÎØd$rzï©tÈÖx5¢)Æû›û÷BÍ$ÙAæ r±+Õ%GG%JORbéÈ1æu0¹hlM27Ìp»8–sˆÉî;s)}“+¤{;º‰^*ƒğ*0ç®PBì`ú^úa:ş%	›&öô¤:8X_?Ø_O½›¾E§ß%şôµÓ§Ïœ>“8¥¤#sß8ÉLa³ª+¸}À1{Á1ûCÇ+±Içdõ”ó„sÆ)¬OPåäşdãªÖ¾aUq—3V=è¬Œ…¤õ›‡Ï¬²Qkğ$UğÊ©‚eXL,…*ÈÁ8UÀĞ€ºĞ¡ï¨ÍS\j)Uj4¨:kvD=6bsE=
+Q6ÔD÷·n£m;µÍŸë¾3×go>:ÜEÕ¨[şõÙO?©ºp*<333#Ï-®[<>ÛíHu¯é'»Ä§]+ƒ¡•¡P¥U˜Ñj—)RŞ—×¹ªiı
+EÊ3êbQ¶“]hœä¹ÚÃ‘È0Çó\MA ¾±¡Ä]¥uj{"‘ƒYµ[m¨ø<YõHÃ”®î,ó7j²ş¶Êğ‰¯:ÒK¸ÃÇ_›
+tr¼Oğğ¼ÛÌ{¨©¶„{º¢é×75p>ŞìæyğÛöÖô1}àÑ
+¾¦Ÿ„[&ªÍ;İ¬ ò§·uÅ6mé95ì«5ù@23?gTv<_^^” J\fØSdÊ‰ñd®iQ®e	Zñv¹Áç2Dó+Ää™9qææ…$êŞ¿R—šI¦Äk+ÄÎ-)²êä\Ò2-Ïn7rZ0W.ú—<
+ê|¯"1ªYH'ËªJ[
+LŞdfKM¡¬ ¼dnäç-¬›7»M¤X03…’bJ=¨
+•ùÏ»yÖDC}ÇfÈ„ šL>6|¸UdúAPãº”¹Ï$™)ÔbXÍ±¨D5«…t™NírR¾ª¡R£¶°«š	ÌšÖ°q£ïGTADª@¢·¼ª4øvõ‚èş"RT§•¤Ù›â\7ê4:jÔ{ßqÅj«ÖĞ•nGjE`;é&˜ÏgVÅ<³|ŸÇ,&ÙV_Re³•¸J”µSgË»‘†ãY¶üÑÏ°¥ì`Cß6z7ÒUh³•ô››ê5RøAãî#5­Šéñó_?ÖPg®³æ”¡
+½êÊœe\Ad+ï°­±UJ’Ï¸Œ«r‹¢sªüÑ*Ëˆ“8Ÿ–•&…[¾kyËò¯–-Kµ˜ìŞ~'9~±Û!Î¥Ä³Éê.&/Ö½oµU—;RV[u¹ÕV½"PÄÍSa©~­­Ì¦Ş§ı
+E22Ü<y7_åV²ÊùßloËö",Q¸Â’’Ë··E[Hä|âg’Í#˜üiûøP(P\oZÏ™ØÒªhm¤~hËødÃLm±Gy©g}¸ÿHâPz*R"ğ\	i.èéRÂJDc‹š¹ÊÜ`À*Õ›—_˜Om–&§£Ğhqç:Ê9ÂAhöxwyïR½J_èN¢îbİkÚS©;KÿÇ+eAv“Èn’¹ÑPß\+šK«Zº:÷µ,¦Ç›)]}õ|úQ®O¦éT¨«³JÙtàŸ_Ÿ®-fÍ&^2±&¶9FØ¹¹ôÍ_.sß ırÆYUĞÍëÊ{ËfÛL¶lNQ%)OÊÛ¼emóÎ>¬NĞªÛÙ}K!ÊH,Ÿ¸ZA)oÃ9›7¯b7®Y“ Ê	§s#7 eÂ×±*Ø@ñ\(A•†ë±u• Õöù:Ÿ­ùzı§8ççQ÷¨J×]Ii)¢ •­ä‹ªË¶ŸŞN´
+ßœKj
+£YüÕß ›|~íú—jÑÌûŸ×f#ÇåY•ĞÊùÕÙôR´£ĞÒËÎ-á8£‘Hš=x®v"IèiåvÙ}x—T\¬§Û‹‘†£º>®Õ‹sÏ­f=İ(+˜Ì'‹=şM­n«)‹é•½}=¤¤ª§„ã}f· èu™E1Px˜ç_ëlfõt²…<ÜÏÔ´õ²ì–Ö²‚Í¹ ¦¦LÂk¾RÑ.qÍ‚fÄÇ†[ZÓ¯‡Y("™«,˜ğb9ZÕÒ¯æ“NfYÓÀ8å¢ÙÈ?íÌAÔŞ…>³Æ&¹`¤`WSPª…ıôqîì¬kÎÕºñ‹ºÔo³T{}²sK¼œıwPŠ”}ı0®…XØm©«tÛPã‰bj7ñfÊ*3SÉô‘n\¾›>
+Õ«üTi15›Es™ıÈîÆkæx‰gMlã«Ä>=K¤ëæpû®!–º5>ëßµ½;¾õuKø×$Çx |ãŞ¿iòÚõrßCÇ'£B›ñoAÀ€jÚìÃáÔ{€°û¡ã¡ChÓ-=ŞxNE¿¡gÙïC5ÂÁ¬Ï<dŞƒÄ–¢˜µAeo€cCˆ °ã/ñ1eé0Í0¯0×Ø2hZÍ"¿‡Û0€B„
+@¥;Áê£"Î‚aYP°€9P˜ÀêØ
+ç€‚‡[Ç¹ P¬cAŸÔ±¨ã°­:nĞ±šu¼P·Ó¦c»7êXÒñ  ğaDÇ‹uÏhØ”õó°†^ŸÿıC?{cë0ŒQŒa0¤ÿŠÄ Æ0†zÄĞ‹çğ{hÆf¡ãèE†±£hÁ F1H~øqà­­Ç.İ‹.ü>zçíÏ£VŒê‡ÙÅl€]Å6±kØJöIöI¶‰­†‡±U¬:ß[	Œa½Y/ıì™uú×uÚì‹¯ıËƒ6´¢_E"hA#0M¿FÎ£21Ç‰GNdœñÉÓää¬Iœé—äRœºå9—qN‘¤++6dE§&¦É3ä)İÜÚxs¿<MšH½ŞÜ È:Ey•™®¤
+ò “§H=ÈdQu¹˜¸T›"Âºä¬"wuÈ¶\N!Ş¡İ!'Õ„)nVäiZFÀ™,ˆwD-	bŒsçäá²‚wÈr‚vÅaY±1†e#W!çò¥ò…Ä‹å+	ª¨’"ŸoWä˜-“g9«œcòÉ­¤,Ş‘µ·£v»,R·<M‹h!é…|_£yq3Ş–WåŸ’İùŸÌË™øI&?&gˆr&Şh‘WYH/Y§ÇaÓ¼\GÚuù,šIjµ¬mn•oEò½¨S¾«oSŒGóäS$Qâ9a!h’ß¡2õ¨R¿|é¼,_</Ë?=§Èçí²«±X~‡.%¥?l”×4&ˆ#niŠ&HOÜmLÏIKcôº¥I\%†‰Eã>±à¯‰î‹Ê³ÔéawÈ$A2ü-,_¾c¬éÙÎwh€Vo>®şIÃ²ü¾xø¿Lş§É#§
+endstream
+endobj
+10 0 obj
+<</Length 8951/Filter/FlateDecode>>
+stream
+xœ•œ»®&KR…ıóe‚±ƒ¼_\$„„pø¥™1ºñşBßŠÌ¬Ü}pP»3şª¼g\V¬¬¿>ñ	Ox¾øÃÏçç,ôQrÌ½>Á’ş_`3ÄÙÂxşöç'Öja¤YŸš‚–sy~ŞÒ˜lÆPÚ[´šC(OÍJË¹>±M+#Í[öyRêûí#ıñ¤\-ä:îgS‰ûıÓÎ%;=ú|“±¥»Â\-µœûİô‘}îné{@GzOÇjæÿš¡Ïoyb¯Ö“äuZÌ­5fî’F‹#'d±«R¬çÖòg°˜Ô£#c}¿|¤?T«µ®qijIï··™[´ûó¹¥©™µÜöl5·v·¼EŸ»“[øãÍ^c>mü_³óùí/¿ıé·ıí¯ï^½ºš…8ÚĞÆÕ¿¿ıù·üı	Ïïû‡?…gæç÷?İ»<<¿ÿü¿ûÏÂ†×ß´şæ_Êeı­Ã~§­¿]ÿûïsñ_şç<û_¿ÿËoÿôûÿ£ËÿöÏµç+Ë‘-Q*ã¾r³XÚS†ÕŞŸ¯œ­ÖÎ	³âó•ƒÕ8?l¸TæÏWêVKfb­åB}¾R¶^Zi	Ÿ¯8-ÖÁ‹ïS1Y-„øÔb©ÕòóÕ­¤RŸ2­¦TŸ¯l­ëÄ²¯úDI„ŞËœ³>™íŸh³æ'GkûÿŸ'uKq¬bÊVj¬O´\¯>)XNÊbÔ»Å1ËœÏW´Ğf¥[1[óùJÆ¡ŸV»
+}>J±?_LCz8º¾ÏÙçœ}b´õ.W+yPõ´<3ÿùŠÃz*Ï´úó•¢ÕÎÆ~Ë½©®‰6sªÏ¤%ÊÉÂè@°šJ¥Æ”,•TÍ^TÎé‰Œ¾íÒ‡2[`ı˜,N¦Æß®êcLÖBôV¢4\ÌBYíj~RnZ
+z6R‘HµìqÄb…­›…:ØlêŒÑjk-Úd©»Mí­T¬”¬ÎËa>iX`ú’Õ×B¯ÂçA/Æ÷ÇnC=Ì–é{–G­Ô4FÒ>
+6[Ó^“Š¯ìÅ­×ş|kqœÒš²Ï+(Öf¡ŠH±Û*7›‰•œ6{#gk³³ı5u!1Ì,íSL–¥‡ékıÅ(YOùùJİ§%˜–RĞ>ÉÑRñu©6'‡µP#sœ¬÷ô|ånZg¦£Ì÷*UÖ×Wre´Z¹0;µÚˆµ†ÄAè±!šÖ«flo²¯–­YÏz´j­V ÇtŠ&=¦¨¡.YIZW1åY˜Ãbµ )V‚/L·§‡†*ú ¡ÚL.L†«É*“ß’eÖ¿²KùYDIU·4ôÆĞé©Ù&óU³…¤‚Õ™(§ÔŸ¯ÒmäÄÜÖl…—jnö$(Úé¥jGóRd'—j94L¯µAÏ˜lö…úÑŸ_¥°d¨Fëyjo Œƒ:k´’æ’°ƒXµõ>¬¶è’)Fu¹ZÔŞÑDeéÕR-¥‰¤Äâı…),ÓÔÊTY¸¬Ì¡'šå^µ»ĞÉ³„çBÓjUcè¡=28	yØÔòF‹³°!Zœ§øyr²|ïïG‚•µ±ÿ,\Ö1uØhLRKz¯vËqrfR¢wÕr«tùH2*ésÊeÚŒÔĞg,ÔPº¥:YƒlÊ¸”ŠRbD¹X¨Q²Á’ånµ'_§`-şj3å^Åb³|Öèç%)¬K`=b¤J¶Û@£—9ßZ)kAÆ-†bEz*X’‚–ñÁd¿f°váóŒd™zUìÍ"ŠñyBOÇJ¸Ò«ç²ukc¨cö§U—:J~‹>ŠÏ¤j¼ÅÛ]N(J(†QiaŒù|±ÒM[‚~hH¨¹Téd*şRI†]Z£ØÅcŒ˜†%`RåÀ_ÖŒ™ªåW­ûBi61ÊèÃæOíIOÍB˜X–jê¯,Œñü|ÍByf·Ê¦ÁÁ‰³>³YÍŒ7#§İY­–ˆMÊü–93[aò°ûà*~Ñ-–x£Z(¬5 óFYz(g+—,l*œı,·¢™,³^mÆö}$Ÿ#`5{¹k˜ÖJ|[iÖ§êí‡Mºµzétb›WÆrx¯Vè/cf³âÆÁ{î£¹ÔV˜8?˜ñ=×Š\1†¿,+”Â—ñ­øü\‚ì.YÂÃ‚6f°}dw¥€Û€&z”ÒïSá¤Ÿˆ(şHĞ‚QÊsx1óc¶TcO°<ÔLzRÖ‹FO–-Tz¯Oœœ–1'ÁíÌÖ#ÿãÁh•Ç8ğúÊõÊ@%Õ»ÖQ-b~¯¶ãÈc_İ‹#Zª»ÄÑBçW"ç·Ÿ”»,üÕFõÁïR/Øô™Y¥ßEÖásÆÄc›WÉˆ½Şf–w|úñ•-vzù…aÇg xøI0;W§ÁØPq‹¼‚9½ÜdÅ­°>Y!cg¬°(§ÚĞr}²‹1ZÉŞ«%I¥HqK¦ETÇÀOÔC¿Ì²ú*À¼{¬0²åå€,>ñfÀ™•¨¼¨iScñ2Ñk¾h0'(½ªX4HeKÒ±g›òê’¯KgnéH°‚:OìÑÊä¡I5Â-YcşñJ†Õä>eD:²µPNÄ>>³C+Ñ“59Y½¤®ôµ2‘busV®¬Ÿ¥¤8ğ–ä…££Ù2Œ¥÷•ldßºØŒÚ«œùXãŞ,a…¯­öŠÖv|>-§’½ŸOKï?=Úçbõxš5 s¦@Úéüm4öÔ},{°,•²ip78CÕ¹olª¥Îé¤ª'âù¤ÑÖ'Öa!ô«ÂZ­òŞÕ(~hİİªÑh`÷/2”ëÇ„M¹´ ²ĞÇ¥+#fÊ5~Ó©H±¢ëİ«¸–àœez+Z*á´µUÂîĞV	«»·Jğ½ûªfËø™K#ÔâÖù¨„Š3\¾é„Ê'ıØZ$	÷ui…]|µÂ–¼ZáH–V¨Õ"ÏÑ	µÈ‹½•ñ ŞâQ
+5Zc[î¤QÊ­J·–î'šÅ8ğ\2–2>Õç,ÙHêm!ˆ‘õø&š|œÖÎ¦¢Ç-·'Âq&¿[¬‡/É«¶äÕ„i=Å€cÖæ¥J6"­J±8¢íŠ¡à¢Ü*¹÷°TCi–ÀsnÍPš•4¾i†Ò¬ÛŠ¡4k„?×{EkW¾íÚSÇ½³O[çìİçät{¥5®sÒXAQşk$˜şn³ódnoËñÁ›Ü
+?î¹ZÍ	=™şÇcXÅ‚4›éõR£ú«Â”müÒjŠÖJqû¯®Åi}l•€ó<­ÎíéP*Éqw)EĞ†ş]q‚ÛEÜ»­\ãÄ_ŞÊ÷”ÖœòY¥SÁR§­v'¶ZX]¼ÕÂÅ»­¾hÚlLEıD}ì\f‹ ~ÓIP„Ì^ôcF1' ç¹ïù¼’W5¼/Ò°é(²\BêLå-âLÅ±t§¢ê9´]/eq'ù~MÁĞ}ÉŠb6Ê}95úïXÌµAçè"Ë
+ìp@,ü½¥gqB“"¤¤¤WÂÚ+¯¨hí.AOw5ÕbÊw[Ş¾w	İU¯^7`×¨¼äK7K“Fh T„ğšÂÖ˜;Ğ‚–=M½ôœ¤À7ædQğH°qŠz‘ê+Ñš0­n=¯8Sè¡(’ÈÆŒó¾%£`B.ò…–«_€
+³Ë‘VPˆ%[&k’'˜ô)£€a¥ğö3<YÁ8€*»'-š@"—nî7©Z%[$mÆ»—%ˆVˆ——ËˆFÏxrkrø
+íUËÕ…ÓB$%VºM4X!œw“^p0
+`Ø3w¿Wt^+jô
+ß#I<ÚıDK–T^ÑªlÂpù>İ& • ”ª5n Hœö¦€§ªË f€†í‹†¾ïŒ
+éÅğÍ¨¦è¾X·5änËUo-ìVNû?Äúûm<3Zô£½Ÿ™Åzô­êÔIš„läÇîJuNÃá\¤	®Xr?Ù!å·œ u<â\’cŒÄ½Š%«ÿËI/=]
+ÉL:JËJ¡Xwi…¹Gmî x	Nœ|Ùâ7š>¶øº—-ş—o=ÿKô®€¾›héƒ½’KµÙS·Ğ±šË¥2¶S·,S*¤-Ú|3<dú›şlsÿŠjÓH/,ÅjBVJ–¢<6šqœ,²Pó eoy#eG² 2U‘ûÂë•©í˜ƒ•ÑŸ øâÀeêph×æÛCz7(ƒ%ÜÏ”Á€nÈŒés…| 3¦¸÷$£z@³³4ûuµ´‚è%^6j¶$ò4œyÎ›p°³„VQc<KyšÌó‹¥L¦opì÷ gI3øÂk)¡¾Ò…Ÿ‘IŸŠ\_ ‰$¿óâgH›p í-oíH„öÖáÚÛÎ†Ğ®¾È9}uìf£hŒ6¿æ74M“FÒàÅÑ4µ¸èEÒ®ùÁ´_—‰¥Ë!¬³Ş-R¼¯¤Æ«\šôsµIx$)#…&ãp~$9¯˜¤àÒ&ô]Záb´şÄR÷Sş<iTÓèä\ü8åHŞ5_‚aut•†&¼9{£‘p­;M§Z»¥™èLµ–ZÅcHcìTlâXO…]ü<iFk÷ïÉ&jå»Tåf!¢¦F·ªåäë1AºÒÄ…¡ƒ£×\˜‚4¤¸’·ÔÉ11Ó¨W¦Q(©<	¸»®ßxh›RìM¥µ88B,ç$¸RJ²hËMê9Î*ÅÖè`·ÉÆA0pw’ÍgñC‘ZÃ´5_d|tòğ$ß¢¬|â% ùøË3¡_µT¶ïıJµ‘Èû3±Èb_©3˜z—=d$Á*„ÅiÖsrüYiA–Fv1€ËùÊD#¢iœßõ<}"ì$J<©Ÿú€²~…î¡€)Em<©ç~·•ƒíÁª’P–qÉR›–è ›¾¨˜Yt´º§›`xª€ çÇ7	”Ê…üpĞó² ¬“¿EÊ>Q¥§'µaÔŠÕÉ+Ãòú™²sfZNGB³É²¢¤ıN²¸¥¼†–ğ\
+Ñ;uÄã¸Lre”åX¹£u—[a•oÉ˜WİÏÍÛÆJÃ/rÏÒë™¨Hı\T«äï’U¹)rçô
+1VÜ©70S8ÙÛ¸ë©Æ×Itì,ô1ËP@]Èå“°dúk°\²vÙ {…Š 2-€ Ü¾“ˆÅ g}$ëRP@RK?èQÚ([™AfudÏ}Vâ×!=1²ù%Ò›Å#›û¡—¥~¯«ú´~k”MœáÛ7éï·ó»ø®âIÙüñ*ìo’¥Ô—ìÒüxyÜöaZ‰ä2"üÍîÌRş`‡d›ÈÄÊM-Æ!üyI@Æ“rppXÄ„ødÅ1²ÛÓ7YÛ¶áZ'ŒS&\J-¼¤D]Ä­§;c‚L¾ĞÕé/ŒĞUÖJw=çæ©
+A2ÊGgĞ›¢3™ ÷Ä'3„Ì›Ó@°˜ŒY#ÖåÅlÃÿ!t ‹E2Ñç;õËşä„C”“è(¨cÉO_ı”É³Ok
+Ñ×`¥Éz“}2cìª– ÃsóİÂl:‘Á‚/ÚI”kl¨ÊùäT­ˆ‘ÔMƒÛeˆ<9=?^‰“h(Î ¯õ]+¡5dyµ¸Şö`ËÕ§ÿ½àÖ/¿ŠiP`¼cù\@q8Öb¹O•'ÆøehJ˜[1PÀ¥¾‰Cº˜coÑa¬Kz¼ª€S“êÕ
+îŒÎåéfNĞê§#m{‡cåjÍûWÒ7xÎ$’&.º¡tf–¬ùıÉqZ#)„a‡óÖñ„wñóäX¥ºÏï	] â÷äØoo­Dƒi·àŒ¼Ğ`Ä„;_ÊÃR6'#B9îá8åÛŒ„dMñÕ5Jû¬¾Å5ë¯@«rŞ¿î4s–wwdo€ÓÑ½CÖHŞ#RØıq;˜
+ìA1ò£<'3…i¿Ó2×óm«ÏìLÄ%Y‡ás8<GU«gY–àípé<Õ¢øná†3ÀZ£ÿ]#%†J{ÄÕçzOä- h°€CfeŠ‚ò‡È ¥9DØQŸ/rx‹„Şí¥·‡¯Ö6txuÉÃ·Ë¾cÚĞ!¯KèPó¨LãÁµéÅPØ¸aĞ¸pCR†Y²Àªœ"˜Ô…"ra†”‡À ƒê`
+©Øˆ!’¶A~É‰_^4rk#†91±NPÚÏk:bˆ`
+y=ˆ!:"£.Ä™€”Ş’£…”ö´u\Zc…ğ‹ñËãpXĞú9,æï"réF&šl‘-,C^ûš=L¨pÚ3™8iÈ¥[0‡_@‘8x0|Åİd™Ğ*¼üEˆ¡Õâm¾Ş£Vâ—BnÆì<…ûùäÙVR^Ù*“»ÕÎc”À3’nï' ^´½&úÊz‘±@°1pñy>	¦Ñ™™Á„À‘ƒÒŠ ±^šxÀãQ`ÆòäÒhÈÊxò ;i•xnàş±+øDOñz÷°åMádÂ¹®)˜/wNêğ8kFtu)"ªlV¿:T+Qk[kÊŒåNãr?&ıd"•éÆ1,cÑìÙšÙ‰ÒY´(ÉX=o¸DåVÅëÚ?’_õaiÂH¥*Ğæf&#8ğ”’\H+ıC sŠÿYÏ/A3îÉ5D™°†+ô?Êİ–gI2Şs›$¨˜3²øY i66ƒO$Óã}n@Ò”Ö•_t$Å†G şšƒdKıA±P˜DìëÆAõ °ãùj=RR’,Ñ—Cq¢—™{„r?Óş©|ÀnÅïEä4,cãäe_µ£IRŞ¬ÖC_
+¢?i1–ø±úCêíY#‚»´ğzx±!“‹8 ‹VXu¾¼
+6!ñP{r°Ã5›xì	áÌ«Ì²ÀwÕÄg2á¤H$º/«N*/OÓ	ü„,£¸‡(çÀT¥aµÆ%ñ{e‘ËÏ3 ™Ú*‹ º“öv%Á´ Jˆ°U-B)LxFO€´ÍGÖPºÊ~°ÃÎCÔy¯¢7[€br€ò°*CÚÃ]`BCŞã¦›‚ÙuÓ æ™ƒ¶®ÅzƒÄäı!‰ôóòŞyÛˆÒâH@ˆÓùAzà{mÂsv.Ô}ØöXQoÒ§ÑYÌÛ“šx#ŠÖïY(B®$föh‘"«üÓÅ« n¦…âHr	Ô]Dƒx®)ÊuıåÌ.¼A-Ê•­Î£³£²›«ç®ì»XÁPÂÔÔ²E>Ë/æD¦ƒÁ²?š;&¦ƒ¯Ò †Ğé@Ñ&DXõ¸6=Æ§qÔ%à*B»ÊlMiç-,Íhov¤–ÅpP´×¬	6B2ƒ(&²
+K5w'çAd÷Z±Ş^tÒ§4Ñzµ#õO†ãXôéƒÕ¢¬foPü;è«¸æ[
+àsêBİŒßó¼Q‘Ï’NˆúsI4=ˆí)ªy…ı—Ašƒ)uB< Åh4G`š"b}Ğ½Ä-µñ</óæ¶^OD$úTKz
+A·n$6j¬$È~…@Ñ"ğhJXÅDµıŠº¤ÙäELf±ïa«oÏÌAPN¾‚¦hXğ@OPæ8I…pq±c~
+—V^%ŠäŸ'âùB†ßÙÜ}éÖ=„bÈ‹à1(8(`%â»Ë ´´%²‡`¿Ÿû™Ø ÔqR¨+ùöáFQG‚iøí)T:Èã×f0òİÚqŠ±š\×âúâˆoO‘‰)Š*P½ ~-*AàI®°ğ´”û Á]{¿p%ÿØ?•¹$†ÒD¢DÒMGQÖì#ÃCÒdÖ-O3Íx÷ ´_å¯Â	*j²=7@±WyŒƒìƒZ"dÆ¡)ĞRPç¬ş¢Ä‹Pt¯†Œ×Öaij~=íÍä[ænƒŠâ˜u‹3yYa(÷1tJ”ö°Ä….òşÿ•š¬ıj*/í,ÄlânWÑ¤Goò£X(áy8‡è[™è%—Î&@£aÚ’ÈuâËÖFËœxÿÛF¤¯E VJà )ç•-!:Í@Û}cÒ£hã¸ÏK(M¯a×S\5dZ§WV=ò%¡Àá
+(˜Mú'ú ŸBXW £asZV€'5µñÉı²×İ­'Àóä3é˜ÿHéŠ€k>~¥Š›j5³˜gôÚ¥KI°¿è[tp%¤—[düK ñKE…“‹†À·Ì	<å‰g¶D ˆ8„D‰´î†˜*“' r™¨Ğ²à©2IŸ–1:T×§p?›(x9 §È§i±Èk_O_„>á)ƒAµ·ZB«|í A+·KÜV#•Í<¾¿çÆù¼ˆ„“0M7D”ç½X‰¥Ù‹<ì*:2v	6ßâ­ÇyuoK‹W÷ög…©o‡/jİÕAÇ
+LWŸp¾ÑÅ>ÛÈ|"èRçuÈ@Ä|‹Š ³«ŠQ=.Ñv,.Aç¾¤¦bzº¨ª¨¡òŞ-6eø½A¿,JwÄ»†#ŒƒìèÄ‘%;WpfÄs@ósº%òÌBäZ
+Só”F&V|ÙAVcÄ1*“ÖqæÈ Râ(]¶+ÄUë-ÊŸK²©>K‚
+|ı „
+¬Õë7İu¦¬[6º-©3«éû*E¹È×Zb VNQÃÅ÷A&‡øåû ê.Â$›øm"¼@óoOù6>}Ûë»Å÷H¬~};8Şõ}¶|dçì51ÏÍä¥ØJÛ'·‰}»vƒÂOiâ_¡&ÌüóArßö8FøKu†ô©˜K–ó´Z.\¦Ú„ÛÂMÌ‹~K9¼ƒ«œı–rÿN¿EÔâ}¹I=üÛ·´Öà”Ï2½5,EqZÙŠbwcë‰ÕÉ[K¬q¼;«À$;Ä|fÁop²?[yŠ®§^—ªPyç ör2Ã)æí‘”I—c³%5‘—B¡Ú¬tout‰c ¶#Šy-\È]«câÆ×˜î¨Q$ÓÜßVhc÷R!É3KUàÖ½\×½Øw¶+Ù• ³ Œ·ˆÇá¾Ô¼ë€’Uı
+îiŒíà¼]b­Nû]èwX«Ì;ğ%$ ŒbJÇ‘È'[ø®ƒ0RÀ§ •ŠÃ©§¤ÚIåqˆ„fìûİ„µMrÂõ^±ˆßHúñhgöKc²$S7·	µèœÛ"Dºé;®¹^î¢Êå|Øé-óZsìì<‹H7@ùœ©W¥®iÜ¹{È¦Kºì‡–Ùg €ûĞ˜Se¾D°Ş*B !›·aI4‡º—ÅÈº#~»©ƒÉxD~©rG¤ÃàJ;Ë±MÅº–~ï–‡«S~§d^ÕÀ‰^ß€c€„£J¹­ª¦…i.%HÄ$GA†9J$ªş§0`™~®-Hì‡,´3O"jLíƒ\yB
+Ë/€Ú3GñËàš"ÿ4‚$
+bìÚ]ô«1G î˜d7¨£Èô³ÍMœßB«ĞÁğRCÏj•ÆíÁgwŒ4¸™îì‹#À‘˜‘4ä•d³äH?‹ ­×;c°îº£åüä6î2+p\G”œÜ5:õLÁ9o[Ğ”V¸ú¤;toÌû]à¶w`«ì>–®Ã¯U/° «¥ûÔŞĞpí>¸gµÚn%ªƒÍèß•PÄ:8å”İÓ&·˜ØìoULRUånh®Èn¬Ş€Ëù‡`v‡¹*,CpFÄÍÛàô ÷™,œëšøu¢¼8YxM2Aœ.œ½q‰Nk.àï]Çâ3½½¤§·C›uuzo±=°wr—zmæÁ÷”7XIr Ì _Úy)\¶cóg FY(°7à~gŒålºyºQmHdL‰ \‡œƒè3èÃŠÈÆ‚-”•ŞÿŸ»a5À¯RTßù<Ÿ¹øÅAİßq#v@¸oÀxy¨o`y<Ô7ø\êœn¿ç— V1mi6¹Â÷e*	Á[Ùr3ˆğ-+d\ê‰HœÜßLO-Üÿ)·EEø—ˆ÷„#ùá’,+Î.PJ+‰oO=GÄ‡h¤İ^ÈP_¼m¡ßDYøÎ+9¤a>–„Sñå €€kl~°ø7O˜†ÖñM<«b3¤n«\Ò¡Ü®^åZâ2q=1x¹£@C|@¥ùG$6¨TÎ<¿EÌåcQšY8Yø¬SRœ»×—u!›,Úíáó,º£‹HrĞ„Èu~ù3r†7ÉÜ!
+†æfA;—ÛËY¤Ÿ'^)àBªº"|oàyjıÕôt|‡w ):¥<Îèá*‡Ç®­İÅª›— ²ŠJùËÁ÷]²Ädiê‘Èò¡›U¤ß ŞôŸ}	Ğ™Öà›ü`ÂLæZáx†×Q±h8š‰–§Z*Ì1œ •¯º-(N[ƒ+3ÅiÃ5`>ÿ5fçy)æó@°ÂÜb]¿¨ë‰åkÀ+baxwˆrıÊâÕĞ–ÀYã[?Ì¶ÒPfÈ!ÓPĞçP¸däDQ:”q'Ü<ƒŞ÷ÆX5¢ƒ«°idâÖdXõŞ4Ë³šºoK0+Yšâ¥pÀ}óT’Ô~•<şx%N1¦”’XÔŞ
+‡Š³²ÉÊxs.E V s¼ÉMx2W‰ ÆWÔ·•(¨tb]ÏÒïå=k3_Q÷\DTúâ|	è‹®âÑ*ª”ëd,¼´ÒNë¥.Nöf_şPÏäÕ ™«Á~}y€Z2B‡)ğ¨…8íí‡¨kÃìiJÜ½M˜HM.©AbC=}%N=­“8%~£ÖI.|£V’›éÎAUl1PòY…›¾î`;ó´ñI®'ª,]¹¸§u´/õ¼†—zZ¹É¦tâiÅƒ[Yk'"Ù«°h§uÀsßh§ÈÂf—9í´roÎoÏÚi•Ã?©´‚ÉÉ}İ´ÓÚ»î2œ”ûñJa$‚[Ì6OUîğ ŒM:E“H/é”Ï7Šl²H§§|H§GâikŠº?¸(§Ôê\¾Å8U_œä"Æ©º>usÁ¡MÍÀaúŒfôAóÓ'Æ!e§ nN"’MBİÌEÍ5î““¯¢#7—€=ôV±È“o+‡`y:²8˜oOÀî#9øº"¹>1\Zß`7œƒêÈV9íLMŸÌÔ‡ÃªÂôSä›0áê^>_¸¨°hæ—Uÿl×nÂúùt	Mñıe¾c´I¨•NeİÃ­ØçùmFœe2÷¬ñe3gbiVßâšõW U9ï_wš9Ë»;²7ÀéèŞ!k$ïâÃsÙ‰;‡tÊ\ÈX‹uZ+.–’îş™L0HÁ'‡uŠH™é—vzD‡wz$‡xúJœyJY„ÓÃ<¥í&híe"ò_æiPKN<ÜÓZÉÜ¹ş\oÂ¾‰[ÀdÌÎ÷3ùÑ›|Š¬5ìO:×èOo‘È§·@{ê­ÇÉ§Wk›|z÷ÉéWo§=ÒzGµÙ§>K§î©ÖÈ}Ó—}Êæ:äÓÚrÛM>å<qëk“O+xv»è’ô±ÎÅ=¥Üğ²_î©Îç¼¨§*ÖxQO)kË-ZiRGnSO‘(ğßMM/ïÁIæğNQâ¦_¼Sd~_×™§w9Š{ªŠüB¨SOQË9T!2N=Åf¤¤”÷¢¢¯€ô_êéÑ‘/õT¶0‰ä±&›ªùÌ1`0h*Ö3“ï×,Ä~¨Ir^î)@ªhÀ‹{úºúÕ§àÂÿşÛ¿ş/D{™›
+endstream
+endobj
+11 0 obj
+<</Title(Untitled-1)/Creator(VectorCraft)/Producer(VectorCraft)/ModDate(D:20261111200454Z)/CreationDate(D:20261111181638Z)>>
+endobj
+12 0 obj
+<</Length 1060/Type/Metadata/Subtype/XML>>
+stream
+<?xpacket begin="ï»¿" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="xmp-writer"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"  xmlns:xmp="http://ns.adobe.com/xap/1.0/"  xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"  xmlns:xmpTPg="http://ns.adobe.com/xap/1.0/t/pg/"  xmlns:pdf="http://ns.adobe.com/pdf/1.3/" ><dc:title><rdf:Alt><rdf:li xml:lang="x-default">Untitled-1</rdf:li></rdf:Alt></dc:title><xmp:CreatorTool>VectorCraft</xmp:CreatorTool><pdf:Producer>VectorCraft</pdf:Producer><xmp:ModifyDate>2026-11-11T20:04:54+00:00</xmp:ModifyDate><xmp:CreateDate>2026-11-11T18:16:38+00:00</xmp:CreateDate><xmpTPg:NPages>1</xmpTPg:NPages><dc:format>application/pdf</dc:format><xmpMM:InstanceID>Uyw2Neu29wg7juTv5lA9EQ==</xmpMM:InstanceID><xmpMM:DocumentID>Uyw2Neu29wg7juTv5lA9EQ==</xmpMM:DocumentID><xmpMM:RenditionClass>default</xmpMM:RenditionClass><pdf:PDFVersion>1.7</pdf:PDFVersion></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="r"?>
+endstream
+endobj
+13 0 obj
+<</Type/Catalog/Pages 1 0 R/Metadata 12 0 R>>
+endobj
+xref
+0 14
+0000000000 65535 f
+0000000016 00000 n
+0000000067 00000 n
+0000000138 00000 n
+0000000275 00000 n
+0000000556 00000 n
+0000000763 00000 n
+0000000909 00000 n
+0000000986 00000 n
+0000001457 00000 n
+0000005062 00000 n
+0000014083 00000 n
+0000014224 00000 n
+0000015361 00000 n
+trailer
+<</Size 14/Root 13 0 R/Info 11 0 R/ID[(Uyw2Neu29wg7juTv5lA9EQ==)(Uyw2Neu29wg7juTv5lA9EQ==)]>>
+startxref
+15423
+%%EOF

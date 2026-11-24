@@ -59,6 +59,11 @@ UPDATE login_challenges
 SET used_at = NOW()
 WHERE id = $1 AND used_at IS NULL;
 
+-- name: InvalidateChallengesByEmail :exec
+UPDATE login_challenges
+SET invalidated_at = NOW()
+WHERE email_normalized = $1 AND used_at IS NULL AND invalidated_at IS NULL;
+
 -- name: CreateEmailOutbox :one
 INSERT INTO email_outbox (challenge_id, message_type, status, encrypted_payload)
 VALUES ($1, 'otp', 'pending', $2)

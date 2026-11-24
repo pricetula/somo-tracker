@@ -17,6 +17,8 @@ import (
 	"somotracker/internal/platform/brevo"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/logger"
+	"somotracker/internal/platform/ratelimit"
+	"somotracker/internal/platform/redis"
 )
 
 // errNoRows is returned when a database query finds no matching row.
@@ -26,13 +28,14 @@ var errNoRows = sql.ErrNoRows
 type Service struct {
 	store      store.StoreInterface
 	codeSender brevo.CodeSender
+	redis      *redis.Client
 	cfg        *config.Config
 	log        *logger.Logger
 }
 
 // New creates an auth service.
-func New(s store.StoreInterface, cs brevo.CodeSender, cfg *config.Config, log *logger.Logger) *Service {
-	return &Service{store: s, codeSender: cs, cfg: cfg, log: log}
+func New(s store.StoreInterface, cs brevo.CodeSender, redisClient *redis.Client, cfg *config.Config, log *logger.Logger) *Service {
+	return &Service{store: s, codeSender: cs, redis: redisClient, cfg: cfg, log: log}
 }
 
 // Store returns the underlying store interface.
@@ -60,6 +63,12 @@ func (s *Service) RequestOTP(ctx context.Context, req RequestOTPRequest) (Reques
 	// Validate email syntax
 	if !isValidEmail(normalizedEmail) {
 		return RequestOTPResponse{}, apperr.New(apperr.INVALID_EMAIL, "invalid email address")
+	}
+
+	// Invalidate any existing unused challenges for this email
+	if err := s.store.InvalidateChallengesByEmail(ctx, normalizedEmail); err != nil {
+		s.log.Error(ctx, err, "invalidate existing challenges failed", "email", normalizedEmail)
+		// Non-fatal, continue
 	}
 
 	// Generate 6-digit OTP code
@@ -218,6 +227,8 @@ func (s *Service) VerifyOTP(ctx context.Context, req VerifyOTPRequest) (VerifyOT
 
 	// Constant-time comparison
 	if !hmac.Equal(challenge.CodeMac, expectedMac) {
+		// Increment failure count for this email
+		_ = s.incrementFailureCount(ctx, challenge.EmailNormalized)
 		return VerifyOTPResponse{}, apperr.New(apperr.INVALID_TOKEN, "invalid code")
 	}
 
@@ -225,6 +236,12 @@ func (s *Service) VerifyOTP(ctx context.Context, req VerifyOTPRequest) (VerifyOT
 	if err := s.store.MarkChallengeUsed(ctx, challenge.ID); err != nil {
 		return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "mark challenge used", err)
 	}
+
+	// Reset failure count on successful verification
+	_ = s.resetFailureCount(ctx, challenge.EmailNormalized)
+
+	// Set returning user marker (TTL from config)
+	_ = s.setReturningUser(ctx, challenge.EmailNormalized)
 
 	// Resolve user by email. If none exists, just-in-time provision a minimal
 	// account (org + school + user with placeholder names) and issue a
@@ -323,3 +340,46 @@ func (s *Service) Onboard(ctx context.Context, userID, orgID uuid.UUID, orgName,
 
 	return nil
 }
+
+// ============ Rate limit helpers (Redis) ============
+
+// incrementFailureCount increments the failed verification count for an email.
+func (s *Service) incrementFailureCount(ctx context.Context, email string) error {
+	if s.redis == nil {
+		return nil
+	}
+	key := ratelimit.BuildKey("otp_verify", "email", email) + ":failures"
+	_, err := s.redis.Incr(ctx, key)
+	if err != nil {
+		return err
+	}
+	// Set TTL to 24 hours on first increment
+	_, _ = s.redis.Expire(ctx, key, 24*time.Hour)
+	return nil
+}
+
+// resetFailureCount resets the failed verification count for an email.
+func (s *Service) resetFailureCount(ctx context.Context, email string) error {
+	if s.redis == nil {
+		return nil
+	}
+	key := ratelimit.BuildKey("otp_verify", "email", email) + ":failures"
+	_, err := s.redis.Del(ctx, key)
+	return err
+}
+
+// getFailureCount gets the current failed verification count for an email.
+
+// setReturningUser sets the returning user marker for an email.
+func (s *Service) setReturningUser(ctx context.Context, email string) error {
+	if s.redis == nil {
+		return nil
+	}
+	key := ratelimit.BuildKey("", "returning_user", email)
+	return s.redis.SetString(ctx, key, "1", time.Duration(s.cfg.RateLimitReturningUserTTLDays)*24*time.Hour)
+}
+
+// isReturningUser checks if an email has the returning user marker.
+
+// checkGlobalOTPBudget checks and increments the global OTP send budget.
+// Returns (allowed, isReturningUser, error).

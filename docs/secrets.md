@@ -18,6 +18,7 @@ All configuration is injected by **Doppler** at runtime. Nothing is read from th
 | `SESSION_COOKIE_NAME`  | Yes              | `session` (dev) / `__Host-session` (prod)                                      | Session cookie name                                   |
 | `TURNSTILE_ENABLED`    | Yes              | `true` / `false`                                                               | Enable Cloudflare Turnstile bot protection            |
 | `TURNSTILE_SECRET_KEY` | Yes (if enabled) | `0x...`                                                                        | Turnstile secret key for server-side verification     |
+| `TURNSTILE_EXPECTED_HOST` | Recommended   | `app.somotracker.com`                                                          | Expected hostname in Turnstile verification response  |
 | `CORS_ORIGINS`         | Yes              | `http://localhost:3000`                                                        | Allowed CORS origins                                  |
 
 ## Frontend Environment Variables

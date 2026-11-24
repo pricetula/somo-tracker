@@ -25,4 +25,6 @@ type StoreInterface interface {
 	GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.Session, error)
 	GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]storegen.School, error)
 	CreateSession(ctx context.Context, tokenHash []byte, userID, orgID uuid.UUID, activeSchoolID uuid.NullUUID, sessionType string, expiresAt time.Time) (storegen.Session, error)
+	// InvalidateChallengesByEmail marks all unused challenges for an email as used.
+	InvalidateChallengesByEmail(ctx context.Context, emailNormalized string) error
 }

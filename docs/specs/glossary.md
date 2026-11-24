@@ -7,7 +7,7 @@ docs must use these names; do not invent aliases.
 
 ## Status
 
-draft
+approved
 
 ## Entities
 

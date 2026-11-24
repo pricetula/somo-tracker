@@ -353,7 +353,7 @@ All errors follow standard format:
 4. **Session token hashing** - SHA256 stored, raw token only in cookie
 5. **HttpOnly cookies** - XSS cannot steal session
 6. **Secure cookies in prod** - `__Host-` prefix enforces HTTPS
-7. **Turnstile bot protection** - optional, configurable
+7. **Turnstile bot protection** — `turnstile_token` required in OTP request body (400 if missing). Verified server-side via Cloudflare siteverify when `TURNSTILE_SECRET_KEY` is set. Upstream failure → 502 `BAD_GATEWAY`; failed verification → 403 `FORBIDDEN`.
 8. **Challenge expiration** - 10 min default
 9. **Max attempts** - 5 default per challenge
 10. **One-time use** - challenge marked used after verify
@@ -362,14 +362,21 @@ All errors follow standard format:
 
 ## Environment Variables
 
-| Variable               | Required   | Default                 | Description                                          |
-| ---------------------- | ---------- | ----------------------- | ---------------------------------------------------- |
-| `EMAIL_HMAC_KEY`       | Yes        | -                       | 32+ byte secret for OTP HMAC                         |
-| `BREVO_API_KEY`        | Yes        | -                       | Brevo (Sendinblue) API key                           |
-| `BREVO_SENDER_EMAIL`   | No         | noreply@somotracker.com | From email                                           |
-| `BREVO_SENDER_NAME`    | No         | Somotracker             | From name                                            |
-| `TURNSTILE_ENABLED`    | No         | false                   | Enable Cloudflare Turnstile                          |
-| `TURNSTILE_SECRET_KEY` | If enabled | -                       | Turnstile secret key                                 |
-| `SESSION_COOKIE_NAME`  | No         | session                 | Cookie name (dev: `session`, prod: `__Host-session`) |
-| `OTP_VALIDITY_MINUTES` | No         | 10                      | Challenge expiration                                 |
-| `OTP_MAX_ATTEMPTS`     | No         | 5                       | Max verify attempts                                  |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `EMAIL_HMAC_KEY` | Yes | 32+ byte secret for OTP HMAC signing |
+| `BREVO_API_KEY` | Yes | Brevo email provider API key |
+| `BREVO_SENDER_EMAIL` | No | From email address |
+| `BREVO_SENDER_NAME` | No | From display name |
+| `TURNSTILE_SECRET_KEY` | Yes | Cloudflare Turnstile secret key (server-side only). Presence enables verification. |
+| `TURNSTILE_EXPECTED_HOST` | Recommended | Expected hostname in Turnstile verification response |
+| `SESSION_COOKIE_NAME` | Yes | Session cookie name (`session` dev, `__Host-session` prod) |
+| `CORS_ORIGINS` | Yes | Comma-separated allowed CORS origins (Next.js frontend origin only) |
+| `RateLimitOTPRequestIPPerMin` | No (default 10) | Max OTP requests per IP per minute |
+| `RateLimitOTPRequestEmailPer15Min` | No (default 3) | Max OTP requests per email per 15 minutes |
+| `APP_ENV` | Yes | `development`, `test`, or `production` |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `REDIS_URL` | Yes | Redis connection string |
+| `PORT` | Yes | HTTP port the backend listens on |
+
+OTP validity (10 min) and max attempts (5) are hardcoded in `config.OTPValidity()` and `config.OTPMaxAttempts()`.

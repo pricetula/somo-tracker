@@ -161,7 +161,7 @@ generate-swag:
 	cd backend && swag init -g cmd/api/main.go -o docs
 
 generate-frontend-types:
-	@echo "Frontend API types generated from OpenAPI via BFF layer"
+	cd frontend && node scripts/gen-types.mjs
 
 # =============================================================================
 # Quality / Compliance
@@ -204,6 +204,16 @@ generate-check:
 		fi; \
 	else \
 		echo "sqlc not found, skipping generate-check"; \
+	fi
+	@if command -v node >/dev/null 2>&1; then \
+		$(MAKE) generate-frontend-types; \
+		if [ -n "$$(git status --porcelain frontend/src/lib/generated/)" ]; then \
+			echo "Generated frontend types have changes. Commit them."; \
+			git diff --stat frontend/src/lib/generated/; \
+			exit 1; \
+		fi; \
+	else \
+		echo "node not found, skipping frontend type generate-check"; \
 	fi
 
 # =============================================================================

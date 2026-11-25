@@ -3,5 +3,424 @@
     "info": {
         "contact": {}
     },
-    "paths": {}
+    "paths": {
+        "/api/v1/auth/challenge": {
+            "post": {
+                "description": "Issue PoW/Turnstile challenge",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Issue challenge",
+                "parameters": [
+                    {
+                        "description": "Challenge request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ChallengeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ChallengeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "description": "Log out and clear session cookies",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/onboard": {
+            "post": {
+                "description": "Complete organization onboarding and upgrade session",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Onboard user",
+                "parameters": [
+                    {
+                        "description": "Onboard request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.OnboardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/otp/request": {
+            "post": {
+                "description": "Request a verification code via email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Request OTP",
+                "parameters": [
+                    {
+                        "description": "OTP request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.RequestOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.RequestOTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/otp/verify": {
+            "post": {
+                "description": "Verify a 6-digit OTP code and create a session",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify OTP",
+                "parameters": [
+                    {
+                        "description": "OTP verification",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.VerifyOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.VerifyOTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/session": {
+            "get": {
+                "description": "Get current session info",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get session",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.SessionResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handler.ChallengeRequest": {
+            "type": "object",
+            "required": [
+                "action",
+                "client_subnet",
+                "email_hash"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "otp_request",
+                        "onboard"
+                    ]
+                },
+                "client_subnet": {
+                    "type": "string"
+                },
+                "email_hash": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.ChallengeResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "challenge_id": {
+                    "type": "string"
+                },
+                "difficulty": {
+                    "type": "integer"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "seed": {
+                    "type": "string"
+                },
+                "site_key": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"pow\" | \"turnstile\"",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.OnboardRequest": {
+            "type": "object",
+            "required": [
+                "organization_name",
+                "school_name",
+                "user_name"
+            ],
+            "properties": {
+                "organization_name": {
+                    "type": "string"
+                },
+                "pow_solution": {
+                    "$ref": "#/definitions/handler.PowSolution"
+                },
+                "school_name": {
+                    "type": "string"
+                },
+                "user_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.PowSolution": {
+            "type": "object",
+            "properties": {
+                "challenge_id": {
+                    "type": "string"
+                },
+                "nonce": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.RequestOTPRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "turnstile_token"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "pow_solution": {
+                    "$ref": "#/definitions/handler.PowSolution"
+                },
+                "turnstile_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.RequestOTPResponse": {
+            "type": "object",
+            "properties": {
+                "challenge_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "handler.SessionResponse": {
+            "type": "object",
+            "properties": {
+                "authenticated": {
+                    "type": "boolean"
+                },
+                "needs_onboarding": {
+                    "type": "boolean"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "session_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.VerifyOTPRequest": {
+            "type": "object",
+            "required": [
+                "challenge_id",
+                "code"
+            ],
+            "properties": {
+                "challenge_id": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.VerifyOTPResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "needs_onboarding": {
+                    "type": "boolean"
+                },
+                "ok": {
+                    "type": "boolean"
+                }
+            }
+        }
+    }
 }

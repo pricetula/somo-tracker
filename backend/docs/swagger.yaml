@@ -1,4 +1,283 @@
+definitions:
+  handler.ChallengeRequest:
+    properties:
+      action:
+        enum:
+        - otp_request
+        - onboard
+        type: string
+      client_subnet:
+        type: string
+      email_hash:
+        type: string
+    required:
+    - action
+    - client_subnet
+    - email_hash
+    type: object
+  handler.ChallengeResponse:
+    properties:
+      action:
+        type: string
+      challenge_id:
+        type: string
+      difficulty:
+        type: integer
+      expires_at:
+        type: string
+      seed:
+        type: string
+      site_key:
+        type: string
+      type:
+        description: '"pow" | "turnstile"'
+        type: string
+    type: object
+  handler.OnboardRequest:
+    properties:
+      organization_name:
+        type: string
+      pow_solution:
+        $ref: '#/definitions/handler.PowSolution'
+      school_name:
+        type: string
+      user_name:
+        type: string
+    required:
+    - organization_name
+    - school_name
+    - user_name
+    type: object
+  handler.PowSolution:
+    properties:
+      challenge_id:
+        type: string
+      nonce:
+        type: string
+    type: object
+  handler.RequestOTPRequest:
+    properties:
+      email:
+        type: string
+      pow_solution:
+        $ref: '#/definitions/handler.PowSolution'
+      turnstile_token:
+        type: string
+    required:
+    - email
+    - turnstile_token
+    type: object
+  handler.RequestOTPResponse:
+    properties:
+      challenge_id:
+        type: string
+      message:
+        type: string
+      ok:
+        type: boolean
+    type: object
+  handler.SessionResponse:
+    properties:
+      authenticated:
+        type: boolean
+      needs_onboarding:
+        type: boolean
+      ok:
+        type: boolean
+      session_type:
+        type: string
+    type: object
+  handler.VerifyOTPRequest:
+    properties:
+      challenge_id:
+        type: string
+      code:
+        type: string
+    required:
+    - challenge_id
+    - code
+    type: object
+  handler.VerifyOTPResponse:
+    properties:
+      message:
+        type: string
+      needs_onboarding:
+        type: boolean
+      ok:
+        type: boolean
+    type: object
 info:
   contact: {}
-paths: {}
+paths:
+  /api/v1/auth/challenge:
+    post:
+      consumes:
+      - application/json
+      description: Issue PoW/Turnstile challenge
+      parameters:
+      - description: Challenge request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ChallengeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ChallengeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Issue challenge
+      tags:
+      - auth
+  /api/v1/auth/logout:
+    post:
+      description: Log out and clear session cookies
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Logout
+      tags:
+      - auth
+  /api/v1/auth/onboard:
+    post:
+      consumes:
+      - application/json
+      description: Complete organization onboarding and upgrade session
+      parameters:
+      - description: Onboard request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.OnboardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Onboard user
+      tags:
+      - auth
+  /api/v1/auth/otp/request:
+    post:
+      consumes:
+      - application/json
+      description: Request a verification code via email
+      parameters:
+      - description: OTP request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RequestOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.RequestOTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Request OTP
+      tags:
+      - auth
+  /api/v1/auth/otp/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verify a 6-digit OTP code and create a session
+      parameters:
+      - description: OTP verification
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.VerifyOTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify OTP
+      tags:
+      - auth
+  /api/v1/auth/session:
+    get:
+      description: Get current session info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.SessionResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get session
+      tags:
+      - auth
 swagger: "2.0"

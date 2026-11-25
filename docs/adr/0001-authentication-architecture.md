@@ -18,7 +18,7 @@ proposed
 
 ## Context
 
-SPEC-001 defines the OTP-based login flow (request → verify → session) and references `auth-architecture-v2.md` §4.2, §4.3, §11, §12.2, which does not exist. The codebase implements email-based OTP with optional Cloudflare Turnstile bot protection, supporting both new-user signup (with onboarding) and existing-user signin.
+SPEC-001 defines the OTP-based login flow (request → verify → session). The codebase implements email-based OTP with optional Cloudflare Turnstile bot protection, supporting both new-user signup (with onboarding) and existing-user signin.
 
 Key forces:
 - No password storage: users authenticate exclusively via time-limited OTP codes delivered by email.
@@ -36,7 +36,7 @@ Adopt an email-only OTP authentication architecture with the following character
 
 1. **AuthN method**: Email OTP only (6-digit code, 10-minute validity, 5 max attempts, single use). No passwords.
 2. **Challenge lifecycle**: `login_challenges` row + `email_outbox` row created in one DB transaction on request; HMAC-SHA256(`server_secret`, `challenge_id` || `code`) stored as `code_mac`.
-3. **User resolution**: On verify, look up user by `normalized_email`. If not found, auto-create user + organization + placeholder school and mark `justCreated = true` (needs onboarding). If found, `justCreated = false`.
+3. **User resolution**: On verify, look up user by `normalized_email`. If not found, auto-create user + organization + placeholder school and mark `justCreated = true` (needs onboarding). Placeholder organization is named `org-{challenge_id[:8]}`; placeholder school is named "Placeholder School". Both are renamed during onboarding (see `docs/auth-flow.md` Step 3). If found, `justCreated = false`.
 4. **Session types**: `temporary` (30 min TTL) for new users requiring onboarding; `full` (30-day TTL) for existing users or post-onboarding.
 5. **School resolution**: Auto-select `active_school_id` if the user has exactly one active school; NULL if multiple (client selects via separate endpoint).
 6. **Cookie strategy**: `__Host-session` (prod, Secure, HTTPS) or `session` (dev). HttpOnly, SameSite=Lax, Path=/. `needs_onboarding` flag cookie set for temporary sessions.

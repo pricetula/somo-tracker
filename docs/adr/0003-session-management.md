@@ -42,7 +42,7 @@ Adopt PostgreSQL-backed opaque sessions with the following characteristics:
 
 1. **Storage**: Sessions stored in the `sessions` table in PostgreSQL. Columns: `id`, `token_hash` (SHA-256 of raw token), `user_id`, `organization_id`, `active_school_id`, `session_type`, `created_at`, `last_seen_at`, `expires_at`, `revoked_at`, `revocation_reason`.
 2. **Token lifecycle**: Generate 256-bit opaque token on verify; store SHA-256 hash; set raw token as cookie. Hash comparison prevents token extraction if DB is read.
-3. **Session types**: `temporary` (30 min TTL) for pre-onboarding users; `full` (30-day TTL, `SessionAbsoluteTimeout()`) for all others. Configurable via config.
+3. **Session types**: `temporary` (30 min absolute TTL) for pre-onboarding users; `full` (30-day absolute TTL) for all others. Configurable via config. Sessions expire at `expires_at` regardless of activity — there is no sliding idle window in MVP. The `last_seen_at` column exists for future idle-timeout tracking but is not updated on each request.
 4. **Cookie strategy**:
    - Production: `__Host-session`, Secure, HttpOnly, SameSite=Lax, Path=/.
    - Development: `session`, HttpOnly, SameSite=Lax, Path=/ (Secure=false for HTTP localhost).
@@ -79,7 +79,7 @@ Adopt PostgreSQL-backed opaque sessions with the following characteristics:
 ### Neutral / Risks
 
 - Session cleanup job is not yet implemented; expired sessions accumulate until manually pruned.
-- `last_seen_at` is selected but not yet updated on each request (future enhancement for idle timeout).
+- `last_seen_at` column exists but is not updated on each request; idle timeout is not enforced — sessions use absolute TTL only (future enhancement if sliding idle timeout is needed).
 - If PostgreSQL is unavailable, all authenticated requests fail (no fallback cache).
 
 ## Links

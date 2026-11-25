@@ -83,6 +83,7 @@ Adopt Redis-backed shared atomic rate limiting with per-key scoped limits and gr
 - Fallback limiter must be kept in sync with Redis limits when config changes.
 - No distributed rate-limit dashboard yet; limits observable only via headers/logs.
 - Global OTP budget (`RateLimitOtpRequestGlobalPerMin`) could block all OTP traffic during a targeted attack; needs alerting.
+- Outbox email delivery retries (ADR-0004) are internal attempts and do NOT count against the global OTP request rate limit. Only client-initiated OTP requests consume rate-limit budget.
 
 ## Links
 

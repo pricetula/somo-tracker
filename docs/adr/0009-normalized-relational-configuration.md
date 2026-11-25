@@ -18,7 +18,7 @@ proposed
 
 ## Context
 
-Education configuration data (grading scales, bands, subjects, terms, grade years) is inherently relational. Grading scales contain multiple bands; each band has a grade label, minimum score, maximum score, and sort order. Subjects belong to levels and have compulsory flags. Terms belong to academic years and have dates.
+Education configuration data (grading scales, bands, subjects, terms, grade years) is inherently relational. Grading scales contain multiple bands; each band has a grade label, minimum score, maximum score, and sort order. Bands support both percentage-based grading (e.g. "A", 70–100) and rubric-based competency grading (e.g. "EE1", "Exceeds Expectations", mapped to a percentage range such as 80–100). Subjects belong to levels and have compulsory flags. Terms belong to academic years and have dates.
 
 Storing this as JSONB would lose referential integrity, make querying and reporting difficult, and prevent database-level validation of relationships.
 

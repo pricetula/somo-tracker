@@ -21,6 +21,7 @@ proposed
 When a school is created, it selects an `education_system_id`. The system seeds per-school configuration tables based on that education system’s defaults. However, individual schools need flexibility to adapt the configuration to their local context:
 
 - Some schools may want a different grading scale than the system default.
+- Some schools may want percentage-based grading (A–F, 0–100) while others use rubric-based competency levels (EE1/ME1/AE1/BE1) mapped to percentage ranges.
 - Some schools may want to make a system-default-optional subject compulsory, or vice versa.
 - Term dates vary by school even within the same country and education system.
 - Language of instruction may differ from the system default (English) at specific schools.

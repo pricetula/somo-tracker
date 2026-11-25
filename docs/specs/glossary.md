@@ -7,7 +7,7 @@ docs must use these names; do not invent aliases.
 
 ## Status
 
-draft
+proposed
 
 ## Entities
 
@@ -107,7 +107,7 @@ in the same DB transaction.
 | id | UUID | NOT NULL | Primary key, uuidv7 |
 | challenge_id | UUID | NOT NULL | FK → login_challenges.id |
 | message_type | TEXT | NOT NULL | `otp`, `invitation` |
-| status | TEXT | NOT NULL | `pending`, `sent`, `failed`, `dead_letter` |
+| status | TEXT | NOT NULL | `pending`, `sent`, `failed` |
 | attempts | INTEGER | NOT NULL | Default 0 |
 | next_attempt_at | TIMESTAMPTZ | NULL | For retry scheduling |
 | provider_message_id | TEXT | NULL | Brevo message ID |
@@ -150,9 +150,10 @@ in the same DB transaction.
 - Composite FKs prevent cross-organization user↔school assignment
 - `login_challenges.expires_at` 10 minutes after `created_at`
 - `sessions.expires_at` 30 days after `created_at` (absolute)
-- Idle timeout 7 days (tracked via `last_seen_at`)
+- Sessions use absolute TTL only; no sliding idle timeout is enforced in MVP
 
 ## Links
 
-- Umbrella architecture: `auth-architecture-v2.md`
-- Specification lifecycle: draft → approved → implemented → done
+- Authentication architecture: `docs/adr/0001-authentication-architecture.md`
+- Session management: `docs/adr/0003-session-management.md`
+- Specification lifecycle: proposed → approved → implemented → done

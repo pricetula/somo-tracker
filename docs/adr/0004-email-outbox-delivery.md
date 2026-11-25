@@ -73,9 +73,9 @@ Adopt a transactional outbox pattern with in-process async delivery:
 
 ### Neutral / Risks
 
-- Double-processing risk if multiple API instances poll without row locking — must implement `SKIP LOCKED` or advisory locks before multi-instance deployment.
+- Double-processing risk if multiple API instances poll without row locking — must implement `SELECT ... FOR UPDATE SKIP LOCKED` or advisory locks before multi-instance deployment.
 - No dead-letter queue beyond `status='failed'`; manual inspection needed for persistently failing emails.
-- Brevo rate limits are not yet tracked at the outbox layer (global OTP budget is tracked separately in Redis, see ADR-0005).
+- Outbox retry attempts are internal delivery attempts and do NOT count against the global OTP request rate limit (ADR-0005). The outbox worker has its own retry budget (max attempts per outbox row). Brevo rate limits are not tracked at the outbox layer; if Brevo rate limits are hit, outbox entries transition to `failed` with exponential backoff.
 
 ## Links
 

@@ -88,15 +88,17 @@ Default grading scale bands for an education system. Normalized rows only.
 
 ### `education_system_grading_bands`
 
-Individual grade bands within a scale. Normalized rows only — no JSONB.
+Individual grade bands within a scale. Supports both percentage-based and rubric-based (competency) grading. Normalized rows only — no JSONB.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UUID | Primary key |
 | grading_scale_id | UUID | References `education_system_grading_scales.id` |
-| grade | TEXT | e.g. "A", "B", "C", "Level 4" |
-| min_score | DECIMAL | Inclusive lower bound |
-| max_score | DECIMAL | Inclusive upper bound |
+| grade | TEXT | e.g. "A", "B", "C", "Level 4", "EE1", "ME1" |
+| scale_type | TEXT | `percentage` or `rubric`. Default `percentage`. |
+| rubric_level | TEXT | When `scale_type='rubric'`: e.g. `EE1` (Exceeds Expectations), `ME1` (Meets Expectations), `AE1` (Approaching Expectations), `BE1` (Below Expectations). NULL for percentage scales. |
+| min_score | DECIMAL | Inclusive lower bound (percentage). For rubric bands, maps the rubric level to a percentage floor. |
+| max_score | DECIMAL | Inclusive upper bound (percentage). For rubric bands, maps the rubric level to a percentage ceiling. |
 | sort_order | INT | Ordering within the scale |
 
 ### `education_system_subjects`
@@ -154,15 +156,17 @@ School-specific override of the education system default grading scale.
 
 ### `school_grading_bands`
 
-Normalized grade bands for a school's active scale. No JSONB.
+Normalized grade bands for a school's active scale. Supports both percentage-based and rubric-based (competency) grading. No JSONB.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UUID | Primary key |
 | school_grading_scale_id | UUID | References `school_grading_scales.id` |
-| grade | TEXT | e.g. "A", "B+" |
-| min_score | DECIMAL | Inclusive lower bound |
-| max_score | DECIMAL | Inclusive upper bound |
+| grade | TEXT | e.g. "A", "B+", "EE1", "ME1" |
+| scale_type | TEXT | `percentage` or `rubric`. Default `percentage`. |
+| rubric_level | TEXT | When `scale_type='rubric'`: e.g. `EE1` (Exceeds Expectations), `ME1` (Meets Expectations), `AE1` (Approaching Expectations), `BE1` (Below Expectations). NULL for percentage scales. |
+| min_score | DECIMAL | Inclusive lower bound (percentage). For rubric bands, maps the rubric level to a percentage floor. |
+| max_score | DECIMAL | Inclusive upper bound (percentage). For rubric bands, maps the rubric level to a percentage ceiling. |
 | sort_order | INT | Ordering within the scale |
 
 ### `school_subjects`
@@ -339,6 +343,8 @@ Given a student record with a date of birth:
 1. **Changing education systems:** If a school wants to switch education systems after creation, is that supported as a data migration, or must a new school be created?
 2. **Promotion workflow:** Who triggers end-of-year promotion (class teacher, headteacher, system admin)? Is there a formal "close academic year" process?
 3. **Grading scale migration:** If a school changes its active grading scale mid-year, are historical results recalculated or left with the original grade letter?
+4. **Schools table migration:** The core `schools` table (migration `00000000000002_core_domain.sql`) does not yet have `country_id`, `education_system_id`, `school_type`, `language_of_instruction`, or `registration_number`. A new migration must add these columns before a school can reference `education_system_id`.
+5. **Education config migrations:** All education configuration tables (`countries`, `education_systems`, `education_levels`, `education_system_levels`, `education_system_grading_scales`, `education_system_grading_bands`, `education_system_subjects`, `education_system_term_structures`, `school_grading_scales`, `school_grading_bands`, `school_subjects`, `school_academic_years`, `school_academic_terms`, `school_grade_years`, `streams`, `teachers`, `students`, `enrollments`, `assessment_types`, `assessments`, `assessment_results`) exist only in this spec — no migration files exist yet. Migrations must be created, seeded, and tested before implementation.
 
 ---
 

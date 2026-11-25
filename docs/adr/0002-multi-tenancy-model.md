@@ -70,7 +70,7 @@ Adopt a hierarchical multi-tenancy model:
 ### Neutral / Risks
 
 - Query review/audit needed to ensure all multi-tenant queries filter by `organization_id`.
-- Role-based authorization (owner vs admin vs teacher) is not yet enforced in code — the `role` field is stored but not interpreted (future ADR/spec).
+- Role-based authorization (owner vs admin vs teacher) is stored but not interpreted in MVP — enforcement is deferred to ADR-0019.
 - `active_school_id = NULL` for multi-school users means the client must track selection; no default-persistence mechanism defined yet.
 
 ## Links

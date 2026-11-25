@@ -1,4 +1,3 @@
-import { apiRequest } from "@/lib/api-client";
 import type {
   RequestOTPInput,
   RequestOTPResponse,
@@ -7,13 +6,16 @@ import type {
 } from "../types";
 
 /**
- * RequestOTPAPI forwards the OTP request (email + Turnstile token) to the
+ * requestOTP forwards the OTP request (email + Turnstile token) to the
  * Go backend via the BFF proxy route /api/auth/otp/request.
+ * Uses client-side fetch with credentials: include so the browser sends
+ * cookies (session, needs_onboarding) to the BFF route handler.
  */
 export async function requestOTP(input: RequestOTPInput): Promise<RequestOTPResponse> {
-  const res = await apiRequest("/api/auth/otp/request", {
+  const res = await fetch("/api/auth/otp/request", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({
       email: input.email,
       turnstile_token: input.turnstileToken,
@@ -37,13 +39,15 @@ export async function requestOTP(input: RequestOTPInput): Promise<RequestOTPResp
 }
 
 /**
- * VerifyOTPAPI forwards the OTP verification (challenge_id + code) to the
+ * verifyOTP forwards the OTP verification (challenge_id + code) to the
  * Go backend via the BFF proxy route /api/auth/otp/verify.
+ * Uses client-side fetch with credentials: include.
  */
 export async function verifyOTP(input: VerifyOTPInput): Promise<VerifyOTPResponse> {
-  const res = await apiRequest("/api/auth/otp/verify", {
+  const res = await fetch("/api/auth/otp/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({
       challenge_id: input.challengeId,
       code: input.code,

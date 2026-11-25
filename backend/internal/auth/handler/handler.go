@@ -177,7 +177,17 @@ type SessionResponse struct {
 	NeedsOnboarding bool   `json:"needs_onboarding,omitempty"`
 }
 
-// RequestOTP handles POST /api/v1/auth/otp/request.
+// @Summary      Request OTP
+// @Description  Request a verification code via email
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body RequestOTPRequest true "OTP request"
+// @Success      200 {object} RequestOTPResponse
+// @Failure      400 {object} map[string]interface{}
+// @Failure      403 {object} map[string]interface{}
+// @Failure      429 {object} map[string]interface{}
+// @Router       /api/v1/auth/otp/request [post]
 func (h *Handler) RequestOTP(c fiber.Ctx) error {
 	var req RequestOTPRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -398,7 +408,16 @@ func (h *Handler) RequestOTP(c fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(resp)
 }
 
-// IssueChallenge handles POST /api/v1/auth/challenge - issues PoW/Turnstile challenges.
+// @Summary      Issue challenge
+// @Description  Issue PoW/Turnstile challenge
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body ChallengeRequest true "Challenge request"
+// @Success      200 {object} ChallengeResponse
+// @Failure      400 {object} map[string]interface{}
+// @Failure      500 {object} map[string]interface{}
+// @Router       /api/v1/auth/challenge [post]
 func (h *Handler) IssueChallenge(c fiber.Ctx) error {
 	var req ChallengeRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -434,7 +453,16 @@ func (h *Handler) IssueChallenge(c fiber.Ctx) error {
 	})
 }
 
-// VerifyOTP handles POST /api/v1/auth/otp/verify.
+// @Summary      Verify OTP
+// @Description  Verify a 6-digit OTP code and create a session
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body VerifyOTPRequest true "OTP verification"
+// @Success      200 {object} VerifyOTPResponse
+// @Failure      400 {object} map[string]interface{}
+// @Failure      429 {object} map[string]interface{}
+// @Router       /api/v1/auth/otp/verify [post]
 func (h *Handler) VerifyOTP(c fiber.Ctx) error {
 	var req VerifyOTPRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -490,9 +518,17 @@ func (h *Handler) VerifyOTP(c fiber.Ctx) error {
 	})
 }
 
-// Onboard handles POST /api/v1/auth/onboard. Completes organization onboarding
-// and upgrades the session from temporary to full. Requires a valid temporary
-// session cookie.
+// @Summary      Onboard user
+// @Description  Complete organization onboarding and upgrade session
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body OnboardRequest true "Onboard request"
+// @Success      200 {object} map[string]interface{}
+// @Failure      400 {object} map[string]interface{}
+// @Failure      401 {object} map[string]interface{}
+// @Failure      429 {object} map[string]interface{}
+// @Router       /api/v1/auth/onboard [post]
 func (h *Handler) Onboard(c fiber.Ctx) error {
 	var req OnboardRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -547,8 +583,13 @@ func (h *Handler) Onboard(c fiber.Ctx) error {
 	})
 }
 
-// Session handles GET /api/v1/auth/session. Returns session info for middleware
-// to make redirect decisions.
+// @Summary      Get session
+// @Description  Get current session info
+// @Tags         auth
+// @Produce      json
+// @Success      200 {object} SessionResponse
+// @Failure      429 {object} map[string]interface{}
+// @Router       /api/v1/auth/session [get]
 func (h *Handler) Session(c fiber.Ctx) error {
 	// Rate limit per user
 	if h.rateLimiter != nil {
@@ -616,7 +657,12 @@ func (h *Handler) Session(c fiber.Ctx) error {
 	})
 }
 
-// Logout handles POST /api/v1/auth/logout.
+// @Summary      Logout
+// @Description  Log out and clear session cookies
+// @Tags         auth
+// @Produce      json
+// @Success      200 {object} map[string]interface{}
+// @Router       /api/v1/auth/logout [post]
 func (h *Handler) Logout(c fiber.Ctx) error {
 	sessionToken := c.Cookies(h.sessionCookieName)
 	if sessionToken != "" {

@@ -50,6 +50,18 @@ This includes:
 
 ## Other Rules
 
+### Generated API Types
+
+Frontend API types are generated from the backend OpenAPI spec (`backend/docs/swagger.json`) and must never be hand-edited.
+
+- Add swagger annotations (`@Router`, `@Summary`, `@Param`, `@Success`, etc.) to new or changed backend handler endpoints.
+- Run `make generate-swag` to regenerate `backend/docs/swagger.json` and `swagger.yaml`.
+- Run `make generate-frontend-types` to regenerate `frontend/src/lib/generated/api.ts`.
+- `make generate-check` runs in the pre-push hook and fails if generated frontend types have uncommitted changes — commit them before pushing.
+- Never hand-edit `frontend/src/lib/generated/api.ts` — changes will be overwritten on regeneration.
+
+### Commands
+
 - Run backend tests with: `cd backend && go test ./...`
 - Run frontend typecheck with: `cd frontend && pnpm typecheck`
 - Run integration tests with: `cd backend && go test -tags=integration ./...`

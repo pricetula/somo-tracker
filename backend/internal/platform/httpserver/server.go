@@ -49,6 +49,8 @@ func New(env string) *Server {
 					code = http.StatusUnprocessableEntity
 				case apperr.INVALID_TOKEN:
 					code = http.StatusUnauthorized
+				case apperr.BAD_GATEWAY:
+					code = http.StatusBadGateway
 				default:
 					code = http.StatusInternalServerError
 				}

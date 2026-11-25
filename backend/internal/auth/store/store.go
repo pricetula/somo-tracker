@@ -79,6 +79,15 @@ func (s *Store) CreateSchool(ctx context.Context, orgID uuid.UUID, name string) 
 	})
 }
 
+// CreateUserSchool links a user to a school as an owner within their organization.
+func (s *Store) CreateUserSchool(ctx context.Context, orgID, userID, schoolID uuid.UUID) (storegen.UserSchool, error) {
+	return s.q.CreateUserSchool(ctx, storegen.CreateUserSchoolParams{
+		OrganizationID: orgID,
+		UserID:         userID,
+		SchoolID:       schoolID,
+	})
+}
+
 // UpdateOrganization updates an organization's name and marks onboarding completed.
 func (s *Store) UpdateOrganization(ctx context.Context, orgID uuid.UUID, name string) error {
 	return s.q.UpdateOrganization(ctx, storegen.UpdateOrganizationParams{
@@ -205,4 +214,9 @@ func (s *Store) GetOrganizationsByUser(ctx context.Context, userID uuid.UUID) ([
 // GetSchoolsByUser lists schools a user has access to.
 func (s *Store) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]storegen.School, error) {
 	return s.q.GetSchoolsByUser(ctx, userID)
+}
+
+// InvalidateChallengesByEmail marks all unused challenges for an email as used.
+func (s *Store) InvalidateChallengesByEmail(ctx context.Context, emailNormalized string) error {
+	return s.q.InvalidateChallengesByEmail(ctx, emailNormalized)
 }

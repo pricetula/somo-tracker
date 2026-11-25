@@ -229,6 +229,34 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const createUserSchool = `-- name: CreateUserSchool :one
+INSERT INTO user_schools (organization_id, user_id, school_id, role, status)
+VALUES ($1, $2, $3, 'owner', 'ACTIVE')
+RETURNING id, organization_id, user_id, school_id, role, status, created_at, revoked_at
+`
+
+type CreateUserSchoolParams struct {
+	OrganizationID uuid.UUID
+	UserID         uuid.UUID
+	SchoolID       uuid.UUID
+}
+
+func (q *Queries) CreateUserSchool(ctx context.Context, arg CreateUserSchoolParams) (UserSchool, error) {
+	row := q.db.QueryRowContext(ctx, createUserSchool, arg.OrganizationID, arg.UserID, arg.SchoolID)
+	var i UserSchool
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.UserID,
+		&i.SchoolID,
+		&i.Role,
+		&i.Status,
+		&i.CreatedAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const getActiveSession = `-- name: GetActiveSession :one
 SELECT id, token_hash, user_id, organization_id, active_school_id, created_at, last_seen_at, expires_at, revoked_at, revocation_reason
 FROM sessions
@@ -482,6 +510,17 @@ func (q *Queries) GetUserByNormalizedEmail(ctx context.Context, normalizedEmail 
 		&i.DeletedAt,
 	)
 	return i, err
+}
+
+const invalidateChallengesByEmail = `-- name: InvalidateChallengesByEmail :exec
+UPDATE login_challenges
+SET invalidated_at = NOW()
+WHERE email_normalized = $1 AND used_at IS NULL AND invalidated_at IS NULL
+`
+
+func (q *Queries) InvalidateChallengesByEmail(ctx context.Context, emailNormalized string) error {
+	_, err := q.db.ExecContext(ctx, invalidateChallengesByEmail, emailNormalized)
+	return err
 }
 
 const markChallengeUsed = `-- name: MarkChallengeUsed :exec

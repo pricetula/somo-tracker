@@ -42,7 +42,7 @@ Content-Type: application/json
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | email | string | Yes | Must be valid email syntax |
-| turnstile_token | string | No | Required when `TURNSTILE_ENABLED=true` |
+| turnstile_token | string | Yes | Always required. Verified server-side via Cloudflare Siteverify when `TURNSTILE_SECRET_KEY` is configured; when unset (local dev), the field is still required but not verified. |
 
 ## Response (success — always generic)
 
@@ -98,7 +98,7 @@ Content-Type: application/json
 
 1. **Email normalization**: lowercase + trim before any lookup or storage.
 2. **Email syntax**: must pass `validate:"required,email"`.
-3. **Turnstile**: when `TURNSTILE_ENABLED=true`, verify server-side via Cloudflare Siteverify. When `false` (local dev), skip verification.
+3. **Turnstile**: `turnstile_token` is always required in the request body (400 if missing). When `TURNSTILE_SECRET_KEY` is configured, verify server-side via Cloudflare Siteverify. When unset (local dev), the field is required but verification is skipped.
 4. **Rate limits**: per normalized email, per client IP, and global. Use Redis (shared atomic counters). Do not reveal which limit was hit.
 5. **No account enumeration**: response and timing must be identical for existing and non-existing emails.
 6. **Transaction**: create `login_challenge` row + `email_outbox` row in one DB transaction. Commit both or neither.
@@ -157,9 +157,17 @@ Given an email that does not exist in the system
 When the client POSTs `/api/v1/auth/otp/request`
 Then the response is identical to an existing email (same status, same body)
 
-Given `TURNSTILE_ENABLED=true` and no Turnstile token
+Given `TURNSTILE_SECRET_KEY` is set and no Turnstile token
 When the client POSTs `/api/v1/auth/otp/request`
-Then the response is HTTP 400 `TURNSTILE_REQUIRED`
+Then the response is HTTP 400 `INVALID_REQUEST`
+
+Given `TURNSTILE_SECRET_KEY` is set and an invalid Turnstile token
+When the client POSTs `/api/v1/auth/otp/request`
+Then the response is HTTP 403 `FORBIDDEN`
+
+Given `TURNSTILE_SECRET_KEY` is set but Cloudflare is unreachable
+When the client POSTs `/api/v1/auth/otp/request`
+Then the response is HTTP 502 `BAD_GATEWAY`
 
 Given rate limit exceeded for the email
 When the client POSTs `/api/v1/auth/otp/request`

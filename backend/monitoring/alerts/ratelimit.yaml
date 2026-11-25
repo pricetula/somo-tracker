@@ -1,0 +1,164 @@
+# Rate Limiting Alert Rules
+# Apply with: kubectl apply -f monitoring/alerts/ratelimit.yaml
+# Or include in PrometheusRule CRD
+
+groups:
+  - name: ratelimit.rules
+    interval: 30s
+    rules:
+      # === Critical Alerts (Page Immediately) ===
+
+      - alert: RatelimitAuth429RateHigh
+        expr: |
+          sum(rate(ratelimit_429_total{tier=~"otp_request|otp_verify|onboard"}[10m])) 
+          / sum(rate(ratelimit_decisions_total{tier=~"otp_request|otp_verify|onboard"}[10m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High auth tier 429 rate (>5%)"
+          description: "Auth tier (otp_request/otp_verify/onboard) 429 rate is {{ $value | humanizePercentage }} over 10m. Possible bot attack or legitimate user impact."
+          runbook_url: "https://runbooks.example.com/ratelimit-auth-429-spike"
+
+      - alert: RatelimitRedisErrorsHigh
+        expr: |
+          sum(rate(ratelimit_redis_errors_total[5m])) 
+          / sum(rate(ratelimit_decisions_total[5m])) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High Redis error rate in rate limiter (>1%)"
+          description: "Redis error rate is {{ $value | humanizePercentage }} over 5m. Fail-closed tiers (OTP, onboard) may return 503."
+          runbook_url: "https://runbooks.example.com/ratelimit-redis-errors"
+
+      - alert: RatelimitFailclosedTriggered
+        expr: |
+          increase(ratelimit_failclosed_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Fail-closed rate limiting triggered"
+          description: "Fail-closed tier (OTP request, OTP verify, or onboard) returned 503 due to Redis unavailability. Immediate investigation required."
+          runbook_url: "https://runbooks.example.com/ratelimit-failclosed"
+
+      - alert: BrevoBudgetUtilizationHigh
+        expr: |
+          brevo_budget_utilization > 0.7
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Brevo daily budget utilization > 70%"
+          description: "Daily OTP send budget is {{ $value | humanizePercentage }} utilized ({{ $value * 250 | humanize }} / 250 sends). Risk of hitting hard ceiling."
+          runbook_url: "https://runbooks.example.com/brevo-budget-high"
+
+      # === Warning Alerts (Ticket + Slack) ===
+
+      - alert: RatelimitFailopenTriggered
+        expr: |
+          increase(ratelimit_failopen_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Fail-open rate limiting triggered"
+          description: "Fail-open tier (session or global) allowed requests due to Redis unavailability. Rate limiting degraded for authenticated users."
+          runbook_url: "https://runbooks.example.com/ratelimit-failopen"
+
+      - alert: BotRiskScoreShift
+        expr: |
+          (histogram_quantile(0.95, sum(rate(bot_risk_score_bucket[1h])) by (le, tier)) 
+           - histogram_quantile(0.95, sum(rate(bot_risk_score_bucket[1h] offset 1h)) by (le, tier))) 
+          / histogram_quantile(0.95, sum(rate(bot_risk_score_bucket[1h] offset 1h)) by (le, tier)) < -0.2
+        for: 10m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Significant drop in bot risk score p95"
+          description: "Bot risk score p95 dropped >20% over 1h for tier {{ $labels.tier }}. Possible solver farm adapting to PoW challenges."
+          runbook_url: "https://runbooks.example.com/bot-risk-score-drop"
+
+      - alert: BotStepupCriticalRate
+        expr: |
+          rate(bot_stepup_total{level="critical"}[10m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Critical bot escalation rate > 1%/10m"
+          description: "Critical risk escalations (circuit breaker) occurring at {{ $value | humanize }} per second. Global budget near exhaustion or coordinated attack."
+          runbook_url: "https://runbooks.example.com/bot-critical-escalation"
+
+      - alert: GlobalRateLimit429RateHigh
+        expr: |
+          sum(rate(ratelimit_429_total{tier="global"}[10m])) 
+          / sum(rate(ratelimit_decisions_total{tier="global"}[10m])) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Global API 429 rate > 2%"
+          description: "Global API tier 429 rate is {{ $value | humanizePercentage }}. Possible API abuse or legitimate traffic spike."
+          runbook_url: "https://runbooks.example.com/ratelimit-global-429"
+
+      - alert: SessionRateLimit429RateHigh
+        expr: |
+          sum(rate(ratelimit_429_total{tier="session"}[10m])) 
+          / sum(rate(ratelimit_decisions_total{tier="session"}[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Session API 429 rate > 5%"
+          description: "Session tier 429 rate is {{ $value | humanizePercentage }}. May indicate SPA polling issues or session enumeration attack."
+          runbook_url: "https://runbooks.example.com/ratelimit-session-429"
+
+      - alert: OnboardRateLimit429RateHigh
+        expr: |
+          sum(rate(ratelimit_429_total{tier="onboard"}[10m])) 
+          / sum(rate(ratelimit_decisions_total{tier="onboard"}[10m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Onboard API 429 rate > 10%"
+          description: "Onboard tier 429 rate is {{ $value | humanizePercentage }}. May impact legitimate user onboarding."
+          runbook_url: "https://runbooks.example.com/ratelimit-onboard-429"
+
+      # === Info Alerts (Logging/Tracking) ===
+
+      - alert: RatelimitShadowModeWouldBlock
+        expr: |
+          sum(rate(ratelimit_decisions_total{result="would_block"}[10m])) > 0
+        for: 5m
+        labels:
+          severity: info
+          team: backend
+        annotations:
+          summary: "Shadow mode: requests would be blocked"
+          description: "Shadow mode limiter would have blocked {{ $value }} requests in last 10m. Review before enforcing."
+          runbook_url: "https://runbooks.example.com/ratelimit-shadow-review"
+
+      - alert: BFFAuthRejectedRateHigh
+        expr: |
+          rate(bff_auth_rejected_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: info
+          team: backend
+        annotations:
+          summary: "BFF auth rejection rate > 10%"
+          description: "Direct API access attempts (missing/invalid BFF secret) at {{ $value }}/sec. Possible probing of public API URL."
+          runbook_url: "https://runbooks.example.com/bff-auth-rejected"

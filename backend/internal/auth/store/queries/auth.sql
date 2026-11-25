@@ -24,6 +24,11 @@ INSERT INTO schools (organization_id, name, status)
 VALUES ($1, $2, 'ACTIVE')
 RETURNING id, organization_id, name, status, created_at, updated_at, deleted_at;
 
+-- name: CreateUserSchool :one
+INSERT INTO user_schools (organization_id, user_id, school_id, role, status)
+VALUES ($1, $2, $3, 'owner', 'ACTIVE')
+RETURNING id, organization_id, user_id, school_id, role, status, created_at, revoked_at;
+
 -- name: UpdateOrganization :exec
 UPDATE organizations
 SET name = $1, onboarding_completed_at = NOW(), updated_at = NOW()
@@ -58,6 +63,11 @@ WHERE id = $1;
 UPDATE login_challenges
 SET used_at = NOW()
 WHERE id = $1 AND used_at IS NULL;
+
+-- name: InvalidateChallengesByEmail :exec
+UPDATE login_challenges
+SET invalidated_at = NOW()
+WHERE email_normalized = $1 AND used_at IS NULL AND invalidated_at IS NULL;
 
 -- name: CreateEmailOutbox :one
 INSERT INTO email_outbox (challenge_id, message_type, status, encrypted_payload)

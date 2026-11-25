@@ -74,6 +74,11 @@ func (m *mockStore) CreateSchool(ctx context.Context, orgID uuid.UUID, name stri
 	return args.Get(0).(storegen.School), args.Error(1)
 }
 
+func (m *mockStore) CreateUserSchool(ctx context.Context, orgID, userID, schoolID uuid.UUID) (storegen.UserSchool, error) {
+	args := m.Called(ctx, orgID, userID, schoolID)
+	return args.Get(0).(storegen.UserSchool), args.Error(1)
+}
+
 func (m *mockStore) UpdateOrganization(ctx context.Context, orgID uuid.UUID, name string) error {
 	args := m.Called(ctx, orgID, name)
 	return args.Error(0)
@@ -104,8 +109,13 @@ func (m *mockStore) CreateSession(ctx context.Context, tokenHash []byte, userID,
 	return args.Get(0).(storegen.Session), args.Error(1)
 }
 
+func (m *mockStore) InvalidateChallengesByEmail(ctx context.Context, emailNormalized string) error {
+	args := m.Called(ctx, emailNormalized)
+	return args.Error(0)
+}
+
 func newTestService(s store.StoreInterface, cs *mockBrevoSender, cfg *config.Config) *Service {
-	return &Service{store: s, codeSender: cs, cfg: cfg, log: logger.Default()}
+	return &Service{store: s, codeSender: cs, redis: nil, cfg: cfg, log: logger.Default()}
 }
 
 func testConfig() *config.Config {
@@ -132,6 +142,9 @@ func TestRequestOTP_Success(t *testing.T) {
 	challengeID := uuid.New()
 
 	store := &mockStore{}
+	store.On("InvalidateChallengesByEmail", ctx, email).
+		Return(nil).
+		Once()
 	store.On("CreateLoginChallenge", ctx, anyUUID(), email, anyCodeMac(), anyTime()).
 		Return(storegen.LoginChallenge{ID: challengeID, EmailNormalized: email}, nil).
 		Once()
@@ -177,6 +190,9 @@ func TestRequestOTP_StoreError(t *testing.T) {
 	email := "user@example.com"
 
 	store := &mockStore{}
+	store.On("InvalidateChallengesByEmail", ctx, email).
+		Return(nil).
+		Once()
 	store.On("CreateLoginChallenge", ctx, anyUUID(), email, anyCodeMac(), anyTime()).
 		Return(storegen.LoginChallenge{}, errors.New("db down")).
 		Once()
@@ -523,7 +539,8 @@ func TestOnboard_Success(t *testing.T) {
 	store := &mockStore{}
 	store.On("UpdateOrganization", ctx, orgID, "My Org").Return(nil).Once()
 	store.On("UpdateUser", ctx, userID, "John Doe").Return(nil).Once()
-	store.On("CreateSchool", ctx, orgID, "My School").Return(storegen.School{}, nil).Once()
+	store.On("CreateSchool", ctx, orgID, "My School").Return(storegen.School{ID: uuid.New()}, nil).Once()
+	store.On("CreateUserSchool", ctx, orgID, userID, mock.MatchedBy(func(id uuid.UUID) bool { return id != uuid.Nil })).Return(storegen.UserSchool{}, nil).Once()
 	store.On("UpdateSessionType", ctx, userID).Return(nil).Once()
 
 	svc := newTestService(store, &mockBrevoSender{}, testConfig())

@@ -535,17 +535,47 @@ func TestOnboard_Success(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 	orgID := uuid.New()
+	countryID := uuid.New()
+	eduSystemID := uuid.New()
 
 	store := &mockStore{}
 	store.On("UpdateOrganization", ctx, orgID, "My Org").Return(nil).Once()
 	store.On("UpdateUser", ctx, userID, "John Doe").Return(nil).Once()
-	store.On("CreateSchool", ctx, orgID, "My School", uuid.NullUUID{}, uuid.NullUUID{}).Return(storegen.School{ID: uuid.New()}, nil).Once()
+	store.On("CreateSchool", ctx, orgID, "My School", uuid.NullUUID{UUID: countryID, Valid: true}, uuid.NullUUID{UUID: eduSystemID, Valid: true}).Return(storegen.School{ID: uuid.New()}, nil).Once()
 	store.On("CreateUserSchool", ctx, orgID, userID, mock.MatchedBy(func(id uuid.UUID) bool { return id != uuid.Nil })).Return(storegen.UserSchool{}, nil).Once()
 	store.On("UpdateSessionType", ctx, userID).Return(nil).Once()
 
 	svc := newTestService(store, &mockBrevoSender{}, testConfig())
 
-	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe", uuid.NullUUID{}, uuid.NullUUID{})
+	countryNullUUID := uuid.NullUUID{UUID: countryID, Valid: true}
+	eduSystemNullUUID := uuid.NullUUID{UUID: eduSystemID, Valid: true}
+
+	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe", countryNullUUID, eduSystemNullUUID)
+
+	require.NoError(t, err)
+	store.AssertExpectations(t)
+}
+
+func TestOnboard_WithCountryAndEducationSystem(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	orgID := uuid.New()
+	countryID := uuid.New()
+	eduSystemID := uuid.New()
+
+	store := &mockStore{}
+	store.On("UpdateOrganization", ctx, orgID, "My Org").Return(nil).Once()
+	store.On("UpdateUser", ctx, userID, "John Doe").Return(nil).Once()
+	store.On("CreateSchool", ctx, orgID, "My School", uuid.NullUUID{UUID: countryID, Valid: true}, uuid.NullUUID{UUID: eduSystemID, Valid: true}).Return(storegen.School{ID: uuid.New()}, nil).Once()
+	store.On("CreateUserSchool", ctx, orgID, userID, mock.MatchedBy(func(id uuid.UUID) bool { return id != uuid.Nil })).Return(storegen.UserSchool{}, nil).Once()
+	store.On("UpdateSessionType", ctx, userID).Return(nil).Once()
+
+	svc := newTestService(store, &mockBrevoSender{}, testConfig())
+
+	countryNullUUID := uuid.NullUUID{UUID: countryID, Valid: true}
+	eduSystemNullUUID := uuid.NullUUID{UUID: eduSystemID, Valid: true}
+
+	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe", countryNullUUID, eduSystemNullUUID)
 
 	require.NoError(t, err)
 	store.AssertExpectations(t)

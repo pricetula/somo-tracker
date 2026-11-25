@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -86,7 +87,17 @@ func (m *mockStore) UpdateSessionType(ctx context.Context, userID uuid.UUID) err
 }
 
 func (m *mockStore) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (storegen.Session, error) {
-	return storegen.Session{}, nil
+	return storegen.Session{
+		ID:               uuid.New(),
+		TokenHash:        tokenHash,
+		UserID:           uuid.New(),
+		OrganizationID:   uuid.New(),
+		ActiveSchoolID:   uuid.NullUUID{},
+		SessionType:      "temporary",
+		CreatedAt:        time.Now(),
+		LastSeenAt:       sql.NullTime{Time: time.Now(), Valid: true},
+		ExpiresAt:        time.Now().Add(time.Hour),
+	}, nil
 }
 
 func (m *mockStore) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]storegen.School, error) {
@@ -263,6 +274,7 @@ func setupApp(t *testing.T, h *Handler) *fiber.App {
 	t.Helper()
 	app := httpserver.New("development").App()
 	app.Post("/api/v1/auth/otp/request", h.RequestOTP)
+	app.Post("/api/v1/auth/onboard", h.Onboard)
 	return app
 }
 
@@ -463,3 +475,80 @@ func TestRequestOTP_RateLimitIP(t *testing.T) {
 	m := parseBody(t, resp)
 	assert.Equal(t, "RATE_LIMITED", m["code"])
 }
+// TestOnboard_MissingSession tests that onboarding requires a session cookie.
+func TestOnboard_MissingSession(t *testing.T) {
+	ts := &mockTurnstile{
+		result: &turnstile.Result{Success: true, Hostname: "example.com"},
+		err:    nil,
+		siteKey: "test-site-key",
+	}
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
+	app := setupApp(t, h)
+
+	body := `{"organization_name":"My Org","school_name":"My School","user_name":"John Doe","country_id":"not-a-uuid","education_system_id":"550e8400-e29b-41d4-a716-446655440001"}`
+	resp, err := postJSON(t, app, "/api/v1/auth/onboard", body)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+// TestOnboard_InvalidUUID tests that invalid UUIDs are silently treated as null.
+func TestOnboard_InvalidUUID(t *testing.T) {
+	ts := &mockTurnstile{
+		result: &turnstile.Result{Success: true, Hostname: "example.com"},
+		err:    nil,
+		siteKey: "test-site-key",
+	}
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
+	app := setupApp(t, h)
+
+	body := `{"organization_name":"My Org","school_name":"My School","user_name":"John Doe","country_id":"550e8400-e29b-41d4-a716-446655440000","education_system_id":"550e8400-e29b-41d4-a716-446655440001"}`
+	resp, err := postJSONWithCookie(t, app, "/api/v1/auth/onboard", body, "session", "test-session-token")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// Invalid UUIDs are silently treated as null, request still succeeds
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	m := parseBody(t, resp)
+	assert.Equal(t, true, m["ok"])
+}
+
+// TestOnboard_Success tests successful onboarding with valid UUIDs.
+func TestOnboard_Success(t *testing.T) {
+	ts := &mockTurnstile{
+		result: &turnstile.Result{Success: true, Hostname: "example.com"},
+		err:    nil,
+		siteKey: "test-site-key",
+	}
+	rl := &mockLimiter{}
+	kb := &mockKeyBuilder{}
+	h := newTestHandler(ts, rl, kb)
+	app := setupApp(t, h)
+
+	body := `{"organization_name":"My Org","school_name":"My School","user_name":"John Doe","country_id":"550e8400-e29b-41d4-a716-446655440000","education_system_id":"550e8400-e29b-41d4-a716-446655440001"}`
+	resp, err := postJSONWithCookie(t, app, "/api/v1/auth/onboard", body, "session", "test-session-token")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	m := parseBody(t, resp)
+	assert.Equal(t, true, m["ok"])
+	assert.Equal(t, "Onboarding complete", m["message"])
+	assert.Equal(t, false, m["needs_onboarding"])
+}
+
+// postJSONWithCookie is like postJSON but adds a cookie header.
+func postJSONWithCookie(t *testing.T, app *fiber.App, path, body, cookieName, cookieValue string) (*http.Response, error) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: cookieValue})
+	return app.Test(req)
+}
+

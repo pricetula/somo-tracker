@@ -71,3 +71,4 @@ Adopt a **school-level override model**:
 - Spec: `docs/specs/002-education-system-configuration.md`
 - Parent ADR: `docs/adr/0007-table-driven-education-configuration.md`
 - No JSONB: `docs/adr/0009-normalized-relational-configuration.md`
+- Migrations & seeding: `docs/adr/0020-education-configuration-migrations-seeding.md`

@@ -62,3 +62,4 @@ JSONB is prohibited for configuration data. Every grade band, subject, term, and
 
 - Spec: `docs/specs/002-education-system-configuration.md`
 - Parent ADR: `docs/adr/0007-table-driven-education-configuration.md`
+- Migrations & seeding: `docs/adr/0020-education-configuration-migrations-seeding.md`

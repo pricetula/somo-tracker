@@ -343,8 +343,8 @@ Given a student record with a date of birth:
 1. **Changing education systems:** If a school wants to switch education systems after creation, is that supported as a data migration, or must a new school be created?
 2. **Promotion workflow:** Who triggers end-of-year promotion (class teacher, headteacher, system admin)? Is there a formal "close academic year" process?
 3. **Grading scale migration:** If a school changes its active grading scale mid-year, are historical results recalculated or left with the original grade letter?
-4. **Schools table migration:** The core `schools` table (migration `00000000000002_core_domain.sql`) does not yet have `country_id`, `education_system_id`, `school_type`, `language_of_instruction`, or `registration_number`. A new migration must add these columns before a school can reference `education_system_id`.
-5. **Education config migrations:** All education configuration tables (`countries`, `education_systems`, `education_levels`, `education_system_levels`, `education_system_grading_scales`, `education_system_grading_bands`, `education_system_subjects`, `education_system_term_structures`, `school_grading_scales`, `school_grading_bands`, `school_subjects`, `school_academic_years`, `school_academic_terms`, `school_grade_years`, `streams`, `teachers`, `students`, `enrollments`, `assessment_types`, `assessments`, `assessment_results`) exist only in this spec — no migration files exist yet. Migrations must be created, seeded, and tested before implementation.
+4. **Schools table migration:** See ADR-0020 for the migration adding `country_id`, `education_system_id`, `school_type`, `language_of_instruction`, `registration_number` to the core `schools` table.
+5. **Education config migrations:** See ADR-0020 for all education configuration migrations and the idempotent seeding strategy.
 
 ---
 
@@ -361,3 +361,4 @@ Given a student record with a date of birth:
 - Simple report cards: `docs/adr/0016-simple-report-cards.md`
 - Data protection & child privacy: `docs/adr/0017-data-protection-child-privacy.md`
 - Fees & payments (deferred): `docs/adr/0018-fees-payments-deferred.md`
+- Migrations & seeding: `docs/adr/0020-education-configuration-migrations-seeding.md`

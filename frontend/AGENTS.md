@@ -10,6 +10,7 @@ Rules marked **MUST / NEVER** are hard rules. Everything else is a strong defaul
 - TanStack Query for all client-side server state.
 - react-hook-form + zod for forms. lucide-react for icons.
 - BFF pattern: route handlers under `src/app/api/` proxy to the Go backend. The Go backend sets session cookies on responses forwarded through Next.js. Auth guarding is already implemented; do not modify or re-implement it.
+- API types are **generated** from the backend OpenAPI spec (`backend/docs/swagger.json`) via `make generate-frontend-types`. Generated types live in `src/lib/generated/` and must never be hand-edited. Feature-facing types (camelCase) live in `features/<module>/types/` and import from generated wire-format types.
 - Package manager: pnpm. This is a monorepo, and all commands run from `frontend/`.
 
 ## Commands
@@ -83,6 +84,8 @@ frontend/
     ├── hooks/                        # generic hooks (use-debounce, use-media-query)
     ├── lib/
     │   ├── api-client.ts             # shared fetch wrapper (errors, JSON, credentials)
+    │   ├── generated/                # API types generated from backend OpenAPI spec (DO NOT EDIT)
+    │   │   └── api.ts
     │   ├── query-client.ts           # QueryClient factory and defaults
     │   ├── utils.ts                  # cn()
     │   └── server/                   # server-only: BFF proxy helper, cookie forwarding
@@ -208,6 +211,24 @@ Each resource has one Playwright test: click through from the list and expect th
 - The `QueryClient` comes from `lib/query-client.ts`. Do not construct ad-hoc clients.
 - Prefetch on the server only when it removes a visible loading state, and hydrate via `HydrationBoundary`.
 
+## Generated API Types
+
+API types are generated from the backend OpenAPI spec (`backend/docs/swagger.json`) and must never be hand-edited.
+
+### Regenerating types
+
+1. Add swagger (`@Router`, `@Summary`, `@Param`, etc.) annotations to new or changed backend handler endpoints.
+2. Run `make generate-swag` to regenerate `backend/docs/swagger.json` and `swagger.yaml`.
+3. Run `make generate-frontend-types` (runs `frontend/scripts/gen-types.mjs`) to regenerate `frontend/src/lib/generated/api.ts`.
+4. `make generate-check` (part of CI pre-push) fails if generated types have uncommitted changes — commit them before pushing.
+
+### Using generated types
+
+- Import wire-format (snake_case) types from `@/lib/generated/api` (`components["schemas"]["..."]`).
+- Define frontend-facing (camelCase) types in `features/<module>/types/index.ts` that reference generated types.
+- Fetchers in `features/<module>/api/<module>.api.ts` map snake_case → camelCase before returning to hooks/components.
+- Never hand-edit `src/lib/generated/api.ts` — changes will be overwritten on regeneration.
+
 ## Components
 
 - One component per file. Flat layout tree, no div soup.
@@ -314,9 +335,11 @@ Anything checkable should be a lint or CI rule. Aim for these, and treat a failu
 ## Adding a Resource: Checklist
 
 1. `features/<module>/` with `api/`, `hooks/`, `components/`, `schemas/`, `types/`, `index.ts`.
-2. BFF handler: `app/api/<module>/route.ts`.
-3. Key factory, fetchers, query and mutation hooks.
-4. `<module>-add-view.tsx` and `<module>-detail-view.tsx`, using `useRouteExit`.
-5. Four route files (add and detail, full-page and `@overlay`) plus list `page.tsx`, `loading.tsx`, `error.tsx`.
-6. Playwright test for overlay and hard-refresh behavior.
-7. `pnpm typecheck && pnpm lint && pnpm test`.
+2. Add swagger annotations to backend handler endpoints; run `make generate-swag` and `make generate-frontend-types` to regenerate types.
+3. Define frontend-facing types in `features/<module>/types/` referencing generated wire-format types from `@/lib/generated/api`.
+4. BFF handler: `app/api/<module>/route.ts`.
+5. Key factory, fetchers, query and mutation hooks.
+6. `<module>-add-view.tsx` and `<module>-detail-view.tsx`, using `useRouteExit`.
+7. Four route files (add and detail, full-page and `@overlay`) plus list `page.tsx`, `loading.tsx`, `error.tsx`.
+8. Playwright test for overlay and hard-refresh behavior.
+9. `pnpm typecheck && pnpm lint && pnpm test`.

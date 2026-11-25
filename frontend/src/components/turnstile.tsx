@@ -175,10 +175,7 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
     }, [siteKey, onVerify, onExpire, onError]);
 
     return (
-      <div
-        ref={containerRef}
-        className="border rounded p-2 text-xs text-muted-foreground"
-      />
+      <div ref={containerRef} className="p-2 text-xs text-muted-foreground" />
     );
   },
 );

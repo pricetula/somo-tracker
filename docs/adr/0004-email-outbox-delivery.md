@@ -85,3 +85,4 @@ Adopt a transactional outbox pattern with in-process async delivery:
 - Store: `backend/internal/auth/store/store.go` (`CreateEmailOutbox`)
 - Query: `backend/internal/auth/store/queries/auth.sql` (`email_outbox`)
 - Alerts: `backend/monitoring/alerts/ratelimit.yaml`
+- Data protection: `docs/adr/0017-data-protection-child-privacy.md`

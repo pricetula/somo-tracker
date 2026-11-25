@@ -90,3 +90,4 @@ Adopt PostgreSQL-backed opaque sessions with the following characteristics:
 - Store: `backend/internal/auth/store/store.go` (`CreateSession`, `GetActiveSession`, `GetSessionByTokenHash`, `UpdateSessionType`)
 - Migration: `backend/migrations/00000000000004_onboarding.sql` (`sessions.session_type`)
 - Flow: `docs/auth-flow.md` (Step 2, Step 4)
+- Data protection: `docs/adr/0017-data-protection-child-privacy.md`

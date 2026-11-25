@@ -64,3 +64,10 @@ Adopt the following **scope constraints**:
 - Spec: `docs/specs/002-education-system-configuration.md`
 - Parent ADR: `docs/adr/0007-table-driven-education-configuration.md`
 - Local assessments: `docs/adr/0010-local-assessments-only.md`
+- Attendance tracking: `docs/adr/0012-attendance-tracking.md`
+- Guardian management: `docs/adr/0013-guardian-management.md`
+- Teacher qualifications: `docs/adr/0014-teacher-qualification-subject-assignment.md`
+- Offline-first sync: `docs/adr/0015-offline-first-sync.md`
+- Simple report cards: `docs/adr/0016-simple-report-cards.md`
+- Data protection & child privacy: `docs/adr/0017-data-protection-child-privacy.md`
+- Fees & payments (deferred): `docs/adr/0018-fees-payments-deferred.md`

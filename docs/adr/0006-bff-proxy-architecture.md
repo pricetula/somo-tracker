@@ -89,3 +89,4 @@ Adopt a Next.js BFF proxy with cookie passthrough and session-driven client rout
 - Onboarding page: `frontend/src/app/onboarding/page.tsx`
 - Auth ADR: `docs/adr/0001-authentication-architecture.md`
 - Session ADR: `docs/adr/0003-session-management.md`
+- Offline-first sync: `docs/adr/0015-offline-first-sync.md`

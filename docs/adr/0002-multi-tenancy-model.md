@@ -77,6 +77,7 @@ Adopt a hierarchical multi-tenancy model:
 
 - Auth ADR: `docs/adr/0001-authentication-architecture.md`
 - Session ADR: `docs/adr/0003-session-management.md`
+- RBAC authorization: `docs/adr/0019-rbac-authorization.md`
 - Migration: `backend/migrations/00000000000002_core_domain.sql`
 - Store queries: `backend/internal/auth/store/queries/auth.sql` (`GetSchoolsByUser`)
 - Glossary: `docs/specs/glossary.md`

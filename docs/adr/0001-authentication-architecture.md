@@ -83,3 +83,4 @@ Adopt an email-only OTP authentication architecture with the following character
 - Email outbox ADR: `docs/adr/0004-email-outbox-delivery.md`
 - Rate limiting ADR: `docs/adr/0005-rate-limiting-strategy.md`
 - Glossary: `docs/specs/glossary.md`
+- Data protection: `docs/adr/0017-data-protection-child-privacy.md`

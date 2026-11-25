@@ -354,3 +354,10 @@ Given a student record with a date of birth:
 - Auth flow: `docs/auth-flow.md`
 - Auth architecture: `docs/adr/0001-authentication-architecture.md`
 - Session management: `docs/adr/0003-session-management.md`
+- Attendance tracking: `docs/adr/0012-attendance-tracking.md`
+- Guardian management: `docs/adr/0013-guardian-management.md`
+- Teacher qualifications: `docs/adr/0014-teacher-qualification-subject-assignment.md`
+- Offline-first sync: `docs/adr/0015-offline-first-sync.md`
+- Simple report cards: `docs/adr/0016-simple-report-cards.md`
+- Data protection & child privacy: `docs/adr/0017-data-protection-child-privacy.md`
+- Fees & payments (deferred): `docs/adr/0018-fees-payments-deferred.md`

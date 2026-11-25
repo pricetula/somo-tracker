@@ -61,3 +61,4 @@ Adopt a **table-driven configuration model** where everything that varies by cou
 - Spec: `docs/specs/002-education-system-configuration.md`
 - Per-school overrides: `docs/adr/0008-per-school-configuration-overrides.md`
 - No JSONB: `docs/adr/0009-normalized-relational-configuration.md`
+- Teacher qualifications: `docs/adr/0014-teacher-qualification-subject-assignment.md`

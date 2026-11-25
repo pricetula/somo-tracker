@@ -62,3 +62,6 @@ Adopt a **local-only assessment model**:
 
 - Spec: `docs/specs/002-education-system-configuration.md`
 - Auth spec: `docs/specs/001-auth-otp-request.md`
+- Attendance: `docs/adr/0012-attendance-tracking.md`
+- Offline-first sync: `docs/adr/0015-offline-first-sync.md`
+- Simple report cards: `docs/adr/0016-simple-report-cards.md`

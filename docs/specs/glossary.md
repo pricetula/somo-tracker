@@ -7,7 +7,7 @@ docs must use these names; do not invent aliases.
 
 ## Status
 
-approved
+proposed
 
 ## Entities
 
@@ -107,13 +107,81 @@ in the same DB transaction.
 | id | UUID | NOT NULL | Primary key, uuidv7 |
 | challenge_id | UUID | NOT NULL | FK → login_challenges.id |
 | message_type | TEXT | NOT NULL | `otp`, `invitation` |
-| status | TEXT | NOT NULL | `pending`, `sent`, `failed`, `dead_letter` |
+| status | TEXT | NOT NULL | `pending`, `sent`, `failed` |
 | attempts | INTEGER | NOT NULL | Default 0 |
 | next_attempt_at | TIMESTAMPTZ | NULL | For retry scheduling |
 | provider_message_id | TEXT | NULL | Brevo message ID |
 | encrypted_payload | BYTEA | NULL | Encrypted OTP + email, key outside DB |
 | created_at | TIMESTAMPTZ | NOT NULL | Default now() |
 | sent_at | TIMESTAMPTZ | NULL | Set on successful delivery |
+
+### guardian
+A parent or legal caregiver linked to one or more students. Guardians are
+contacts, not system users (no login, no OTP in MVP).
+
+| Attribute | Type | Null | Notes |
+|-----------|------|------|-------|
+| id | UUID | NOT NULL | Primary key, uuidv7 |
+| school_id | UUID | NOT NULL | FK → schools.id |
+| full_name | TEXT | NOT NULL | Guardian display name |
+| phone | TEXT | NOT NULL | Primary contact number |
+| email | TEXT | NULL | Optional email address |
+| relationship | TEXT | NOT NULL | e.g. `father`, `mother`, `guardian`, `aunt`, `uncle` |
+| address | TEXT | NULL | Mailing address |
+| is_emergency_contact | BOOL | NOT NULL | Default false |
+| created_at | TIMESTAMPTZ | NOT NULL | Default now() |
+| updated_at | TIMESTAMPTZ | NOT NULL | Default now() |
+
+### student_guardian
+Links a student to a guardian. A student may have multiple guardians.
+
+| Attribute | Type | Null | Notes |
+|-----------|------|------|-------|
+| id | UUID | NOT NULL | Primary key, uuidv7 |
+| student_id | UUID | NOT NULL | FK → students.id |
+| guardian_id | UUID | NOT NULL | FK → guardians.id |
+| is_primary | BOOL | NOT NULL | Default false |
+| created_at | TIMESTAMPTZ | NOT NULL | Default now() |
+
+### attendance_record
+One row per student per school day. Records daily attendance status.
+
+| Attribute | Type | Null | Notes |
+|-----------|------|------|-------|
+| id | UUID | NOT NULL | Primary key, uuidv7 |
+| student_id | UUID | NOT NULL | FK → students.id |
+| stream_id | UUID | NOT NULL | FK → streams.id |
+| academic_year_id | UUID | NOT NULL | FK → school_academic_years.id |
+| attendance_date | DATE | NOT NULL | Date of attendance |
+| status | TEXT | NOT NULL | `present`, `absent`, `late`, `excused` |
+| recorded_by_teacher_id | UUID | NOT NULL | FK → teachers.id |
+| recorded_at | TIMESTAMPTZ | NOT NULL | Default now() |
+
+### teacher_qualification
+Records a teacher's qualification to teach a subject at a level.
+
+| Attribute | Type | Null | Notes |
+|-----------|------|------|-------|
+| id | UUID | NOT NULL | Primary key, uuidv7 |
+| teacher_id | UUID | NOT NULL | FK → teachers.id |
+| subject_code | TEXT | NOT NULL | Subject code (e.g. `MATH`, `ENG`) |
+| education_level_id | UUID | NOT NULL | FK → education_levels.id |
+| qualification | TEXT | NOT NULL | e.g. `B.Ed Mathematics` |
+| registration_number | TEXT | NULL | Teacher council registration number |
+| created_at | TIMESTAMPTZ | NOT NULL | Default now() |
+
+### consent_record
+Records guardian consent for processing a student's personal data.
+
+| Attribute | Type | Null | Notes |
+|-----------|------|------|-------|
+| id | UUID | NOT NULL | Primary key, uuidv7 |
+| student_id | UUID | NOT NULL | FK → students.id |
+| guardian_id | UUID | NOT NULL | FK → guardians.id |
+| consent_type | TEXT | NOT NULL | e.g. `data_processing`, `photo_use`, `report_card_delivery` |
+| granted | BOOL | NOT NULL | Whether consent was granted |
+| granted_at | TIMESTAMPTZ | NOT NULL | When consent was granted |
+| withdrawn_at | TIMESTAMPTZ | NULL | When consent was withdrawn |
 
 ## Relationships
 
@@ -126,6 +194,22 @@ in the same DB transaction.
 - `sessions.active_school_id → schools.id` (NULL allowed)
 - `login_challenges.email_normalized` matches `users.normalized_email` (no FK; challenge may pre-exist user)
 - `email_outbox.challenge_id → login_challenges.id` (CASCADE)
+- `students.school_id → schools.id` (CASCADE)
+- `streams.school_id → schools.id` (CASCADE)
+- `streams.grade_year_id → school_grade_years.id` (CASCADE)
+- `streams.academic_year_id → school_academic_years.id` (CASCADE)
+- `teachers.school_id → schools.id` (CASCADE)
+- `guardians.school_id → schools.id` (CASCADE)
+- `student_guardians.student_id → students.id` (CASCADE)
+- `student_guardians.guardian_id → guardians.id` (CASCADE)
+- `attendance_records.student_id → students.id` (CASCADE)
+- `attendance_records.stream_id → streams.id` (CASCADE)
+- `attendance_records.academic_year_id → school_academic_years.id` (CASCADE)
+- `attendance_records.recorded_by_teacher_id → teachers.id` (CASCADE)
+- `teacher_qualifications.teacher_id → teachers.id` (CASCADE)
+- `teacher_qualifications.education_level_id → education_levels.id` (CASCADE)
+- `consent_records.student_id → students.id` (CASCADE)
+- `consent_records.guardian_id → guardians.id` (CASCADE)
 
 ## Terminology
 
@@ -140,6 +224,9 @@ in the same DB transaction.
 | Brevo | Transactional email provider | API key from Doppler |
 | BFF | Next.js App Router | Proxies to Go, forwards cookies |
 | proxy | Next.js → Go | Browser never calls Go directly |
+| guardian | Parent or legal caregiver linked to students | Contact only, no system login in MVP |
+| attendance_record | Daily per-student attendance status | present / absent / late / excused |
+| consent_record | Guardian consent for processing student data | Can be withdrawn at any time |
 
 ## Constraints
 
@@ -150,9 +237,13 @@ in the same DB transaction.
 - Composite FKs prevent cross-organization user↔school assignment
 - `login_challenges.expires_at` 10 minutes after `created_at`
 - `sessions.expires_at` 30 days after `created_at` (absolute)
-- Idle timeout 7 days (tracked via `last_seen_at`)
+- Sessions use absolute TTL only; no sliding idle timeout is enforced in MVP
 
 ## Links
 
-- Umbrella architecture: `auth-architecture-v2.md`
-- Specification lifecycle: draft → approved → implemented → done
+- Authentication architecture: `docs/adr/0001-authentication-architecture.md`
+- Session management: `docs/adr/0003-session-management.md`
+- Data protection & child privacy: `docs/adr/0017-data-protection-child-privacy.md`
+- Guardian management: `docs/adr/0013-guardian-management.md`
+- Attendance tracking: `docs/adr/0012-attendance-tracking.md`
+- Specification lifecycle: proposed → approved → implemented → done

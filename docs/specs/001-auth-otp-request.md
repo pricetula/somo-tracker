@@ -9,7 +9,7 @@ Endpoint: `POST /api/v1/auth/otp/request`
 | id | SPEC-001 |
 | title | Request Login OTP (and Verify OTP → Session) |
 | status | approved |
-| depends_on | specs/glossary.md, auth-architecture-v2.md |
+| depends_on | specs/glossary.md, docs/adr/0001-authentication-architecture.md |
 | api_endpoint | POST /api/v1/auth/otp/request, POST /api/v1/auth/otp/verify |
 | owner | backend |
 
@@ -203,5 +203,8 @@ Then `active_school_id` is NULL in the session
 
 ## Links
 
-- Architecture: `auth-architecture-v2.md` §4.2, §4.3, §11, §12.2
+- Architecture: `docs/adr/0001-authentication-architecture.md`
+- Session management: `docs/adr/0003-session-management.md`
+- Email outbox: `docs/adr/0004-email-outbox-delivery.md`
+- Rate limiting: `docs/adr/0005-rate-limiting-strategy.md`
 - Glossary: `specs/glossary.md` (entities: `login_challenge`, `email_outbox`, `user`, `session`)

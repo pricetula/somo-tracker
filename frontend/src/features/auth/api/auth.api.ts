@@ -103,6 +103,8 @@ export async function onboard(input: OnboardInput): Promise<OnboardResponse> {
       organization_name: input.organizationName,
       school_name: input.schoolName,
       user_name: input.userName,
+      country_id: input.countryId,
+      education_system_id: input.educationSystemId,
     }),
   });
 

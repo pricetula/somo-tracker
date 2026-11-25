@@ -269,6 +269,89 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/education/countries": {
+            "get": {
+                "description": "Get all countries ordered by name",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "education"
+                ],
+                "summary": "List countries",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.CountryListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/education/systems": {
+            "get": {
+                "description": "Get all education systems with country info",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "education"
+                ],
+                "summary": "List education systems",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EducationSystemListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/education/systems/{id}": {
+            "get": {
+                "description": "Get a single education system with levels, bands, subjects, and terms",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "education"
+                ],
+                "summary": "Get education system",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Education system ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EducationSystemResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -430,6 +513,246 @@ const docTemplate = `{
                 },
                 "ok": {
                     "type": "boolean"
+                }
+            }
+        },
+        "service.CountryListResponse": {
+            "type": "object",
+            "properties": {
+                "countries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.CountryResponse"
+                    }
+                }
+            }
+        },
+        "service.CountryResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.EducationSystemGradingBandResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "grade": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "max_score": {
+                    "type": "string"
+                },
+                "min_score": {
+                    "type": "string"
+                },
+                "rubric_level": {
+                    "type": "string"
+                },
+                "scale_name": {
+                    "type": "string"
+                },
+                "scale_type": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.EducationSystemLevelResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "level_name": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "year_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.EducationSystemListItemResponse": {
+            "type": "object",
+            "properties": {
+                "country_code": {
+                    "type": "string"
+                },
+                "country_id": {
+                    "type": "string"
+                },
+                "country_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "default_language": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "years_lower_secondary": {
+                    "type": "integer"
+                },
+                "years_primary": {
+                    "type": "integer"
+                },
+                "years_upper_secondary": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.EducationSystemListResponse": {
+            "type": "object",
+            "properties": {
+                "systems": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.EducationSystemListItemResponse"
+                    }
+                }
+            }
+        },
+        "service.EducationSystemResponse": {
+            "type": "object",
+            "properties": {
+                "country_code": {
+                    "type": "string"
+                },
+                "country_id": {
+                    "type": "string"
+                },
+                "country_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "default_language": {
+                    "type": "string"
+                },
+                "grading_bands": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.EducationSystemGradingBandResponse"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "levels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.EducationSystemLevelResponse"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "subjects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.EducationSystemSubjectResponse"
+                    }
+                },
+                "term_structures": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.EducationSystemTermStructureResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "years_lower_secondary": {
+                    "type": "integer"
+                },
+                "years_primary": {
+                    "type": "integer"
+                },
+                "years_upper_secondary": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.EducationSystemSubjectResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_compulsory_default": {
+                    "type": "boolean"
+                },
+                "level_name": {
+                    "type": "string"
+                },
+                "level_sort_order": {
+                    "type": "integer"
+                },
+                "subject_code": {
+                    "type": "string"
+                },
+                "subject_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.EducationSystemTermStructureResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "term_name": {
+                    "type": "string"
+                },
+                "term_sort_order": {
+                    "type": "integer"
                 }
             }
         }

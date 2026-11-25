@@ -22,6 +22,8 @@ export interface OnboardInput {
   organizationName: string;
   schoolName: string;
   userName: string;
+  countryId: string;
+  educationSystemId: string;
 }
 
 /**

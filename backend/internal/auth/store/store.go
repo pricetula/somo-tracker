@@ -72,22 +72,26 @@ func (s *Store) CreateUser(ctx context.Context, orgID uuid.UUID, email, normaliz
 }
 
 // CreateSchool creates a new school within an organization.
-func (s *Store) CreateSchool(ctx context.Context, orgID uuid.UUID, name string) (storegen.School, error) {
+func (s *Store) CreateSchool(ctx context.Context, orgID uuid.UUID, name string, countryID, educationSystemID uuid.NullUUID) (storegen.School, error) {
 	row, err := s.q.CreateSchool(ctx, storegen.CreateSchoolParams{
-		OrganizationID: orgID,
-		Name:           name,
+		OrganizationID:   orgID,
+		Name:             name,
+		CountryID:        countryID,
+		EducationSystemID: educationSystemID,
 	})
 	if err != nil {
 		return storegen.School{}, err
 	}
 	return storegen.School{
-		ID:             row.ID,
-		OrganizationID: row.OrganizationID,
-		Name:           row.Name,
-		Status:         row.Status,
-		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
-		DeletedAt:      row.DeletedAt,
+		ID:                row.ID,
+		OrganizationID:    row.OrganizationID,
+		Name:              row.Name,
+		CountryID:         row.CountryID,
+		EducationSystemID: row.EducationSystemID,
+		Status:            row.Status,
+		CreatedAt:         row.CreatedAt,
+		UpdatedAt:         row.UpdatedAt,
+		DeletedAt:         row.DeletedAt,
 	}, nil
 }
 

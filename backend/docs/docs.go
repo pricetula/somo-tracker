@@ -413,6 +413,12 @@ const docTemplate = `{
                 "user_name"
             ],
             "properties": {
+                "country_id": {
+                    "type": "string"
+                },
+                "education_system_id": {
+                    "type": "string"
+                },
                 "organization_name": {
                     "type": "string"
                 },

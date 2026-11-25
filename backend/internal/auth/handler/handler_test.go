@@ -65,7 +65,7 @@ func (m *mockStore) CreateUser(ctx context.Context, orgID uuid.UUID, email, norm
 	return storegen.User{}, nil
 }
 
-func (m *mockStore) CreateSchool(ctx context.Context, orgID uuid.UUID, name string) (storegen.School, error) {
+func (m *mockStore) CreateSchool(ctx context.Context, orgID uuid.UUID, name string, countryID, educationSystemID uuid.NullUUID) (storegen.School, error) {
 	return storegen.School{}, nil
 }
 

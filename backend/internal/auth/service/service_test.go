@@ -69,8 +69,8 @@ func (m *mockStore) CreateUser(ctx context.Context, orgID uuid.UUID, email, norm
 	return args.Get(0).(storegen.User), args.Error(1)
 }
 
-func (m *mockStore) CreateSchool(ctx context.Context, orgID uuid.UUID, name string) (storegen.School, error) {
-	args := m.Called(ctx, orgID, name)
+func (m *mockStore) CreateSchool(ctx context.Context, orgID uuid.UUID, name string, countryID, educationSystemID uuid.NullUUID) (storegen.School, error) {
+	args := m.Called(ctx, orgID, name, countryID, educationSystemID)
 	return args.Get(0).(storegen.School), args.Error(1)
 }
 
@@ -429,7 +429,7 @@ func TestVerifyOTP_NoUserFound_CreatesAccount(t *testing.T) {
 		Return(storegen.User{}, errNoRows).Once()
 	store.On("CreateOrganization", ctx, fmt.Sprintf("org-%s", challengeID.String()[:8])).
 		Return(org, nil).Once()
-	store.On("CreateSchool", ctx, newOrgID, "School").Return(storegen.School{}, nil).Once()
+	store.On("CreateSchool", ctx, newOrgID, "School", uuid.NullUUID{}, uuid.NullUUID{}).Return(storegen.School{}, nil).Once()
 	store.On("CreateUser", ctx, newOrgID, "newuser@example.com", "newuser@example.com", "").
 		Return(user, nil).Once()
 	store.On("GetSchoolsByUser", ctx, newUserID).Return([]storegen.School{}, nil).Once()
@@ -511,7 +511,7 @@ func TestVerifyOTP_CreatesNewUser(t *testing.T) {
 		Return(storegen.User{}, errNoRows).Once()
 	store.On("CreateOrganization", ctx, mock.Anything).
 		Return(org, nil).Once()
-	store.On("CreateSchool", ctx, newOrgID, "School").Return(storegen.School{}, nil).Once()
+	store.On("CreateSchool", ctx, newOrgID, "School", uuid.NullUUID{}, uuid.NullUUID{}).Return(storegen.School{}, nil).Once()
 	store.On("CreateUser", ctx, newOrgID, "newuser@example.com", "newuser@example.com", "").
 		Return(user, nil).Once()
 	store.On("GetSchoolsByUser", ctx, newUserID).Return([]storegen.School{}, nil).Once()
@@ -539,13 +539,13 @@ func TestOnboard_Success(t *testing.T) {
 	store := &mockStore{}
 	store.On("UpdateOrganization", ctx, orgID, "My Org").Return(nil).Once()
 	store.On("UpdateUser", ctx, userID, "John Doe").Return(nil).Once()
-	store.On("CreateSchool", ctx, orgID, "My School").Return(storegen.School{ID: uuid.New()}, nil).Once()
+	store.On("CreateSchool", ctx, orgID, "My School", uuid.NullUUID{}, uuid.NullUUID{}).Return(storegen.School{ID: uuid.New()}, nil).Once()
 	store.On("CreateUserSchool", ctx, orgID, userID, mock.MatchedBy(func(id uuid.UUID) bool { return id != uuid.Nil })).Return(storegen.UserSchool{}, nil).Once()
 	store.On("UpdateSessionType", ctx, userID).Return(nil).Once()
 
 	svc := newTestService(store, &mockBrevoSender{}, testConfig())
 
-	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe")
+	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe", uuid.NullUUID{}, uuid.NullUUID{})
 
 	require.NoError(t, err)
 	store.AssertExpectations(t)
@@ -561,7 +561,7 @@ func TestOnboard_StoreError(t *testing.T) {
 
 	svc := newTestService(store, &mockBrevoSender{}, testConfig())
 
-	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe")
+	err := svc.Onboard(ctx, userID, orgID, "My Org", "My School", "John Doe", uuid.NullUUID{}, uuid.NullUUID{})
 
 	require.Error(t, err)
 	assert.Equal(t, apperr.INTERNAL_ERROR, err.(*apperr.Error).Code)

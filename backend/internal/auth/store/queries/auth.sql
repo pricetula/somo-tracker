@@ -20,9 +20,9 @@ VALUES ($1, $2, $3, $4, 'ACTIVE', NOW())
 RETURNING id, organization_id, email, normalized_email, name, status, email_verified_at, created_at, updated_at, deleted_at;
 
 -- name: CreateSchool :one
-INSERT INTO schools (organization_id, name, status)
-VALUES ($1, $2, 'ACTIVE')
-RETURNING id, organization_id, name, status, created_at, updated_at, deleted_at;
+INSERT INTO schools (organization_id, name, country_id, education_system_id, status)
+VALUES ($1, $2, $3, $4, 'ACTIVE')
+RETURNING id, organization_id, name, country_id, education_system_id, status, created_at, updated_at, deleted_at;
 
 -- name: CreateUserSchool :one
 INSERT INTO user_schools (organization_id, user_id, school_id, role, status)

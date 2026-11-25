@@ -35,6 +35,10 @@ definitions:
     type: object
   handler.OnboardRequest:
     properties:
+      country_id:
+        type: string
+      education_system_id:
+        type: string
       organization_name:
         type: string
       pow_solution:

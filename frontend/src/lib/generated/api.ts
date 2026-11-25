@@ -546,6 +546,8 @@ export interface components {
             type?: string;
         };
         "handler.OnboardRequest": {
+            country_id?: string;
+            education_system_id?: string;
             organization_name: string;
             pow_solution?: components["schemas"]["handler.PowSolution"];
             school_name: string;

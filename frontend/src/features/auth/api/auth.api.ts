@@ -1,10 +1,14 @@
 import type {
+  OnboardInput,
+  OnboardResponse,
+  OnboardResponseBody,
   RequestOTPInput,
   RequestOTPResponse,
   VerifyOTPInput,
   VerifyOTPResponse,
 } from "../types";
 import type {
+  OnboardRequestBody,
   RequestOTPResponseBody,
   VerifyOTPResponseBody,
 } from "../types/generated";
@@ -75,6 +79,39 @@ export async function verifyOTP(input: VerifyOTPInput): Promise<VerifyOTPRespons
   }
 
   const raw = (await res.json()) as VerifyOTPResponseBody;
+  return {
+    ok: raw.ok ?? false,
+    message: raw.message ?? "",
+    needsOnboarding: raw.needs_onboarding ?? false,
+  };
+}
+
+/**
+ * onboard completes organization onboarding and upgrades the session from
+ * temporary to full. Requires a valid temporary session cookie (set by the
+ * backend during OTP verification).
+ *
+ * The raw backend response uses snake_case keys (per the generated OpenAPI
+ * contract). We map to camelCase for the frontend-facing type.
+ */
+export async function onboard(input: OnboardInput): Promise<OnboardResponse> {
+  const res = await fetch("/api/auth/onboard", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      organization_name: input.organizationName,
+      school_name: input.schoolName,
+      user_name: input.userName,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message || "Failed to complete onboarding. Please try again.");
+  }
+
+  const raw = (await res.json()) as OnboardResponseBody;
   return {
     ok: raw.ok ?? false,
     message: raw.message ?? "",

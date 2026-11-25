@@ -24,6 +24,11 @@ INSERT INTO schools (organization_id, name, status)
 VALUES ($1, $2, 'ACTIVE')
 RETURNING id, organization_id, name, status, created_at, updated_at, deleted_at;
 
+-- name: CreateUserSchool :one
+INSERT INTO user_schools (organization_id, user_id, school_id, role, status)
+VALUES ($1, $2, $3, 'owner', 'ACTIVE')
+RETURNING id, organization_id, user_id, school_id, role, status, created_at, revoked_at;
+
 -- name: UpdateOrganization :exec
 UPDATE organizations
 SET name = $1, onboarding_completed_at = NOW(), updated_at = NOW()

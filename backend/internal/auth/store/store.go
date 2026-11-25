@@ -79,6 +79,15 @@ func (s *Store) CreateSchool(ctx context.Context, orgID uuid.UUID, name string) 
 	})
 }
 
+// CreateUserSchool links a user to a school as an owner within their organization.
+func (s *Store) CreateUserSchool(ctx context.Context, orgID, userID, schoolID uuid.UUID) (storegen.UserSchool, error) {
+	return s.q.CreateUserSchool(ctx, storegen.CreateUserSchoolParams{
+		OrganizationID: orgID,
+		UserID:         userID,
+		SchoolID:       schoolID,
+	})
+}
+
 // UpdateOrganization updates an organization's name and marks onboarding completed.
 func (s *Store) UpdateOrganization(ctx context.Context, orgID uuid.UUID, name string) error {
 	return s.q.UpdateOrganization(ctx, storegen.UpdateOrganizationParams{

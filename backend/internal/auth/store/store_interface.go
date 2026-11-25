@@ -19,6 +19,7 @@ type StoreInterface interface {
 	CreateOrganization(ctx context.Context, name string) (storegen.Organization, error)
 	CreateUser(ctx context.Context, orgID uuid.UUID, email, normalizedEmail, name string) (storegen.User, error)
 	CreateSchool(ctx context.Context, orgID uuid.UUID, name string) (storegen.School, error)
+	CreateUserSchool(ctx context.Context, orgID, userID, schoolID uuid.UUID) (storegen.UserSchool, error)
 	UpdateOrganization(ctx context.Context, orgID uuid.UUID, name string) error
 	UpdateUser(ctx context.Context, userID uuid.UUID, name string) error
 	UpdateSessionType(ctx context.Context, userID uuid.UUID) error

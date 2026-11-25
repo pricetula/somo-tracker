@@ -312,8 +312,14 @@ func (s *Service) Onboard(ctx context.Context, userID, orgID uuid.UUID, orgName,
 	}
 
 	// Create school
-	if _, err := s.store.CreateSchool(ctx, orgID, schoolName); err != nil {
+	school, err := s.store.CreateSchool(ctx, orgID, schoolName)
+	if err != nil {
 		return apperr.Wrap(apperr.INTERNAL_ERROR, "create school", err)
+	}
+
+	// Add the user as an owner of the new school
+	if _, err := s.store.CreateUserSchool(ctx, orgID, userID, school.ID); err != nil {
+		return apperr.Wrap(apperr.INTERNAL_ERROR, "add user to school", err)
 	}
 
 	// Upgrade all temporary sessions for this user to full

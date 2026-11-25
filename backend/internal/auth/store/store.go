@@ -73,10 +73,22 @@ func (s *Store) CreateUser(ctx context.Context, orgID uuid.UUID, email, normaliz
 
 // CreateSchool creates a new school within an organization.
 func (s *Store) CreateSchool(ctx context.Context, orgID uuid.UUID, name string) (storegen.School, error) {
-	return s.q.CreateSchool(ctx, storegen.CreateSchoolParams{
+	row, err := s.q.CreateSchool(ctx, storegen.CreateSchoolParams{
 		OrganizationID: orgID,
 		Name:           name,
 	})
+	if err != nil {
+		return storegen.School{}, err
+	}
+	return storegen.School{
+		ID:             row.ID,
+		OrganizationID: row.OrganizationID,
+		Name:           row.Name,
+		Status:         row.Status,
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
+		DeletedAt:      row.DeletedAt,
+	}, nil
 }
 
 // CreateUserSchool links a user to a school as an owner within their organization.
@@ -213,7 +225,23 @@ func (s *Store) GetOrganizationsByUser(ctx context.Context, userID uuid.UUID) ([
 
 // GetSchoolsByUser lists schools a user has access to.
 func (s *Store) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]storegen.School, error) {
-	return s.q.GetSchoolsByUser(ctx, userID)
+	rows, err := s.q.GetSchoolsByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	schools := make([]storegen.School, len(rows))
+	for i, row := range rows {
+		schools[i] = storegen.School{
+			ID:             row.ID,
+			OrganizationID: row.OrganizationID,
+			Name:           row.Name,
+			Status:         row.Status,
+			CreatedAt:      row.CreatedAt,
+			UpdatedAt:      row.UpdatedAt,
+			DeletedAt:      row.DeletedAt,
+		}
+	}
+	return schools, nil
 }
 
 // InvalidateChallengesByEmail marks all unused challenges for an email as used.

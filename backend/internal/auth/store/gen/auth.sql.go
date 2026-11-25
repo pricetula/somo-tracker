@@ -110,9 +110,19 @@ type CreateSchoolParams struct {
 	Name           string
 }
 
-func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (School, error) {
+type CreateSchoolRow struct {
+	ID             uuid.UUID
+	OrganizationID uuid.UUID
+	Name           string
+	Status         SchoolStatus
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      sql.NullTime
+}
+
+func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (CreateSchoolRow, error) {
 	row := q.db.QueryRowContext(ctx, createSchool, arg.OrganizationID, arg.Name)
-	var i School
+	var i CreateSchoolRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -405,15 +415,25 @@ JOIN user_schools us ON us.school_id = s.id AND us.organization_id = s.organizat
 WHERE us.user_id = $1 AND us.status = 'ACTIVE' AND s.deleted_at IS NULL
 `
 
-func (q *Queries) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]School, error) {
+type GetSchoolsByUserRow struct {
+	ID             uuid.UUID
+	OrganizationID uuid.UUID
+	Name           string
+	Status         SchoolStatus
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      sql.NullTime
+}
+
+func (q *Queries) GetSchoolsByUser(ctx context.Context, userID uuid.UUID) ([]GetSchoolsByUserRow, error) {
 	rows, err := q.db.QueryContext(ctx, getSchoolsByUser, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []School
+	var items []GetSchoolsByUserRow
 	for rows.Next() {
-		var i School
+		var i GetSchoolsByUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,

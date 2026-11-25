@@ -69,6 +69,10 @@ func (m *mockStore) CreateSchool(ctx context.Context, orgID uuid.UUID, name stri
 	return storegen.School{}, nil
 }
 
+func (m *mockStore) CreateUserSchool(ctx context.Context, orgID, userID, schoolID uuid.UUID) (storegen.UserSchool, error) {
+	return storegen.UserSchool{}, nil
+}
+
 func (m *mockStore) UpdateOrganization(ctx context.Context, orgID uuid.UUID, name string) error {
 	return nil
 }

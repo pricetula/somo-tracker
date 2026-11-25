@@ -142,6 +142,130 @@ func (ns NullUserStatus) Value() (driver.Value, error) {
 	return string(ns.UserStatus), nil
 }
 
+type Assessment struct {
+	ID                 uuid.UUID
+	StreamID           uuid.UUID
+	SubjectID          uuid.UUID
+	AssessmentTypeID   uuid.UUID
+	AcademicTermID     uuid.UUID
+	Title              string
+	MaxScore           string
+	DateAssessed       time.Time
+	CreatedByTeacherID uuid.UUID
+	CreatedAt          time.Time
+}
+
+type AssessmentResult struct {
+	ID                 uuid.UUID
+	AssessmentID       uuid.UUID
+	StudentID          uuid.UUID
+	Score              string
+	Grade              sql.NullString
+	EnteredByTeacherID uuid.UUID
+	EnteredAt          time.Time
+}
+
+type AssessmentType struct {
+	ID        uuid.UUID
+	Name      string
+	CreatedAt time.Time
+}
+
+type AttendanceRecord struct {
+	ID                  uuid.UUID
+	StudentID           uuid.UUID
+	StreamID            uuid.UUID
+	AcademicYearID      uuid.UUID
+	AttendanceDate      time.Time
+	Status              string
+	RecordedByTeacherID uuid.UUID
+	RecordedAt          time.Time
+}
+
+type ConsentRecord struct {
+	ID          uuid.UUID
+	StudentID   uuid.UUID
+	GuardianID  uuid.UUID
+	ConsentType string
+	Granted     bool
+	GrantedAt   time.Time
+	WithdrawnAt sql.NullTime
+	CreatedAt   time.Time
+}
+
+type Country struct {
+	ID        uuid.UUID
+	Name      string
+	Code      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type EducationLevel struct {
+	ID        uuid.UUID
+	Name      string
+	SortOrder int32
+	CreatedAt time.Time
+}
+
+type EducationSystem struct {
+	ID                  uuid.UUID
+	CountryID           uuid.UUID
+	Name                string
+	YearsPrimary        int32
+	YearsLowerSecondary int32
+	YearsUpperSecondary int32
+	DefaultLanguage     string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+type EducationSystemGradingBand struct {
+	ID             uuid.UUID
+	GradingScaleID uuid.UUID
+	Grade          string
+	ScaleType      string
+	RubricLevel    sql.NullString
+	MinScore       string
+	MaxScore       string
+	SortOrder      int32
+	CreatedAt      time.Time
+}
+
+type EducationSystemGradingScale struct {
+	ID                uuid.UUID
+	EducationSystemID uuid.UUID
+	Name              string
+	IsDefault         bool
+	CreatedAt         time.Time
+}
+
+type EducationSystemLevel struct {
+	ID                uuid.UUID
+	EducationSystemID uuid.UUID
+	EducationLevelID  uuid.UUID
+	YearCount         int32
+	CreatedAt         time.Time
+}
+
+type EducationSystemSubject struct {
+	ID                  uuid.UUID
+	EducationSystemID   uuid.UUID
+	EducationLevelID    uuid.UUID
+	SubjectCode         string
+	SubjectName         string
+	IsCompulsoryDefault bool
+	CreatedAt           time.Time
+}
+
+type EducationSystemTermStructure struct {
+	ID                uuid.UUID
+	EducationSystemID uuid.UUID
+	TermName          string
+	TermSortOrder     int32
+	CreatedAt         time.Time
+}
+
 type EmailOutbox struct {
 	ID                uuid.UUID
 	ChallengeID       uuid.UUID
@@ -153,6 +277,29 @@ type EmailOutbox struct {
 	EncryptedPayload  []byte
 	CreatedAt         time.Time
 	SentAt            sql.NullTime
+}
+
+type Enrollment struct {
+	ID             uuid.UUID
+	StudentID      uuid.UUID
+	StreamID       uuid.UUID
+	AcademicYearID uuid.UUID
+	Status         string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type Guardian struct {
+	ID                 uuid.UUID
+	SchoolID           uuid.UUID
+	FullName           string
+	Phone              string
+	Email              sql.NullString
+	Relationship       string
+	Address            sql.NullString
+	IsEmergencyContact bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type LoginChallenge struct {
@@ -179,13 +326,82 @@ type Organization struct {
 }
 
 type School struct {
+	ID                    uuid.UUID
+	OrganizationID        uuid.UUID
+	Name                  string
+	Status                SchoolStatus
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	DeletedAt             sql.NullTime
+	CountryID             uuid.NullUUID
+	EducationSystemID     uuid.NullUUID
+	SchoolType            sql.NullString
+	LanguageOfInstruction sql.NullString
+	RegistrationNumber    sql.NullString
+}
+
+type SchoolAcademicTerm struct {
 	ID             uuid.UUID
-	OrganizationID uuid.UUID
-	Name           string
-	Status         SchoolStatus
+	SchoolID       uuid.UUID
+	AcademicYearID uuid.UUID
+	TermName       string
+	StartDate      time.Time
+	EndDate        time.Time
+	SortOrder      int32
 	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      sql.NullTime
+}
+
+type SchoolAcademicYear struct {
+	ID        uuid.UUID
+	SchoolID  uuid.UUID
+	YearLabel string
+	StartDate time.Time
+	EndDate   time.Time
+	IsActive  bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type SchoolGradeYear struct {
+	ID               uuid.UUID
+	SchoolID         uuid.UUID
+	EducationLevelID uuid.UUID
+	GradeName        string
+	GradeNumber      int32
+	IsActive         bool
+	CreatedAt        time.Time
+}
+
+type SchoolGradingBand struct {
+	ID                   uuid.UUID
+	SchoolGradingScaleID uuid.UUID
+	Grade                string
+	ScaleType            string
+	RubricLevel          sql.NullString
+	MinScore             string
+	MaxScore             string
+	SortOrder            int32
+	CreatedAt            time.Time
+}
+
+type SchoolGradingScale struct {
+	ID        uuid.UUID
+	SchoolID  uuid.UUID
+	Name      string
+	IsActive  bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type SchoolSubject struct {
+	ID               uuid.UUID
+	SchoolID         uuid.UUID
+	EducationLevelID uuid.UUID
+	SubjectCode      string
+	SubjectName      string
+	IsCompulsory     bool
+	IsActive         bool
+	CreatedAt        time.Time
 }
 
 type Session struct {
@@ -200,6 +416,52 @@ type Session struct {
 	RevokedAt        sql.NullTime
 	RevocationReason sql.NullString
 	SessionType      string
+}
+
+type Stream struct {
+	ID             uuid.UUID
+	SchoolID       uuid.UUID
+	GradeYearID    uuid.UUID
+	StreamName     string
+	AcademicYearID uuid.UUID
+	CreatedAt      time.Time
+}
+
+type Student struct {
+	ID              uuid.UUID
+	SchoolID        uuid.UUID
+	AdmissionNumber string
+	FullName        string
+	DateOfBirth     sql.NullTime
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type StudentGuardian struct {
+	ID         uuid.UUID
+	StudentID  uuid.UUID
+	GuardianID uuid.UUID
+	IsPrimary  bool
+	CreatedAt  time.Time
+}
+
+type Teacher struct {
+	ID             uuid.UUID
+	SchoolID       uuid.UUID
+	EmployeeNumber string
+	FullName       string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type TeacherQualification struct {
+	ID                 uuid.UUID
+	TeacherID          uuid.UUID
+	SubjectCode        string
+	EducationLevelID   uuid.UUID
+	Qualification      string
+	RegistrationNumber sql.NullString
+	CreatedAt          time.Time
 }
 
 type User struct {

@@ -15,6 +15,9 @@ import (
 	"somotracker/internal/auth/service"
 	"somotracker/internal/auth/store"
 	storegen "somotracker/internal/auth/store/gen"
+	eduStore "somotracker/internal/education/store"
+	eduHandler "somotracker/internal/education/handler"
+	eduService "somotracker/internal/education/service"
 	"somotracker/internal/platform/brevo"
 	"somotracker/internal/platform/config"
 	"somotracker/internal/platform/db"
@@ -34,6 +37,8 @@ type App struct {
 	log               *logger.Logger
 	authSvc           *service.Service
 	authHdl           *handler.Handler
+	eduSvc            *eduService.Service
+	eduHdl            *eduHandler.Handler
 	globalRateLimiter *ratelimit.GlobalLimiter
 	sessionResolver   *middleware.SessionResolver
 }
@@ -89,6 +94,11 @@ func New(cfg *config.Config) (*App, error) {
 	// Auth handler
 	authHdl := handler.New(authSvc, cfg, log, rateLimiter, keyBuilder)
 
+	// Education store, service, handler
+	eduStoreInst := eduStore.New(queries)
+	eduSvc := eduService.New(eduStoreInst, cfg, log)
+	eduHdl := eduHandler.New(eduSvc, cfg, log)
+
 	// Global rate limiter (for all /api/v1/* routes)
 	globalRateLimiter := ratelimit.NewGlobalLimiter(rateLimiter, keyBuilder, cfg)
 
@@ -103,6 +113,8 @@ func New(cfg *config.Config) (*App, error) {
 		log:                log,
 		authSvc:            authSvc,
 		authHdl:            authHdl,
+		eduSvc:             eduSvc,
+		eduHdl:             eduHdl,
 		globalRateLimiter:  globalRateLimiter,
 		sessionResolver:    sessionResolver,
 	}, nil
@@ -149,6 +161,10 @@ func (a *App) Start(ctx context.Context) error {
 	// Public auth routes
 	auth := api.Group("/auth")
 	a.authHdl.RegisterRoutes(auth)
+
+	// Education routes (public read)
+	edu := api.Group("/education")
+	a.eduHdl.RegisterRoutes(edu)
 
 	// Health check (exempt from auth)
 	app.Get("/healthz", func(c fiber.Ctx) error {

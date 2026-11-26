@@ -26,6 +26,7 @@ function onboardingCookieName(): string {
 export async function apiRequest(
   path: string,
   init: RequestInit = {},
+  req?: Request,
 ): Promise<Response> {
   const apiUrl = process.env.API_URL;
   if (!apiUrl) {
@@ -67,6 +68,14 @@ export async function apiRequest(
   }
 
   // Forward client IP for rate limiting
+  if (req) {
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    if (forwardedFor) {
+      // x-forwarded-for may contain a chain; the leftmost IP is the client
+      headers["X-Client-IP"] = forwardedFor.split(",")[0].trim();
+    }
+  }
+
   const res = await fetch(`${apiUrl}${path}`, {
     ...init,
     headers,

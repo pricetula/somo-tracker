@@ -174,9 +174,7 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
       };
     }, [siteKey, onVerify, onExpire, onError]);
 
-    return (
-      <div ref={containerRef} className="p-2 text-xs text-muted-foreground" />
-    );
+    return <div ref={containerRef} className="text-xs text-muted-foreground" />;
   },
 );
 

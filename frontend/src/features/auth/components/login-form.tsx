@@ -77,7 +77,7 @@ export default function LoginForm() {
                 setChallengeId(data.challengeId);
                 setStep("otp");
               })}
-              className="space-y-4"
+              className="space-y-2"
             >
               <Label htmlFor="email">Email address</Label>
               <Input

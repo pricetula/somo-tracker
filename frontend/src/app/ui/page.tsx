@@ -2,6 +2,13 @@
 
 import { Button } from "@/components/ui/button"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
@@ -18,6 +25,21 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 const COUNTRIES = [
   { id: "us", name: "United States" },
@@ -66,6 +88,16 @@ export default function UIComponentsPage() {
                 disabled
               />
             </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Checkbox</h2>
+          <div className="space-y-2">
+            <Checkbox defaultChecked>
+              Accept terms
+            </Checkbox>
+            <Checkbox disabled>Disabled</Checkbox>
           </div>
         </section>
 
@@ -119,6 +151,52 @@ export default function UIComponentsPage() {
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Dialog</h2>
+          <Dialog>
+            <DialogTrigger>
+              <Button>Open dialog</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Are you sure?</DialogTitle>
+                <DialogDescription>
+                  This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button>Cancel</Button>
+                <Button>Confirm</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Dropdown Menu</h2>
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <Button variant="outline">Actions</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem>Profile</DropdownMenuItem>
+              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>Logout</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Tooltip</h2>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button>Hover me</Button>
+            </TooltipTrigger>
+            <TooltipContent>This is a tooltip</TooltipContent>
+          </Tooltip>
         </section>
       </div>
     </div>

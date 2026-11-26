@@ -8,7 +8,6 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-  ComboboxTrigger,
 } from "@/components/ui/combobox";
 import type { Country } from "../types/countries";
 
@@ -45,9 +44,7 @@ export function CountryCombobox({
             onValueChange={field.onChange}
             disabled={disabled}
           >
-            <ComboboxTrigger>
-              <ComboboxInput placeholder={placeholder} disabled={disabled} />
-            </ComboboxTrigger>
+            <ComboboxInput placeholder={placeholder} disabled={disabled} />
             <ComboboxContent>
               <ComboboxList>
                 {countries.map((country) => (

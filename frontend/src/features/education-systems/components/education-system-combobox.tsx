@@ -8,7 +8,6 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-  ComboboxTrigger,
 } from "@/components/ui/combobox";
 import type { EducationSystem } from "../types/education-systems";
 
@@ -45,9 +44,7 @@ export function EducationSystemCombobox({
             onValueChange={field.onChange}
             disabled={disabled}
           >
-            <ComboboxTrigger>
-              <ComboboxInput placeholder={placeholder} disabled={disabled} />
-            </ComboboxTrigger>
+            <ComboboxInput placeholder={placeholder} disabled={disabled} />
             <ComboboxContent>
               <ComboboxList>
                 {systems.map((system) => (

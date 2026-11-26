@@ -1,30 +1,30 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
   InputGroupText,
-} from "@/components/ui/input-group"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/input-group";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Combobox,
   ComboboxContent,
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from "@/components/ui/combobox"
+} from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -33,13 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/ui/tooltip";
 
 const COUNTRIES = [
   { id: "us", name: "United States" },
@@ -47,7 +47,7 @@ const COUNTRIES = [
   { id: "gb", name: "United Kingdom" },
   { id: "de", name: "Germany" },
   { id: "fr", name: "France" },
-]
+];
 
 export default function UIComponentsPage() {
   return (
@@ -82,11 +82,7 @@ export default function UIComponentsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="disabled-input">Disabled Input</Label>
-              <Input
-                id="disabled-input"
-                defaultValue="Disabled"
-                disabled
-              />
+              <Input id="disabled-input" defaultValue="Disabled" disabled />
             </div>
           </div>
         </section>
@@ -94,9 +90,7 @@ export default function UIComponentsPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Checkbox</h2>
           <div className="space-y-2">
-            <Checkbox defaultChecked>
-              Accept terms
-            </Checkbox>
+            <Checkbox defaultChecked>Accept terms</Checkbox>
             <Checkbox disabled>Disabled</Checkbox>
           </div>
         </section>
@@ -156,9 +150,7 @@ export default function UIComponentsPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Dialog</h2>
           <Dialog>
-            <DialogTrigger>
-              <Button>Open dialog</Button>
-            </DialogTrigger>
+            <DialogTrigger>Open dialog</DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Are you sure?</DialogTitle>
@@ -177,9 +169,7 @@ export default function UIComponentsPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Dropdown Menu</h2>
           <DropdownMenu>
-            <DropdownMenuTrigger>
-              <Button variant="outline">Actions</Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger>Actions</DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem>Profile</DropdownMenuItem>
               <DropdownMenuItem>Settings</DropdownMenuItem>
@@ -192,13 +182,11 @@ export default function UIComponentsPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Tooltip</h2>
           <Tooltip>
-            <TooltipTrigger>
-              <Button>Hover me</Button>
-            </TooltipTrigger>
+            <TooltipTrigger>Hover me</TooltipTrigger>
             <TooltipContent>This is a tooltip</TooltipContent>
           </Tooltip>
         </section>
       </div>
     </div>
-  )
+  );
 }

@@ -59,7 +59,7 @@ export default function LoginForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-md flex flex-col gap-6">
+      <div className="max-w-md flex flex-col gap-6">
         {step === "email" && (
           <>
             <h1 className="text-3xl font-bold">Sign in</h1>
@@ -114,7 +114,6 @@ export default function LoginForm() {
               <Button
                 type="submit"
                 disabled={requestOTPMutation.isPending || !turnstileToken}
-                className="w-full"
               >
                 {requestOTPMutation.isPending ? "Sending…" : "Send code"}
               </Button>

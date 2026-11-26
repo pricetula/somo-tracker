@@ -162,11 +162,13 @@ type ChallengeResponse struct {
 
 // OnboardRequest is the request body for POST /api/v1/auth/onboard.
 type OnboardRequest struct {
-	OrganizationName string `json:"organization_name" validate:"required"`
-	SchoolName       string `json:"school_name" validate:"required"`
-	UserName         string `json:"user_name" validate:"required"`
-	PowSolution      *PowSolution `json:"pow_solution,omitempty"`
-	HoneypotField    string `json:"-"`
+	OrganizationName   string         `json:"organization_name" validate:"required"`
+	SchoolName         string         `json:"school_name" validate:"required"`
+	UserName           string         `json:"user_name" validate:"required"`
+	CountryID          string       `json:"country_id,omitempty" validate:"omitempty,uuid"`
+	EducationSystemID  string       `json:"education_system_id,omitempty" validate:"omitempty,uuid"`
+	PowSolution        *PowSolution   `json:"pow_solution,omitempty"`
+	HoneypotField      string         `json:"-"`
 }
 
 // SessionResponse is the response body for GET /api/v1/auth/session.
@@ -569,7 +571,18 @@ func (h *Handler) Onboard(c fiber.Ctx) error {
 	}
 
 	// Complete onboarding
-	if err := h.svc.Onboard(c.Context(), session.UserID, session.OrganizationID, req.OrganizationName, req.SchoolName, req.UserName); err != nil {
+	var countryID, educationSystemID uuid.NullUUID
+	if req.CountryID != "" {
+		if parsed, err := uuid.Parse(req.CountryID); err == nil {
+			countryID = uuid.NullUUID{UUID: parsed, Valid: true}
+		}
+	}
+	if req.EducationSystemID != "" {
+		if parsed, err := uuid.Parse(req.EducationSystemID); err == nil {
+			educationSystemID = uuid.NullUUID{UUID: parsed, Valid: true}
+		}
+	}
+	if err := h.svc.Onboard(c.Context(), session.UserID, session.OrganizationID, req.OrganizationName, req.SchoolName, req.UserName, countryID, educationSystemID); err != nil {
 		return err
 	}
 

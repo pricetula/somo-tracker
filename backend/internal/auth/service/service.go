@@ -259,7 +259,7 @@ func (s *Service) VerifyOTP(ctx context.Context, req VerifyOTPRequest) (VerifyOT
 			return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "create organization", createOrgErr)
 		}
 
-		_, createSchoolErr := s.store.CreateSchool(ctx, org.ID, "School")
+		_, createSchoolErr := s.store.CreateSchool(ctx, org.ID, "School", uuid.NullUUID{}, uuid.NullUUID{})
 		if createSchoolErr != nil {
 			return VerifyOTPResponse{}, apperr.Wrap(apperr.INTERNAL_ERROR, "create school", createSchoolErr)
 		}
@@ -317,7 +317,7 @@ func (s *Service) VerifyOTP(ctx context.Context, req VerifyOTPRequest) (VerifyOT
 // Onboard completes organization onboarding: sets org name, school name,
 // user name, marks onboarding complete, and upgrades the session from
 // temporary to full.
-func (s *Service) Onboard(ctx context.Context, userID, orgID uuid.UUID, orgName, schoolName, userName string) error {
+func (s *Service) Onboard(ctx context.Context, userID, orgID uuid.UUID, orgName, schoolName, userName string, countryID, educationSystemID uuid.NullUUID) error {
 	// Update organization name and mark onboarding complete
 	if err := s.store.UpdateOrganization(ctx, orgID, orgName); err != nil {
 		return apperr.Wrap(apperr.INTERNAL_ERROR, "update organization", err)
@@ -329,7 +329,7 @@ func (s *Service) Onboard(ctx context.Context, userID, orgID uuid.UUID, orgName,
 	}
 
 	// Create school
-	school, err := s.store.CreateSchool(ctx, orgID, schoolName)
+	school, err := s.store.CreateSchool(ctx, orgID, schoolName, countryID, educationSystemID)
 	if err != nil {
 		return apperr.Wrap(apperr.INTERNAL_ERROR, "create school", err)
 	}

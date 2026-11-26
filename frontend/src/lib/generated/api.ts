@@ -383,6 +383,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/education/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List countries
+         * @description Get all countries ordered by name
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.CountryListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/education/systems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List education systems
+         * @description Get all education systems with country info
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.EducationSystemListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/education/systems/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get education system
+         * @description Get a single education system with levels, bands, subjects, and terms
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Education system ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.EducationSystemResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -404,6 +546,8 @@ export interface components {
             type?: string;
         };
         "handler.OnboardRequest": {
+            country_id?: string;
+            education_system_id?: string;
             organization_name: string;
             pow_solution?: components["schemas"]["handler.PowSolution"];
             school_name: string;
@@ -437,6 +581,83 @@ export interface components {
             message?: string;
             needs_onboarding?: boolean;
             ok?: boolean;
+        };
+        "service.CountryListResponse": {
+            countries?: components["schemas"]["service.CountryResponse"][];
+        };
+        "service.CountryResponse": {
+            code?: string;
+            created_at?: string;
+            id?: string;
+            name?: string;
+            updated_at?: string;
+        };
+        "service.EducationSystemGradingBandResponse": {
+            created_at?: string;
+            grade?: string;
+            id?: string;
+            is_default?: boolean;
+            max_score?: string;
+            min_score?: string;
+            rubric_level?: string;
+            scale_name?: string;
+            scale_type?: string;
+            sort_order?: number;
+        };
+        "service.EducationSystemLevelResponse": {
+            created_at?: string;
+            id?: string;
+            level_name?: string;
+            sort_order?: number;
+            year_count?: number;
+        };
+        "service.EducationSystemListItemResponse": {
+            country_code?: string;
+            country_id?: string;
+            country_name?: string;
+            created_at?: string;
+            default_language?: string;
+            id?: string;
+            name?: string;
+            updated_at?: string;
+            years_lower_secondary?: number;
+            years_primary?: number;
+            years_upper_secondary?: number;
+        };
+        "service.EducationSystemListResponse": {
+            systems?: components["schemas"]["service.EducationSystemListItemResponse"][];
+        };
+        "service.EducationSystemResponse": {
+            country_code?: string;
+            country_id?: string;
+            country_name?: string;
+            created_at?: string;
+            default_language?: string;
+            grading_bands?: components["schemas"]["service.EducationSystemGradingBandResponse"][];
+            id?: string;
+            levels?: components["schemas"]["service.EducationSystemLevelResponse"][];
+            name?: string;
+            subjects?: components["schemas"]["service.EducationSystemSubjectResponse"][];
+            term_structures?: components["schemas"]["service.EducationSystemTermStructureResponse"][];
+            updated_at?: string;
+            years_lower_secondary?: number;
+            years_primary?: number;
+            years_upper_secondary?: number;
+        };
+        "service.EducationSystemSubjectResponse": {
+            created_at?: string;
+            id?: string;
+            is_compulsory_default?: boolean;
+            level_name?: string;
+            level_sort_order?: number;
+            subject_code?: string;
+            subject_name?: string;
+        };
+        "service.EducationSystemTermStructureResponse": {
+            created_at?: string;
+            id?: string;
+            term_name?: string;
+            term_sort_order?: number;
         };
     };
     responses: never;

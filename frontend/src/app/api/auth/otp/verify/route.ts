@@ -9,5 +9,5 @@ export async function POST(req: Request) {
     headers: {
       'Content-Type': req.headers.get('content-type') ?? 'application/json',
     },
-  })
+  }, req)
 }

@@ -44,7 +44,7 @@ function validateConfig() {
   configValidated = true
 }
 
-const PUBLIC_ROUTES = ['/login', '/auth/callback']
+const PUBLIC_ROUTES = ['/login', '/auth/callback', '/ui']
 const ONBOARDING_ROUTES = ['/onboarding', '/api/auth/onboard']
 
 export function proxy(request: NextRequest) {

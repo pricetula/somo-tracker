@@ -35,6 +35,10 @@ definitions:
     type: object
   handler.OnboardRequest:
     properties:
+      country_id:
+        type: string
+      education_system_id:
+        type: string
       organization_name:
         type: string
       pow_solution:
@@ -105,6 +109,163 @@ definitions:
         type: boolean
       ok:
         type: boolean
+    type: object
+  service.CountryListResponse:
+    properties:
+      countries:
+        items:
+          $ref: '#/definitions/service.CountryResponse'
+        type: array
+    type: object
+  service.CountryResponse:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  service.EducationSystemGradingBandResponse:
+    properties:
+      created_at:
+        type: string
+      grade:
+        type: string
+      id:
+        type: string
+      is_default:
+        type: boolean
+      max_score:
+        type: string
+      min_score:
+        type: string
+      rubric_level:
+        type: string
+      scale_name:
+        type: string
+      scale_type:
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  service.EducationSystemLevelResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      level_name:
+        type: string
+      sort_order:
+        type: integer
+      year_count:
+        type: integer
+    type: object
+  service.EducationSystemListItemResponse:
+    properties:
+      country_code:
+        type: string
+      country_id:
+        type: string
+      country_name:
+        type: string
+      created_at:
+        type: string
+      default_language:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+      years_lower_secondary:
+        type: integer
+      years_primary:
+        type: integer
+      years_upper_secondary:
+        type: integer
+    type: object
+  service.EducationSystemListResponse:
+    properties:
+      systems:
+        items:
+          $ref: '#/definitions/service.EducationSystemListItemResponse'
+        type: array
+    type: object
+  service.EducationSystemResponse:
+    properties:
+      country_code:
+        type: string
+      country_id:
+        type: string
+      country_name:
+        type: string
+      created_at:
+        type: string
+      default_language:
+        type: string
+      grading_bands:
+        items:
+          $ref: '#/definitions/service.EducationSystemGradingBandResponse'
+        type: array
+      id:
+        type: string
+      levels:
+        items:
+          $ref: '#/definitions/service.EducationSystemLevelResponse'
+        type: array
+      name:
+        type: string
+      subjects:
+        items:
+          $ref: '#/definitions/service.EducationSystemSubjectResponse'
+        type: array
+      term_structures:
+        items:
+          $ref: '#/definitions/service.EducationSystemTermStructureResponse'
+        type: array
+      updated_at:
+        type: string
+      years_lower_secondary:
+        type: integer
+      years_primary:
+        type: integer
+      years_upper_secondary:
+        type: integer
+    type: object
+  service.EducationSystemSubjectResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_compulsory_default:
+        type: boolean
+      level_name:
+        type: string
+      level_sort_order:
+        type: integer
+      subject_code:
+        type: string
+      subject_name:
+        type: string
+    type: object
+  service.EducationSystemTermStructureResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      term_name:
+        type: string
+      term_sort_order:
+        type: integer
     type: object
 info:
   contact: {}
@@ -280,4 +441,60 @@ paths:
       summary: Get session
       tags:
       - auth
+  /api/v1/education/countries:
+    get:
+      description: Get all countries ordered by name
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.CountryListResponse'
+      summary: List countries
+      tags:
+      - education
+  /api/v1/education/systems:
+    get:
+      description: Get all education systems with country info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EducationSystemListResponse'
+      summary: List education systems
+      tags:
+      - education
+  /api/v1/education/systems/{id}:
+    get:
+      description: Get a single education system with levels, bands, subjects, and
+        terms
+      parameters:
+      - description: Education system ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EducationSystemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get education system
+      tags:
+      - education
 swagger: "2.0"

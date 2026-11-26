@@ -27,7 +27,12 @@ func New(svc *service.Service, cfg *config.Config, log *logger.Logger) *Handler 
 	}
 }
 
-// ListCountries handles GET /api/v1/education/countries.
+// @Summary      List countries
+// @Description  Get all countries ordered by name
+// @Tags         education
+// @Produce      json
+// @Success      200 {object} service.CountryListResponse
+// @Router       /api/v1/education/countries [get]
 func (h *Handler) ListCountries(c fiber.Ctx) error {
 	resp, err := h.svc.ListCountries(c.Context())
 	if err != nil {
@@ -36,7 +41,12 @@ func (h *Handler) ListCountries(c fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(resp)
 }
 
-// ListEducationSystems handles GET /api/v1/education/systems.
+// @Summary      List education systems
+// @Description  Get all education systems with country info
+// @Tags         education
+// @Produce      json
+// @Success      200 {object} service.EducationSystemListResponse
+// @Router       /api/v1/education/systems [get]
 func (h *Handler) ListEducationSystems(c fiber.Ctx) error {
 	resp, err := h.svc.ListEducationSystems(c.Context())
 	if err != nil {
@@ -45,7 +55,15 @@ func (h *Handler) ListEducationSystems(c fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(resp)
 }
 
-// GetEducationSystem handles GET /api/v1/education/systems/:id.
+// @Summary      Get education system
+// @Description  Get a single education system with levels, bands, subjects, and terms
+// @Tags         education
+// @Produce      json
+// @Param        id path string true "Education system ID"
+// @Success      200 {object} service.EducationSystemResponse
+// @Failure      400 {object} map[string]interface{}
+// @Failure      404 {object} map[string]interface{}
+// @Router       /api/v1/education/systems/{id} [get]
 func (h *Handler) GetEducationSystem(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {

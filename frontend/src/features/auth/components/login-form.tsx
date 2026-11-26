@@ -58,16 +58,14 @@ export default function LoginForm() {
   );
 
   return (
-    <div className="flex w-full bg-red-400 min-h-screen items-center justify-center p-4 sm:p-6">
-      <div className=" max-w-md space-y-6">
+    <div className="flex min-h-screen items-center justify-center p-4 sm:p-6">
+      <div className="max-w-md flex flex-col gap-6">
         {step === "email" && (
           <>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold">Sign in</h1>
-              <p className="text-muted-foreground text-sm">
-                Enter your email to receive a verification code.
-              </p>
-            </div>
+            <h1 className="text-3xl font-bold">Sign in</h1>
+            <p className="text-muted-foreground text-sm">
+              Enter your email to receive a verification code.
+            </p>
 
             <form
               onSubmit={emailForm.handleSubmit(async (values) => {
@@ -79,7 +77,7 @@ export default function LoginForm() {
                 setChallengeId(data.challengeId);
                 setStep("otp");
               })}
-              className="space-y-4"
+              className="space-y-2"
             >
               <Label htmlFor="email">Email address</Label>
               <Input
@@ -116,7 +114,6 @@ export default function LoginForm() {
               <Button
                 type="submit"
                 disabled={requestOTPMutation.isPending || !turnstileToken}
-                className="w-full"
               >
                 {requestOTPMutation.isPending ? "Sending…" : "Send code"}
               </Button>
@@ -125,24 +122,22 @@ export default function LoginForm() {
         )}
         {step === "otp" && (
           <>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold">Verify code</h1>
-              <p className="text-muted-foreground text-sm">
-                Enter the 6-digit code sent to{" "}
-                <span className="font-medium">
-                  {emailForm.getValues("email")}
-                </span>
-                .
-              </p>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                onClick={() => setStep("email")}
-              >
-                Use a different email
-              </Button>
-            </div>
+            <h1 className="text-3xl font-bold">Verify code</h1>
+            <p className="text-muted-foreground text-sm">
+              Enter the 6-digit code sent to{" "}
+              <span className="font-medium">
+                {emailForm.getValues("email")}
+              </span>
+              .
+            </p>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={() => setStep("email")}
+            >
+              Use a different email
+            </Button>
 
             <form
               onSubmit={otpForm.handleSubmit(handleVerifyOTP)}

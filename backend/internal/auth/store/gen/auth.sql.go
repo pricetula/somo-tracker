@@ -100,33 +100,44 @@ func (q *Queries) CreateOrganization(ctx context.Context, name string) (Organiza
 }
 
 const createSchool = `-- name: CreateSchool :one
-INSERT INTO schools (organization_id, name, status)
-VALUES ($1, $2, 'ACTIVE')
-RETURNING id, organization_id, name, status, created_at, updated_at, deleted_at
+INSERT INTO schools (organization_id, name, country_id, education_system_id, status)
+VALUES ($1, $2, $3, $4, 'ACTIVE')
+RETURNING id, organization_id, name, country_id, education_system_id, status, created_at, updated_at, deleted_at
 `
 
 type CreateSchoolParams struct {
-	OrganizationID uuid.UUID
-	Name           string
+	OrganizationID    uuid.UUID
+	Name              string
+	CountryID         uuid.NullUUID
+	EducationSystemID uuid.NullUUID
 }
 
 type CreateSchoolRow struct {
-	ID             uuid.UUID
-	OrganizationID uuid.UUID
-	Name           string
-	Status         SchoolStatus
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      sql.NullTime
+	ID                uuid.UUID
+	OrganizationID    uuid.UUID
+	Name              string
+	CountryID         uuid.NullUUID
+	EducationSystemID uuid.NullUUID
+	Status            SchoolStatus
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         sql.NullTime
 }
 
 func (q *Queries) CreateSchool(ctx context.Context, arg CreateSchoolParams) (CreateSchoolRow, error) {
-	row := q.db.QueryRowContext(ctx, createSchool, arg.OrganizationID, arg.Name)
+	row := q.db.QueryRowContext(ctx, createSchool,
+		arg.OrganizationID,
+		arg.Name,
+		arg.CountryID,
+		arg.EducationSystemID,
+	)
 	var i CreateSchoolRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.Name,
+		&i.CountryID,
+		&i.EducationSystemID,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,

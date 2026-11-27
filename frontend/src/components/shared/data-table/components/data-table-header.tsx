@@ -44,18 +44,11 @@ export function DataTableHeader<T>({
     setSorting(next);
   };
 
-  const totalWidths = (() => {
-    if (enableRowSelection) {
-      return [selectionColumnWidth, ...columnWidths].join(" ");
-    }
-    return columnWidths.join(" ");
-  })();
-
   return (
     <div
       role="row"
       className="grid border-b border-background bg-muted/50 text-xs text-muted-foreground"
-      style={{ gridTemplateColumns: totalWidths }}
+      style={{ gridTemplateColumns: columnWidths.join(" ") }}
     >
       {enableRowSelection && (
         <div

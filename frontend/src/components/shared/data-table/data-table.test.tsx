@@ -168,16 +168,18 @@ describe('DataTable', () => {
     }
   })
 
-  it('toggles row selection via row checkbox', () => {
+  it('toggles row selection via checkbox input', () => {
     Object.assign(defaultTableApi, { selectedCount: 0 })
     renderTable()
 
-    // Verify row checkboxes render for each row
+    // Base UI renders checkboxes as <span role="checkbox"> elements.
+    // Index 0 = select-all header checkbox, index 1 = first row checkbox.
     const checkboxes = screen.getAllByRole('checkbox')
-    expect(checkboxes.length).toBeGreaterThan(0)
+    expect(checkboxes.length).toBeGreaterThan(1)
 
-    // Verify the toggle prop is wired by calling it directly
-    defaultTableApi.toggleRowSelection('1', true)
+    const rowCheckbox = checkboxes[1]
+    fireEvent.click(rowCheckbox)
+
     expect(defaultTableApi.toggleRowSelection).toHaveBeenCalledWith('1', true)
   })
 

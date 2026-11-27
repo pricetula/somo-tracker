@@ -1,0 +1,166 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxChip,
+  ComboboxValue,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { AiSearch01Icon } from "@hugeicons/core-free-icons";
+import type { DataTableFilter } from "../types";
+
+interface DataTableToolbarProps {
+  search: string;
+  setSearch: (value: string) => void;
+  filters: DataTableFilter[];
+  filterValues: Record<string, unknown>;
+  onFilterChange: (values: Record<string, unknown>) => void;
+  isLoading?: boolean;
+  debounceMs?: number;
+}
+
+export function DataTableToolbar({
+  search,
+  setSearch,
+  filters,
+  filterValues,
+  onFilterChange,
+  isLoading = false,
+  debounceMs = 300,
+}: DataTableToolbarProps) {
+  const [searchInput, setSearchInput] = useState(search);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchInput(value);
+      // Debounced commit: transient updates replace history.
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => {
+        setSearch(value);
+      }, debounceMs);
+    },
+    [setSearch, debounceMs],
+  );
+
+  const handleFilterChange = useCallback(
+    (id: string, value: unknown) => {
+      onFilterChange({ ...filterValues, [id]: value });
+    },
+    [filterValues, onFilterChange],
+  );
+
+  const hasFilters = filters.length > 0;
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-3 border-b border-background px-4 pb-2">
+      <div className="flex w-full flex-col sm:flex-row sm:gap-4 gap-2 items-end">
+        <div className="flex w-full items-center gap-2 rounded-md border border-input bg-input/20 px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring/30">
+          <HugeiconsIcon icon={AiSearch01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
+          <Input
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search…"
+            disabled={isLoading}
+            className="flex-1 bg-transparent border-0 outline-none sm:text-sm"
+          />
+        </div>
+        {hasFilters && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {}}
+            disabled={isLoading}
+            aria-label="Filters"
+          >
+            Filters
+          </Button>
+        )}
+      </div>
+
+      {hasFilters && (
+        <div className="mt-3 sm:mt-0 sm:w-[260px] space-y-2">
+          {filters.map((filter) => {
+            const value = filterValues[filter.id];
+            const isMulti = filter.type === "multi-select";
+            const current = isMulti
+              ? (Array.isArray(value) ? value : [])
+              : (typeof value === "string" ? value : "");
+
+            return (
+              <div key={filter.id} className="space-y-1">
+                <Label htmlFor={`filter-${filter.id}`}>{filter.label}</Label>
+                {isMulti ? (
+                  <Combobox
+                    multiple
+                    value={current as string[]}
+                    onValueChange={(next) =>
+                      handleFilterChange(filter.id, next ?? [])
+                    }
+                  >
+                    <ComboboxInput
+                      id={`filter-${filter.id}`}
+                      placeholder={filter.placeholder ?? "Select…"}
+                      showTrigger
+                    />
+                    <ComboboxContent>
+                      <ComboboxEmpty>No options</ComboboxEmpty>
+                      <ComboboxList>
+                        {filter.options.map((option) => (
+                          <ComboboxItem
+                            key={option.value}
+                            value={option.value}
+                            disabled={option.disabled}
+                          >
+                            {option.label}
+                          </ComboboxItem>
+                        ))}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                ) : (
+                  <Combobox
+                    value={current}
+                    onValueChange={(next) =>
+                      handleFilterChange(filter.id, next ?? "")
+                    }
+                  >
+                    <ComboboxValue>{current || filter.placeholder}</ComboboxValue>
+                    <ComboboxTrigger />
+                    <ComboboxContent>
+                      <ComboboxEmpty>No options</ComboboxEmpty>
+                      <ComboboxList>
+                        <ComboboxItem value="">All</ComboboxItem>
+                        {filter.options.map((option) => (
+                          <ComboboxItem
+                            key={option.value}
+                            value={option.value}
+                            disabled={option.disabled}
+                          >
+                            {option.label}
+                          </ComboboxItem>
+                        ))}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

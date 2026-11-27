@@ -71,6 +71,7 @@ export function DataTable<T extends RowData>({
     enableRowSelection,
     enableVirtualization,
     onDelete,
+    renderRowActions,
   });
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);

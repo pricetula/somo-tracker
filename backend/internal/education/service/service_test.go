@@ -58,11 +58,6 @@ func (m *mockEduStore) ListEducationSystemSubjects(ctx context.Context, educatio
 	return args.Get(0).([]storegen.ListEducationSystemSubjectsRow), args.Error(1)
 }
 
-func (m *mockEduStore) ListEducationSystemTermStructures(ctx context.Context, educationSystemID uuid.UUID) ([]storegen.EducationSystemTermStructure, error) {
-	args := m.Called(ctx, educationSystemID)
-	return args.Get(0).([]storegen.EducationSystemTermStructure), args.Error(1)
-}
-
 func newTestService(s store.StoreInterface) *Service {
 	return &Service{
 		store: s,
@@ -115,17 +110,13 @@ func TestService_ListEducationSystems_Success(t *testing.T) {
 
 	systems := []storegen.ListEducationSystemsRow{
 		{
-			ID:                  uuid.New(),
-			CountryID:           uuid.New(),
-			Name:                "CBC",
-			YearsPrimary:        6,
-			YearsLowerSecondary: 3,
-			YearsUpperSecondary: 3,
-			DefaultLanguage:     "English",
-			CountryName:         "Kenya",
-			CountryCode:         "KE",
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+			ID:          uuid.New(),
+			CountryID:   uuid.New(),
+			Name:        "CBC",
+			CountryName: "Kenya",
+			CountryCode: "KE",
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		},
 	}
 
@@ -141,9 +132,6 @@ func TestService_ListEducationSystems_Success(t *testing.T) {
 	assert.Equal(t, "CBC", resp.Systems[0].Name)
 	assert.Equal(t, "Kenya", resp.Systems[0].CountryName)
 	assert.Equal(t, "KE", resp.Systems[0].CountryCode)
-	assert.Equal(t, int32(6), resp.Systems[0].YearsPrimary)
-	assert.Equal(t, int32(3), resp.Systems[0].YearsLowerSecondary)
-	assert.Equal(t, int32(3), resp.Systems[0].YearsUpperSecondary)
 	mockStore.AssertExpectations(t)
 }
 
@@ -167,17 +155,13 @@ func TestService_GetEducationSystem_Success(t *testing.T) {
 	systemID := uuid.New()
 
 	system := storegen.GetEducationSystemRow{
-		ID:                  systemID,
-		CountryID:           uuid.New(),
-		Name:                "CBC",
-		YearsPrimary:        6,
-		YearsLowerSecondary: 3,
-		YearsUpperSecondary: 3,
-		DefaultLanguage:     "English",
-		CountryName:         "Kenya",
-		CountryCode:         "KE",
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		ID:          systemID,
+		CountryID:   uuid.New(),
+		Name:        "CBC",
+		CountryName: "Kenya",
+		CountryCode: "KE",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	levels := []storegen.ListEducationSystemLevelsRow{
@@ -227,8 +211,8 @@ func TestService_GetEducationSystem_Success(t *testing.T) {
 	subjects := []storegen.ListEducationSystemSubjectsRow{
 		{
 			ID:                  uuid.New(),
-			SubjectCode:         "MATH",
-			SubjectName:         "Mathematics",
+			Code:                "MATH",
+			Name:                "Mathematics",
 			IsCompulsoryDefault: true,
 			LevelName:           "Primary",
 			SortOrder:           1,
@@ -236,8 +220,8 @@ func TestService_GetEducationSystem_Success(t *testing.T) {
 		},
 		{
 			ID:                  uuid.New(),
-			SubjectCode:         "ENG",
-			SubjectName:         "English",
+			Code:                "ENG",
+			Name:                "English",
 			IsCompulsoryDefault: true,
 			LevelName:           "Primary",
 			SortOrder:           1,
@@ -245,18 +229,11 @@ func TestService_GetEducationSystem_Success(t *testing.T) {
 		},
 	}
 
-	terms := []storegen.EducationSystemTermStructure{
-		{ID: uuid.New(), EducationSystemID: systemID, TermName: "Term 1", TermSortOrder: 1, CreatedAt: time.Now()},
-		{ID: uuid.New(), EducationSystemID: systemID, TermName: "Term 2", TermSortOrder: 2, CreatedAt: time.Now()},
-		{ID: uuid.New(), EducationSystemID: systemID, TermName: "Term 3", TermSortOrder: 3, CreatedAt: time.Now()},
-	}
-
 	mockStore := new(mockEduStore)
 	mockStore.On("GetEducationSystem", ctx, systemID).Return(system, nil).Once()
 	mockStore.On("ListEducationSystemLevels", ctx, systemID).Return(levels, nil).Once()
 	mockStore.On("ListEducationSystemGradingBands", ctx, systemID).Return(bands, nil).Once()
 	mockStore.On("ListEducationSystemSubjects", ctx, systemID).Return(subjects, nil).Once()
-	mockStore.On("ListEducationSystemTermStructures", ctx, systemID).Return(terms, nil).Once()
 
 	svc := newTestService(mockStore)
 
@@ -267,7 +244,6 @@ func TestService_GetEducationSystem_Success(t *testing.T) {
 	assert.Equal(t, "CBC", resp.Name)
 	assert.Equal(t, "Kenya", resp.CountryName)
 	assert.Equal(t, "KE", resp.CountryCode)
-	assert.Equal(t, "English", resp.DefaultLanguage)
 
 	// Verify levels
 	assert.Len(t, resp.Levels, 2)
@@ -283,13 +259,8 @@ func TestService_GetEducationSystem_Success(t *testing.T) {
 
 	// Verify subjects
 	assert.Len(t, resp.Subjects, 2)
-	assert.Equal(t, "MATH", resp.Subjects[0].SubjectCode)
+	assert.Equal(t, "MATH", resp.Subjects[0].Code)
 	assert.True(t, resp.Subjects[0].IsCompulsoryDefault)
-
-	// Verify term structures
-	assert.Len(t, resp.TermStructures, 3)
-	assert.Equal(t, "Term 1", resp.TermStructures[0].TermName)
-	assert.Equal(t, int32(1), resp.TermStructures[0].TermSortOrder)
 
 	mockStore.AssertExpectations(t)
 }

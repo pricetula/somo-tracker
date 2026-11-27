@@ -61,11 +61,6 @@ func (m *mockEduStore) ListEducationSystemSubjects(ctx context.Context, educatio
 	return args.Get(0).([]storegen.ListEducationSystemSubjectsRow), args.Error(1)
 }
 
-func (m *mockEduStore) ListEducationSystemTermStructures(ctx context.Context, educationSystemID uuid.UUID) ([]storegen.EducationSystemTermStructure, error) {
-	args := m.Called(ctx, educationSystemID)
-	return args.Get(0).([]storegen.EducationSystemTermStructure), args.Error(1)
-}
-
 func newTestHandlerWithStore(mockStore *mockEduStore) *Handler {
 	svc := service.New(mockStore, &config.Config{}, logger.New("info"))
 	return &Handler{
@@ -123,17 +118,13 @@ func TestHandler_ListEducationSystems_Success(t *testing.T) {
 
 	systems := []storegen.ListEducationSystemsRow{
 		{
-			ID:                  uuid.New(),
-			CountryID:           uuid.New(),
-			Name:                "CBC",
-			YearsPrimary:        6,
-			YearsLowerSecondary: 3,
-			YearsUpperSecondary: 3,
-			DefaultLanguage:     "English",
-			CountryName:         "Kenya",
-			CountryCode:         "KE",
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+			ID:          uuid.New(),
+			CountryID:   uuid.New(),
+			Name:        "CBC",
+			CountryName: "Kenya",
+			CountryCode: "KE",
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		},
 	}
 
@@ -161,17 +152,13 @@ func TestHandler_GetEducationSystem_Success(t *testing.T) {
 
 	systemID := uuid.New()
 	system := storegen.GetEducationSystemRow{
-		ID:                  systemID,
-		CountryID:           uuid.New(),
-		Name:                "CBC",
-		YearsPrimary:        6,
-		YearsLowerSecondary: 3,
-		YearsUpperSecondary: 3,
-		DefaultLanguage:     "English",
-		CountryName:         "Kenya",
-		CountryCode:         "KE",
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		ID:          systemID,
+		CountryID:   uuid.New(),
+		Name:        "CBC",
+		CountryName: "Kenya",
+		CountryCode: "KE",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	mockStore := new(mockEduStore)
@@ -179,7 +166,6 @@ func TestHandler_GetEducationSystem_Success(t *testing.T) {
 	mockStore.On("ListEducationSystemLevels", mock.Anything, systemID).Return([]storegen.ListEducationSystemLevelsRow{}, nil).Once()
 	mockStore.On("ListEducationSystemGradingBands", mock.Anything, systemID).Return([]storegen.ListEducationSystemGradingBandsRow{}, nil).Once()
 	mockStore.On("ListEducationSystemSubjects", mock.Anything, systemID).Return([]storegen.ListEducationSystemSubjectsRow{}, nil).Once()
-	mockStore.On("ListEducationSystemTermStructures", mock.Anything, systemID).Return([]storegen.EducationSystemTermStructure{}, nil).Once()
 
 	h := newTestHandlerWithStore(mockStore)
 	app.Get("/api/v1/education/systems/:id", h.GetEducationSystem)

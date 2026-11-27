@@ -623,9 +623,6 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
-                "default_language": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "string"
                 },
@@ -634,15 +631,6 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
-                },
-                "years_lower_secondary": {
-                    "type": "integer"
-                },
-                "years_primary": {
-                    "type": "integer"
-                },
-                "years_upper_secondary": {
-                    "type": "integer"
                 }
             }
         },
@@ -672,9 +660,6 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
-                "default_language": {
-                    "type": "string"
-                },
                 "grading_bands": {
                     "type": "array",
                     "items": {
@@ -699,29 +684,17 @@ const docTemplate = `{
                         "$ref": "#/definitions/service.EducationSystemSubjectResponse"
                     }
                 },
-                "term_structures": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/service.EducationSystemTermStructureResponse"
-                    }
-                },
                 "updated_at": {
                     "type": "string"
-                },
-                "years_lower_secondary": {
-                    "type": "integer"
-                },
-                "years_primary": {
-                    "type": "integer"
-                },
-                "years_upper_secondary": {
-                    "type": "integer"
                 }
             }
         },
         "service.EducationSystemSubjectResponse": {
             "type": "object",
             "properties": {
+                "code": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -737,28 +710,8 @@ const docTemplate = `{
                 "level_sort_order": {
                     "type": "integer"
                 },
-                "subject_code": {
+                "name": {
                     "type": "string"
-                },
-                "subject_name": {
-                    "type": "string"
-                }
-            }
-        },
-        "service.EducationSystemTermStructureResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "term_name": {
-                    "type": "string"
-                },
-                "term_sort_order": {
-                    "type": "integer"
                 }
             }
         }

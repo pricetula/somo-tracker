@@ -52,7 +52,3 @@ func (s *Store) ListEducationSystemSubjects(ctx context.Context, educationSystem
 	return s.q.ListEducationSystemSubjects(ctx, educationSystemID)
 }
 
-// ListEducationSystemTermStructures returns all term structures for an education system.
-func (s *Store) ListEducationSystemTermStructures(ctx context.Context, educationSystemID uuid.UUID) ([]storegen.EducationSystemTermStructure, error) {
-	return s.q.ListEducationSystemTermStructures(ctx, educationSystemID)
-}

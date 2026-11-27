@@ -1,20 +1,5 @@
 -- +goose Up
 
--- Streams: a class/stream within a grade year.
-CREATE TABLE streams (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-    grade_year_id UUID NOT NULL REFERENCES school_grade_years(id) ON DELETE CASCADE,
-    stream_name TEXT NOT NULL,
-    academic_year_id UUID NOT NULL REFERENCES school_academic_years(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (school_id, grade_year_id, stream_name, academic_year_id)
-);
-
-CREATE INDEX idx_streams_school ON streams (school_id);
-CREATE INDEX idx_streams_grade_year ON streams (grade_year_id);
-CREATE INDEX idx_streams_academic_year ON streams (academic_year_id);
-
 -- Teachers: school staff members.
 CREATE TABLE teachers (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -37,66 +22,88 @@ CREATE TABLE students (
     date_of_birth DATE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (school_id, admission_number)
+    UNIQUE (school_id, admission_number),
+    UNIQUE (id, school_id)
 );
 
 CREATE INDEX idx_students_school ON students (school_id);
 
--- Enrollments: links a student to a stream for an academic year.
+-- Enrollments: links a student to a class for an academic year.
 CREATE TABLE enrollments (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
+    school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    stream_id UUID NOT NULL REFERENCES streams(id) ON DELETE CASCADE,
-    academic_year_id UUID NOT NULL REFERENCES school_academic_years(id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'active',
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'withdrawn', 'transferred', 'completed')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (student_id, academic_year_id),
+    FOREIGN KEY (class_id, school_id)
+        REFERENCES classes(id, school_id),
+    FOREIGN KEY (student_id, school_id)
+        REFERENCES students(id, school_id)
 );
 
 CREATE INDEX idx_enrollments_student ON enrollments (student_id);
-CREATE INDEX idx_enrollments_stream ON enrollments (stream_id);
+CREATE INDEX idx_enrollments_class ON enrollments (class_id);
 CREATE INDEX idx_enrollments_academic_year ON enrollments (academic_year_id);
+CREATE INDEX idx_enrollments_school ON enrollments (school_id);
 
 -- Assessment types: categories of assessments (Quiz, Term Exam, etc.).
 CREATE TABLE assessment_types (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     name TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Assessments: teacher-created assessments for a stream, subject, term.
+-- Assessments: teacher-created assessments for a class, subject, term.
 CREATE TABLE assessments (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    stream_id UUID NOT NULL REFERENCES streams(id) ON DELETE CASCADE,
+    school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     subject_id UUID NOT NULL REFERENCES school_subjects(id) ON DELETE CASCADE,
     assessment_type_id UUID NOT NULL REFERENCES assessment_types(id) ON DELETE CASCADE,
-    academic_term_id UUID NOT NULL REFERENCES school_academic_terms(id) ON DELETE CASCADE,
+    academic_term_id UUID NOT NULL REFERENCES academic_terms(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
-    max_score DECIMAL NOT NULL,
+    max_score DECIMAL NOT NULL CHECK (max_score > 0),
     date_assessed DATE NOT NULL,
     created_by_teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (id, school_id),
+    FOREIGN KEY (class_id, school_id)
+        REFERENCES classes(id, school_id)
 );
 
-CREATE INDEX idx_assessments_stream ON assessments (stream_id);
+CREATE INDEX idx_assessments_class ON assessments (class_id);
 CREATE INDEX idx_assessments_subject ON assessments (subject_id);
 CREATE INDEX idx_assessments_term ON assessments (academic_term_id);
 CREATE INDEX idx_assessments_created_by ON assessments (created_by_teacher_id);
+CREATE INDEX idx_assessments_school ON assessments (school_id);
 
 -- Assessment results: teacher-entered scores for each student.
 CREATE TABLE assessment_results (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
+    school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    score DECIMAL NOT NULL,
+    score DECIMAL NOT NULL CHECK (score >= 0),
     grade TEXT,
     entered_by_teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
     entered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (assessment_id, student_id)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (assessment_id, student_id),
+    FOREIGN KEY (assessment_id, school_id)
+        REFERENCES assessments(id, school_id),
+    FOREIGN KEY (student_id, school_id)
+        REFERENCES students(id, school_id)
 );
 
 CREATE INDEX idx_assessment_results_assessment ON assessment_results (assessment_id);
 CREATE INDEX idx_assessment_results_student ON assessment_results (student_id);
+CREATE INDEX idx_assessment_results_school ON assessment_results (school_id);
 
 -- Guardians: parents or legal caregivers linked to students (ADR-0013).
 -- Guardians are contacts, not system users (no login in MVP).
@@ -122,6 +129,7 @@ CREATE TABLE student_guardians (
     guardian_id UUID NOT NULL REFERENCES guardians(id) ON DELETE CASCADE,
     is_primary BOOL NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (student_id, guardian_id)
 );
 
@@ -131,32 +139,41 @@ CREATE INDEX idx_student_guardians_guardian ON student_guardians (guardian_id);
 -- Attendance records: one row per student per school day (ADR-0012).
 CREATE TABLE attendance_records (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
+    school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    stream_id UUID NOT NULL REFERENCES streams(id) ON DELETE CASCADE,
-    academic_year_id UUID NOT NULL REFERENCES school_academic_years(id) ON DELETE CASCADE,
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
     attendance_date DATE NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('present', 'absent', 'late', 'excused')),
     recorded_by_teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (student_id, attendance_date)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (student_id, attendance_date),
+    FOREIGN KEY (class_id, school_id)
+        REFERENCES classes(id, school_id),
+    FOREIGN KEY (student_id, school_id)
+        REFERENCES students(id, school_id)
 );
 
 CREATE INDEX idx_attendance_records_student ON attendance_records (student_id);
-CREATE INDEX idx_attendance_records_stream ON attendance_records (stream_id);
+CREATE INDEX idx_attendance_records_class ON attendance_records (class_id);
 CREATE INDEX idx_attendance_records_date ON attendance_records (attendance_date);
+CREATE INDEX idx_attendance_records_school ON attendance_records (school_id);
 
 -- Teacher qualifications: records a teacher's qualification to teach a subject at a level (ADR-0014).
 CREATE TABLE teacher_qualifications (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
-    subject_code TEXT NOT NULL,
+    subject_id UUID NOT NULL REFERENCES school_subjects(id) ON DELETE CASCADE,
     education_level_id UUID NOT NULL REFERENCES education_levels(id) ON DELETE CASCADE,
     qualification TEXT NOT NULL,
     registration_number TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_teacher_qualifications_teacher ON teacher_qualifications (teacher_id);
+CREATE INDEX idx_teacher_qualifications_subject ON teacher_qualifications (subject_id);
 
 -- Consent records: guardian consent for processing student personal data (ADR-0017).
 CREATE TABLE consent_records (
@@ -167,7 +184,8 @@ CREATE TABLE consent_records (
     granted BOOL NOT NULL,
     granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     withdrawn_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_consent_records_student ON consent_records (student_id);
@@ -196,5 +214,3 @@ DROP TABLE IF EXISTS enrollments;
 DROP TABLE IF EXISTS students;
 
 DROP TABLE IF EXISTS teachers;
-
-DROP TABLE IF EXISTS streams;

@@ -30,7 +30,8 @@ CREATE TABLE education_levels (
     sort_order INT NOT NULL,
     year_count INT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (education_system_id, name)
+    UNIQUE (education_system_id, name),
+    UNIQUE (id, education_system_id)
 );
 
 -- Add foreign key constraints from schools to countries and education_systems.

@@ -32,6 +32,7 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
     enableRowSelection = false,
     enableVirtualization = false,
     onDelete,
+    renderRowActions,
   } = props;
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -233,13 +234,13 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
   );
 
   const selectionColumnWidth = "48px";
-  const allColumnWidths = useMemo(
-    () =>
-      enableRowSelection
-        ? [selectionColumnWidth, ...columnWidths]
-        : columnWidths,
-    [enableRowSelection, columnWidths, selectionColumnWidth],
-  );
+  const actionsColumnWidth = "56px";
+  const allColumnWidths = useMemo(() => {
+    let widths = [...columnWidths];
+    if (enableRowSelection) widths.unshift(selectionColumnWidth);
+    if (renderRowActions) widths.push(actionsColumnWidth);
+    return widths;
+  }, [enableRowSelection, columnWidths, renderRowActions, selectionColumnWidth, actionsColumnWidth]);
 
   return {
     // Query / data
@@ -280,5 +281,6 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
     // Layout
     allColumnWidths,
     selectionColumnWidth,
+    actionsColumnWidth,
   };
 }

@@ -18,6 +18,8 @@ interface DataTableHeaderProps<T> {
   onToggleSelectAll: (checked: boolean) => void;
   columnWidths: string[];
   selectionColumnWidth: string;
+  actionsColumnWidth: string;
+  renderRowActions?: boolean;
 }
 
 export function DataTableHeader<T>({
@@ -30,6 +32,8 @@ export function DataTableHeader<T>({
   onToggleSelectAll,
   columnWidths,
   selectionColumnWidth,
+  actionsColumnWidth,
+  renderRowActions,
 }: DataTableHeaderProps<T>) {
   const sortedId = sorting[0]?.id;
   const sortedDesc = sorting[0]?.desc;
@@ -87,6 +91,15 @@ export function DataTableHeader<T>({
           </div>
         );
       })}
+      {renderRowActions && (
+        <div
+          role="columnheader"
+          className="px-3 py-3 flex items-center justify-end"
+          style={{ width: actionsColumnWidth }}
+        >
+          <span className="sr-only">Actions</span>
+        </div>
+      )}
     </div>
   );
 }

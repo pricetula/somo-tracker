@@ -59,6 +59,7 @@ export function DataTable<T extends RowData>({
     refresh,
     allColumnWidths,
     selectionColumnWidth,
+    actionsColumnWidth,
   } = useDataTable<T>({
     queryKey,
     columns,
@@ -200,6 +201,8 @@ export function DataTable<T extends RowData>({
           onToggleSelectAll={handleToggleSelectAll}
           columnWidths={allColumnWidths}
           selectionColumnWidth={selectionColumnWidth}
+          actionsColumnWidth={actionsColumnWidth}
+          renderRowActions={!!renderRowActions}
         />
         <DataTableBody
           columns={columns as any}

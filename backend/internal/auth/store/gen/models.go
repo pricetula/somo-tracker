@@ -252,18 +252,10 @@ type EducationSystemSubject struct {
 	ID                  uuid.UUID
 	EducationSystemID   uuid.UUID
 	EducationLevelID    uuid.UUID
-	SubjectCode         string
-	SubjectName         string
+	Code                string
+	Name                string
 	IsCompulsoryDefault bool
 	CreatedAt           time.Time
-}
-
-type EducationSystemTermStructure struct {
-	ID                uuid.UUID
-	EducationSystemID uuid.UUID
-	TermName          string
-	TermSortOrder     int32
-	CreatedAt         time.Time
 }
 
 type EmailOutbox struct {

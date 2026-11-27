@@ -11,28 +11,27 @@ CREATE TABLE countries (
 
 CREATE INDEX idx_countries_code ON countries (code);
 
--- Education levels: canonical levels shared across all systems.
-CREATE TABLE education_levels (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    name TEXT NOT NULL UNIQUE,
-    sort_order INT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 -- Education systems: one row per country representing its current system.
 CREATE TABLE education_systems (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     country_id UUID NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    years_primary INT NOT NULL,
-    years_lower_secondary INT NOT NULL,
-    years_upper_secondary INT NOT NULL,
-    default_language TEXT NOT NULL DEFAULT 'English',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_education_systems_country ON education_systems (country_id);
+
+-- Education levels: levels scoped to a specific education system.
+CREATE TABLE education_levels (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    education_system_id UUID NOT NULL REFERENCES education_systems(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    sort_order INT NOT NULL,
+    year_count INT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (education_system_id, name)
+);
 
 -- Add foreign key constraints from schools to countries and education_systems.
 ALTER TABLE schools

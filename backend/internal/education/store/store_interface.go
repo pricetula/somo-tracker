@@ -17,5 +17,4 @@ type StoreInterface interface {
 	ListEducationSystemLevels(ctx context.Context, educationSystemID uuid.UUID) ([]storegen.ListEducationSystemLevelsRow, error)
 	ListEducationSystemGradingBands(ctx context.Context, educationSystemID uuid.UUID) ([]storegen.ListEducationSystemGradingBandsRow, error)
 	ListEducationSystemSubjects(ctx context.Context, educationSystemID uuid.UUID) ([]storegen.ListEducationSystemSubjectsRow, error)
-	ListEducationSystemTermStructures(ctx context.Context, educationSystemID uuid.UUID) ([]storegen.EducationSystemTermStructure, error)
 }

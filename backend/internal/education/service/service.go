@@ -63,39 +63,26 @@ type EducationSystemGradingBandResponse struct {
 // EducationSystemSubjectResponse represents a subject within an education system.
 type EducationSystemSubjectResponse struct {
 	ID                  string    `json:"id"`
-	SubjectCode         string    `json:"subject_code"`
-	SubjectName         string    `json:"subject_name"`
+	Code                string    `json:"code"`
+	Name                string    `json:"name"`
 	IsCompulsoryDefault bool      `json:"is_compulsory_default"`
 	LevelName           string    `json:"level_name"`
 	LevelSortOrder      int32     `json:"level_sort_order"`
 	CreatedAt           time.Time `json:"created_at"`
 }
 
-// EducationSystemTermStructureResponse represents a term structure.
-type EducationSystemTermStructureResponse struct {
-	ID           string    `json:"id"`
-	TermName     string    `json:"term_name"`
-	TermSortOrder int32     `json:"term_sort_order"`
-	CreatedAt    time.Time `json:"created_at"`
-}
-
 // EducationSystemResponse represents an education system with all its details.
 type EducationSystemResponse struct {
-	ID                  string                                 `json:"id"`
-	CountryID           string                                 `json:"country_id"`
-	CountryName         string                                 `json:"country_name"`
-	CountryCode         string                                 `json:"country_code"`
-	Name                string                                 `json:"name"`
-	YearsPrimary        int32                                  `json:"years_primary"`
-	YearsLowerSecondary int32                                  `json:"years_lower_secondary"`
-	YearsUpperSecondary int32                                  `json:"years_upper_secondary"`
-	DefaultLanguage     string                                 `json:"default_language"`
-	Levels              []EducationSystemLevelResponse         `json:"levels"`
-	GradingBands        []EducationSystemGradingBandResponse   `json:"grading_bands"`
-	Subjects            []EducationSystemSubjectResponse       `json:"subjects"`
-	TermStructures      []EducationSystemTermStructureResponse `json:"term_structures"`
-	CreatedAt           time.Time                              `json:"created_at"`
-	UpdatedAt           time.Time                              `json:"updated_at"`
+	ID          string                                  `json:"id"`
+	CountryID   string                                  `json:"country_id"`
+	CountryName string                                  `json:"country_name"`
+	CountryCode string                                  `json:"country_code"`
+	Name        string                                  `json:"name"`
+	Levels      []EducationSystemLevelResponse          `json:"levels"`
+	GradingBands []EducationSystemGradingBandResponse   `json:"grading_bands"`
+	Subjects    []EducationSystemSubjectResponse        `json:"subjects"`
+	CreatedAt   time.Time                               `json:"created_at"`
+	UpdatedAt   time.Time                               `json:"updated_at"`
 }
 
 // EducationSystemListResponse is the response for listing education systems.
@@ -105,17 +92,13 @@ type EducationSystemListResponse struct {
 
 // EducationSystemListItemResponse is a list item for education systems.
 type EducationSystemListItemResponse struct {
-	ID                  string    `json:"id"`
-	CountryID           string    `json:"country_id"`
-	CountryName         string    `json:"country_name"`
-	CountryCode         string    `json:"country_code"`
-	Name                string    `json:"name"`
-	YearsPrimary        int32     `json:"years_primary"`
-	YearsLowerSecondary int32     `json:"years_lower_secondary"`
-	YearsUpperSecondary int32     `json:"years_upper_secondary"`
-	DefaultLanguage     string    `json:"default_language"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	ID          string    `json:"id"`
+	CountryID   string    `json:"country_id"`
+	CountryName string    `json:"country_name"`
+	CountryCode string    `json:"country_code"`
+	Name        string    `json:"name"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // ListCountries returns all countries.
@@ -172,26 +155,15 @@ func (s *Service) GetEducationSystem(ctx context.Context, id string) (EducationS
 		return EducationSystemResponse{}, apperr.New(apperr.INTERNAL_ERROR, "list subjects failed")
 	}
 
-	terms, err := s.store.ListEducationSystemTermStructures(ctx, systemID)
-	if err != nil {
-		s.log.Error(ctx, err, "list term structures failed", "id", id)
-		return EducationSystemResponse{}, apperr.New(apperr.INTERNAL_ERROR, "list term structures failed")
-	}
-
 	resp := EducationSystemResponse{
-		ID:                  system.ID.String(),
-		CountryID:           system.CountryID.String(),
-		CountryName:         system.CountryName,
-		CountryCode:         system.CountryCode,
-		Name:                system.Name,
-		YearsPrimary:        system.YearsPrimary,
-		YearsLowerSecondary: system.YearsLowerSecondary,
-		YearsUpperSecondary: system.YearsUpperSecondary,
-		DefaultLanguage:     system.DefaultLanguage,
-		Levels:              make([]EducationSystemLevelResponse, len(levels)),
+		ID:          system.ID.String(),
+		CountryID:   system.CountryID.String(),
+		CountryName: system.CountryName,
+		CountryCode: system.CountryCode,
+		Name:        system.Name,
+		Levels:      make([]EducationSystemLevelResponse, len(levels)),
 		GradingBands:        make([]EducationSystemGradingBandResponse, len(bands)),
 		Subjects:            make([]EducationSystemSubjectResponse, len(subjects)),
-		TermStructures:      make([]EducationSystemTermStructureResponse, len(terms)),
 		CreatedAt:           system.CreatedAt,
 		UpdatedAt:           system.UpdatedAt,
 	}
@@ -229,21 +201,12 @@ func (s *Service) GetEducationSystem(ctx context.Context, id string) (EducationS
 	for i, subj := range subjects {
 		resp.Subjects[i] = EducationSystemSubjectResponse{
 			ID:                 subj.ID.String(),
-			SubjectCode:        subj.SubjectCode,
-			SubjectName:        subj.SubjectName,
+			Code:               subj.Code,
+			Name:               subj.Name,
 			IsCompulsoryDefault: subj.IsCompulsoryDefault,
 			LevelName:          subj.LevelName,
 			LevelSortOrder:     subj.SortOrder,
 			CreatedAt:          subj.CreatedAt,
-		}
-	}
-
-	for i, t := range terms {
-		resp.TermStructures[i] = EducationSystemTermStructureResponse{
-			ID:           t.ID.String(),
-			TermName:     t.TermName,
-			TermSortOrder: t.TermSortOrder,
-			CreatedAt:    t.CreatedAt,
 		}
 	}
 
@@ -263,17 +226,13 @@ func (s *Service) ListEducationSystems(ctx context.Context) (EducationSystemList
 	}
 	for i, sys := range systems {
 		resp.Systems[i] = EducationSystemListItemResponse{
-			ID:                  sys.ID.String(),
-			CountryID:           sys.CountryID.String(),
-			CountryName:         sys.CountryName,
-			CountryCode:         sys.CountryCode,
-			Name:                sys.Name,
-			YearsPrimary:        sys.YearsPrimary,
-			YearsLowerSecondary: sys.YearsLowerSecondary,
-			YearsUpperSecondary: sys.YearsUpperSecondary,
-			DefaultLanguage:     sys.DefaultLanguage,
-			CreatedAt:           sys.CreatedAt,
-			UpdatedAt:           sys.UpdatedAt,
+			ID:          sys.ID.String(),
+			CountryID:   sys.CountryID.String(),
+			CountryName: sys.CountryName,
+			CountryCode: sys.CountryCode,
+			Name:        sys.Name,
+			CreatedAt:   sys.CreatedAt,
+			UpdatedAt:   sys.UpdatedAt,
 		}
 	}
 	return resp, nil

@@ -199,6 +199,7 @@ export function DataTable<T extends RowData>({
           allRowsSelected={allRowsSelected}
           onToggleSelectAll={handleToggleSelectAll}
           columnWidths={allColumnWidths}
+          selectionColumnWidth={selectionColumnWidth}
         />
         <DataTableBody
           columns={columns as any}

@@ -17,6 +17,7 @@ interface DataTableHeaderProps<T> {
   allRowsSelected: boolean;
   onToggleSelectAll: (checked: boolean) => void;
   columnWidths: string[];
+  selectionColumnWidth: string;
 }
 
 export function DataTableHeader<T>({
@@ -28,6 +29,7 @@ export function DataTableHeader<T>({
   allRowsSelected,
   onToggleSelectAll,
   columnWidths,
+  selectionColumnWidth,
 }: DataTableHeaderProps<T>) {
   const sortedId = sorting[0]?.id;
   const sortedDesc = sorting[0]?.desc;
@@ -42,16 +44,23 @@ export function DataTableHeader<T>({
     setSorting(next);
   };
 
+  const totalWidths = (() => {
+    if (enableRowSelection) {
+      return [selectionColumnWidth, ...columnWidths].join(" ");
+    }
+    return columnWidths.join(" ");
+  })();
+
   return (
     <div
       role="row"
       className="grid border-b border-background bg-muted/50 text-xs text-muted-foreground"
-      style={{ gridTemplateColumns: columnWidths.join(" ") }}
+      style={{ gridTemplateColumns: totalWidths }}
     >
       {enableRowSelection && (
         <div
           role="columnheader"
-          className="px-4 py-3 flex items-center gap-2"
+          className={`px-4 py-3 flex items-center gap-2 w-[${selectionColumnWidth}]`}
         >
           <Checkbox
             checked={allRowsSelected}

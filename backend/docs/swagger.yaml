@@ -176,20 +176,12 @@ definitions:
         type: string
       created_at:
         type: string
-      default_language:
-        type: string
       id:
         type: string
       name:
         type: string
       updated_at:
         type: string
-      years_lower_secondary:
-        type: integer
-      years_primary:
-        type: integer
-      years_upper_secondary:
-        type: integer
     type: object
   service.EducationSystemListResponse:
     properties:
@@ -208,8 +200,6 @@ definitions:
         type: string
       created_at:
         type: string
-      default_language:
-        type: string
       grading_bands:
         items:
           $ref: '#/definitions/service.EducationSystemGradingBandResponse'
@@ -226,21 +216,13 @@ definitions:
         items:
           $ref: '#/definitions/service.EducationSystemSubjectResponse'
         type: array
-      term_structures:
-        items:
-          $ref: '#/definitions/service.EducationSystemTermStructureResponse'
-        type: array
       updated_at:
         type: string
-      years_lower_secondary:
-        type: integer
-      years_primary:
-        type: integer
-      years_upper_secondary:
-        type: integer
     type: object
   service.EducationSystemSubjectResponse:
     properties:
+      code:
+        type: string
       created_at:
         type: string
       id:
@@ -251,21 +233,8 @@ definitions:
         type: string
       level_sort_order:
         type: integer
-      subject_code:
+      name:
         type: string
-      subject_name:
-        type: string
-    type: object
-  service.EducationSystemTermStructureResponse:
-    properties:
-      created_at:
-        type: string
-      id:
-        type: string
-      term_name:
-        type: string
-      term_sort_order:
-        type: integer
     type: object
 info:
   contact: {}

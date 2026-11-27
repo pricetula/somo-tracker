@@ -187,7 +187,7 @@ func (s *Service) GetEducationSystem(ctx context.Context, id string) (EducationS
 		resp.GradingBands[i] = EducationSystemGradingBandResponse{
 			ID:         b.ID.String(),
 			Grade:      b.Grade,
-			ScaleType:  b.ScaleType,
+			ScaleType:  string(b.ScaleType),
 			RubricLevel: rubricLevel,
 			MinScore:   b.MinScore,
 			MaxScore:   b.MaxScore,

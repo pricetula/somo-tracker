@@ -41,16 +41,16 @@ WHERE es.id = $1
 `
 
 type GetEducationSystemRow struct {
-	ID           uuid.UUID
-	CountryID    uuid.UUID
-	Name         string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	CountryID1   uuid.UUID
-	CountryName  string
-	CountryCode  string
-	CountryCreatedAt  time.Time
-	CountryUpdatedAt  time.Time
+	ID               uuid.UUID
+	CountryID        uuid.UUID
+	Name             string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	CountryID1       uuid.UUID
+	CountryName      string
+	CountryCode      string
+	CountryCreatedAt time.Time
+	CountryUpdatedAt time.Time
 }
 
 func (q *Queries) GetEducationSystem(ctx context.Context, id uuid.UUID) (GetEducationSystemRow, error) {
@@ -119,7 +119,7 @@ type ListEducationSystemGradingBandsRow struct {
 	ID              uuid.UUID
 	GradingScaleID  uuid.UUID
 	Grade           string
-	ScaleType       string
+	ScaleType       GradingScaleType
 	RubricLevel     sql.NullString
 	MinScore        string
 	MaxScore        string
@@ -284,16 +284,16 @@ ORDER BY c.name, es.name
 `
 
 type ListEducationSystemsRow struct {
-	ID           uuid.UUID
-	CountryID    uuid.UUID
-	Name         string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	CountryID1   uuid.UUID
-	CountryName  string
-	CountryCode  string
-	CountryCreatedAt  time.Time
-	CountryUpdatedAt  time.Time
+	ID               uuid.UUID
+	CountryID        uuid.UUID
+	Name             string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	CountryID1       uuid.UUID
+	CountryName      string
+	CountryCode      string
+	CountryCreatedAt time.Time
+	CountryUpdatedAt time.Time
 }
 
 func (q *Queries) ListEducationSystems(ctx context.Context) ([]ListEducationSystemsRow, error) {

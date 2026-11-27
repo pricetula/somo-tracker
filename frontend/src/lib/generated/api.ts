@@ -616,13 +616,9 @@ export interface components {
             country_id?: string;
             country_name?: string;
             created_at?: string;
-            default_language?: string;
             id?: string;
             name?: string;
             updated_at?: string;
-            years_lower_secondary?: number;
-            years_primary?: number;
-            years_upper_secondary?: number;
         };
         "service.EducationSystemListResponse": {
             systems?: components["schemas"]["service.EducationSystemListItemResponse"][];
@@ -632,32 +628,21 @@ export interface components {
             country_id?: string;
             country_name?: string;
             created_at?: string;
-            default_language?: string;
             grading_bands?: components["schemas"]["service.EducationSystemGradingBandResponse"][];
             id?: string;
             levels?: components["schemas"]["service.EducationSystemLevelResponse"][];
             name?: string;
             subjects?: components["schemas"]["service.EducationSystemSubjectResponse"][];
-            term_structures?: components["schemas"]["service.EducationSystemTermStructureResponse"][];
             updated_at?: string;
-            years_lower_secondary?: number;
-            years_primary?: number;
-            years_upper_secondary?: number;
         };
         "service.EducationSystemSubjectResponse": {
+            code?: string;
             created_at?: string;
             id?: string;
             is_compulsory_default?: boolean;
             level_name?: string;
             level_sort_order?: number;
-            subject_code?: string;
-            subject_name?: string;
-        };
-        "service.EducationSystemTermStructureResponse": {
-            created_at?: string;
-            id?: string;
-            term_name?: string;
-            term_sort_order?: number;
+            name?: string;
         };
     };
     responses: never;

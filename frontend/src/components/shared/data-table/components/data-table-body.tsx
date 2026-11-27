@@ -58,12 +58,8 @@ export function DataTableBody<T>({
   refresh,
 }: DataTableBodyProps<T>) {
   const totalWidths = useCallback(
-    () =>
-      (enableRowSelection
-        ? [selectionColumnWidth, ...columnWidths]
-        : columnWidths
-      ).join(" "),
-    [enableRowSelection, selectionColumnWidth, columnWidths],
+    () => columnWidths.join(" "),
+    [columnWidths],
   );
 
   const renderRow = useCallback(

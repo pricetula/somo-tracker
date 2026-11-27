@@ -90,6 +90,7 @@ CREATE TABLE classes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (grade_year_id, stream_id),
+    UNIQUE (id, school_id),
     FOREIGN KEY (grade_year_id, school_id)
         REFERENCES grade_years(id, school_id),
     FOREIGN KEY (stream_id, school_id)

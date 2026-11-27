@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableBulkActionContext } from "@/components/shared/data-table/types";
@@ -31,16 +26,17 @@ export function StudentsTable() {
     refresh: () => void;
   }) => {
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger>
-          <Button variant="ghost" size="icon-sm" className="size-6" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>View</DropdownMenuItem>
-          <DropdownMenuItem>Edit</DropdownMenuItem>
-          <DropdownMenuItem>Deactivate</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <>
+        <DropdownMenuItem onSelect={() => {}}>
+          View
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => {}}>
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => {}}>
+          Deactivate
+        </DropdownMenuItem>
+      </>
     );
   };
 

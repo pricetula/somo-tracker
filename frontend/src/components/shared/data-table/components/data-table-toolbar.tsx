@@ -110,11 +110,13 @@ export function DataTableToolbar({
                       handleFilterChange(filter.id, next ?? [])
                     }
                   >
-                    <ComboboxInput
-                      id={`filter-${filter.id}`}
-                      placeholder={filter.placeholder ?? "Select…"}
-                      showTrigger
-                    />
+                    <ComboboxTrigger>
+                      <ComboboxInput
+                        id={`filter-${filter.id}`}
+                        placeholder={filter.placeholder ?? "Select…"}
+                        showTrigger
+                      />
+                    </ComboboxTrigger>
                     <ComboboxContent>
                       <ComboboxEmpty>No options</ComboboxEmpty>
                       <ComboboxList>
@@ -137,8 +139,9 @@ export function DataTableToolbar({
                       handleFilterChange(filter.id, next ?? "")
                     }
                   >
-                    <ComboboxValue>{current || filter.placeholder}</ComboboxValue>
-                    <ComboboxTrigger />
+                    <ComboboxTrigger>
+                      <ComboboxValue>{current || filter.placeholder}</ComboboxValue>
+                    </ComboboxTrigger>
                     <ComboboxContent>
                       <ComboboxEmpty>No options</ComboboxEmpty>
                       <ComboboxList>

@@ -188,7 +188,7 @@ export function DataTable<T extends RowData>({
           scrollRef.current = el;
         }}
         className="flex-1 overflow-auto min-h-0"
-        style={{ height: "600px" }}
+        style={{ maxHeight: "calc(100dvh - 16rem)" }}
       >
         <DataTableHeader
           columns={columns as any}

@@ -1,11 +1,7 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  ArrowUp01Icon,
-  ArrowDown01Icon,
-} from "@hugeicons/core-free-icons";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 
 interface DataTableHeaderProps<T> {
@@ -84,12 +80,19 @@ export function DataTableHeader<T>({
           >
             <span className="truncate font-medium">{String(column.header)}</span>
             {isSorted && (
-              <HugeiconsIcon
-                icon={sortedDesc ? ArrowDown01Icon : ArrowUp01Icon}
-                strokeWidth={2}
-                className="size-3.5 ml-auto opacity-60 group-data-[sorted=true]:opacity-100"
-                data-sorted={isSorted}
-              />
+              <>
+                {sortedDesc ? (
+                  <ChevronDown
+                    className="size-3.5 ml-auto opacity-60 group-data-[sorted=true]:opacity-100"
+                    data-sorted={isSorted}
+                  />
+                ) : (
+                  <ChevronUp
+                    className="size-3.5 ml-auto opacity-60 group-data-[sorted=true]:opacity-100"
+                    data-sorted={isSorted}
+                  />
+                )}
+              </>
             )}
           </div>
         );

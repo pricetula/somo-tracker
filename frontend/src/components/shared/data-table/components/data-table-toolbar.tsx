@@ -14,8 +14,7 @@ import {
   ComboboxValue,
   ComboboxEmpty,
 } from "@/components/ui/combobox";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { AiSearch01Icon } from "@hugeicons/core-free-icons";
+import { Search } from "lucide-react";
 import type { DataTableFilter } from "../types";
 
 interface DataTableToolbarProps {
@@ -72,7 +71,7 @@ export function DataTableToolbar({
     <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-3 border-b border-background px-4 pb-2">
       <div className="flex w-full flex-col sm:flex-row sm:gap-4 gap-2 items-end">
         <div className="flex w-full items-center gap-2 rounded-md border border-input bg-input/20 px-3 py-2 focus-within:ring-2 focus-within:ring-ring/30">
-          <HugeiconsIcon icon={AiSearch01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
+          <Search className="size-4 text-muted-foreground" />
           <Input
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}

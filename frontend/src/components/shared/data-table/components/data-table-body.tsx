@@ -8,8 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { More01Icon } from "@hugeicons/core-free-icons";
+import { MoreHorizontal } from "lucide-react";
 import type { ColumnDef, RowData } from "@tanstack/react-table";
 
 interface DataTableBodyProps<T extends RowData> {
@@ -135,7 +134,7 @@ export function DataTableBody<T extends RowData>({
             >
               <DropdownMenu>
                 <DropdownMenuTrigger>
-                  <HugeiconsIcon icon={More01Icon} strokeWidth={2} />
+                  <MoreHorizontal />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {renderRowActions({

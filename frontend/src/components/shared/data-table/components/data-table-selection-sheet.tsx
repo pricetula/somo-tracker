@@ -32,11 +32,11 @@ export function DataTableSelectionSheet({
 
   return (
     <div
-      className="absolute bottom-0 left-0 right-0 z-50 p-3 flex"
+      className="absolute bottom-0 left-0 right-0 z-50 p-3 flex justify-center"
       style={{ pointerEvents: "none" }}
     >
       <div
-        className="flex items-center justify-between gap-2 rounded-xl border border-background bg-popover p-3 shadow-lg ring-1 ring-foreground/10 w-full max-w-md mx-auto"
+        className="flex items-center justify-between gap-2 rounded-xl border border-background bg-popover p-3 shadow-lg ring-1 ring-foreground/10"
         style={{ pointerEvents: "auto" }}
       >
         {onDelete && (

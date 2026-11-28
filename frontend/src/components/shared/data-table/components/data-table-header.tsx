@@ -62,6 +62,7 @@ export function DataTableHeader<T>({
             checked={allRowsSelected}
             indeterminate={someRowsSelected && !allRowsSelected}
             onClick={() => onToggleSelectAll(!allRowsSelected)}
+            onCheckedChange={(checked) => onToggleSelectAll(checked)}
             aria-label={allRowsSelected ? "Select none" : "Select all"}
           />
         </div>

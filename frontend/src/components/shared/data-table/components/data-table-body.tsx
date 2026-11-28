@@ -101,7 +101,13 @@ export function DataTableBody<T extends RowData>({
             >
               <Checkbox
                 checked={checked}
-                onClick={() => onToggleRowSelection(rowId, !checked)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleRowSelection(rowId, !checked);
+                }}
+                onCheckedChange={(checked) =>
+                  onToggleRowSelection(rowId, checked)
+                }
                 aria-label={`Select row ${rowId}`}
               />
             </div>

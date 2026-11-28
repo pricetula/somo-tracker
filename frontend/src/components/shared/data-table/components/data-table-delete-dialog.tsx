@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 interface DataTableDeleteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedCount: number;
   ids: string[];
   onConfirm: (ids: string[]) => void;
   deleting: boolean;
@@ -22,7 +21,6 @@ interface DataTableDeleteDialogProps {
 export function DataTableDeleteDialog({
   open,
   onOpenChange,
-  selectedCount,
   ids,
   onConfirm,
   deleting,
@@ -31,7 +29,7 @@ export function DataTableDeleteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete {selectedCount} record(s)?</DialogTitle>
+          <DialogTitle>Delete selected records?</DialogTitle>
           <DialogDescription>
             This action cannot be undone. Deletion is performed by the backend
             and any records that cannot be deleted will remain selected.

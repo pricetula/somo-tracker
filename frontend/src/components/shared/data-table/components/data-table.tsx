@@ -264,14 +264,13 @@ export function DataTable<T extends RowData>({
           open={true}
           onDelete={handleDelete}
           onClearSelection={() => toggleSelectAll(false)}
-          onClose={() => {}}
+          onClose={() => toggleSelectAll(false)}
         />
       )}
 
       <DataTableDeleteDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        selectedCount={deleteIds.length}
         ids={deleteIds}
         onConfirm={handleConfirmDelete}
         deleting={isDeleting}

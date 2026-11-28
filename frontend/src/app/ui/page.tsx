@@ -61,6 +61,23 @@ export default function UIComponentsPage() {
         </p>
 
         <section className="space-y-4">
+          <h2 className="text-xl font-semibold">DataTable (mocked backend)</h2>
+          <p className="text-sm text-muted-foreground">
+            Server-driven, paginated, virtualized table backed by{" "}
+            <code>/api/mock-students</code>.
+          </p>
+          <Suspense
+            fallback={
+              <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                Loading students…
+              </div>
+            }
+          >
+            <StudentsTable />
+          </Suspense>
+        </section>
+
+        <section className="space-y-4">
           <h2 className="text-xl font-semibold">Buttons</h2>
           <div className="flex flex-wrap gap-2">
             <Button>Default</Button>
@@ -187,17 +204,6 @@ export default function UIComponentsPage() {
             <TooltipTrigger>Hover me</TooltipTrigger>
             <TooltipContent>This is a tooltip</TooltipContent>
           </Tooltip>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">DataTable (mocked backend)</h2>
-          <p className="text-sm text-muted-foreground">
-            Server-driven, paginated, virtualized table backed by{" "}
-            <code>/api/mock-students</code>.
-          </p>
-          <Suspense fallback={<div className="h-[400px] flex items-center justify-center text-muted-foreground">Loading students…</div>}>
-            <StudentsTable />
-          </Suspense>
         </section>
       </div>
     </div>

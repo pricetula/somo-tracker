@@ -170,6 +170,50 @@ export function DataTableBody<T extends RowData>({
     ],
   );
 
+  const renderRowsLoading = useCallback(() => {
+    return Array.from({ length: 5 }, (_, i) => i + 1).map((index) => (
+      <div
+        key={index}
+        role="row"
+        className="grid border-b border-border hover:bg-accent data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground transition-colors"
+        style={{
+          gridTemplateColumns: totalWidths(),
+          width: "100%",
+          minWidth: "max-content",
+        }}
+      >
+        {enableRowSelection && (
+          <div
+            role="cell"
+            className="px-4 py-3 flex items-center sticky left-0 z-20 bg-background border-r border-border"
+          >
+              <Skeleton className="w-4 h-4" />
+          </div>
+        )}
+        {columns.map((column) => {
+          const id = column.id as string;
+          return (
+            <div
+              key={id}
+              role="cell"
+              className="px-4 py-3 flex items-center truncate border-r border-border"
+            >
+              <Skeleton className="h-4 w-full" />
+            </div>
+          );
+        })}
+        {renderRowActions && (
+          <div
+            role="cell"
+            className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-background border-l border-border"
+          >
+            <Skeleton className="w-6 h-6 rounded-full" />
+          </div>
+        )}
+      </div>
+    ));
+  }, [columns, enableRowSelection, renderRowActions, totalWidths]);
+
   if (virtualized) {
     const lastVirtual = virtualRows[virtualRows.length - 1];
     const totalHeight = lastVirtual ? lastVirtual.start + lastVirtual.size : 0;
@@ -182,7 +226,6 @@ export function DataTableBody<T extends RowData>({
           minWidth: "max-content",
         }}
       >
-        bbbbbb
         {virtualRows.map((virtualRow) =>
           renderRow(allRows[virtualRow.index], virtualRow.index, {
             position: "absolute",
@@ -192,6 +235,7 @@ export function DataTableBody<T extends RowData>({
             height: virtualRow.size,
           }),
         )}
+        {isLoadingMore && renderRowsLoading()}
       </div>
     );
   }
@@ -205,8 +249,8 @@ export function DataTableBody<T extends RowData>({
         minWidth: "max-content",
       }}
     >
-      aaaaaa
       {allRows.map((row, index) => renderRow(row, index))}
+      {isLoadingMore && renderRowsLoading()}
     </div>
   );
 }

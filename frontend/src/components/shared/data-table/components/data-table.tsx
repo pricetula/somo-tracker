@@ -203,31 +203,43 @@ export function DataTable<T extends RowData>({
           actionsColumnWidth={actionsColumnWidth}
           renderRowActions={!!renderRowActions}
         />
-        <DataTableBody
-          columns={columns as any}
-          virtualRows={virtualRows}
-          allRows={allRows}
-          getRowId={getRowId}
-          enableRowSelection={enableRowSelection}
-          virtualized={enableVirtualization}
-          selectedIds={selectedIds}
-          onToggleRowSelection={toggleRowSelection}
-          renderRowActions={renderRowActions}
-          columnWidths={allColumnWidths}
-          selectionColumnWidth={selectionColumnWidth}
-          actionsColumnWidth={actionsColumnWidth}
-          refresh={refresh}
-          onRowClick={onRowClick}
-          isLoadingMore={isInitialLoading || isLoadingMore}
-        />
+        {isInitialLoading || isLoadingMore || allRows.length > 0 ? (
+          <DataTableBody
+            columns={columns as any}
+            virtualRows={virtualRows}
+            allRows={allRows}
+            getRowId={getRowId}
+            enableRowSelection={enableRowSelection}
+            virtualized={enableVirtualization}
+            selectedIds={selectedIds}
+            onToggleRowSelection={toggleRowSelection}
+            renderRowActions={renderRowActions}
+            columnWidths={allColumnWidths}
+            selectionColumnWidth={selectionColumnWidth}
+            actionsColumnWidth={actionsColumnWidth}
+            refresh={refresh}
+            onRowClick={onRowClick}
+            isLoadingMore={isInitialLoading || isLoadingMore}
+          />
+        ) : (
+          <DataTableEmpty />
+        )}
         {hasMorePages && (
-          <button
-            onClick={loadMore}
-            disabled={isLoadingMore}
-            className="inline-flex items-center gap-2 border border-input rounded-md bg-background px-4 py-2 font-medium hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Load more
-          </button>
+          <div className="py-4 text-center border-t border-background/50">
+            {isLoadingMore ? (
+              <div className="inline-flex items-center gap-2 text-muted-foreground animate-pulse">
+                Loading more…
+              </div>
+            ) : (
+              <button
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-2 border border-input rounded-md bg-background px-4 py-2 font-medium hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Load more
+              </button>
+            )}
+          </div>
         )}
       </div>
 

@@ -22,8 +22,9 @@ export default function RootLayout({
     <html lang="en" className={cn("font-sans", inter.variable)}>
       <body className={inter.className}>
         <TooltipProvider>
-          <Providers>{children}</Providers>
-          <Toaster />
+          <Toaster>
+            <Providers>{children}</Providers>
+          </Toaster>
         </TooltipProvider>
       </body>
     </html>

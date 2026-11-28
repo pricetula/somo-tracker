@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { SortingState } from "@tanstack/react-table";
 
@@ -47,7 +47,6 @@ export function useDataTableUrlState(
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const methodRef = useRef<"push" | "replace">("push");
 
   // State is derived from the URL on every render, so browser back/forward
   // navigation restores table state without any effect-driven setState.
@@ -57,7 +56,7 @@ export function useDataTableUrlState(
   );
 
   const commit = useCallback(
-    (next: UrlState) => {
+    (next: UrlState, method: "push" | "replace" = "push") => {
       const params = new URLSearchParams();
       if (next.search) {
         params.set("search", next.search);
@@ -82,12 +81,11 @@ export function useDataTableUrlState(
         ? `${pathname}?${params.toString()}`
         : pathname;
       const options = { scroll: false };
-      if (methodRef.current === "replace") {
+      if (method === "replace") {
         router.replace(url, options);
       } else {
         router.push(url, options);
       }
-      methodRef.current = "push";
     },
     [pathname, router],
   );
@@ -95,8 +93,7 @@ export function useDataTableUrlState(
   const setSearch = useCallback(
     (value: string) => {
       // Transient search updates replace history to avoid excessive entries.
-      methodRef.current = "replace";
-      commit({ ...state, search: value });
+      commit({ ...state, search: value }, "replace");
     },
     [state, commit],
   );

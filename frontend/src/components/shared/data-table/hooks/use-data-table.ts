@@ -2,15 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  useTable,
-  coreColumnsFeature,
-  coreRowsFeature,
-  coreRowModelsFeature,
-  rowSelectionFeature,
-  type ColumnDef,
-  type RowData,
-} from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useDataTableUrlState } from "./use-data-table-url-state";
@@ -33,6 +25,7 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
     enableVirtualization = false,
     onDelete,
     renderRowActions,
+    onRowClick,
   } = props;
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -95,7 +88,8 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
   const totalRowCount = allRows.length;
   const selectedCount = selectedIds.size;
 
-  // eslint-disable-next-line react-hooks/incompatible-library
+  // Virtualizer only measures the client-loaded rows. When "Load More" appends
+  // new pages we re-measure so the virtual scroll height stays correct.
   const virtualizer = useVirtualizer({
     count: totalRowCount,
     getScrollElement: () => scrollRef.current,
@@ -103,35 +97,13 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
     overscan: 10,
   });
 
-  const virtualRows = enableVirtualization
-    ? virtualizer.getVirtualItems()
-    : [];
+  useEffect(() => {
+    if (enableVirtualization) {
+      virtualizer.measure();
+    }
+  }, [allRows.length, enableVirtualization, virtualizer]);
 
-  // TanStack Table v9 instance for row selection state. Sorting, filtering and
-  // pagination are server-driven and managed externally via the URL state hook.
-  const table = useTable(
-    {
-      features: {
-        coreColumnsFeature,
-        coreRowsFeature,
-        coreRowModelsFeature,
-        rowSelectionFeature,
-      },
-      columns: columns as ColumnDef<any, T, unknown>[],
-      data: allRows as T[],
-      getRowId,
-      enableRowSelection,
-    } as unknown as Parameters<typeof useTable>[0],
-    (state: any) => ({
-      rowSelection: state.rowSelection,
-    }),
-  ) as any;
-
-  const isRowSelectedViaTable = useCallback(
-    (rowId: string) =>
-      enableRowSelection ? table.getIsRowSelected(rowId) : false,
-    [enableRowSelection, table],
-  );
+  const virtualRows = enableVirtualization ? virtualizer.getVirtualItems() : [];
 
   // Deletion lifecycle owned by the shared component; the resource supplies the
   // actual deletion call. Partial success is supported.
@@ -173,9 +145,7 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
 
   const toggleRowSelection = useCallback(
     (rowId: string, checked: boolean) => {
-      if (enableRowSelection) {
-        table.toggleRowSelected(rowId, checked);
-      }
+      if (!enableRowSelection) return;
       setSelectedIds((prev) => {
         const next = new Set(prev);
         if (checked) next.add(rowId);
@@ -183,38 +153,37 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
         return next;
       });
     },
-    [table, enableRowSelection],
+    [enableRowSelection],
   );
 
   const toggleSelectAll = useCallback(
     (checked: boolean) => {
-      if (enableRowSelection) {
-        table.toggleSelectAll(checked);
-        const selected = table.getSelectedRowModel().map((row: any) => row.id);
-        setSelectedIds(new Set(selected));
-      } else if (checked) {
+      if (!enableRowSelection) return;
+      if (checked) {
         setSelectedIds(new Set(allRows.map(getRowId)));
       } else {
         setSelectedIds(new Set());
       }
     },
-    [table, enableRowSelection, allRows, getRowId],
+    [enableRowSelection, allRows, getRowId],
   );
 
   const isRowSelected = useCallback(
-    (rowId: string) => selectedIds.has(rowId) || isRowSelectedViaTable(rowId),
-    [selectedIds, isRowSelectedViaTable],
+    (rowId: string) => selectedIds.has(rowId),
+    [selectedIds],
   );
 
+  // `allRowsSelected` reflects whether every *loaded* row is selected. With
+  // server-driven pagination this is the only well-defined interpretation —
+  // we cannot know whether unloaded rows would also be selected.
   const someRowsSelected = selectedCount > 0;
-  const allRowsSelected =
-    totalRowCount > 0 && selectedCount === totalRowCount;
+  const allRowsSelected = totalRowCount > 0 && selectedCount === totalRowCount;
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey });
   }, [queryClient, queryKey]);
 
-  const fetchNextPage = useCallback(() => {
+  const loadMore = useCallback(() => {
     query.fetchNextPage();
   }, [query]);
 
@@ -227,8 +196,12 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
   const columnWidths = useMemo(
     () =>
       columns.map((column) => {
-        const meta = (column as { meta?: { width?: string } }).meta;
-        return meta?.width ?? "1fr";
+        const meta = (column as {
+          meta?: { width?: string; minWidth?: string };
+        }).meta;
+        const minWidth = meta?.minWidth ?? "100px";
+        const width = meta?.width ?? "1fr";
+        return `minmax(${minWidth}, ${width})`;
       }),
     [columns],
   );
@@ -240,7 +213,7 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
     if (enableRowSelection) widths.unshift(selectionColumnWidth);
     if (renderRowActions) widths.push(actionsColumnWidth);
     return widths;
-  }, [enableRowSelection, columnWidths, renderRowActions, selectionColumnWidth, actionsColumnWidth]);
+  }, [enableRowSelection, columnWidths, renderRowActions]);
 
   return {
     // Query / data
@@ -252,7 +225,7 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
     isLoadingMore,
     error,
     hasMorePages,
-    fetchNextPage,
+    loadMore,
     // URL state
     search,
     setSearch,
@@ -282,5 +255,7 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
     allColumnWidths,
     selectionColumnWidth,
     actionsColumnWidth,
+    // Callbacks
+    onRowClick,
   };
 }

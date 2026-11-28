@@ -36,7 +36,7 @@ const defaultTableApi = {
   isLoadingMore: false,
   error: null,
   hasMorePages: false,
-  fetchNextPage: vi.fn(),
+  loadMore: vi.fn(),
   search: '',
   setSearch: vi.fn(),
   sorting: [],
@@ -49,6 +49,7 @@ const defaultTableApi = {
   allRowsSelected: false,
   toggleRowSelection: vi.fn(),
   toggleSelectAll: vi.fn(),
+  isRowSelected: vi.fn(() => false),
   virtualizer: { getTotalSize: () => 0, getVirtualItems: () => [] },
   virtualRows: [
     { index: 0, start: 0, size: 1 },
@@ -62,6 +63,7 @@ const defaultTableApi = {
   allColumnWidths: [],
   selectionColumnWidth: 50,
   query: { isFetching: false, refetch: vi.fn() },
+  onRowClick: undefined,
 }
 
 const renderTable = (overrides: Partial<Parameters<typeof DataTable>[0]> = {}) => {
@@ -160,20 +162,16 @@ describe('DataTable', () => {
   it('calls setSorting when column header is clicked', () => {
     renderTable()
 
-    const nameHeader = screen.getByText('Name').closest('th')
-    const sortButton = nameHeader?.querySelector('button')
-    if (sortButton) {
-      fireEvent.click(sortButton)
-      expect(defaultTableApi.setSorting).toHaveBeenCalled()
-    }
+    const nameHeader = screen.getByText('Name').closest('[role="columnheader"]')
+    expect(nameHeader).toBeInTheDocument()
+    fireEvent.click(nameHeader!)
+    expect(defaultTableApi.setSorting).toHaveBeenCalled()
   })
 
   it('toggles row selection via checkbox input', () => {
     Object.assign(defaultTableApi, { selectedCount: 0 })
     renderTable()
 
-    // Base UI renders checkboxes as <span role="checkbox"> elements.
-    // Index 0 = select-all header checkbox, index 1 = first row checkbox.
     const checkboxes = screen.getAllByRole('checkbox')
     expect(checkboxes.length).toBeGreaterThan(1)
 
@@ -192,10 +190,26 @@ describe('DataTable', () => {
     expect(renderBulkActions).toHaveBeenCalled()
   })
 
-  it('shows sentinel for infinite scroll when more pages exist', () => {
+  it('shows load more button when more pages exist', () => {
     Object.assign(defaultTableApi, { hasMorePages: true, isLoadingMore: false })
     renderTable()
 
-    expect(screen.getByText('Scroll to load more')).toBeInTheDocument()
+    expect(screen.getByText('Load more')).toBeInTheDocument()
+  })
+
+  it('calls loadMore when load more button is clicked', () => {
+    Object.assign(defaultTableApi, { hasMorePages: true, isLoadingMore: false })
+    renderTable()
+
+    const button = screen.getByText('Load more')
+    fireEvent.click(button)
+    expect(defaultTableApi.loadMore).toHaveBeenCalled()
+  })
+
+  it('shows loading state while loading more', () => {
+    Object.assign(defaultTableApi, { hasMorePages: true, isLoadingMore: true })
+    renderTable()
+
+    expect(screen.getByText('Loading more…')).toBeInTheDocument()
   })
 })

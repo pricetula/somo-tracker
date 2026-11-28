@@ -51,13 +51,16 @@ export function DataTableHeader<T>({
   return (
     <div
       role="row"
-      className="grid border-b border-background bg-muted/50 text-xs text-muted-foreground"
-      style={{ gridTemplateColumns: columnWidths.join(" ") }}
+      className="grid border-b border-background bg-muted/50 text-muted-foreground"
+      style={{
+        gridTemplateColumns: columnWidths.join(" "),
+        minWidth: "max-content",
+      }}
     >
       {enableRowSelection && (
         <div
           role="columnheader"
-          className={`px-4 py-3 flex items-center gap-2 w-[${selectionColumnWidth}]`}
+          className={`px-4 py-3 flex items-center gap-2 w-[${selectionColumnWidth}] sticky left-0 z-20 bg-muted/50 border-r border-background`}
         >
           <Checkbox
             checked={allRowsSelected}
@@ -94,7 +97,7 @@ export function DataTableHeader<T>({
       {renderRowActions && (
         <div
           role="columnheader"
-          className="px-3 py-3 flex items-center justify-end"
+          className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-muted/50 border-l border-background"
           style={{ width: actionsColumnWidth }}
         >
           <span className="sr-only">Actions</span>

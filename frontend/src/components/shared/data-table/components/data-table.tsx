@@ -10,6 +10,7 @@ import { DataTableBody } from "./data-table-body";
 import { DataTableLoading } from "./data-table-loading";
 import { DataTableEmpty } from "./data-table-empty";
 import { DataTableError } from "./data-table-error";
+import { DataTableSkeleton } from "./data-table-skeleton";
 import { DataTableSelectionSheet } from "./data-table-selection-sheet";
 import { DataTableDeleteDialog } from "./data-table-delete-dialog";
 import type { DataTableProps } from "../types";
@@ -29,6 +30,7 @@ export function DataTable<T extends RowData>({
   onDelete,
   enableRowSelection = false,
   enableVirtualization = true,
+  onRowClick,
 }: DataTableProps<T>) {
   const {
     query,
@@ -38,7 +40,7 @@ export function DataTable<T extends RowData>({
     isLoadingMore,
     error,
     hasMorePages,
-    fetchNextPage,
+    loadMore,
     search,
     setSearch,
     sorting,
@@ -72,6 +74,7 @@ export function DataTable<T extends RowData>({
     enableVirtualization,
     onDelete,
     renderRowActions,
+    onRowClick,
   });
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -80,7 +83,8 @@ export function DataTable<T extends RowData>({
   const deleteDialogOpenRef = useRef(deleteDialogOpen);
   const toast = useToastManager();
 
-  // Infinite scroll: fetch next page when the sentinel reaches the viewport.
+  // Kept for backwards-compat with any external scroll observers; the primary
+  // pagination trigger is now the explicit "Load more" button.
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return undefined;
@@ -92,14 +96,14 @@ export function DataTable<T extends RowData>({
           !isLoadingMore &&
           !query.isFetching
         ) {
-          fetchNextPage();
+          loadMore();
         }
       },
       { threshold: 0.5 },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMorePages, isLoadingMore, query.isFetching, fetchNextPage]);
+  }, [hasMorePages, isLoadingMore, query.isFetching, loadMore]);
 
   const handleToggleSelectAll = useCallback((checked: boolean) => {
     toggleSelectAll(checked);
@@ -205,26 +209,49 @@ export function DataTable<T extends RowData>({
           actionsColumnWidth={actionsColumnWidth}
           renderRowActions={!!renderRowActions}
         />
-        <DataTableBody
-          columns={columns as any}
-          virtualRows={virtualRows}
-          allRows={allRows}
-          getRowId={getRowId}
-          enableRowSelection={enableRowSelection}
-          virtualized={enableVirtualization}
-          selectedIds={selectedIds}
-          onToggleRowSelection={toggleRowSelection}
-          renderRowActions={renderRowActions}
-          columnWidths={allColumnWidths}
-          selectionColumnWidth={selectionColumnWidth}
-          refresh={refresh}
-        />
+        {isLoadingMore ? (
+          <DataTableSkeleton
+            columnCount={
+              columns.length +
+              (enableRowSelection ? 1 : 0) +
+              (renderRowActions ? 1 : 0)
+            }
+            enableRowSelection={enableRowSelection}
+            renderRowActions={!!renderRowActions}
+          />
+        ) : (
+          <DataTableBody
+            columns={columns as any}
+            virtualRows={virtualRows}
+            allRows={allRows}
+            getRowId={getRowId}
+            enableRowSelection={enableRowSelection}
+            virtualized={enableVirtualization}
+            selectedIds={selectedIds}
+            onToggleRowSelection={toggleRowSelection}
+            renderRowActions={renderRowActions}
+            columnWidths={allColumnWidths}
+            selectionColumnWidth={selectionColumnWidth}
+            actionsColumnWidth={actionsColumnWidth}
+            refresh={refresh}
+            onRowClick={onRowClick}
+          />
+        )}
         {hasMorePages && (
-          <div
-            ref={sentinelRef}
-            className="py-4 text-xs text-muted-foreground text-center"
-          >
-            {isLoadingMore ? "Loading more…" : "Scroll to load more"}
+          <div className="py-4 text-center border-t border-background/50">
+            {isLoadingMore ? (
+              <div className="inline-flex items-center gap-2 text-muted-foreground animate-pulse">
+                Loading more…
+              </div>
+            ) : (
+              <button
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-2 border border-input rounded-md bg-background px-4 py-2 font-medium hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Load more
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -239,7 +266,7 @@ export function DataTable<T extends RowData>({
           {onDelete && (
             <button
               onClick={handleDelete}
-              className="inline-flex items-center gap-2 border border-transparent rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 text-xs font-medium px-3 py-1.5"
+              className="inline-flex items-center gap-2 border border-transparent rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium px-3 py-1.5"
             >
               Delete selected
             </button>

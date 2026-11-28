@@ -82,6 +82,12 @@ export interface DataTableProps<T extends RowData> {
 
   onDelete?: (ids: string[]) => Promise<BulkDeleteResult>;
 
+  /**
+   * Optional row click handler. Not triggered when clicking the selection
+   * checkbox or the row actions dropdown.
+   */
+  onRowClick?: (row: T, rowId: string) => void;
+
   enableRowSelection?: boolean;
 
   enableVirtualization?: boolean;

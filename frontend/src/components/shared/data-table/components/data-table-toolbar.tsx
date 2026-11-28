@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,6 @@ import {
   ComboboxItem,
   ComboboxList,
   ComboboxTrigger,
-  ComboboxChips,
-  ComboboxChipsInput,
-  ComboboxChip,
   ComboboxValue,
   ComboboxEmpty,
 } from "@/components/ui/combobox";
@@ -43,10 +40,17 @@ export function DataTableToolbar({
   const [searchInput, setSearchInput] = useState(search);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clear pending debounce timer on unmount to avoid state updates after
+  // navigation / component removal.
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
   const handleSearchChange = useCallback(
     (value: string) => {
       setSearchInput(value);
-      // Debounced commit: transient updates replace history.
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
       searchTimerRef.current = setTimeout(() => {
         setSearch(value);
@@ -67,27 +71,16 @@ export function DataTableToolbar({
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-3 border-b border-background px-4 pb-2">
       <div className="flex w-full flex-col sm:flex-row sm:gap-4 gap-2 items-end">
-        <div className="flex w-full items-center gap-2 rounded-md border border-input bg-input/20 px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring/30">
+        <div className="flex w-full items-center gap-2 rounded-md border border-input bg-input/20 px-3 py-2 focus-within:ring-2 focus-within:ring-ring/30">
           <HugeiconsIcon icon={AiSearch01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
           <Input
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search…"
             disabled={isLoading}
-            className="flex-1 bg-transparent border-0 outline-none sm:text-sm"
+            className="flex-1 bg-transparent border-0 outline-none"
           />
         </div>
-        {hasFilters && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {}}
-            disabled={isLoading}
-            aria-label="Filters"
-          >
-            Filters
-          </Button>
-        )}
       </div>
 
       {hasFilters && (

@@ -2,7 +2,6 @@
 
 import { useCallback, type ReactNode } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,10 +10,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { More01Icon } from "@hugeicons/core-free-icons";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 
-interface DataTableBodyProps<T> {
-  columns: ColumnDef<any, any, unknown>[];
+interface DataTableBodyProps<T extends RowData> {
+  columns: ColumnDef<any, T, unknown>[];
   virtualRows: { index: number; start: number; size: number }[];
   allRows: T[];
   getRowId: (row: T) => string;
@@ -29,7 +28,9 @@ interface DataTableBodyProps<T> {
   }) => React.ReactNode;
   columnWidths: string[];
   selectionColumnWidth: string;
+  actionsColumnWidth: string;
   refresh: () => void;
+  onRowClick?: (row: T, rowId: string) => void;
 }
 
 function cellValue(column: any, row: any): ReactNode {
@@ -38,12 +39,12 @@ function cellValue(column: any, row: any): ReactNode {
     return (c.accessorFn as (row: any) => unknown)(row) as ReactNode;
   }
   if (typeof c.accessorKey === "string") {
-    return row[c.accessorKey] as ReactNode;
+    return row[c.accessorKey] ?? "";
   }
-  return row[c.id] as ReactNode;
+  return row[c.id] ?? "";
 }
 
-export function DataTableBody<T>({
+export function DataTableBody<T extends RowData>({
   columns,
   virtualRows,
   allRows,
@@ -55,7 +56,9 @@ export function DataTableBody<T>({
   renderRowActions,
   columnWidths,
   selectionColumnWidth,
+  actionsColumnWidth,
   refresh,
+  onRowClick,
 }: DataTableBodyProps<T>) {
   const totalWidths = useCallback(
     () => columnWidths.join(" "),
@@ -67,6 +70,16 @@ export function DataTableBody<T>({
       const rowId = getRowId(row);
       const checked = selectedIds.has(rowId);
 
+      const handleRowClick = (e: React.MouseEvent) => {
+        if (!onRowClick) return;
+        const target = e.target as Element | null;
+        // Do not trigger row navigation when interacting with checkboxes,
+        // buttons, or the actions dropdown.
+        if (target?.closest("button")) return;
+        if (target?.closest('[role="checkbox"]')) return;
+        onRowClick(row, rowId);
+      };
+
       return (
         <div
           key={rowId}
@@ -76,11 +89,16 @@ export function DataTableBody<T>({
             ...style,
             gridTemplateColumns: totalWidths(),
             width: "100%",
+            minWidth: "max-content",
           }}
           data-selected={checked}
+          onClick={handleRowClick}
         >
           {enableRowSelection && (
-            <div role="cell" className="px-4 py-3 flex items-center">
+            <div
+              role="cell"
+              className="px-4 py-3 flex items-center sticky left-0 z-20 bg-background border-r border-background/50"
+            >
               <Checkbox
                 checked={checked}
                 onCheckedChange={(checked) =>
@@ -96,7 +114,7 @@ export function DataTableBody<T>({
               <div
                 key={id}
                 role="cell"
-                className="px-4 py-3 flex items-center text-sm truncate"
+                className="px-4 py-3 flex items-center truncate"
               >
                 {typeof column.cell === "function"
                   ? ((column.cell as (ctx: any) => unknown)({
@@ -111,19 +129,13 @@ export function DataTableBody<T>({
             );
           })}
           {renderRowActions && (
-            <div role="cell" className="px-3 py-3 flex items-center justify-end">
+            <div
+              role="cell"
+              className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-background border-l border-background/50"
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="size-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    <HugeiconsIcon icon={More01Icon} strokeWidth={2} />
-                  </Button>
+                  <HugeiconsIcon icon={More01Icon} strokeWidth={2} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {renderRowActions({
@@ -147,6 +159,7 @@ export function DataTableBody<T>({
       refresh,
       selectedIds,
       totalWidths,
+      onRowClick,
     ],
   );
 
@@ -159,6 +172,7 @@ export function DataTableBody<T>({
           height: totalHeight,
           position: "relative",
           width: "100%",
+          minWidth: "max-content",
         }}
       >
         {virtualRows.map((virtualRow) =>
@@ -179,7 +193,14 @@ export function DataTableBody<T>({
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: totalWidths(), width: "100%" }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: totalWidths(),
+        width: "100%",
+        minWidth: "max-content",
+      }}
+    >
       {allRows.map((row, index) => renderRow(row, index))}
     </div>
   );

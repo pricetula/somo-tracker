@@ -47,7 +47,7 @@ export function DataTableHeader<T>({
   return (
     <div
       role="row"
-      className="grid border-b border-b-background bg-muted/50 text-muted-foreground sticky top-0 z-30"
+      className="grid border-b border-b-background bg-muted text-muted-foreground sticky top-0 z-30"
       style={{
         gridTemplateColumns: columnWidths.join(" "),
         minWidth: "max-content",

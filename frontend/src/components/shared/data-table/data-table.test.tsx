@@ -60,7 +60,7 @@ const defaultTableApi = {
   deleteMutation: { mutate: vi.fn(), isSuccess: false, isError: false, isPending: false, data: undefined },
   isDeleting: false,
   refresh: vi.fn(),
-  allColumnWidths: [],
+  allColumnWidths: ['48px', '1fr', '1fr'],
   selectionColumnWidth: 50,
   query: { isFetching: false, refetch: vi.fn() },
   onRowClick: undefined,
@@ -114,11 +114,12 @@ describe('DataTable', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders loading state', () => {
-    Object.assign(defaultTableApi, { isInitialLoading: true, allRows: [] })
-    renderTable()
+  it('renders skeleton rows on initial load', () => {
+    Object.assign(defaultTableApi, { isInitialLoading: true, allRows: [], virtualRows: [] })
+    const { container } = renderTable()
 
-    expect(screen.getByText('Loading records…')).toBeInTheDocument()
+    expect(screen.queryByText('Loading records…')).not.toBeInTheDocument()
+    expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
   })
 
   it('renders empty state when no data', () => {

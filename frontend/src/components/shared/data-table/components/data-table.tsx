@@ -7,10 +7,8 @@ import { useDataTable } from "../hooks/use-data-table";
 import { DataTableToolbar } from "./data-table-toolbar";
 import { DataTableHeader } from "./data-table-header";
 import { DataTableBody } from "./data-table-body";
-import { DataTableLoading } from "./data-table-loading";
 import { DataTableEmpty } from "./data-table-empty";
 import { DataTableError } from "./data-table-error";
-import { DataTableSkeleton } from "./data-table-skeleton";
 import { DataTableSelectionSheet } from "./data-table-selection-sheet";
 import { DataTableDeleteDialog } from "./data-table-delete-dialog";
 import type { DataTableProps } from "../types";
@@ -171,16 +169,8 @@ export function DataTable<T extends RowData>({
     }
   }, [deleteMutation.isSuccess, deleteMutation.isPending, deleteDialogOpen]);
 
-  if (isInitialLoading) {
-    return <DataTableLoading />;
-  }
-
   if (error) {
     return <DataTableError error={error} retry={query.refetch} />;
-  }
-
-  if (allRows.length === 0) {
-    return <DataTableEmpty />;
   }
 
   return (
@@ -213,50 +203,31 @@ export function DataTable<T extends RowData>({
           actionsColumnWidth={actionsColumnWidth}
           renderRowActions={!!renderRowActions}
         />
-        {isLoadingMore ? (
-          <DataTableSkeleton
-            columnCount={
-              columns.length +
-              (enableRowSelection ? 1 : 0) +
-              (renderRowActions ? 1 : 0)
-            }
-            enableRowSelection={enableRowSelection}
-            renderRowActions={!!renderRowActions}
-          />
-        ) : (
-          <DataTableBody
-            columns={columns as any}
-            virtualRows={virtualRows}
-            allRows={allRows}
-            getRowId={getRowId}
-            enableRowSelection={enableRowSelection}
-            virtualized={enableVirtualization}
-            selectedIds={selectedIds}
-            onToggleRowSelection={toggleRowSelection}
-            renderRowActions={renderRowActions}
-            columnWidths={allColumnWidths}
-            selectionColumnWidth={selectionColumnWidth}
-            actionsColumnWidth={actionsColumnWidth}
-            refresh={refresh}
-            onRowClick={onRowClick}
-          />
-        )}
+        <DataTableBody
+          columns={columns as any}
+          virtualRows={virtualRows}
+          allRows={allRows}
+          getRowId={getRowId}
+          enableRowSelection={enableRowSelection}
+          virtualized={enableVirtualization}
+          selectedIds={selectedIds}
+          onToggleRowSelection={toggleRowSelection}
+          renderRowActions={renderRowActions}
+          columnWidths={allColumnWidths}
+          selectionColumnWidth={selectionColumnWidth}
+          actionsColumnWidth={actionsColumnWidth}
+          refresh={refresh}
+          onRowClick={onRowClick}
+          isLoadingMore={isInitialLoading || isLoadingMore}
+        />
         {hasMorePages && (
-          <div className="py-4 text-center border-t border-background/50">
-            {isLoadingMore ? (
-              <div className="inline-flex items-center gap-2 text-muted-foreground animate-pulse">
-                Loading more…
-              </div>
-            ) : (
-              <button
-                onClick={loadMore}
-                disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 border border-input rounded-md bg-background px-4 py-2 font-medium hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Load more
-              </button>
-            )}
-          </div>
+          <button
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="inline-flex items-center gap-2 border border-input rounded-md bg-background px-4 py-2 font-medium hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Load more
+          </button>
         )}
       </div>
 

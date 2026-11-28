@@ -32,6 +32,9 @@ function decodeCursor(cursor: string) {
 }
 
 export async function GET(request: Request) {
+  // Artificial delay so loading/skeleton states are visible during development.
+  await new Promise((resolve) => setTimeout(resolve, 4000));
+
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 50, 1), 100);
   const cursor = searchParams.get("cursor") || null;

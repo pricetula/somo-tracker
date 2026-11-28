@@ -31,6 +31,7 @@ const defaultProps = {
   selectionColumnWidth: '48px',
   actionsColumnWidth: '56px',
   refresh: vi.fn(),
+  isLoadingMore: false,
 }
 
 describe('DataTableBody', () => {

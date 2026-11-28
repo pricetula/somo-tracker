@@ -263,13 +263,9 @@ export function DataTable<T extends RowData>({
       {enableRowSelection && someRowsSelected && (
         <DataTableSelectionSheet
           open={true}
-          selectedCount={selectedCount}
-          selectedIds={Array.from(selectedIds)}
           onDelete={handleDelete}
           onClearSelection={() => toggleSelectAll(false)}
           onClose={() => toggleSelectAll(false)}
-          renderBulkActions={renderBulkActions}
-          refresh={refresh}
         />
       )}
 

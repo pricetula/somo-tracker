@@ -84,7 +84,7 @@ export function DataTableBody<T extends RowData>({
         <div
           key={rowId}
           role="row"
-          className="grid border-b border-border hover:bg-accent data-[selected=true]:bg-accent/50 transition-colors"
+          className="grid border-b border-border hover:bg-accent data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground transition-colors"
           style={{
             ...style,
             gridTemplateColumns: totalWidths(),

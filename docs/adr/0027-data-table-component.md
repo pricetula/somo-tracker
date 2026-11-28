@@ -1,51 +1,50 @@
 # ADR-0027: Reusable Server-Driven DataTable
 
-**Status:** Accepted  
-**Date:** 2026-11-26  
-**Scope:** Frontend shared infrastructure and backend API contract
+## Metadata
 
-## 1. Context
+| Field | Value |
+|-------|-------|
+| id | ADR-0027 |
+| title | Reusable Server-Driven DataTable |
+| status | accepted |
+| date | 2026-11-26 |
+| author | frontend, backend |
+| deciders | frontend, backend |
+| relates_to | |
 
-We need a reusable, generic data table component for the application, capable of handling large datasets across different resources such as students, teachers, classes, fees, payments and other entities.
+## Status
 
-The implementation must avoid duplicating fetching, pagination, selection, sorting, filtering, virtualization and deletion logic across resource-specific pages.
+accepted
 
-The component must integrate:
+## Context
 
-- Next.js
-- TanStack Query
-- TanStack Table
-- TanStack Virtual
-- shadcn/ui
-- TypeScript
+Somotracker needs to display large datasets across many resources — students, teachers, classes, fees, payments, and other entities. Without a shared table abstraction, each resource page duplicates fetching, pagination, selection, sorting, filtering, virtualization, and deletion logic.
 
-The backend is independently owned and can be designed to support the frontend's requirements.
+The duplication increases maintenance burden, creates inconsistent table behavior across the application, and slows down development of new resource pages. We need a generic, reusable data table component that owns common table infrastructure while allowing individual resource pages to define their columns, filters, and resource-specific actions.
 
-The objective is to build a shared component that owns common table infrastructure while allowing individual resource pages to define their columns, filters and resource-specific actions.
+The component must integrate with Next.js, TanStack Query, TanStack Table, TanStack Virtual, shadcn/ui, and TypeScript. The backend is independently owned and can be designed to support the frontend's requirements.
 
-## 2. Decision
+## Decision
 
 We will implement a generic, server-driven DataTable component.
 
-The shared component will own the common data lifecycle and table interactions. Resource-specific configuration will supply data definitions and business-specific operations.
+The shared component will own the common data lifecycle and table interactions. Resource-specific configuration will supply data definitions and business-specific operations. The DataTable itself will be a client-side component.
 
-### 2.1 Technology responsibilities
+### Technology responsibilities
 
-| Technology       | Responsibility                                                       |
-| ---------------- | -------------------------------------------------------------------- |
-| TanStack Query   | Data fetching, caching, infinite queries and mutations               |
-| TanStack Table   | Column definitions, sorting, filtering state and row selection       |
-| TanStack Virtual | Efficient rendering of large loaded datasets                         |
-| shadcn/ui        | Table controls, dialogs, dropdowns, toolbars and other UI primitives |
-| Next.js          | Application routing and client/server component boundaries           |
+| Technology | Responsibility |
+|------------|----------------|
+| TanStack Query | Data fetching, caching, infinite queries and mutations |
+| TanStack Table | Column definitions, sorting, filtering state and row selection |
+| TanStack Virtual | Efficient rendering of large loaded datasets |
+| shadcn/ui | Table controls, dialogs, dropdowns, toolbars and other UI primitives |
+| Next.js | Application routing and client/server component boundaries |
 
-The DataTable itself will be a client-side component.
-
-### 2.2 Pagination
+### Pagination
 
 **Decision: Infinite scrolling with cursor-based pagination.**
 
-The component will use TanStack Query's `useInfiniteQuery`.
+The component uses TanStack Query's `useInfiniteQuery`.
 
 Requirements:
 
@@ -58,11 +57,11 @@ Requirements:
 - Display appropriate loading and error states.
 - Avoid fetching beyond the end of the dataset.
 
-The virtualizer will control rendering, not backend pagination.
+The virtualizer controls rendering, not backend pagination.
 
 The backend must provide deterministic ordering and stable cursor semantics.
 
-### 2.3 Row virtualization
+### Row virtualization
 
 Use TanStack Virtual to render only the rows needed for the current viewport and its overscan region.
 
@@ -76,11 +75,11 @@ Virtualization must not interfere with:
 
 Selection must never depend on which rows are currently mounted in the DOM.
 
-### 2.4 Server-side searching, filtering and sorting
+### Server-side searching, filtering and sorting
 
-All data operations will be server-driven.
+All data operations are server-driven.
 
-The frontend will send search, filter and sorting parameters to the backend. The backend will execute these operations against the complete authorized dataset.
+The frontend sends search, filter and sorting parameters to the backend. The backend executes these operations against the complete authorized dataset.
 
 Supported in the initial version:
 
@@ -89,9 +88,9 @@ Supported in the initial version:
 - Single-column sorting.
 - Ascending and descending sort directions.
 
-The shared component will not implement a generic advanced filter builder.
+The shared component does not implement a generic advanced filter builder.
 
-Each resource will define its own supported filter controls and corresponding parameters.
+Each resource defines its own supported filter controls and corresponding parameters.
 
 Sorting and filtering must be validated against backend allowlists.
 
@@ -99,9 +98,9 @@ Changing search or filters resets pagination and clears selection.
 
 Changing sorting resets pagination but preserves selected IDs because sorting does not change the underlying filter scope.
 
-### 2.5 URL synchronization
+### URL synchronization
 
-Search, filters and sorting will synchronize with URL query parameters.
+Search, filters and sorting synchronize with URL query parameters.
 
 Example:
 
@@ -113,13 +112,13 @@ Requirements:
 - Browser back and forward navigation restore previous table state.
 - Search changes are debounced.
 - Transient search updates use history replacement to avoid excessive history entries.
-- Committed filter and sorting changes should have sensible browser history behavior.
+- Committed filter and sorting changes have sensible browser history behavior.
 - URL state is the source of truth for shareable table configuration.
 - Cursor state is not persisted in the URL.
 
-### 2.6 Row selection
+### Row selection
 
-Selection will use stable record IDs through TanStack Table's `getRowId`.
+Selection uses stable record IDs through TanStack Table's `getRowId`.
 
 The initial implementation supports selecting all currently loaded records.
 
@@ -138,9 +137,9 @@ Selection behavior:
 
 Selecting all matching records across the entire backend dataset is explicitly outside the initial scope.
 
-### 2.7 Floating bulk action sheet
+### Floating bulk action sheet
 
-The DataTable will provide a floating action sheet that appears whenever one or more records are selected.
+The DataTable provides a floating action sheet that appears whenever one or more records are selected.
 
 Requirements:
 
@@ -153,7 +152,7 @@ Requirements:
 - Supports resource-specific custom actions.
 - Disappears when selection is cleared.
 
-Resource-specific actions will be supplied through a render prop.
+Resource-specific actions are supplied through a render prop.
 
 Conceptual API:
 
@@ -168,11 +167,11 @@ renderBulkActions={(context) => (
 )}
 ```
 
-The DataTable will provide the container and selection context. Resource pages will provide their action implementations.
+The DataTable provides the container and selection context. Resource pages provide their action implementations.
 
-### 2.8 Bulk deletion
+### Bulk deletion
 
-The shared component will own the deletion lifecycle.
+The shared component owns the deletion lifecycle.
 
 Responsibilities:
 
@@ -184,17 +183,17 @@ Responsibilities:
 - Preserve IDs associated with failed deletions.
 - Refresh the relevant query after successful deletion.
 
-Optimistic deletion will not be implemented initially.
+Optimistic deletion is not implemented initially.
 
 The resource page supplies the actual deletion operation.
 
-Partial success must be supported.
+Partial success is supported.
 
 Example:
 
 If 10 records are selected and 8 are deleted successfully, the 8 successful IDs are removed from selection while the remaining 2 stay selected.
 
-### 2.9 Total record count
+### Total record count
 
 Exact total counts are optional.
 
@@ -203,17 +202,17 @@ The backend should provide:
 - `next_cursor`
 - `has_more`
 
-The frontend must not require an exact total to operate.
+The frontend does not require an exact total to operate.
 
 Avoid expensive count queries solely to satisfy table UI requirements.
 
-### 2.10 Configurable resource filters
+### Configurable resource filters
 
-The DataTable will support declarative, resource-specific filter configurations.
+The DataTable supports declarative, resource-specific filter configurations.
 
 The shared component owns filter rendering, filter state, URL synchronization and request parameter serialization. Individual resource pages define the available filters and their options.
 
-The initial filter configuration will support:
+The initial filter configuration supports:
 
 - Single-select dropdowns.
 - Multi-select dropdowns.
@@ -222,7 +221,7 @@ The initial filter configuration will support:
 - Grouped options.
 - Nested dropdown submenus.
 
-Filter controls will be composable and configurable through typed props.
+Filter controls are composable and configurable through typed props.
 
 Example:
 
@@ -262,21 +261,21 @@ const filters: DataTableFilter[] = [
 ];
 ```
 
-The component must support nested filter menus where appropriate, without coupling the filter implementation to any specific resource.
+The component supports nested filter menus where appropriate, without coupling the filter implementation to any specific resource.
 
-Filter state will be synchronized with URL query parameters and serialized into the backend request.
+Filter state is synchronized with URL query parameters and serialized into the backend request.
 
 Changing filters resets cursor pagination and clears row selection.
 
 The backend remains responsible for validating filter fields and values.
 
-The initial implementation will not include an advanced filter builder, arbitrary filter expressions, or user-defined filter logic.
+The initial implementation does not include an advanced filter builder, arbitrary filter expressions, or user-defined filter logic.
 
 Date filters and other specialized filter types may be introduced through future extensions.
 
-### 2.11 Configurable row-level actions
+### Configurable row-level actions
 
-The DataTable will support configurable actions for individual records.
+The DataTable supports configurable actions for individual records.
 
 Resource pages may supply a `renderRowActions` render prop.
 
@@ -301,15 +300,55 @@ Requirements:
 - Resource pages control the available actions.
 - Actions may include navigation, editing, status changes and deletion.
 - Resource-specific permission checks remain outside the shared component.
-- Actions must work with virtualized rows.
+- Actions work with virtualized rows.
 - Row actions must not accidentally trigger row selection.
-- The component must support a consistent shadcn dropdown-menu presentation.
+- The component supports a consistent shadcn dropdown-menu presentation.
 
 The shared component provides the rendering location and row context, not resource-specific business logic.
 
-## 3. Backend API contract
+## Alternatives Considered
 
-### 3.1 List endpoint
+| Alternative | Pros | Cons | Why rejected |
+|-------------|------|------|--------------|
+| Per-resource table implementations (duplicate table logic per page) | Simple initially, no shared abstraction needed | High duplication, inconsistent behavior, slow to add new pages | Rejected — does not scale across many resources |
+| Client-side pagination (load all records upfront) | No cursor complexity, instant navigation after load | Poor performance on large datasets, excessive memory | Rejected — datasets can be large |
+| Exact total count in every response | Simple UI for "X of Y" indicators | Expensive count queries on large tables | Rejected — count is optional per ADR |
+| Optimistic deletion | Faster perceived deletion | Complex rollback on failure, partial success handling harder | Rejected — defer to future |
+| Multi-column sorting | More flexible sorting | More complex cursor and backend logic | Rejected — single-column sufficient initially |
+| Traditional page-number pagination | Familiar UI pattern | Less efficient than cursor pagination for large datasets | Rejected — cursor chosen |
+| Generic advanced filter builder | Users can build arbitrary filters | Significant complexity, not needed initially | Rejected — resource-defined filters sufficient |
+
+## Consequences
+
+### Positive
+
+- Consistent table behavior throughout the application.
+- Reduced duplication across resource pages.
+- Efficient rendering of large datasets.
+- Backend remains responsible for data processing and authorization.
+- Resource-specific actions remain extensible.
+- Common deletion and selection behavior is centralized.
+- URL state makes tables shareable and navigable.
+- Cursor pagination avoids the need to fetch large datasets upfront.
+
+### Negative
+
+- More coordination required between frontend and backend API contracts.
+- Cursor pagination requires careful deterministic ordering.
+- Server-driven filtering and sorting introduce network requests.
+- Selection state requires explicit management across virtualized and paginated data.
+- URL synchronization requires careful handling of browser navigation and query state.
+
+### Neutral / Risks
+
+- Social engineering risk if school admin is compromised (for recovery-related actions) — mitigated by multi-person verification.
+- Backend authorization must be enforced independently of frontend state; frontend-supplied IDs are never authorization evidence.
+
+## Implementation Notes
+
+### Backend API contract
+
+#### List endpoint
 
 Example:
 
@@ -317,13 +356,13 @@ Example:
 
 Supported parameters:
 
-| Parameter        | Description                         |
-| ---------------- | ----------------------------------- |
-| `limit`          | Requested page size                 |
-| `cursor`         | Opaque pagination cursor            |
-| `search`         | Search query                        |
-| `sort`           | Whitelisted sortable field          |
-| `order`          | `asc` or `desc`                     |
+| Parameter | Description |
+|-----------|-------------|
+| `limit` | Requested page size |
+| `cursor` | Opaque pagination cursor |
+| `search` | Search query |
+| `sort` | Whitelisted sortable field |
+| `order` | `asc` or `desc` |
 | Resource filters | Resource-specific filter parameters |
 
 Example:
@@ -332,7 +371,7 @@ Example:
 GET /api/v1/students?limit=50&sort=created_at&order=desc&status=active
 ```
 
-### 3.2 Standard response
+#### Standard response
 
 ```json
 {
@@ -356,10 +395,10 @@ Requirements:
 - `data` contains the records for the current batch.
 - `next_cursor` is opaque to the frontend.
 - `has_more` determines whether another request is necessary.
-- `next_cursor` should be null when there are no more records.
+- `next_cursor` is null when there are no more records.
 - Exact totals are not required.
 
-### 3.3 Cursor stability
+#### Cursor stability
 
 The backend must implement deterministic ordering.
 
@@ -375,7 +414,7 @@ Cursor pagination must account for both values.
 
 The cursor must not be treated as a client-controlled database query.
 
-### 3.4 Bulk deletion endpoint
+#### Bulk deletion endpoint
 
 Recommended convention:
 
@@ -414,11 +453,9 @@ The backend must independently validate:
 
 Selected IDs supplied by the frontend must never be considered authorization evidence.
 
-## 4. Component API
+### Component API
 
-The initial public API should remain generic and resource-independent.
-
-Proposed TypeScript contract:
+The initial public API remains generic and resource-independent.
 
 ```tsx
 interface DataTablePage<T> {
@@ -461,8 +498,6 @@ interface DataTableProps<T> {
 }
 ```
 
-The deletion result should provide enough information to distinguish successful and unsuccessful IDs.
-
 ```tsx
 interface BulkDeleteResult {
   deletedIds: string[];
@@ -477,7 +512,7 @@ interface BulkDeleteResult {
 
 This is the initial API contract and may be refined during implementation.
 
-## 5. Suggested project structure
+### Suggested project structure
 
 ```text
 components/
@@ -512,13 +547,13 @@ features/
 └── teachers/
     ├── api.ts
     ├── columns.tsx
-    ├── filters.tsx
+│   ├── filters.tsx
     └── components/
         ├── teachers-table.tsx
         └── teacher-bulk-actions.tsx
 ```
 
-## 6. Non-goals
+### Non-goals
 
 The following capabilities are explicitly excluded from the initial implementation:
 
@@ -536,34 +571,11 @@ The following capabilities are explicitly excluded from the initial implementati
 
 These may be introduced later without compromising the core architecture.
 
-## 7. Consequences
+### Acceptance criteria
 
-### Positive
+The implementation is considered successful when:
 
-- Consistent table behavior throughout the application.
-- Reduced duplication across resource pages.
-- Efficient rendering of large datasets.
-- Backend remains responsible for data processing and authorization.
-- Resource-specific actions remain extensible.
-- Common deletion and selection behavior is centralized.
-- URL state makes tables shareable and navigable.
-- Cursor pagination avoids the need to fetch large datasets upfront.
-
-### Trade-offs
-
-- More coordination is required between frontend and backend API contracts.
-- Cursor pagination requires careful deterministic ordering.
-- Server-driven filtering and sorting introduce network requests.
-- Selection state requires explicit management across virtualized and paginated data.
-- URL synchronization requires careful handling of browser navigation and query state.
-
-These trade-offs are accepted.
-
-## 8. Acceptance criteria
-
-The implementation will be considered successful when:
-
-1. The same shared component can render different resource types without resource-specific modifications.
+1. The same shared component renders different resource types without resource-specific modifications.
 2. Initial data loads through TanStack Query.
 3. Additional pages load automatically during scrolling.
 4. Virtualization renders only the required visible rows.
@@ -580,7 +592,7 @@ The implementation will be considered successful when:
 15. The component does not depend on exact total record counts.
 16. Backend authorization is enforced independently of frontend state.
 
-## 9. Implementation principle
+### Implementation principle
 
 The shared DataTable should own infrastructure, not business logic.
 
@@ -589,3 +601,8 @@ Resource pages define what is displayed and which operations are available. The 
 The backend remains the source of truth for data, permissions and business constraints.
 
 This ADR establishes the architectural direction for the first implementation.
+
+## Links
+
+- Authentication: `docs/adr/0001-authentication-architecture.md`
+- Multi-tenancy: `docs/adr/0002-multi-tenancy-model.md`

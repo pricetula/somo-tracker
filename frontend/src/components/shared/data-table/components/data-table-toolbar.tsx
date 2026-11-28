@@ -69,7 +69,7 @@ export function DataTableToolbar({
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-3 border-b border-background pb-2">
-      <div className="flex bg-input/20 items-center gap-1 rounded-md border border-input px-2 focus-within:ring-2 focus-within:ring-ring/30">
+      <div className="flex mb-1 bg-input/20 items-center gap-1 rounded-md border border-input px-2 focus-within:ring-2 focus-within:ring-ring/30">
         <Search className="size-4 text-muted-foreground" />
         <Input
           value={searchInput}
@@ -77,7 +77,7 @@ export function DataTableToolbar({
           placeholder="Search…"
           disabled={isLoading}
           style={{ background: "transparent" }}
-          className="border-0 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+          className="border-0 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none h-6.5"
         />
       </div>
 

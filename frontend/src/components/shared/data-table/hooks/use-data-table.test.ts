@@ -437,4 +437,128 @@ describe("useDataTable", () => {
       "minmax(100px, 1fr)",
     ]);
   });
+
+  it("select all enters select-all mode and marks all rows selected", () => {
+    setupHook(
+      {
+        isFetching: false,
+        data: {
+          pages: [
+            {
+              data: [{ id: "1" }, { id: "2" }],
+              nextCursor: null,
+              hasMore: false,
+            },
+          ],
+        },
+        error: null,
+        fetchNextPage: vi.fn(),
+      },
+      { isSuccess: false, isError: false, isPending: false, mutate: vi.fn() },
+    );
+
+    const { result } = renderHook(() =>
+      useDataTable<{ id: string }>({
+        queryKey: ["test"],
+        columns: [],
+        fetchPage: mockFetchPage,
+        getRowId: (row) => row.id,
+        enableRowSelection: true,
+      }),
+    );
+
+    act(() => {
+      result.current.toggleSelectAll(true);
+    });
+
+    expect(result.current.selectedIds).toEqual(new Set(["1", "2"]));
+    expect(result.current.allRowsSelected).toBe(true);
+    expect(result.current.someRowsSelected).toBe(true);
+  });
+
+  it("deselecting a row exits select-all mode", () => {
+    setupHook(
+      {
+        isFetching: false,
+        data: {
+          pages: [
+            {
+              data: [{ id: "1" }, { id: "2" }],
+              nextCursor: null,
+              hasMore: false,
+            },
+          ],
+        },
+        error: null,
+        fetchNextPage: vi.fn(),
+      },
+      { isSuccess: false, isError: false, isPending: false, mutate: vi.fn() },
+    );
+
+    const { result } = renderHook(() =>
+      useDataTable<{ id: string }>({
+        queryKey: ["test"],
+        columns: [],
+        fetchPage: mockFetchPage,
+        getRowId: (row) => row.id,
+        enableRowSelection: true,
+      }),
+    );
+
+    act(() => {
+      result.current.toggleSelectAll(true);
+    });
+    expect(result.current.allRowsSelected).toBe(true);
+
+    act(() => {
+      result.current.toggleRowSelection("1", false);
+    });
+
+    expect(result.current.selectedIds).toEqual(new Set(["2"]));
+    expect(result.current.allRowsSelected).toBe(false);
+    expect(result.current.someRowsSelected).toBe(true);
+  });
+
+  it("select all then deselect all clears select-all mode", () => {
+    setupHook(
+      {
+        isFetching: false,
+        data: {
+          pages: [
+            {
+              data: [{ id: "1" }, { id: "2" }],
+              nextCursor: null,
+              hasMore: false,
+            },
+          ],
+        },
+        error: null,
+        fetchNextPage: vi.fn(),
+      },
+      { isSuccess: false, isError: false, isPending: false, mutate: vi.fn() },
+    );
+
+    const { result } = renderHook(() =>
+      useDataTable<{ id: string }>({
+        queryKey: ["test"],
+        columns: [],
+        fetchPage: mockFetchPage,
+        getRowId: (row) => row.id,
+        enableRowSelection: true,
+      }),
+    );
+
+    act(() => {
+      result.current.toggleSelectAll(true);
+    });
+    expect(result.current.allRowsSelected).toBe(true);
+
+    act(() => {
+      result.current.toggleSelectAll(false);
+    });
+
+    expect(result.current.selectedIds).toEqual(new Set());
+    expect(result.current.allRowsSelected).toBe(false);
+    expect(result.current.someRowsSelected).toBe(false);
+  });
 });

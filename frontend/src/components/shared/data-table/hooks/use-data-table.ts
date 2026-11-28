@@ -29,6 +29,7 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
   } = props;
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectAllMode, setSelectAllMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const isMountedRef = useRef(false);
 
@@ -83,6 +84,7 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
       return;
     }
     setSelectedIds(new Set());
+    setSelectAllMode(false);
   }, [search, filtersKey]);
 
   const totalRowCount = allRows.length;
@@ -102,6 +104,29 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
       virtualizer.measure();
     }
   }, [allRows.length, enableVirtualization, virtualizer]);
+
+  // When in select-all mode, newly loaded pages (via "Load more") are
+  // automatically added to the selection so "select all" spans all pages,
+  // not just the currently loaded ones.
+  useEffect(() => {
+    if (!selectAllMode) return;
+    setSelectedIds((prev) => {
+      const allRowIds = new Set(allRows.map(getRowId));
+      // Bail out if all loaded rows are already selected — avoids
+      // unnecessary re-renders and potential loops.
+      if (
+        prev.size === allRowIds.size &&
+        [...allRowIds].every((id) => prev.has(id))
+      ) {
+        return prev;
+      }
+      const next = new Set(prev);
+      for (const row of allRows) {
+        next.add(getRowId(row));
+      }
+      return next;
+    });
+  }, [selectAllMode, allRows, getRowId]);
 
   const virtualRows = enableVirtualization ? virtualizer.getVirtualItems() : [];
 
@@ -146,6 +171,9 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
   const toggleRowSelection = useCallback(
     (rowId: string, checked: boolean) => {
       if (!enableRowSelection) return;
+      // Individually deselecting a row exits select-all mode — the user
+      // has made an explicit choice about which rows are selected.
+      if (!checked) setSelectAllMode(false);
       setSelectedIds((prev) => {
         const next = new Set(prev);
         if (checked) next.add(rowId);
@@ -161,8 +189,10 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
       if (!enableRowSelection) return;
       if (checked) {
         setSelectedIds(new Set(allRows.map(getRowId)));
+        setSelectAllMode(true);
       } else {
         setSelectedIds(new Set());
+        setSelectAllMode(false);
       }
     },
     [enableRowSelection, allRows, getRowId],
@@ -176,8 +206,11 @@ export function useDataTable<T extends RowData>(props: DataTableProps<T>) {
   // `allRowsSelected` reflects whether every *loaded* row is selected. With
   // server-driven pagination this is the only well-defined interpretation —
   // we cannot know whether unloaded rows would also be selected.
+  // When `selectAllMode` is active, all rows (loaded and unloaded) are
+  // considered selected, so the header checkbox shows as checked.
   const someRowsSelected = selectedCount > 0;
-  const allRowsSelected = totalRowCount > 0 && selectedCount === totalRowCount;
+  const allRowsSelected =
+    selectAllMode || (totalRowCount > 0 && selectedCount === totalRowCount);
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey });

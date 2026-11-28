@@ -84,7 +84,7 @@ export function DataTableBody<T extends RowData>({
         <div
           key={rowId}
           role="row"
-          className="grid border-b border-green-400 hover:bg-accent data-[selected=true]:bg-accent/50 transition-colors"
+          className="grid border-b border-border hover:bg-accent data-[selected=true]:bg-accent/50 transition-colors"
           style={{
             ...style,
             gridTemplateColumns: totalWidths(),
@@ -97,7 +97,7 @@ export function DataTableBody<T extends RowData>({
           {enableRowSelection && (
             <div
               role="cell"
-              className="px-4 py-3 flex items-center sticky left-0 z-20 bg-background border-r border-green-400"
+              className="px-4 py-3 flex items-center sticky left-0 z-20 bg-background border-r border-border"
             >
               <Checkbox
                 checked={checked}
@@ -114,7 +114,7 @@ export function DataTableBody<T extends RowData>({
               <div
                 key={id}
                 role="cell"
-                className="px-4 py-3 flex items-center truncate border-r border-green-400"
+                className="px-4 py-3 flex items-center truncate border-r border-border"
               >
                 {typeof column.cell === "function"
                   ? ((column.cell as (ctx: any) => unknown)({
@@ -131,7 +131,7 @@ export function DataTableBody<T extends RowData>({
           {renderRowActions && (
             <div
               role="cell"
-              className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-background border-l border-green-400"
+              className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-background border-l border-border"
             >
               <DropdownMenu>
                 <DropdownMenuTrigger>

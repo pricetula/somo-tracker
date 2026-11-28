@@ -105,9 +105,12 @@ export function DataTable<T extends RowData>({
     return () => observer.disconnect();
   }, [hasMorePages, isLoadingMore, query.isFetching, loadMore]);
 
-  const handleToggleSelectAll = useCallback((checked: boolean) => {
-    toggleSelectAll(checked);
-  }, [toggleSelectAll]);
+  const handleToggleSelectAll = useCallback(
+    (checked: boolean) => {
+      toggleSelectAll(checked);
+    },
+    [toggleSelectAll],
+  );
 
   const handleDelete = useCallback(() => {
     setDeleteIds(Array.from(selectedIds));
@@ -193,7 +196,7 @@ export function DataTable<T extends RowData>({
         ref={(el) => {
           scrollRef.current = el;
         }}
-        className="flex-1 overflow-auto min-h-0"
+        className="flex-1 overflow-auto min-h-0 border border-border rounded-b-md"
         style={{ maxHeight: "calc(100dvh - 16rem)" }}
       >
         <DataTableHeader
@@ -271,14 +274,13 @@ export function DataTable<T extends RowData>({
               Delete selected
             </button>
           )}
-          {renderBulkActions && (
+          {renderBulkActions &&
             renderBulkActions({
               selectedIds: Array.from(selectedIds),
               selectedCount,
               clearSelection: () => toggleSelectAll(false),
               refresh,
-            })
-          )}
+            })}
         </DataTableSelectionSheet>
       )}
 

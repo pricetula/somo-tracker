@@ -56,7 +56,7 @@ export function DataTableHeader<T>({
       {enableRowSelection && (
         <div
           role="columnheader"
-          className={`px-4 py-3 flex items-center gap-2 w-[${selectionColumnWidth}] sticky left-0 z-20 bg-muted border-r border-green-400`}
+          className={`px-4 py-3 flex items-center gap-2 w-[${selectionColumnWidth}] sticky left-0 z-20 bg-muted border-r border-border`}
         >
           <Checkbox
             checked={allRowsSelected}
@@ -72,7 +72,7 @@ export function DataTableHeader<T>({
           <div
             key={id}
             role="columnheader"
-            className="px-4 py-3 flex items-center gap-2 cursor-default select-none group border-r border-green-400"
+            className="px-4 py-3 flex items-center gap-2 cursor-default select-none group border-r border-border"
             onClick={() => handleSort(id)}
             aria-sort={
               isSorted ? (sortedDesc ? "descending" : "ascending") : "none"
@@ -102,7 +102,7 @@ export function DataTableHeader<T>({
       {renderRowActions && (
         <div
           role="columnheader"
-          className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-muted border-l border-green-400"
+          className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-muted border-l border-border"
           style={{ width: actionsColumnWidth }}
         >
           <span className="sr-only">Actions</span>

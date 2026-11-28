@@ -70,14 +70,14 @@ export function DataTableToolbar({
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-3 border-b border-background px-4 pb-2">
       <div className="flex w-full flex-col sm:flex-row sm:gap-4 gap-2 items-end">
-        <div className="flex w-full items-center gap-2 rounded-md border border-input bg-input/20 px-3 py-2 focus-within:ring-2 focus-within:ring-ring/30">
+        <div className="flex  bg-input w-full items-center gap-2 rounded-md border border-input  px-2 focus-within:ring-2 focus-within:ring-ring/30">
           <Search className="size-4 text-muted-foreground" />
           <Input
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search…"
             disabled={isLoading}
-            className="flex-1 bg-transparent border-0 outline-none"
+            className="flex-1 border-0 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
           />
         </div>
       </div>
@@ -88,8 +88,12 @@ export function DataTableToolbar({
             const value = filterValues[filter.id];
             const isMulti = filter.type === "multi-select";
             const current = isMulti
-              ? (Array.isArray(value) ? value : [])
-              : (typeof value === "string" ? value : "");
+              ? Array.isArray(value)
+                ? value
+                : []
+              : typeof value === "string"
+                ? value
+                : "";
 
             return (
               <div key={filter.id} className="space-y-1">
@@ -130,8 +134,10 @@ export function DataTableToolbar({
                     }
                   >
                     <ComboboxTrigger>
-                    <ComboboxValue>{current || filter.placeholder}</ComboboxValue>
-                  </ComboboxTrigger>
+                      <ComboboxValue>
+                        {current || filter.placeholder}
+                      </ComboboxValue>
+                    </ComboboxTrigger>
                     <ComboboxContent>
                       <ComboboxEmpty>No options</ComboboxEmpty>
                       <ComboboxList>

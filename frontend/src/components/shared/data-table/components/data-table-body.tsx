@@ -218,25 +218,27 @@ export function DataTableBody<T extends RowData>({
     const lastVirtual = virtualRows[virtualRows.length - 1];
     const totalHeight = lastVirtual ? lastVirtual.start + lastVirtual.size : 0;
     return (
-      <div
-        style={{
-          height: totalHeight,
-          position: "relative",
-          width: "100%",
-          minWidth: "max-content",
-        }}
-      >
-        {virtualRows.map((virtualRow) =>
-          renderRow(allRows[virtualRow.index], virtualRow.index, {
-            position: "absolute",
-            top: virtualRow.start,
-            left: 0,
-            right: 0,
-            height: virtualRow.size,
-          }),
-        )}
+      <>
+        <div
+          style={{
+            height: totalHeight,
+            position: "relative",
+            width: "100%",
+            minWidth: "max-content",
+          }}
+        >
+          {virtualRows.map((virtualRow) =>
+            renderRow(allRows[virtualRow.index], virtualRow.index, {
+              position: "absolute",
+              top: virtualRow.start,
+              left: 0,
+              right: 0,
+              height: virtualRow.size,
+            }),
+          )}
+        </div>
         {isLoadingMore && renderRowsLoading()}
-      </div>
+      </>
     );
   }
 

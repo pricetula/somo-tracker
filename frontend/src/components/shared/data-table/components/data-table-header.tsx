@@ -56,7 +56,7 @@ export function DataTableHeader<T>({
       {enableRowSelection && (
         <div
           role="columnheader"
-          className={`px-4 py-3 flex items-center gap-2 w-[${selectionColumnWidth}] sticky left-0 z-20 bg-muted/50 border-r border-background`}
+          className={`px-4 py-3 flex items-center gap-2 w-[${selectionColumnWidth}] sticky left-0 z-20 bg-muted border-r border-background`}
         >
           <Checkbox
             checked={allRowsSelected}
@@ -72,23 +72,25 @@ export function DataTableHeader<T>({
           <div
             key={id}
             role="columnheader"
-            className="px-4 py-3 flex items-center gap-2 cursor-default select-none group"
+            className="px-4 py-3 flex items-center gap-2 cursor-default select-none group border-r border-background/50"
             onClick={() => handleSort(id)}
             aria-sort={
               isSorted ? (sortedDesc ? "descending" : "ascending") : "none"
             }
           >
-            <span className="truncate font-medium">{String(column.header)}</span>
+            <span className="truncate font-medium">
+              {String(column.header)}
+            </span>
             {isSorted && (
               <>
                 {sortedDesc ? (
                   <ChevronDown
-                    className="size-3.5 ml-auto opacity-60 group-data-[sorted=true]:opacity-100"
+                    className="ml-auto opacity-60 group-data-[sorted=true]:opacity-100"
                     data-sorted={isSorted}
                   />
                 ) : (
                   <ChevronUp
-                    className="size-3.5 ml-auto opacity-60 group-data-[sorted=true]:opacity-100"
+                    className="ml-auto opacity-60 group-data-[sorted=true]:opacity-100"
                     data-sorted={isSorted}
                   />
                 )}
@@ -100,7 +102,7 @@ export function DataTableHeader<T>({
       {renderRowActions && (
         <div
           role="columnheader"
-          className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-muted/50 border-l border-background"
+          className="px-3 py-3 flex items-center justify-end sticky right-0 z-20 bg-muted border-l border-background"
           style={{ width: actionsColumnWidth }}
         >
           <span className="sr-only">Actions</span>

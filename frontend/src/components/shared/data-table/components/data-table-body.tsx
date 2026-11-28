@@ -33,7 +33,11 @@ interface DataTableBodyProps<T extends RowData> {
 }
 
 function cellValue(column: any, row: any): ReactNode {
-  const c = column as { accessorFn?: unknown; accessorKey?: unknown; id: string };
+  const c = column as {
+    accessorFn?: unknown;
+    accessorKey?: unknown;
+    id: string;
+  };
   if (c.accessorFn) {
     return (c.accessorFn as (row: any) => unknown)(row) as ReactNode;
   }
@@ -59,10 +63,7 @@ export function DataTableBody<T extends RowData>({
   refresh,
   onRowClick,
 }: DataTableBodyProps<T>) {
-  const totalWidths = useCallback(
-    () => columnWidths.join(" "),
-    [columnWidths],
-  );
+  const totalWidths = useCallback(() => columnWidths.join(" "), [columnWidths]);
 
   const renderRow = useCallback(
     (row: T, index: number, style?: React.CSSProperties) => {
@@ -113,7 +114,7 @@ export function DataTableBody<T extends RowData>({
               <div
                 key={id}
                 role="cell"
-                className="px-4 py-3 flex items-center truncate"
+                className="px-4 py-3 flex items-center truncate border-r border-background/50"
               >
                 {typeof column.cell === "function"
                   ? ((column.cell as (ctx: any) => unknown)({
@@ -134,7 +135,7 @@ export function DataTableBody<T extends RowData>({
             >
               <DropdownMenu>
                 <DropdownMenuTrigger>
-                  <MoreHorizontal />
+                  <MoreHorizontal size={16} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {renderRowActions({
@@ -175,17 +176,13 @@ export function DataTableBody<T extends RowData>({
         }}
       >
         {virtualRows.map((virtualRow) =>
-          renderRow(
-            allRows[virtualRow.index],
-            virtualRow.index,
-            {
-              position: "absolute",
-              top: virtualRow.start,
-              left: 0,
-              right: 0,
-              height: virtualRow.size,
-            },
-          ),
+          renderRow(allRows[virtualRow.index], virtualRow.index, {
+            position: "absolute",
+            top: virtualRow.start,
+            left: 0,
+            right: 0,
+            height: virtualRow.size,
+          }),
         )}
       </div>
     );

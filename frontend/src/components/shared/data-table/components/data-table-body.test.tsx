@@ -117,4 +117,54 @@ describe('DataTableBody', () => {
     expect(checkboxes).toHaveLength(0)
     expect(onToggleRowSelection).not.toHaveBeenCalled()
   })
+
+  describe('loading state', () => {
+    it('renders skeleton rows when isLoadingMore is true (non-virtualized)', () => {
+      render(<DataTableBody {...defaultProps} isLoadingMore={true} />)
+
+      const skeletonRows = screen.getAllByRole('row')
+      // 2 data rows + 5 skeleton rows
+      expect(skeletonRows).toHaveLength(7)
+    })
+
+    it('renders skeleton cells matching column count when loading', () => {
+      render(<DataTableBody {...defaultProps} isLoadingMore={true} />)
+
+      const skeletonRows = screen.getAllByRole('row')
+      // skeleton rows are at indices 2-6 (after 2 data rows)
+      const skeletonRow = skeletonRows[2]
+      const cells = skeletonRow.querySelectorAll('[role="cell"]')
+      // 1 checkbox cell + 2 data columns
+      expect(cells.length).toBe(3)
+    })
+
+    it('renders skeleton checkbox cell when selection is enabled and loading', () => {
+      render(<DataTableBody {...defaultProps} isLoadingMore={true} />)
+
+      const firstRow = screen.getAllByRole('row')[2] // first skeleton row
+      const checkboxCell = firstRow.querySelector('[role="cell"]')
+      expect(checkboxCell).toBeInTheDocument()
+    })
+
+    it('renders skeleton rows when isLoadingMore is true (virtualized)', () => {
+      render(
+        <DataTableBody
+          {...defaultProps}
+          virtualized={true}
+          isLoadingMore={true}
+        />
+      )
+
+      const skeletonRows = screen.getAllByRole('row')
+      // 2 data rows + 5 skeleton rows
+      expect(skeletonRows).toHaveLength(7)
+    })
+
+    it('does not render skeleton rows when isLoadingMore is false', () => {
+      render(<DataTableBody {...defaultProps} isLoadingMore={false} />)
+
+      const skeletonRows = screen.getAllByRole('row')
+      expect(skeletonRows).toHaveLength(2)
+    })
+  })
 })

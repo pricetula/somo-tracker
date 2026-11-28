@@ -122,6 +122,14 @@ describe('DataTable', () => {
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
   })
 
+  it('shows column headers during initial load', () => {
+    Object.assign(defaultTableApi, { isInitialLoading: true, allRows: [], virtualRows: [] })
+    renderTable()
+
+    expect(screen.getByText('Name')).toBeInTheDocument()
+    expect(screen.getByText('Status')).toBeInTheDocument()
+  })
+
   it('renders empty state when no data', () => {
     Object.assign(defaultTableApi, { allRows: [], isInitialLoading: false })
     renderTable()
@@ -211,5 +219,22 @@ describe('DataTable', () => {
     renderTable()
 
     expect(screen.getByText('Loading more…')).toBeInTheDocument()
+  })
+
+  it('keeps existing rows visible while loading more', () => {
+    Object.assign(defaultTableApi, { hasMorePages: true, isLoadingMore: true })
+    renderTable()
+
+    expect(screen.getByText('Alice Johnson')).toBeInTheDocument()
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
+    expect(screen.getByText('Charlie Brown')).toBeInTheDocument()
+  })
+
+  it('renders skeleton rows below existing data when loading more', () => {
+    Object.assign(defaultTableApi, { hasMorePages: true, isLoadingMore: true })
+    const { container } = renderTable()
+
+    const skeletonRows = container.querySelectorAll('.animate-pulse')
+    expect(skeletonRows.length).toBeGreaterThan(0)
   })
 })

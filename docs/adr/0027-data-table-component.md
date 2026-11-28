@@ -62,6 +62,36 @@ The virtualizer will control rendering, not backend pagination.
 
 The backend must provide deterministic ordering and stable cursor semantics.
 
+### 2.3 Loading states
+
+**Decision: Skeletons render inside DataTableBody, headers always visible.**
+
+Loading states use shadcn `<Skeleton>` primitives rendered directly inside `DataTableBody`:
+
+**Initial load** (`isInitialLoading`):
+- `DataTableToolbar` and `DataTableHeader` are always visible.
+- Only the row section renders skeletons: 5 rows matching the column grid,
+  cell borders, and sticky column structure (selection + actions columns).
+- Previously loaded rows (none on first load) are not replaced — there are none.
+- No centered "Loading records…" text; skeletons provide the visual feedback.
+
+**Load more** (`isLoadingMore` while data exists):
+- Previously loaded data rows remain visible in `DataTableBody`.
+- 5 skeleton rows stack **below** the existing data rows.
+- The "Loading more…" text appears in the load-more bar beneath the skeletons.
+- When the page arrives, skeletons unmount and `DataTableBody` renders all rows
+  (old + new).
+
+Skeleton rows mirror `DataTableBody` exactly:
+- Same `gridTemplateColumns` from `columnWidths`.
+- Same cell borders (`border-r border-border`) and row borders (`border-b border-border`).
+- Same padding (`px-4 py-3`).
+- Same sticky selection column (with `<Skeleton>` instead of `<Checkbox>`).
+- Same sticky actions column (with `<Skeleton>` instead of dropdown menu).
+
+The standalone `DataTableLoading` and `DataTableSkeleton` components have been removed.
+All loading UI lives inside `DataTableBody` via `renderRowsLoading()`.
+
 ### 2.3 Row virtualization
 
 Use TanStack Virtual to render only the rows needed for the current viewport and its overscan region.
@@ -490,7 +520,6 @@ components/
             ├── data-table-toolbar.tsx
             ├── data-table-selection-sheet.tsx
             ├── data-table-delete-dialog.tsx
-            ├── data-table-loading.tsx
             ├── data-table-empty.tsx
             └── data-table-error.tsx
         ├── hooks/
@@ -579,6 +608,12 @@ The implementation will be considered successful when:
 14. Changing sorting preserves selection.
 15. The component does not depend on exact total record counts.
 16. Backend authorization is enforced independently of frontend state.
+17. During initial load, `DataTableToolbar` and `DataTableHeader` remain visible;
+    only the row section renders shadcn `<Skeleton>` rows inside `DataTableBody`.
+18. During load more, previously loaded data rows remain visible and skeleton rows
+    stack below them inside `DataTableBody`.
+19. Skeleton rows match the exact grid, borders, padding, and sticky column
+    structure of real data rows.
 
 ## 9. Implementation principle
 

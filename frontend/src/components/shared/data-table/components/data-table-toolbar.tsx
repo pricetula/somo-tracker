@@ -69,17 +69,15 @@ export function DataTableToolbar({
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-3 border-b border-background px-4 pb-2">
-      <div className="flex w-full flex-col sm:flex-row sm:gap-4 gap-2 items-end">
-        <div className="flex  bg-input w-full items-center gap-2 rounded-md border border-input  px-2 focus-within:ring-2 focus-within:ring-ring/30">
-          <Search className="size-4 text-muted-foreground" />
-          <Input
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search…"
-            disabled={isLoading}
-            className="flex-1 border-0 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
-          />
-        </div>
+      <div className="flex w-full items-center gap-2 rounded-md border border-input  px-2 focus-within:ring-2 focus-within:ring-ring/30">
+        <Search className="size-4 text-muted-foreground" />
+        <Input
+          value={searchInput}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="Search…"
+          disabled={isLoading}
+          className="border-0 opacity-100 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+        />
       </div>
 
       {hasFilters && (

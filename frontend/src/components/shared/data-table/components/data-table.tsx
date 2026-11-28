@@ -183,7 +183,7 @@ export function DataTable<T extends RowData>({
   }
 
   return (
-    <div className="flex flex-col h-full border border-background rounded-md bg-background">
+    <div className="relative flex flex-col h-full border border-background rounded-md bg-background">
       <DataTableToolbar
         search={search}
         setSearch={setSearch}
@@ -262,26 +262,10 @@ export function DataTable<T extends RowData>({
       {enableRowSelection && someRowsSelected && (
         <DataTableSelectionSheet
           open={true}
-          selectedCount={selectedCount}
+          onDelete={handleDelete}
           onClearSelection={() => toggleSelectAll(false)}
           onClose={() => {}}
-        >
-          {onDelete && (
-            <button
-              onClick={handleDelete}
-              className="inline-flex items-center gap-2 border border-transparent rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 font-medium px-3 py-1.5"
-            >
-              Delete selected
-            </button>
-          )}
-          {renderBulkActions &&
-            renderBulkActions({
-              selectedIds: Array.from(selectedIds),
-              selectedCount,
-              clearSelection: () => toggleSelectAll(false),
-              refresh,
-            })}
-        </DataTableSelectionSheet>
+        />
       )}
 
       <DataTableDeleteDialog

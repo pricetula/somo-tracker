@@ -60,7 +60,8 @@ export function DataTableHeader<T>({
         >
           <Checkbox
             checked={allRowsSelected}
-            onCheckedChange={(checked) => onToggleSelectAll(checked)}
+            indeterminate={someRowsSelected && !allRowsSelected}
+            onClick={() => onToggleSelectAll(!allRowsSelected)}
             aria-label={allRowsSelected ? "Select none" : "Select all"}
           />
         </div>

@@ -183,11 +183,10 @@ describe('DataTable', () => {
 
   it('shows bulk action sheet when rows selected', () => {
     Object.assign(defaultTableApi, { selectedCount: 1, someRowsSelected: true })
-    const renderBulkActions = vi.fn(() => <button>Bulk delete</button>)
-    renderTable({ renderBulkActions })
+    renderTable()
 
-    expect(screen.getByText('1 selected')).toBeInTheDocument()
-    expect(renderBulkActions).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /clear selection/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /delete selected/i })).toBeInTheDocument()
   })
 
   it('shows load more button when more pages exist', () => {
